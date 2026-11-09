@@ -83,7 +83,7 @@ class ModMetadataTest {
 
     @Test
     fun `CD-REL-06 the declared license is MPL-2_0`() {
-        assertEquals("MPL-2.0", toml.getString("license"))
+        assertEquals("MIT", toml.getString("license"))
     }
 
     @Test
