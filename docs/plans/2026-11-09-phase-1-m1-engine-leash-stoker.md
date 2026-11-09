@@ -1112,8 +1112,9 @@ class WorkSpotsTest {
         val walls = (0..3).flatMap { y -> (-2..2).map { z -> BlockPos(2, y, z) } }.toSet()
         val grid = GridFixture(walls, target)
         val from = Vec3(4.5, 1.0, 0.5)
-        val spot = assertNotNull(WorkSpots.find(grid, area, center, 6.0, from))!!
-        assertTrue(area.contains(spot))
+        val spot = WorkSpots.find(grid, area, center, 6.0, from)
+        assertNotNull(spot) // JUnit's assertNotNull returns Unit, not the value
+        assertTrue(area.contains(spot!!))
         assertTrue(grid.isStandable(spot.x, spot.y, spot.z))
         assertTrue(WorkSpots.hasLineOfSight(grid, Vec3.atCenterOf(spot), center))
         assertTrue(spot.x < 2, "spot $spot is behind the wall")
