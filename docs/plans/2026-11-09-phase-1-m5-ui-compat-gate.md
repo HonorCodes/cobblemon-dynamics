@@ -125,7 +125,12 @@ a bare `Stamina`; no `LOGGER.info`, `LOGGER.warn` or `LOGGER.error` call sits in
 ### Task 6: Performance measurement and real-restart scenarios
 
 **Rows:** CD-PERF-01, CD-PERF-02, CD-PERF-05 (runtime part), plus real-restart checks for CD-CLM-07,
-CD-LSH-07, CD-WHL-07, CD-CRK-08, CD-BED-14, CD-STA-04 and a real `/reload` for CD-CFG-08.
+CD-LSH-07, CD-WHL-07, CD-CRK-08, CD-BED-14, CD-STA-04, a real `/reload` for CD-CFG-08 and the file
+inspection for CD-CFG-01.
+
+Before its first restart, the `restart` scenario checks CD-CFG-01: the server's
+`config/cobblemon_dynamics-server.toml` exists and holds every key in the CD-CFG-01 list in
+`ConfigTest`. The scenario keeps the same key list.
 
 **Files:** `engine/EngineTiming.kt` (nanoTime around each `tickLevel`, a ring buffer of per-tick totals),
 `src/gametest/kotlin/.../test/PerfTests.kt` (namespace `cobblemon_dynamics_perf`), run

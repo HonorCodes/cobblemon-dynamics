@@ -506,8 +506,9 @@ references. This section lists what the code uses.
 
 ## 9. Configuration
 
-Server config `serverconfig/cobblemon_dynamics-server.toml`, in each world's folder. The CFG rows in
-the spec sheet are normative.
+Server config `config/cobblemon_dynamics-server.toml`. NeoForge 21.1 writes server configs to the
+instance's `config/` folder, and a copy in a world's `serverconfig/` folder overrides it for that world.
+The CFG rows in the spec sheet are normative.
 
 | Key | Default | Range |
 |---|---|---|

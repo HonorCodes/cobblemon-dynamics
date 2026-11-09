@@ -3,7 +3,7 @@ package codes.honor.cobblemondynamics.config
 import net.minecraft.resources.ResourceLocation
 import net.neoforged.neoforge.common.ModConfigSpec
 
-/** The server config, `serverconfig/cobblemon_dynamics-server.toml`. Engine code reads [WorkEngineSettings.current]. */
+/** The server config, `config/cobblemon_dynamics-server.toml`. Engine code reads [WorkEngineSettings.current]. */
 object ServerConfig {
     private const val BED_TIERS = 4
 
