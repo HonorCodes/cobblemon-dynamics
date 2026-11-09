@@ -67,6 +67,9 @@ object PastureAdapter {
     fun maxWanderDistance(): Int                                                     // Cobblemon.config.pastureMaxWanderDistance
 }
 data class TetheredPokemon(val pokemonId: UUID, val ownerId: UUID, val pokemon: Pokemon?, val entity: PokemonEntity?)
+// entity: found with level.getEntitiesOfClass(PokemonEntity, roam box) by entity.pokemon.uuid, because
+// Pokemon.entity is null for pastured Pokémon (it reads ActivePokemonState only), and Tethering.entityId
+// goes stale when the entity reloads.
 
 object WorkModePolicy {
     sealed interface Decision { data object Apply : Decision; data object Ignore : Decision; data class Reject(val reason: String) : Decision }

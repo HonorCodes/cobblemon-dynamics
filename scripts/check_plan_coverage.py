@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Checks that every Phase 1 spec row is cited by a task in the Phase 1 milestone plan files.
 
 Phase 1 rows are every row outside the TLK, MAG, FAN, TLW and ART areas.

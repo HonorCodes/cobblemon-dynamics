@@ -1,0 +1,245 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = "${project.findProperty('release_version') ?: mod_version}+mc${minecraft_version}"
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+kotlin {
+    jvmToolchain(21)
+}
+
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+    gametestImplementation.extendsFrom implementation
+    gametestCompileOnly.extendsFrom compileOnly
+    gametestRuntimeOnly.extendsFrom runtimeOnly
+    gametestRuntimeClasspath.extendsFrom localRuntime
+}
+
+repositories {
+    maven {
+        name = 'Kotlin for Forge'
+        url = 'https://thedarkcolour.github.io/KotlinForForge/'
+        content { includeGroup 'thedarkcolour' }
+    }
+    maven {
+        name = 'Cobblemon'
+        url = 'https://maven.impactdev.net/repository/development/'
+        content { includeGroup 'com.cobblemon' }
+    }
+    maven {
+        name = 'Create'
+        url = 'https://maven.createmod.net'
+        content {
+            includeGroup 'com.simibubi.create'
+            includeGroup 'net.createmod.ponder'
+            includeGroup 'dev.engine-room.flywheel'
+        }
+    }
+    maven {
+        name = 'Registrate'
+        url = 'https://maven.ithundxr.dev/snapshots'
+        content { includeGroup 'com.tterrag.registrate' }
+    }
+    mavenCentral()
+}
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    validateAccessTransformers = true
+
+    addModdingDependenciesTo sourceSets.test
+    addModdingDependenciesTo sourceSets.gametest
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+        cobblemon_dynamics_test {
+            sourceSet sourceSets.gametest
+        }
+    }
+
+    runs {
+        client {
+            client()
+            gameDirectory = project.file('run/client')
+            loadedMods = [mods."${mod_id}"]
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            gameDirectory = project.file('run/server')
+            loadedMods = [mods."${mod_id}"]
+        }
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('run/gametest')
+            loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_test]
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+}
+
+dependencies {
+    implementation "thedarkcolour:kotlinforforge-neoforge:${kff_version}"
+    implementation "com.cobblemon:neoforge:${cobblemon_version}"
+
+    compileOnly("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
+    compileOnly "net.createmod.ponder:ponder-neoforge:${ponder_version}"
+    compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-1.21.1:${flywheel_version}"
+    compileOnly "com.tterrag.registrate:Registrate:${registrate_version}"
+
+    localRuntime("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
+    localRuntime "net.createmod.ponder:ponder-neoforge:${ponder_version}"
+    localRuntime "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
+    localRuntime "com.tterrag.registrate:Registrate:${registrate_version}"
+    localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.tomlj:tomlj:1.1.1'
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            neo_version_range      : neo_version_range,
+            kff_version_range      : kff_version_range,
+            cobblemon_version_range: cobblemon_version_range,
+            create_version_range   : create_version_range,
+            ae2_version_range      : ae2_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : project.version.toString(),
+            mod_authors            : mod_authors,
+            mod_description        : mod_description,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    dependsOn generateModMetadata
+    systemProperty 'cd.modsToml', file('build/generated/sources/modMetadata/META-INF/neoforge.mods.toml').absolutePath
+    systemProperty 'cd.projectDir', projectDir.absolutePath
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+// CD-PLAT-04, CD-REL-07: every class is Java 21 bytecode, no Cobblemon asset ships, no test class ships.
+tasks.register('verifyJar') {
+    group = 'verification'
+    description = 'Checks the mod jar: class versions, no Cobblemon assets, no GameTest classes, the logo.'
+    dependsOn tasks.named('jar')
+    def jarFile = tasks.named('jar').flatMap { it.archiveFile }
+    def logoSource = file('art/logo/logo-256.png')
+    inputs.file jarFile
+    inputs.file logoSource
+    doLast {
+        def problems = []
+        new java.util.zip.ZipFile(jarFile.get().asFile).withCloseable { zip ->
+            zip.entries().each { e ->
+                if (e.name.endsWith('.class')) {
+                    zip.getInputStream(e).withCloseable { s ->
+                        def b = s.readNBytes(8)
+                        int major = ((b[6] & 0xff) << 8) | (b[7] & 0xff)
+                        if (major != 65) problems << "${e.name}: class file major version ${major}, expected 65"
+                    }
+                }
+                if (e.name.startsWith('assets/cobblemon/')) problems << "${e.name}: copies a Cobblemon asset"
+                if (e.name.startsWith('codes/honor/cobblemondynamics/test/')) problems << "${e.name}: GameTest class in the jar"
+            }
+            def logo = zip.getEntry('logo.png')
+            if (logo == null) {
+                problems << 'logo.png: missing'
+            } else if (zip.getInputStream(logo).bytes != logoSource.bytes) {
+                problems << 'logo.png: differs from art/logo/logo-256.png'
+            }
+        }
+        if (!problems.isEmpty()) throw new GradleException("verifyJar failed:\n" + problems.join('\n'))
+    }
+}
+
+// CD-CRY-05: the main source set never imports AE2 and has no AE2 compile dependency.
+tasks.register('verifyNoAe2') {
+    group = 'verification'
+    description = 'Fails if the main source set imports appeng or compiles against AE2.'
+    def mainSources = fileTree('src/main') { include '**/*.kt', '**/*.java' }
+    inputs.files mainSources
+    doLast {
+        def bad = mainSources.files.findAll { it.text =~ /(?m)^\s*import\s+appeng\./ }
+        if (!bad.isEmpty()) throw new GradleException("AE2 imports in src/main: ${bad*.path}")
+        def ae2 = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.findAll {
+            it.moduleVersion.id.group == 'org.appliedenergistics'
+        }
+        if (!ae2.isEmpty()) throw new GradleException("AE2 on the main compile classpath: ${ae2*.name}")
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'verifyJar', 'verifyNoAe2'
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            groupId = mod_group_id
+            artifactId = mod_artifact_id
+            from components.java
+        }
+    }
+    repositories {
+        maven { url = "file://${project.projectDir}/repo" }
+    }
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "codes.honor.cobblemondynamics.mixin",
+  "plugin": "codes.honor.cobblemondynamics.mixin.MixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

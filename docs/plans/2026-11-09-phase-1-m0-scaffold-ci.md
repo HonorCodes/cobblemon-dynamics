@@ -695,7 +695,11 @@ placed through `setPlacedBy`).
 **Interfaces:**
 - Produces: `TEST_MOD_ID = "cobblemon_dynamics_test"`.
 - Produces (`object TestKit`):
-  - `fun owner(helper: GameTestHelper): ServerPlayer`, a mock player placed in the level and the player list.
+  - `fun owner(helper: GameTestHelper, name: String = "owner"): ServerPlayer`, a NeoForge `FakePlayer` with a
+    unique profile. Vanilla's `makeMockServerPlayerInLevel` joins the player list, and its connection rejects
+    Cobblemon's login payloads (`Payload cobblemon:script_registry_sync may not be sent to the client`).
+  - `fun pasturedEntity(helper, pasture, pokemonId): PokemonEntity?`. `Pokemon.entity` is set only for sent-out
+    Pokémon, so pastured entities are found with an AABB query by Pokémon UUID.
   - `fun placePasture(helper: GameTestHelper, rel: BlockPos, owner: ServerPlayer?): PokemonPastureBlockEntity`
   - `fun pokemon(spec: String): Pokemon` where `spec` is a Cobblemon properties string, for example
     `"charmander level=10"`.
@@ -835,7 +839,10 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 
 object TestKit {
-    fun owner(helper: GameTestHelper): ServerPlayer = helper.makeMockServerPlayerInLevel()
+    fun owner(helper: GameTestHelper, name: String = "owner"): ServerPlayer {
+        val uuid = UUID.randomUUID()
+        return FakePlayerFactory.get(helper.level, GameProfile(uuid, "${name}_${uuid.toString().take(6)}"))
+    }
 
     fun placePasture(helper: GameTestHelper, rel: BlockPos, owner: ServerPlayer?): PokemonPastureBlockEntity {
         val level = helper.level
@@ -853,7 +860,7 @@ object TestKit {
         val pokemon = pokemon(spec)
         Cobblemon.storage.getPC(owner).add(pokemon)
         if (!pasture.tether(owner, pokemon, Direction.SOUTH)) throw GameTestAssertException("tether failed for $spec")
-        return pokemon.entity ?: throw GameTestAssertException("no entity after tether for $spec")
+        return pasturedEntity(helper, pasture, pokemon.uuid) ?: throw GameTestAssertException("no entity after tether for $spec")
     }
 
     fun wild(helper: GameTestHelper, rel: BlockPos, spec: String): PokemonEntity {
@@ -978,19 +985,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build, unit tests and jar checks
         run: ./gradlew build --stacktrace
       - name: GameTests
         run: ./gradlew runGameTestServer --stacktrace
       - name: Upload test reports and GameTest logs
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: |
@@ -1051,12 +1058,12 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
@@ -1075,8 +1082,8 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
@@ -1256,6 +1263,15 @@ def main() -> int:
 
 Write each `...` body in full. The `client` command assembles `run/testpack/client/mods/` with the same
 pinned jars and the built jar, and prints the folder path for the approver's play-test launcher.
+
+As built: every pin in `mods.json` is an object (version, Modrinth `version_number`, file name, URL,
+SHA-512), because Modrinth's version numbers differ from the mod versions (Cobblemon `1.8.4NF`, Create
+`6.0.10+mc1.21.1`). `fetch()` refuses a download without a SHA-512. FML logs a rejected dependency under
+`Missing or unsupported mandatory dependencies:` (required) or `Unsupported installed optional
+dependencies:` (optional), on a line `Mod ID: '<id>', Requested by: 'cobblemon_dynamics', Expected range:
+'<range>', Actual version: '<v>'`, and the server still exits with code 0, so each case is judged from the
+log. AE2 has no 19.1 release, so its below-floor case uses `19.1.3-beta`. GuideME is pinned to `21.1.1`,
+the version AE2 19.2.19 builds against.
 
 - [ ] **Step 3: Run the smoke scenario**
 

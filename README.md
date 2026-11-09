@@ -12,9 +12,9 @@ and with any mod that uses NeoForge energy, fluid or item capabilities.
 
 ## Status
 
-**Design phase.** There is no code and no release yet. The design is in the
-[spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md). The implementation plan comes
-after the spec sheet is approved.
+**Phase 1 in progress.** There is no release yet. The design is in the
+[spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md), and the build follows the
+[Phase 1 plan](docs/plans/2026-11-09-phase-1-plan.md).
 
 Version 1.0 ships in three phases:
 
@@ -142,6 +142,19 @@ Install Cobblemon Dynamics on both the client and the server.
 
 There is no Fabric build. Create 6 and AE2 for Minecraft 1.21.1 are NeoForge-only. See
 [ADR 0002](docs/adr/0002-neoforge-1.21.1-only.md).
+
+## Building
+
+You need JDK 21. Set `JAVA_HOME` to it.
+
+| Task | Command |
+| --- | --- |
+| Build the jar, run the unit tests and the jar checks | `./gradlew build` |
+| Run the GameTests | `./gradlew runGameTestServer` |
+| Start a development client | `./gradlew runClient` |
+| Start a clean test server with the built jar | `py scripts/testpack/testpack.py smoke` |
+
+The jar is written to `build/libs/`.
 
 ## Compatibility
 
