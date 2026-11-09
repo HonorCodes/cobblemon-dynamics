@@ -23,10 +23,12 @@ vanilla 16×16 style.
 - **Assets in the first release:**
   - Four bed tiers, each with a block model, textures and an item model.
   - The Work Leash: a lead with a red-and-white clasp.
-  - UI sprites: the Work Mode button in 4 states (on, off, disabled, hover), the stamina bar, and 5
-    state icons (Working, Standby, Tired, Sleeping, Healing).
-  - The mod icon and the project icon: a cog with a lightning bolt above a fence post. It has no Pokémon
-    likeness.
+  - UI sprites: the Work Mode button in 4 states (on, off, disabled, hover), the stamina bar, and 7
+    state icons (Idle, Traveling, Working, Standby, Tired, Sleeping, Healing).
+- **The logo is the one exception.** The operator supplied the mod logo on 2026-11-09: a pixel-art
+  image of Machop turning a gear machine. The source is `art/logo/logo-source-1254.png` (1254 × 1254
+  pixels). It ships as a 256 × 256 `logo.png` with `logoBlur=false`, and as a 512 × 512 project-page
+  icon. Both are scaled from the source and kept at `art/logo/logo-256.png` and `art/logo/icon-512.png`.
 - **Bed concepts:**
   - Hay Bed: a round straw nest.
   - Wool Bed: a round wool cushion on a low wooden frame.
@@ -34,7 +36,7 @@ vanilla 16×16 style.
   - Starlit Bed: a midnight-blue cushion with a gold star pattern, a faint glow and an occasional
     sparkle.
 - **Rules:**
-  - Every asset is original. No pixel comes from Mojang, Cobblemon, Create or AE2.
+  - Every asset except the logo is original. No pixel comes from Mojang, Cobblemon, Create or AE2.
   - Textures use the vanilla 16×16 style. Block models use a format that Blockbench can open.
   - Source files live under `art/` in the repository, under the repository's MPL-2.0 license.
   - Claude drafts each asset. The operator approves each one on a screenshot review page before the
@@ -47,6 +49,9 @@ vanilla 16×16 style.
 - Each asset needs a few review rounds.
 - The beds read as one family across tiers, so players can tell the tier at a glance.
 - MPL-2.0 covers the art as well as the code, so a pack can redistribute both together.
+- The logo shows Pokémon likenesses (Machop, and a mark in the style of a Poké Ball). Pokémon is a
+  trademark of Nintendo, Creatures and Game Freak. The trademark disclaimer in the README covers this
+  use, as it does for many Cobblemon addons.
 
 ## Alternatives considered
 

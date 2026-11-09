@@ -86,7 +86,7 @@ behaves.
 
 | Role | Type | Targets | What it does | Move effect | Spec area |
 | --- | --- | --- | --- | --- | --- |
-| Telekinesis | Psychic | A source container and a destination container, including Create vaults and the AE2 ME Interface | Moves items from the source to the destination. The rate scales with level. It uses the faces that the player clicked. It claims the source only, so many workers can feed one destination. | Kinesis | TLK |
+| Telekinesis | Psychic | A source container and a destination container, including Create vaults and the AE2 ME Interface | Moves items from the source to the destination. The rate scales with level. It uses the faces that the player clicked. It claims the source only, so many workers can feed one destination. The source sits in the work area, and the destination can sit anywhere within 32 blocks of the pasture block. | Kinesis | TLK |
 | Magnet | Steel | A container | Collects dropped items from the pasture's work area into the container. The rate scales with level. It skips items that still have a pickup delay. | Special pose, metal sparks | MAG |
 | Fan Catalyst | Fire, Water, Ghost | A Create encased fan | Stands in the block in front of the fan and acts as its catalyst. Fire gives blasting, or smoking after a flip with the Work Leash. Water gives washing. Ghost gives haunting. The fan never pushes or harms its own worker. | Fire Spin, Bubble, Will-O-Wisp | FAN |
 | Tailwind | Flying | A Create windmill bearing | Adds virtual sails, based on the windmill's real sails and the worker's level, up to the windmill's own cap. A windmill still needs its minimum real sails to assemble. | Gust | TLW |
@@ -94,7 +94,10 @@ behaves.
 ### Assignment
 
 - **Auto.** A worker takes the nearest unclaimed target of any auto-assign role that it
-  can do.
+  can do. After 10 seconds in Standby, it moves to an unclaimed target that needs work,
+  for example from a wheel that real water already turns to a dry wheel.
+- **Leashed workers stay put.** A leashed worker never moves off its bound target. Its
+  binding clears when the target is removed or the Pokémon leaves its pasture.
 - **Leash only.** A worker takes the target only through a Work Leash binding. The Pump
   is leash-only so that it does not fill a tank that holds another fluid. The Muse is
   leash-only because Fairy-types heal by default. The Phase 2 roles are leash-only so

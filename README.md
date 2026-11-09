@@ -56,7 +56,14 @@ specific Pokémon a specific machine. Some roles work only through the leash.
 Only the player who bound the worker, the pasture's owner or an operator can flip a
 target. A leash binding takes the machine from a Pokémon that the mod assigned
 automatically. Bindings stay through server restarts. A binding clears when the
-Pokémon leaves its pasture or when the machine is removed.
+Pokémon leaves its pasture (recall, another pasture, release, trade, or a broken
+pasture block), or when the machine is removed (broken, replaced, picked up with a
+wrench, or moved into a contraption). A leashed Pokémon stays on its machine. A
+Pokémon without a leash moves to another machine after it waits 10 seconds with
+nothing to do and another machine needs it.
+
+A Telekinesis source must sit in the pasture's work area. Its destination can sit
+anywhere within 32 blocks of the pasture block.
 
 ## Roles
 
@@ -114,7 +121,10 @@ The spec sheet areas STA, BED and HEAL hold the exact rules and numbers.
 
 All block models, textures, sprites and icons are original and drawn for this mod in
 the vanilla 16×16 style. The mod uses no art from Mojang, Cobblemon, Create or AE2.
-Source files live in `art/`. See [ADR 0012](docs/adr/0012-original-art-assets.md).
+The one exception is the mod logo, which is the project owner's own image. Seven
+state icons show what each worker does: Idle, Traveling, Working, Standby, Tired,
+Sleeping and Healing. Source files live in `art/`. See
+[ADR 0012](docs/adr/0012-original-art-assets.md).
 
 ## Requirements
 

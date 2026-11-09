@@ -35,7 +35,8 @@ Constraints:
   ([ADR-0003](docs/adr/0003-standalone-mod-not-cobbleworkers-addon.md)). It switches them off in Work
   Mode pastures ([ADR-0009](docs/adr/0009-coexistence-with-pasture-job-mods.md)).
 - **Original art.** Every model, texture, sprite and icon is drawn for this mod
-  ([ADR-0012](docs/adr/0012-original-art-assets.md)).
+  ([ADR-0012](docs/adr/0012-original-art-assets.md)). The one exception is the mod logo, which is the
+  operator's own image.
 - **Phases.** Version 1.0 ships in three phases: the v1 roles, then the v2 roles and the final art,
   then the public release ([ADR-0011](docs/adr/0011-v2-roles-in-first-release.md), section 12).
 
@@ -161,6 +162,7 @@ stateDiagram-v2
     Standby --> Traveling: leashed retry after the 6,000-tick wait
     Working --> Standby: demand stops
     Standby --> Working: demand returns
+    Standby --> Traveling: auto, 200+ ticks in Standby, claim moves to a target with demand
     Working --> ToBed: reaches 0% (Tired), bed claim taken
     Working --> RestingInPlace: reaches 0% (Tired), no free bed
     ToBed --> Sleeping: lying on the bed
@@ -189,7 +191,8 @@ State icons, for head bars and panel bars:
 
 | State | Icon |
 |---|---|
-| Idle, Traveling | none |
+| Idle | Idle |
+| Traveling | Traveling |
 | Working | Working |
 | Standby | Standby |
 | ToBed, RestingInPlace | Tired |
@@ -206,11 +209,23 @@ Transition rules:
 - **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
   worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
   stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.
+- **Leash resets.** A binding clears when its target is broken, replaced, picked up with a Create
+  wrench or moved into a Create contraption. It also clears when its Pokémon is recalled to the PC or
+  the party, moves to another pasture, is released or traded, or loses its pasture block. It clears
+  when an evolution leaves no role that fits. A Pokémon that reaches a new owner carries no binding
+  data. The LSH rows of the spec sheet list each case.
+- **Telekinesis bindings.** Only the source must sit inside the work area. The destination may sit
+  anywhere within 32 blocks of the pasture block on each axis, the same box as Cobblemon's default
+  roam limit. The destination is never claimed.
 - **Timeouts.** An auto-assigned worker that has not arrived 600 ticks after its claim releases the
   claim and skips that target for 6,000 ticks. A leashed worker keeps its binding, waits in Standby for
   6,000 ticks, sends its owner a message, and then tries again.
 - **Standby.** A worker in Standby keeps its claim. It does not drain Work Stamina, and it recovers at
   the base rate. Standby also holds a leashed worker that waits to retry after a timeout.
+- **Standby moves.** An auto-assigned worker that has been in Standby for 200 ticks or more moves its
+  claim when a scan finds an unclaimed target with demand for one of its roles in its work area. For
+  example, a Wheel Driver at a wheel that real water turns moves to a dry wheel. A leashed worker never
+  moves off its bound target.
 - **Beds.** A Tired worker claims the nearest unclaimed bed inside its pasture's work area. A bed has
   one sleeper. Any size of Pokémon can sleep on a bed.
 - **Healers.** A healer must have at least 25% Work Stamina and no machine claim. It picks a Tired ally
@@ -502,6 +517,7 @@ the spec sheet are normative.
 | `engine.maxBlockChecksPerTick` | 512 | 64 to 4,096 |
 | `engine.travelTimeoutTicks` | 600 | 100 to 6,000 |
 | `engine.retryWaitTicks` | 6,000 | 0 to 72,000 |
+| `engine.standbyMoveTicks` | 200 | 20 to 6,000 |
 | `engine.effectBroadcastRadius` | 64 | 16 to 128 |
 | `workMode.toggleCooldownTicks` | 10 | 0 to 200 |
 | `leash.pendingSelectionTicks` | 600 | 100 to 6,000 |
@@ -526,7 +542,8 @@ Client config `config/cobblemon_dynamics-client.toml`:
 
 Role-specific numbers live in the role JSON, not in the server config
 ([ADR-0006](docs/adr/0006-data-driven-roles.md)). They are the FE base, maximum, rarity multiplier and
-rarity labels, the Pump rate, the Muse formula, the Telekinesis and Magnet rates, the Tailwind formula,
+rarity labels, the Pump rate, the Muse formula, the Telekinesis and Magnet rates, the Telekinesis
+destination range (default 32 blocks from the pasture block on each axis), the Tailwind formula,
 the Superheater's level gate, effect ids and ranges. No hard cap applies beyond the configured values.
 Server owners tune engine-wide balance in the config. Pack makers tune each role in a data pack.
 
@@ -605,8 +622,9 @@ maven, as Create's own build does. AE2 pulls GuideME in at runtime. The main cod
 
 ## 11. Art
 
-Every asset is original and drawn for this mod ([ADR-0012](docs/adr/0012-original-art-assets.md)). The
-spec sheet's ART rows are normative.
+Every asset except the mod logo is original and drawn for this mod
+([ADR-0012](docs/adr/0012-original-art-assets.md)). The logo is the operator's own image. The spec
+sheet's ART rows are normative.
 
 | Asset | Description |
 |---|---|
@@ -615,8 +633,8 @@ spec sheet's ART rows are normative.
 | Plush Bed | A thick velvet cushion with gold trim. |
 | Starlit Bed | A midnight-blue cushion with a gold star pattern, a faint glow and an occasional sparkle. |
 | Work Leash | A lead with a red-and-white clasp. |
-| UI sprites | The Work Mode button in 4 states (on, off, disabled, hover), the stamina bar, and 5 state icons (Working, Standby, Tired, Sleeping, Healing). |
-| Icons | The mod icon and the project icon: a cog with a lightning bolt above a fence post, with no Pokémon likeness. |
+| UI sprites | The Work Mode button in 4 states (on, off, disabled, hover), the stamina bar, and 7 state icons (Idle, Traveling, Working, Standby, Tired, Sleeping, Healing). |
+| Logo | The operator's own pixel-art image of Machop turning a gear machine. The source is `art/logo/logo-source-1254.png` (1254 × 1254). It ships as a 256 × 256 `logo.png` (`art/logo/logo-256.png`) with `logoBlur=false` in `neoforge.mods.toml`, and as a 512 × 512 project-page icon (`art/logo/icon-512.png`). |
 
 Rules:
 

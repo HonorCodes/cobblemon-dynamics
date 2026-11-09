@@ -52,9 +52,18 @@ has eight structural blocks around its controller.
   - the role no longer fits the worker
   - the claim is an auto work claim and the worker has not arrived 600 ticks after the claim. That
     worker then skips the target for 6,000 ticks.
-- A binding clears only when its Pokémon leaves its pasture, when its target is removed, or when the
-  owner clears it. A leashed worker that has not arrived 600 ticks after its work claim keeps the
-  binding. It waits in Standby for 6,000 ticks, the owner gets a message, and then it tries again.
+- An auto work claim moves when its worker has been in Standby for 200 ticks or more and a scan finds
+  an unclaimed target with demand for one of its roles in its work area. A leashed worker never moves
+  off its bound target.
+- A binding clears when:
+  - its target is broken, replaced, picked up with a Create wrench, or moved into a Create contraption
+  - its Pokémon is recalled to the PC or the party, moves to another pasture, is released or traded,
+    or loses its pasture block
+  - an evolution leaves no role that fits the Pokémon
+  - the owner clears it with the Work Leash
+- A Pokémon that reaches a new owner carries no binding data.
+- A leashed worker that has not arrived 600 ticks after its work claim keeps the binding. It waits in
+  Standby for 6,000 ticks, the owner gets a message, and then it tries again.
 
 ## Consequences
 

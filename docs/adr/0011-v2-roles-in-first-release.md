@@ -46,6 +46,9 @@ Research facts (see the integration-points note):
   - A pending selection expires after 30 s, or when the player right-clicks air.
   - The binding reserves the source only. Any number of workers can feed one destination, for example a
     single AE2 ME Interface.
+  - Only the source must sit inside the pasture's work area. The destination may sit anywhere within
+    32 blocks of the pasture block on each axis (the operator's ruling of 2026-11-09). A destination
+    at 33 blocks is refused with a message.
 - **Rates.**
   - Telekinesis and the Magnet: ceil(64 × level ÷ 100) items per second (Lv1 1, Lv50 32, Lv100 64).
   - Tailwind: floor(real sails × level ÷ 100) virtual sails, capped at 128 sails in total.
