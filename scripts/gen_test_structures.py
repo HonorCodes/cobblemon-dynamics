@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Writes empty GameTest structure templates with a stone floor at y = 0.
 
 Usage: py scripts/gen_test_structures.py
