@@ -1281,6 +1281,9 @@ Rules that `onTick` applies, in this order:
    `STANDBY` with `missedArrival = true`, `retryAt = claimTick + travelTimeoutTicks + retryWaitTicks`, and
    returns `MissedArrival` (CD-ASG-17, CD-LSH-21).
 3. `STANDBY` with `missedArrival` and `now >= retryAt`: `TRAVELING`, `claimTick = now`, returns `Retry`.
+   The retry is a fresh claim, as `onClaim`: it clears `missedArrival` and `retryAt`. Without that, a
+   worker that arrives after the retry to no demand matches this rule again on the next tick and
+   bounces back to `TRAVELING`.
 4. `WORKING` and not `demand()`: `STANDBY` (checked every tick).
 5. `STANDBY` without `missedArrival`, and `(now - statusSince) % 20 == 0`: `WORKING` if `demand()`
    (CD-ASG-12, R45).
@@ -1352,6 +1355,16 @@ class WorkerMachineTest {
         for (t in 601L..6_599L) { machine.onTick(w, t, false, { true }, key); assertEquals(WorkerStatus.STANDBY, w.status, "tick $t") }
         assertEquals(MachineEvent.Retry, machine.onTick(w, 6_600, false, { true }, key))
         assertEquals(WorkerStatus.TRAVELING, w.status)
+    }
+
+    @Test
+    fun `CD-ASG-12 a leashed worker that arrives after its retry stays in Standby`() {
+        val w = worker(leashed = true); machine.onClaim(w, 0)
+        machine.onTick(w, 600, false, { true }, key)         // missed arrival
+        machine.onTick(w, 6_600, false, { true }, key)       // retry
+        machine.onTick(w, 6_700, true, { false }, key)       // arrives, and the target has no demand
+        assertEquals(null, machine.onTick(w, 6_701, true, { false }, key))
+        assertEquals(WorkerStatus.STANDBY, w.status)
     }
 
     @Test
@@ -1460,19 +1473,23 @@ Expected: FAIL, unresolved references.
 
 `Worker.isSkipped(key, now)` is `now < (skipUntil[key] ?: Long.MIN_VALUE)`. Every status change goes
 through one private `set(w, status, now)` that also sets `statusSince`. `WorkerMachine.onTick` implements
-the five rules above, in that order, and returns at most one event. `onRelease` sets `IDLE`,
-`claimTick = -1`, `retryAt = -1` and `missedArrival = false`.
+the five rules above, in that order, and returns at most one event: the first rule that matches the
+status applies, and the others wait for the next tick. Entering `WORKING` (rules 1 and 5) returns
+`StartedWorking`, and entering `STANDBY` through rule 1 or 4 returns `EnteredStandby`, so the engine
+knows when to call `handler.onStart` and `handler.onStop`. `onRelease` sets `IDLE`, `claimTick = -1`,
+`retryAt = -1` and `missedArrival = false`, and the auto timeout of rule 2 does the same reset.
 
 `Assigner.pickForIdle` returns `null` when the worker is tired or has a Fairy type. Otherwise it keeps
 the candidates that are free and not skipped, maps each to `RoleSelection.best` of its roles that are
 `autoAssign` and eligible for the worker's types, drops candidates with no role, and returns the
-candidate nearest to the worker (ties: lowest `BlockPos` long of the key, so the choice is stable).
+candidate nearest to the worker (ties: lowest `BlockPos` long of the key, so the choice is stable; block
+keys sort before entity keys, and entity keys sort by UUID).
 `pickForStandbyMove` applies the same filters, drops `current`, keeps only candidates whose
 `hasDemand()` is true, and returns the nearest.
 
 - [ ] **Step 4: Run them and see them pass**
 
-Run: same as Step 2. Expected: PASS, 14 tests.
+Run: same as Step 2. Expected: PASS, 15 tests.
 
 - [ ] **Step 5: Commit**
 
