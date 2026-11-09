@@ -20,4 +20,25 @@ class RepositoryFilesTest {
             assertTrue(readme.contains(name), name)
         }
     }
+
+    @Test
+    fun `CD-REL-01 build workflow runs build and GameTests on main pushes and pull requests`() {
+        val text = File(root, ".github/workflows/build.yml").readText()
+        assertTrue(text.contains("pull_request:") && text.contains("push:") && text.contains("branches: [main]"))
+        assertTrue(text.contains("./gradlew build") && text.contains("./gradlew runGameTestServer"))
+    }
+
+    @Test
+    fun `CD-REL-02 security workflow runs CodeQL and dependency review`() {
+        val text = File(root, ".github/workflows/security.yml").readText()
+        assertTrue(text.contains("github/codeql-action/analyze"))
+        assertTrue(text.contains("actions/dependency-review-action"))
+    }
+
+    @Test
+    fun `CD-REL-03 dependabot covers gradle and github-actions`() {
+        val text = File(root, ".github/dependabot.yml").readText()
+        assertTrue(text.contains("package-ecosystem: gradle"))
+        assertTrue(text.contains("package-ecosystem: github-actions"))
+    }
 }
