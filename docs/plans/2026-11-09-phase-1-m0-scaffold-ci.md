@@ -695,7 +695,11 @@ placed through `setPlacedBy`).
 **Interfaces:**
 - Produces: `TEST_MOD_ID = "cobblemon_dynamics_test"`.
 - Produces (`object TestKit`):
-  - `fun owner(helper: GameTestHelper): ServerPlayer`, a mock player placed in the level and the player list.
+  - `fun owner(helper: GameTestHelper, name: String = "owner"): ServerPlayer`, a NeoForge `FakePlayer` with a
+    unique profile. Vanilla's `makeMockServerPlayerInLevel` joins the player list, and its connection rejects
+    Cobblemon's login payloads (`Payload cobblemon:script_registry_sync may not be sent to the client`).
+  - `fun pasturedEntity(helper, pasture, pokemonId): PokemonEntity?`. `Pokemon.entity` is set only for sent-out
+    Pokémon, so pastured entities are found with an AABB query by Pokémon UUID.
   - `fun placePasture(helper: GameTestHelper, rel: BlockPos, owner: ServerPlayer?): PokemonPastureBlockEntity`
   - `fun pokemon(spec: String): Pokemon` where `spec` is a Cobblemon properties string, for example
     `"charmander level=10"`.
@@ -835,7 +839,10 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 
 object TestKit {
-    fun owner(helper: GameTestHelper): ServerPlayer = helper.makeMockServerPlayerInLevel()
+    fun owner(helper: GameTestHelper, name: String = "owner"): ServerPlayer {
+        val uuid = UUID.randomUUID()
+        return FakePlayerFactory.get(helper.level, GameProfile(uuid, "${name}_${uuid.toString().take(6)}"))
+    }
 
     fun placePasture(helper: GameTestHelper, rel: BlockPos, owner: ServerPlayer?): PokemonPastureBlockEntity {
         val level = helper.level
@@ -853,7 +860,7 @@ object TestKit {
         val pokemon = pokemon(spec)
         Cobblemon.storage.getPC(owner).add(pokemon)
         if (!pasture.tether(owner, pokemon, Direction.SOUTH)) throw GameTestAssertException("tether failed for $spec")
-        return pokemon.entity ?: throw GameTestAssertException("no entity after tether for $spec")
+        return pasturedEntity(helper, pasture, pokemon.uuid) ?: throw GameTestAssertException("no entity after tether for $spec")
     }
 
     fun wild(helper: GameTestHelper, rel: BlockPos, spec: String): PokemonEntity {

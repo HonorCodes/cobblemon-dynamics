@@ -1,0 +1,16 @@
+modLoader="kotlinforforge"
+loaderVersion="[5.10,)"
+license="MPL-2.0"
+
+[[mods]]
+modId="cobblemon_dynamics_test"
+version="0.0.0"
+displayName="Cobblemon Dynamics GameTests"
+description='''GameTests for Cobblemon Dynamics. Never shipped.'''
+
+[[dependencies.cobblemon_dynamics_test]]
+modId="cobblemon_dynamics"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
