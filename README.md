@@ -1,0 +1,192 @@
+# Cobblemon Dynamics
+
+Cobblemon Dynamics puts your pastured Pokémon to work. Each Pokémon runs a machine
+that matches its type. For example, it turns a Create water wheel, generates Forge
+Energy, or fuels a furnace. The design follows the base workers of Palworld: you place
+Pokémon around your base, and each one powers a specific machine.
+
+Cobblemon Dynamics is an addon for [Cobblemon](https://cobblemon.com) on NeoForge
+1.21.1. It also works with [Create](https://github.com/Creators-of-Create/Create) and
+[Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2),
+and with any mod that uses NeoForge energy, fluid or item capabilities.
+
+## Status
+
+**Design phase.** There is no code and no release yet. The design is in the
+[spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md). The implementation plan comes
+after the spec sheet is approved.
+
+Version 1.0 ships in three phases:
+
+| Phase | Scope | Gate |
+| --- | --- | --- |
+| 1, private | The 12 v1 roles, Work Stamina, beds and healers (milestones M0 to M5) | Every v1 requirement passes, and the author tests it in a private world |
+| 2, private | The 4 v2 roles and the final art (M6 to M8) | Every v2 requirement passes, and the author tests it again |
+| 3, public | Release on Modrinth and CurseForge (M9) | — |
+
+## How it works
+
+1. Put Pokémon in a Cobblemon Pasture Block.
+2. Open the pasture and turn on **Work Mode**.
+3. Each Pokémon looks for a machine in the pasture's **work area** that matches its
+   type. It walks to the machine, faces it, and loops a move effect while it works.
+
+Rules that always apply:
+
+- **One worker per block.** Only one Pokémon can work a given block, across all
+  pastures.
+- **Only pastured Pokémon work.** A Pokémon works only while it is in a pasture with
+  Work Mode on. Wild Pokémon never work.
+- **The pasture owner controls Work Mode.** Only the player who placed the pasture, or
+  an operator, can turn Work Mode on or off.
+
+### The Work Leash
+
+Workers pick the nearest free machine on their own. Use the **Work Leash** to give a
+specific Pokémon a specific machine. Some roles work only through the leash.
+
+| Action | Result |
+| --- | --- |
+| Right-click your pastured Pokémon, then right-click a machine | Binds the Pokémon to that machine |
+| Right-click a Psychic-type, then a source container, then a destination | Binds a Telekinesis worker. The faces that you click are the faces it uses. |
+| Sneak + right-click the Pokémon | Clears its binding |
+| Sneak + right-click a driven water wheel or hand crank | Flips the direction of that wheel or crank |
+| Sneak + right-click an encased fan with a Fire-type catalyst | Switches that fan between blasting and smoking |
+
+Only the player who bound the worker, the pasture's owner or an operator can flip a
+target. A leash binding takes the machine from a Pokémon that the mod assigned
+automatically. Bindings stay through server restarts. A binding clears when the
+Pokémon leaves its pasture or when the machine is removed.
+
+## Roles
+
+A role is a job that a Pokémon of a given type does on a specific block. A Pokémon
+with two types can do the roles of either type, one role at a time.
+
+| Type | Role | Works on | Move effect | Phase |
+| --- | --- | --- | --- | --- |
+| Water | Wheel Driver | Create water wheel, large water wheel | Water Gun | 1 |
+| Water | Pump (leash only) | Fluid tanks, boilers, basins, cauldrons | Water Gun | 1 |
+| Electric | Generator | Any block that accepts Forge Energy, AE2 machines included | Thunder Shock | 1 |
+| Fire | Stoker | Furnace, smoker, blast furnace | Flamethrower | 1 |
+| Fire | Burner Keeper | Create Blaze Burner (kindled heat) | Flamethrower | 1 |
+| Fire | Brew Stoker | Brewing stand (fuel) | Ember | 1 |
+| Dragon | Superheater | Create Blaze Burner (superheated from level 50) | Dragon Breath | 1 |
+| Fighting, Normal | Cranker | Create hand crank | Pound | 1 |
+| Rock | Crystal Tender | Budding amethyst, AE2 budding certus quartz | Rock Throw | 1 |
+| Poison | Brewer | Brewing stand (speed) | Poison Gas | 1 |
+| Fairy | Healer | Tired allies in the same pasture | Special pose, heal sparkles | 1 |
+| Fairy | Muse (leash only) | Enchanting table | Fairy Wind | 1 |
+| Psychic | Telekinesis (leash only) | A source container and a destination, AE2 ME Interface included | Kinesis | 2 |
+| Steel | Magnet (leash only) | A container that collects dropped items from the work area | Metal sparks | 2 |
+| Fire, Water, Ghost | Fan Catalyst (leash only) | Create encased fan: blasting or smoking, washing, haunting | Fire Spin, Bubble, Will-O-Wisp | 2 |
+| Flying | Tailwind (leash only) | Create windmill bearing | Gust | 2 |
+
+The [spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md) holds the numbers for each
+role. The [role catalog](docs/roles.md) covers all 18 types, including later ideas.
+
+## Balance
+
+Pokémon are a strong early-game and midgame power source, and a fleet of them can
+compete. No single Pokémon replaces an engineering problem that you are meant to
+solve. Top-tier engineering, such as a large reactor or AE2 automation, always does
+better. For example, a level-100 legendary Generator makes 10,000 FE/t, and a small
+Extreme Reactors reactor makes about 15,000 FE/t. Roles on machines that cap their own
+output, such as water wheels and windmills, are exempt. See
+[ADR 0010](docs/adr/0010-balance-rule.md).
+
+## Work Stamina, beds and healers
+
+- **Work Stamina.** Work drains a worker's Work Stamina, and rest restores it.
+  Higher-level Pokémon work longer before they get **Tired**. A Tired Pokémon stops
+  work until it fully recovers.
+- **Beds.** A Tired Pokémon claims the nearest free bed in its work area, walks to it
+  and sleeps. Four bed tiers cut the recovery time: the Hay Bed, Wool Bed, Plush Bed
+  and Starlit Bed. You craft each tier from the tier below it.
+- **Healers.** A Fairy-type with no machine binding acts as a healer. It walks to a
+  Tired ally in the same pasture and restores that ally's Work Stamina. Each heal
+  costs the healer some of its own Work Stamina. Fairy-types cannot heal other
+  Fairy-types.
+
+The spec sheet areas STA, BED and HEAL hold the exact rules and numbers.
+
+## Art
+
+All block models, textures, sprites and icons are original and drawn for this mod in
+the vanilla 16×16 style. The mod uses no art from Mojang, Cobblemon, Create or AE2.
+Source files live in `art/`. See [ADR 0012](docs/adr/0012-original-art-assets.md).
+
+## Requirements
+
+Install Cobblemon Dynamics on both the client and the server.
+
+| Dependency | Version | Required |
+| --- | --- | --- |
+| Minecraft | 1.21.1 | Yes |
+| NeoForge | 21.1.219 or later | Yes |
+| Java | 21 | Yes |
+| Cobblemon | 1.8.4 or a later 1.8.x release | Yes |
+| KotlinForForge | 5.10 or later | Yes |
+| Create | 6.0.10 or a later 6.0.x release | No. It turns on the Create roles. |
+| Applied Energistics 2 | 19.2 or a later 19.x release | No. The Generator powers AE2 machines through FE, the Crystal Tender grows AE2 budding certus quartz, and Telekinesis feeds ME Interfaces. |
+
+There is no Fabric build. Create 6 and AE2 for Minecraft 1.21.1 are NeoForge-only. See
+[ADR 0002](docs/adr/0002-neoforge-1.21.1-only.md).
+
+## Compatibility
+
+- **Cobbleworkers and Cobblebase.** These mods also give jobs to pastured Pokémon. In a
+  pasture with Work Mode on, Cobblemon Dynamics turns their jobs off for that pasture.
+  Pastures with Work Mode off keep their normal Cobbleworkers or Cobblebase jobs. See
+  [ADR 0009](docs/adr/0009-coexistence-with-pasture-job-mods.md).
+- **Modded furnaces.** The Stoker works with any furnace that extends the vanilla
+  furnace.
+- **Modded machines.** The Generator works with any block that accepts Forge Energy
+  through NeoForge's energy capability. The Pump works with any block that accepts
+  water through NeoForge's fluid capability. Telekinesis and the Magnet work with any
+  block that has NeoForge's item capability.
+
+The spec sheet area CMP holds the exact compatibility rules.
+
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Components, data flow, integration points, art and milestones |
+| [docs/roles.md](docs/roles.md) | Role catalog for all 18 types: Phase 1, Phase 2 and later ideas |
+| [docs/plans/2026-11-09-v1-spec-sheet.md](docs/plans/2026-11-09-v1-spec-sheet.md) | Requirements for 1.0, each with an acceptance test |
+| [docs/research/2026-11-09-integration-points.md](docs/research/2026-11-09-integration-points.md) | Cobblemon, Create, AE2 and NeoForge hooks, with pinned versions |
+
+Architecture decision records:
+
+| ADR | Decision |
+| --- | --- |
+| [0001](docs/adr/0001-pasture-work-mode-instead-of-work-stand.md) | Pasture Work Mode instead of a Work Stand block |
+| [0002](docs/adr/0002-neoforge-1.21.1-only.md) | NeoForge 1.21.1 only |
+| [0003](docs/adr/0003-standalone-mod-not-cobbleworkers-addon.md) | A standalone mod, not a Cobbleworkers addon |
+| [0004](docs/adr/0004-brain-activity-for-worker-control.md) | A Brain activity for worker control |
+| [0005](docs/adr/0005-global-claim-registry.md) | A global claim registry |
+| [0006](docs/adr/0006-data-driven-roles.md) | Data-driven roles |
+| [0007](docs/adr/0007-effects-through-cobblemon-packets.md) | Effects through Cobblemon packets |
+| [0008](docs/adr/0008-work-stamina-model.md) | The Work Stamina model |
+| [0009](docs/adr/0009-coexistence-with-pasture-job-mods.md) | Coexistence with pasture job mods |
+| [0010](docs/adr/0010-balance-rule.md) | The balance rule |
+| [0011](docs/adr/0011-v2-roles-in-first-release.md) | The v2 roles in the first release, in phases |
+| [0012](docs/adr/0012-original-art-assets.md) | Original art assets |
+
+## Contributing
+
+The project is in the design phase. Open an
+[issue](https://github.com/HonorCodes/cobblemon-dynamics/issues) to discuss a change
+before you open a pull request. A design change starts as a change to the spec sheet.
+
+## License
+
+The code and the art are licensed under the [Mozilla Public License 2.0](LICENSE).
+
+## Disclaimer
+
+Cobblemon Dynamics is an unofficial addon. It is not affiliated with or endorsed by
+the Cobblemon team, The Pokémon Company, Nintendo, Game Freak, Creatures, the Create
+team or the Applied Energistics 2 team. Pokémon is a trademark of Nintendo, Creatures
+and Game Freak.
