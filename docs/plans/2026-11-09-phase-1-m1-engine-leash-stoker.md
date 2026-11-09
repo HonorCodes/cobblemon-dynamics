@@ -116,6 +116,8 @@ object ConfigRanges {
     val HEALER_MINUTES = 1..10_000
     val FLUSH_INTERVAL = 20..12_000
     val BED_FACTOR = 1..64
+    val HEAL_COST = 0.01..1.0
+    val LOW_STAMINA_THRESHOLD = 0.0..1.0
     val HEAD_BAR_RANGE = 4..64
 }
 ```
@@ -161,7 +163,9 @@ data class EngineSettings(
 `ServerConfig` builds a `ModConfigSpec` with `defineInRange` from `ConfigRanges` for every key of the
 architecture's section 9 table, with the defaults of `EngineSettings.DEFAULT`, comments from that table,
 `beds.speedFactors` as `defineList` (4 entries, each in `BED_FACTOR`), and `roles.disabled` as a list of
-resource location strings. It exposes:
+resource location strings. NeoForge's list validator checks only the elements: it keeps a list of the
+wrong size and drops a bad element from it. So `snapshot()` falls back to the default factors when the
+list does not hold 4 valid entries. It exposes:
 
 ```kotlin
 object ServerConfig {
@@ -175,16 +179,21 @@ object ServerConfig {
 
 `ClientConfig` builds `effects.workSounds` (default `false`), `hud.headBarRange` (default 16, range
 `HEAD_BAR_RANGE`) and `hud.panelBars` (default `true`), with `hasKey(path)` and
-`const val defaultWorkSounds = false`.
+`val defaultWorkSounds: Boolean get() = workSoundsValue.default`, the default that the spec writes to a
+new file. A `const val` with a camel-case name fails ktlint's `property-naming` rule.
 
 Register both in the mod constructor:
 
 ```kotlin
-container.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC)   // writes serverconfig/cobblemon_dynamics-server.toml
+container.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC)   // writes config/cobblemon_dynamics-server.toml
 container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC)   // writes config/cobblemon_dynamics-client.toml
 modBus.addListener<ModConfigEvent.Loading> { if (it.config.spec === ServerConfig.SPEC) WorkEngineSettings.reload() }
 modBus.addListener<ModConfigEvent.Reloading> { if (it.config.spec === ServerConfig.SPEC) WorkEngineSettings.reload() }
 ```
+
+FML 4.0.45 (NeoForge 21.1) writes a server config to the global `config/` folder. A file with the same
+name in a world's `serverconfig/` folder overrides it for that world, and a new world's `serverconfig/`
+folder stays empty. Checked in `ConfigTracker.resolveBasePath` and in a `runGameTestServer` run.
 
 `WorkEngineSettings` is a holder (`@Volatile var current: EngineSettings = EngineSettings.DEFAULT`, and
 `fun reload() { current = ServerConfig.snapshot() }`) in the same package.
