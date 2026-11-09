@@ -526,8 +526,13 @@ is skipped silently. `RoleRegistry` extends `SimpleJsonResourceReloadListener(Gs
 In `apply`, it parses each entry, logs `RoleCodec.describeError` at ERROR for each failure (one line per
 file), builds a `RoleSet` with `HandlerRegistry::get` and `WorkEngineSettings.current.disabledRoles`, and
 publishes it to `current`. Register it with `NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }`.
-A config reload (`ModConfigEvent.Reloading`) rebuilds `current` from the last parsed map, so
-`roles.disabled` applies without `/reload`.
+A server config load or reload (`ModConfigEvent.Loading` or `ModConfigEvent.Reloading`) calls
+`RoleRegistry.rebuild()`, which rebuilds `current` from the last parsed map, so `roles.disabled` applies
+without `/reload`. The load needs the rebuild as much as the reload does: a server reads its data packs
+before it loads the server config, so the `RoleSet` that `apply` builds at start sees the default
+settings. A rebuild logs each missing-handler line at most once per load of the role files, so a server
+start still logs one line per disabled role (CD-CFG-10). `disableHandler` logs one warning per handler
+id and rebuilds `current` without that handler.
 
 `stoker.json`:
 
