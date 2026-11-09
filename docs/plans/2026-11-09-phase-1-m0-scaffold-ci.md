@@ -1264,6 +1264,15 @@ def main() -> int:
 Write each `...` body in full. The `client` command assembles `run/testpack/client/mods/` with the same
 pinned jars and the built jar, and prints the folder path for the approver's play-test launcher.
 
+As built: every pin in `mods.json` is an object (version, Modrinth `version_number`, file name, URL,
+SHA-512), because Modrinth's version numbers differ from the mod versions (Cobblemon `1.8.4NF`, Create
+`6.0.10+mc1.21.1`). `fetch()` refuses a download without a SHA-512. FML logs a rejected dependency under
+`Missing or unsupported mandatory dependencies:` (required) or `Unsupported installed optional
+dependencies:` (optional), on a line `Mod ID: '<id>', Requested by: 'cobblemon_dynamics', Expected range:
+'<range>', Actual version: '<v>'`, and the server still exits with code 0, so each case is judged from the
+log. AE2 has no 19.1 release, so its below-floor case uses `19.1.3-beta`. GuideME is pinned to `21.1.1`,
+the version AE2 19.2.19 builds against.
+
 - [ ] **Step 3: Run the smoke scenario**
 
 Run: `./gradlew build && py scripts/testpack/testpack.py resolve && py scripts/testpack/testpack.py smoke`
