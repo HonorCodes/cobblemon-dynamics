@@ -23,7 +23,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Callable, NamedTuple
+from collections.abc import Callable
+from typing import NamedTuple, Self
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PACK = ROOT / "run" / "testpack"
@@ -228,7 +229,7 @@ def server_base(pin: dict) -> pathlib.Path:
     try:
         with output.open("wb") as out:
             code = subprocess.run([java(), "-jar", str(installer), "--installServer", str(work)], cwd=work,
-                                  stdout=out, stderr=subprocess.STDOUT, timeout=INSTALL_TIMEOUT).returncode
+                                  stdout=out, stderr=subprocess.STDOUT, timeout=INSTALL_TIMEOUT, check=False).returncode
     except subprocess.TimeoutExpired:
         raise TestpackError(f"the NeoForge {version} installer did not finish in {INSTALL_TIMEOUT}s. "
                             f"See {rel(output)}.")
@@ -325,7 +326,7 @@ class Rcon:
             self.close()
             raise
 
-    def __enter__(self) -> Rcon:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc) -> None:
@@ -387,7 +388,7 @@ class Server:
         self.lines: list[str] = []
         self._read_bytes = 0
 
-    def __enter__(self) -> Server:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc) -> None:

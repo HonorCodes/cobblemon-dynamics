@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.pokemon.PokemonProperties
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
+import com.mojang.authlib.GameProfile
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTestAssertException
@@ -14,7 +15,6 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.phys.AABB
 import net.neoforged.neoforge.common.util.FakePlayerFactory
-import com.mojang.authlib.GameProfile
 import java.util.UUID
 
 /** Builds GameTest scenes: owners, pastures and Pokémon. */
