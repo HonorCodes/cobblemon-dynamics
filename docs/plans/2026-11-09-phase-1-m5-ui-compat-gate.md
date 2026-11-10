@@ -292,8 +292,9 @@ Design (as built):
   spark run in the test pack, with a client beside the workers, covers that cost.
 - Measured on the development machine, 2026-11-10, in Dynamics server time per tick over 6,000 ticks with 64
   Working workers: mean 0.120 ms and p95 0.202 ms in the first run, and mean 0.129 to 0.150 ms and p95 0.218 to
-  0.242 ms over six runs of the final test. No run had a Dynamics log line after the warm-up. The gate report and
-  the M5 pull request quote these numbers.
+  0.244 ms over seven runs of the final test. The last of them, on commit `d595a67`, gave mean 0.137 ms and p95
+  0.244 ms. No run had a Dynamics log line after the warm-up. The gate report and the M5 pull request quote these
+  numbers.
 - CI runs `runGameTestServerPerf` in the build job and keeps its log. The run takes about a minute, and the
   budget leaves a margin of 5 to 10 times, so a slower runner does not fail it.
 
