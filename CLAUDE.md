@@ -48,6 +48,24 @@ when your hands are on the code.
 - `/reload` replies before the reload ends. The test pack waits for the next `Loaded N recipes` log line.
 - A fake player's first party add makes Cobblemon log harmless ERROR lines about a corrupt or missing
   `pokedex` or `tm_moves` `.old` file.
+- Mixin refuses to load any class from the mixin package (`IllegalClassLoadError`). Duck interfaces and
+  state classes such as `MixinState` live outside `codes.honor.cobblemondynamics.mixin`.
+- Create attaches block entity behaviours on the first tick or load, so `DriveBehaviour.of` is null in the
+  tick that a block is placed. Wait one tick in GameTests.
+- A large water wheel builds its ring on the next tick and needs free cells around its centre. With the
+  centre on the floor, the wheel breaks itself.
+- The core GameTest run (`runGameTestServerCore`) logs to `run/gametest-core/logs/latest.log`. Shared test
+  code (`src/gametest/kotlin-shared/`) must not name a Create class.
+- Create uses a hand crank or an analog lever for any held item except its wrench, and cancels the click,
+  so an item's `onItemUseFirst` never runs there. `ItemUseOverridesMixin` exempts the Work Leash.
+- A crank's `turn(false)` gives -32 RPM when the crank faces along a negative axis.
+- Navigation steers a mob 1 to 2 blocks wide to a corner of its target cell, not the centre. Compare
+  positions with `Arrival.isAt`, never with the spot centre.
+- A mechanical piston does not assemble without an extension pole behind it, and does nothing if its speed
+  points inward. A west-facing piston extends with positive speed.
+- A Create boiler counts heat only with an engine attached. GameTests call `boiler.updateTemperature(tank)`.
+- On Windows, Python's `write_text` writes CRLF unless you pass `newline="\n"`. Check for CR characters
+  before staging.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
   at the COHO modpack or another existing instance.
 - Line endings: `.gitattributes` forces LF (CRLF for `.bat`). `gradlew` breaks on Linux CI with CRLF.

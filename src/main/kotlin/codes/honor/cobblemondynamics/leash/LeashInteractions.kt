@@ -1,7 +1,10 @@
 package codes.honor.cobblemondynamics.leash
 
 import codes.honor.cobblemondynamics.Feedback
+import codes.honor.cobblemondynamics.claim.Claim
+import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.LeashIndex
+import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.engine.WorkEngine
@@ -35,10 +38,15 @@ object LeashInteractions {
     private const val CLEARED = "cobblemon_dynamics.leash.cleared"
     private const val BOUND = "cobblemon_dynamics.leash.bound"
     private const val SELECT_DESTINATION = "cobblemon_dynamics.leash.select_destination"
+    private const val PERMISSION_OPERATOR = 2
 
     fun register() {
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, PlayerInteractEvent.EntityInteract::class.java) { onEntityInteract(it) }
     }
+
+    /** For Create's hand crank mixin, which lets the leash's own click reach a crank. */
+    @JvmStatic
+    fun isWorkLeash(stack: ItemStack): Boolean = stack.`is`(DynamicsItems.WORK_LEASH.get())
 
     /**
      * CD-LSH-02: a click on one's own Pokémon is cancelled on both sides before `Player.interactOn` calls the entity, so Cobblemon's
@@ -187,6 +195,33 @@ object LeashInteractions {
         WorkEngine.get()?.onBound(level, pokemon.uuid, binding)
         val target = level.getBlockState(binding.target).block.name
         Feedback.actionBar(player, Component.translatable(BOUND, pokemon.getDisplayName(), target))
+    }
+
+    /**
+     * A sneak-click with the Work Leash on a target that a worker drives reverses it, for that worker's binder, the placer of its
+     * pasture or an operator (CD-WHL-05). Returns false, with no direction changed, for any other sneak-click, which then goes on to
+     * the normal leash rules (CD-SEC-10).
+     */
+    fun onSneakBlockClick(player: ServerPlayer, clicked: BlockPos): Boolean {
+        val level = player.serverLevel()
+        val engine = WorkEngine.get() ?: return false
+        val dimension = level.dimension().location()
+        for (role in RoleRegistry.current.active) {
+            if (!matches(level, role, clicked)) continue
+            val canonical = guarded(role.handler, clicked) { role.handler.canonical(level, clicked) }
+            val claim = engine.claims.holderOf(TargetKey.block(dimension, canonical))?.takeIf { it.kind == ClaimKind.WORK } ?: continue
+            val handler = engine.roleOf(claim.worker)?.handler ?: return false
+            if (!mayFlip(player, level, engine, claim)) return false
+            return guarded(handler, false) { handler.flip(level, canonical) }
+        }
+        return false
+    }
+
+    private fun mayFlip(player: ServerPlayer, level: ServerLevel, engine: WorkEngine, claim: Claim): Boolean {
+        if (player.hasPermissions(PERMISSION_OPERATOR)) return true
+        if (engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder == player.uuid) return true
+        val pasture = PastureAdapter.pastureAt(level, BlockPos.of(claim.pasture.pos)) ?: return false
+        return PastureAdapter.placer(pasture) == player.uuid
     }
 
     /** The player's own Pokémon [pokemonId], from the PC, where pastured Pokémon live, or the party. */

@@ -112,10 +112,21 @@ object TestKit {
     }
 
     /** A main-hand right-click on [face] of the block at [rel], through `ServerPlayerGameMode.useItemOn`, as the packet handler calls it. */
-    fun clickBlock(helper: GameTestHelper, player: ServerPlayer, rel: BlockPos, face: Direction = Direction.UP): InteractionResult {
+    fun clickBlock(
+        helper: GameTestHelper,
+        player: ServerPlayer,
+        rel: BlockPos,
+        face: Direction = Direction.UP,
+        sneak: Boolean = false,
+    ): InteractionResult {
         val pos = helper.absolutePos(rel)
         val hit = BlockHitResult(Vec3.atCenterOf(pos).relative(face, 0.5), face, pos, false)
-        return player.gameMode.useItemOn(player, helper.level, player.mainHandItem, InteractionHand.MAIN_HAND, hit)
+        player.isShiftKeyDown = sneak
+        try {
+            return player.gameMode.useItemOn(player, helper.level, player.mainHandItem, InteractionHand.MAIN_HAND, hit)
+        } finally {
+            player.isShiftKeyDown = false
+        }
     }
 
     /** Selects [entity] with a new Work Leash, then clicks the block at [rel]. Returns the binding that the clicks made. */

@@ -68,11 +68,14 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   compat/                Cobbleworkers and Cobblebase shims
   command/               /cobblemondynamics operator commands
   client/                pasture panel hooks, head bars, client state cache
+src/main/java/codes/honor/cobblemondynamics/
+  MixinState.java        which mixins injected their handler call; outside the mixin package,
+                         because Mixin refuses to load a class of that package
 src/main/java/codes/honor/cobblemondynamics/mixin/
-  MixinPlugin.java       skips each mixin whose target mod is absent
+  MixinPlugin.java       skips each mixin whose target mod is absent, records each injection
   create/                WaterWheelBlockEntityMixin, BlazeBurnerBlockEntityMixin,
-                         EncasedFanBlockEntityMixin, NozzleBlockEntityMixin,
-                         WindmillBearingBlockEntityMixin
+                         ItemUseOverridesMixin, EncasedFanBlockEntityMixin,
+                         NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
   vanilla/               EnchantmentMenuMixin
   cobblemon/client/      PastureWidgetMixin (stamina bars)
   compat/cobblebase/     @Pseudo mixins
@@ -414,8 +417,14 @@ references. This section lists what the code uses.
   maps to it: `WaterWheelStructuralBlock.getMaster(level, pos, state)` after
   `stillValid(level, pos, state, false)` gives the controller position.
 - **Hand crank.** `HandCrankBlockEntity.turn(boolean back)` on the server every 5 ticks. `turn` sets
-  `inUse = 10`, so the crank never stops between calls. The valve handle is excluded, because
+  `inUse = 10`, so the crank never stops between calls. Create negates a crank's speed when its
+  `FACING` points along a negative axis, so the handler folds the facing into `back`, and the stored
+  direction is the sign of the speed. The valve handle is excluded, because
   `ValveHandleBlockEntity.activate` turns a fixed angle and refuses while it turns.
+- **Leash clicks on a crank.** Create's `ItemUseOverrides` uses a hand crank for every held item but
+  its wrench and cancels the click before the item gets it. Mixin `ItemUseOverridesMixin` exempts the
+  Work Leash the same way, so the leash binds and flips cranks, and a protection mod that cancels the
+  click still stops it.
 - **Blaze Burner heat.** Mixin `BlazeBurnerBlockEntityMixin` on
   `com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity`:
 
@@ -427,13 +436,16 @@ references. This section lists what the code uses.
   It returns `KINDLED` for the Burner Keeper. It returns `SEETHING` for a Superheater at level 50 or
   higher, and `KINDLED` for a Superheater below level 50. It changes the result only when ours is
   hotter. The burner's own tick writes the block state every tick, so heat starts within one tick and
-  ends one tick after release. Empty burners (`HeatLevel.NONE`, no block entity) are never targets,
-  because heating one would duplicate a blaze.
+  ends one tick after release. The handler renews the heat of a burner on every tick that its worker
+  Works, and the heat lapses one tick after the last renewal, so a release that never came leaves no
+  burner hot. Empty burners (`HeatLevel.NONE`, no block entity) are never targets, because heating
+  one would duplicate a blaze.
 - **Boilers.** Create's `BoilerHeater` registry reads the burner block state. `KINDLED` gives 1 heat
   and `SEETHING` gives 2. Boilers need no extra code.
 - **Drive direction.** `BlockEntityBehaviourEvent.forType(...)` for `AllBlockEntityTypes.WATER_WHEEL`,
-  `LARGE_WATER_WHEEL` and `HAND_CRANK` attaches our behaviour. Create saves it and sends it to the
-  client. A flip works only on a driven target, and only for the player who bound its worker, the
+  `LARGE_WATER_WHEEL` and `HAND_CRANK` attaches our behaviour. Create saves its direction and sends the
+  direction and the driven flag to the client. The driven flag is never saved, because claims are never
+  saved. A flip works only on a driven target, and only for the player who bound its worker, the
   pasture's owner or an operator.
 - **Fan Catalyst (Phase 2).**
   - We register our own `FanProcessingType` for each catalyst kind on both sides, in

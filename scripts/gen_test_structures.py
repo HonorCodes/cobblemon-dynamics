@@ -2,7 +2,7 @@
 """Writes empty GameTest structure templates with a stone floor at y = 0.
 
 Usage: py scripts/gen_test_structures.py
-Output: src/gametest/resources/data/cobblemon_dynamics/structure/floor_<x>x<y>x<z>.nbt
+Output: src/gametest/resources-shared/data/cobblemon_dynamics/structure/floor_<x>x<y>x<z>.nbt (both GameTest runs)
 """
 import gzip
 import pathlib
@@ -11,7 +11,7 @@ import struct
 DATA_VERSION = 3955  # Minecraft 1.21.1
 SIZES = [(9, 5, 9), (15, 6, 15), (23, 10, 23), (23, 17, 23), (41, 8, 41)]
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-OUT = ROOT / "src/gametest/resources/data/cobblemon_dynamics/structure"
+OUT = ROOT / "src/gametest/resources-shared/data/cobblemon_dynamics/structure"
 
 
 def name(tag_type: int, key: str) -> bytes:

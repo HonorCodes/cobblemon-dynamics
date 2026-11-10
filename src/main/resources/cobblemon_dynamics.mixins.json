@@ -4,7 +4,11 @@
   "package": "codes.honor.cobblemondynamics.mixin",
   "plugin": "codes.honor.cobblemondynamics.mixin.MixinPlugin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [],
+  "mixins": [
+    "create.BlazeBurnerBlockEntityMixin",
+    "create.ItemUseOverridesMixin",
+    "create.WaterWheelBlockEntityMixin"
+  ],
   "client": [],
   "injectors": {
     "defaultRequire": 0

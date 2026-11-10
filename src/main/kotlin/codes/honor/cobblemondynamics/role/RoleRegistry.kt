@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.role
 
+import codes.honor.cobblemondynamics.MixinState
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.TargetHandler
@@ -22,6 +23,9 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
 
     // Rebuilds after a config change repeat the lines of the last role file load, so each line logs once per load (CD-CFG-10).
     private val logged = HashSet<String>()
+
+    // Whether a mixin injected never changes while the game runs, so each mixin warning logs once per run (CD-WHL-10).
+    private val mixinWarnings = HashSet<String>()
 
     @Volatile
     var current: RoleSet = RoleSet.EMPTY
@@ -51,10 +55,11 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         rebuild()
     }
 
-    /** Applies the live `roles.disabled` list and the handler set to the last parsed role files. */
+    /** Applies the live `roles.disabled` list, the handler set and the mixin flags to the last parsed role files. */
     @Synchronized
     fun rebuild() {
-        current = RoleSet(parsed, ::handlerFor, WorkEngineSettings.current.disabledRoles) { if (logged.add(it)) LOGGER.info(it) }
+        val roles = RoleSet(parsed, ::handlerFor, WorkEngineSettings.current.disabledRoles) { if (logged.add(it)) LOGGER.info(it) }
+        current = MixinGate.apply(roles, MixinState::applied) { if (mixinWarnings.add(it)) LOGGER.warn(it) }
     }
 
     /** Turns off every role of [handlerId], for a handler whose hook failed. Logs one warning per handler. */

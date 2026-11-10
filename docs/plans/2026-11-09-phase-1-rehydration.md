@@ -28,9 +28,10 @@ design of every task. This note holds what the plan does not.
 | Plan | On `main`. Index plus files `m0`, `m1` (two parts), `m2`, `m3`, `m4`, `m5`. `py scripts/check_plan_coverage.py` prints `missing: 0`. |
 | M0 | Merged: PR #1, merge commit `0c6f06f`. |
 | M1 | Merged: PR #6, merge commit `21f227b`. The `Dependency graph` job reports the compile and runtime classpaths. It gives runtime scope only to `jarJar` libraries, because Minecraft, NeoForge and the required mods supply the rest. |
-| M2 | All six tasks are committed on `m2-stamina-beds-healers`: 196 unit tests, 57 of 57 GameTests, `DEPS PASS` (7 cases, including the new `neoforge-floor` case) and `SMOKE PASS`. Its pull request is open (`gh pr list`); merge it with a merge commit when CI is green. |
-| Dependabot | PR #3 (Gradle 9.9.0; Dependabot was told to skip Kotlin 2.3 and 2.4), #4 (tomlj 2.2.0, test only) and #5 (JUnit 6.1.3, test only). Merge each when it is rebased on `main` and green. The `dependabot.yml` ignore rules on the M2 branch keep Kotlin on 2.2.x and the platform dependencies at their floors. |
-| M3 to M5 | Not started. |
+| M2 | Merged: PR #7, merge commit `000cbd4`. |
+| Dependabot | Merged: tomlj 2.2.0 (#4) and JUnit 6.1.3 (#5). Dependabot closed #3, because `dependabot.yml` now keeps Kotlin on 2.2.x and the platform dependencies at their floors. The Gradle 9.9.0 wrapper update returns in a new Dependabot pull request. To re-test a Dependabot pull request against a newer `main`, close and reopen it. |
+| M3 | All six tasks are committed on `m3-create-roles`: 220 unit tests, 78 of 78 GameTests, 2 of 2 in the core run. Its pull request is open (`gh pr list`); merge it with a merge commit when CI is green. |
+| M4 and M5 | Not started. |
 
 ## Environment
 
@@ -127,10 +128,10 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 ## Carry-over items
 
-- M2: a worker that Cobblemon put to sleep at night keeps its SLEEP status when it switches to work.
-  Handle it with the bed and rest logic (see ADR-0004 on sleep).
-- M2 Task 6: `/cobblemondynamics claims` already lists bed and heal claims (built in M1 Task 12). M2 Task 6
-  has a note about this.
+- End-of-phase pass (M5): a work spot is one cell, so a wide worker's body can overlap the blocks beside it
+  (CD-ASG-09). Check it in the play-test and widen the spot check if it shows.
+- End-of-phase pass (M5): a Burner Keeper works a creative Blaze Burner, which gains nothing from it. Make
+  `hasDemand` false for a creative burner.
 - Role files: target particles now go out at the work focus and actor particles from the worker (M1, ADR-0007
   amendment). Put each particle of a new role file in the list that matches where Cobblemon emits it, as
   the Wheel Driver's `watergun_spray` (actor) shows.

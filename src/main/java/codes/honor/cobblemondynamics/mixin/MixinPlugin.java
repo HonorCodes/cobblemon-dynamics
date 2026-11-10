@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.mixin;
 
+import codes.honor.cobblemondynamics.MixinState;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -8,7 +9,10 @@ import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
-/** Skips each integration mixin whose target mod is absent, so a missing mod never crashes the game. */
+/**
+ * Skips each integration mixin whose target mod is absent, so a missing mod never crashes the game, and tells {@link MixinState}
+ * which mixins injected their handler.
+ */
 public final class MixinPlugin implements IMixinConfigPlugin {
     private static final String BASE = "codes.honor.cobblemondynamics.mixin.";
     private static final Map<String, String> REQUIRED_MOD_BY_PACKAGE = Map.of(
@@ -49,5 +53,6 @@ public final class MixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
+        MixinState.recordApplied(mixinClassName, targetClass);
     }
 }
