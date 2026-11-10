@@ -313,6 +313,7 @@ ownership and rate.
 | `cobblemon_dynamics:pasture_panel_state` | server to client | `workMode`, `canToggle`, entries of (`pokemonId`, `percent`, `state`) | On open, after a toggle, and every 20 ticks while the panel is open. |
 | `cobblemon_dynamics:leash_overview_request` | client to server | none | The player selects the Work Leash. |
 | `cobblemon_dynamics:leash_overview` | server to client | entries of (`entityId`, `targetPos`) | Reply to the request. The client outlines these targets. |
+| `cobblemon_dynamics:work_sound` | server to client | `entityId`, `sound` | Each effect loop of a role that names a sound, to players within the broadcast radius. The client plays it only with `effects.workSounds` on. |
 
 Built-in sync, with no payload of ours:
 

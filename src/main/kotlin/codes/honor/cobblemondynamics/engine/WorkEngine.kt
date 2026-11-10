@@ -9,6 +9,7 @@ import codes.honor.cobblemondynamics.claim.ClaimResult
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
+import codes.honor.cobblemondynamics.fx.EffectPlayer
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
@@ -106,9 +107,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         release(tick(runtime.level), slot)
     }
 
-    /** The GameTest form of a restart. A restart also loses the Brain memories, because the work order has no codec. */
+    /**
+     * The GameTest form of a restart. A restart also loses the Brain memories, because the work order has no codec, and the focus
+     * entities, because their type is never saved.
+     */
     fun resetRuntimeForTest() {
-        for (slot in slots.values) BrainBridge.clear(slot.entity)
+        for (slot in slots.values) {
+            BrainBridge.clear(slot.entity)
+            removeFocus(slot)
+        }
         claims.clear()
         pastures.clear()
         slots.clear()
@@ -343,24 +350,44 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (!ok) release(t, slot, callHandler = false)
     }
 
-    /** Step 6: the work order goes into the Brain on every tick, because Cobblemon rebuilds Brains (CD-AI-04). */
+    /**
+     * Step 6: the work order goes into the Brain on every tick, because Cobblemon rebuilds Brains (CD-AI-04). A Working worker
+     * has its focus entity and its effect loop, and any other worker has no focus entity, from this tick on (CD-FX-07).
+     */
     private fun direct(t: Tick, slot: PastureRuntime.Slot) {
         val worker = slot.worker
-        val claim = claims.claimOf(worker.pokemonId) ?: return
-        val role = slot.role ?: return
-        val target = worker.target ?: return
-        val spot = worker.spot ?: return
+        val claim = claims.claimOf(worker.pokemonId)
+        val role = slot.role
+        val target = worker.target
+        val spot = worker.spot
         val entity = slot.entity
-        if (claim.kind != ClaimKind.WORK || entity.isRemoved) return
-        val lookAt = guarded(role.handler, null) { role.handler.targetCenter(target) }
-        BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), lookAt, hold = isArrived(entity, spot)))
-        if (BrainBridge.holdsOrder(entity)) return
-        val species = slot.pokemon.species.resourceIdentifier
-        if (unbridged.add(species)) {
-            CobblemonDynamics.LOGGER.warn("{} has a baseAI that skips Cobblemon's auto behaviours, so it cannot work", species)
+        if (claim?.kind != ClaimKind.WORK || role == null || target == null || spot == null || entity.isRemoved) {
+            removeFocus(slot)
+            return
         }
-        worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
-        release(t, slot)
+        val center = guarded(role.handler, null) { role.handler.targetCenter(target) }
+        BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), center, hold = isArrived(entity, spot)))
+        if (!BrainBridge.holdsOrder(entity)) {
+            val species = slot.pokemon.species.resourceIdentifier
+            if (unbridged.add(species)) {
+                CobblemonDynamics.LOGGER.warn("{} has a baseAI that skips Cobblemon's auto behaviours, so it cannot work", species)
+            }
+            worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
+            release(t, slot)
+            return
+        }
+        if (worker.status != WorkerStatus.WORKING || center == null) {
+            removeFocus(slot)
+            return
+        }
+        val focus = slot.focus?.takeUnless { it.isRemoved } ?: EffectPlayer.spawnFocus(t.level, center).also { slot.focus = it }
+        EffectPlayer.tickWorking(t.level, entity, focus, role.definition, worker.statusSince, t.now)
+    }
+
+    /** CD-PERF-04: a focus entity lives only while its worker is Working. */
+    private fun removeFocus(slot: PastureRuntime.Slot) {
+        slot.focus?.let(EffectPlayer::removeFocus)
+        slot.focus = null
     }
 
     private fun removePasture(t: Tick, runtime: PastureRuntime, fromIndex: Boolean) {
@@ -398,6 +425,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         slot.worker.spot = null
         slot.role = null
         BrainBridge.clear(slot.entity)
+        removeFocus(slot)
     }
 
     private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: ActiveRole) =

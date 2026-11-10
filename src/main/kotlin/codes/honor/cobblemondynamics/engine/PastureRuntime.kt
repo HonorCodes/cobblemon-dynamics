@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.fx.WorkFocusEntity
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.role.ActiveRole
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
@@ -10,9 +11,13 @@ import java.util.UUID
 
 /** The engine's state of one pasture in Work Mode: its workers, its scan schedule and its running scan pass. */
 class PastureRuntime(val level: ServerLevel, val key: PastureKey, now: Long, scanIntervalTicks: Int) {
-    /** One worker with the live objects that its tick needs. [role] is set while the worker holds a work claim. */
+    /**
+     * One worker with the live objects that its tick needs. [role] is set while the worker holds a work claim, and [focus]
+     * while it is Working.
+     */
     class Slot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pokemon) {
         var role: ActiveRole? = null
+        var focus: WorkFocusEntity? = null
     }
 
     val pos: BlockPos = BlockPos.of(key.pos)

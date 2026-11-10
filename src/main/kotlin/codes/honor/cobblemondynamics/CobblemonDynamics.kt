@@ -3,13 +3,16 @@ package codes.honor.cobblemondynamics
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.ai.DynamicsActivities
 import codes.honor.cobblemondynamics.ai.DynamicsMemories
+import codes.honor.cobblemondynamics.client.ClientEffects
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.EngineEvents
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
+import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
+import codes.honor.cobblemondynamics.registry.DynamicsEntities
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.mojang.logging.LogUtils
 import net.neoforged.bus.api.IEventBus
@@ -18,6 +21,7 @@ import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.config.ModConfigEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
+import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.AddReloadListenerEvent
 import org.slf4j.Logger
@@ -31,6 +35,9 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         DynamicsAttachments.REGISTER.register(modBus)
         DynamicsActivities.REGISTER.register(modBus)
         DynamicsMemories.REGISTER.register(modBus)
+        DynamicsEntities.REGISTER.register(modBus)
+        DynamicsPayloads.register(modBus)
+        if (FMLEnvironment.dist.isClient) ClientEffects.register(modBus)
         // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.
         modBus.addListener<FMLCommonSetupEvent> { it.enqueueWork(Runnable { BrainBridge.registerTaskTypes() }) }
         HandlerRegistry.register(FurnaceHandler)

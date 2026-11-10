@@ -759,11 +759,15 @@ CD-FX-11, CD-PERF-04.
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/fx/WorkFocusEntity.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsEntities.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/WorkSoundPayload.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/DynamicsPayloads.kt` (registration; Task 13 adds its payloads here)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/client/ClientEffects.kt`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt`, `engine/PastureRuntime.kt` (`Slot.focus`),
+  `CobblemonDynamics.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/EffectClockTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/RecipientsTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/ParticleCatalogTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/FocusEntityTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/net/WorkSoundPayloadTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/EffectTests.kt`
 
 **Interfaces:**
 - Produces:
@@ -771,11 +775,11 @@ CD-FX-11, CD-PERF-04.
 ```kotlin
 object EffectClock { fun shouldPlay(startTick: Long, now: Long, loopTicks: Int): Boolean }   // start, start + 40, ...
 object Recipients { fun inRange(distanceSqr: Double, radius: Int): Boolean }                   // <= radius², CD-FX-08
-interface ParticleCatalog { fun contains(id: ResourceLocation): Boolean }
+fun interface ParticleCatalog { fun contains(id: ResourceLocation): Boolean }   // fun interface: the unit test passes a lambda
 class CheckedParticles(private val catalog: ParticleCatalog, private val warn: (String) -> Unit) {
     fun filter(ids: List<ResourceLocation>): List<ResourceLocation>      // drops missing ids, warns once per id
 }
-object JarParticleCatalog : ParticleCatalog   // reads "identifier" from Cobblemon's assets/cobblemon/bedrock/particles/**.json
+object JarParticleCatalog : ParticleCatalog   // "identifier" of each .particle.json under the Cobblemon jar's assets/cobblemon/bedrock/particles
 class WorkFocusEntity(type: EntityType<WorkFocusEntity>, level: Level) : Entity(type, level)
 object EffectPlayer {
     fun tickWorking(level: ServerLevel, entity: PokemonEntity, focus: WorkFocusEntity, role: RoleDefinition, workingSince: Long, now: Long)
@@ -788,11 +792,20 @@ data class WorkSoundPayload(val entityId: Int, val sound: ResourceLocation) : Cu
 On each effect tick, `EffectPlayer` sends to every player in the level with
 `Recipients.inRange(player.distanceToSqr(entity), effectBroadcastRadius)`:
 `PlayPosableAnimationPacket` with `role.effect.animationsWithCry`, one `SpawnSnowstormEntityParticlePacket`
-per actor particle (source = the worker), one per target particle (source = the worker, targeted entity =
-the focus entity), and, when the role names a sound, a `WorkSoundPayload`. The client plays that sound
-only when `ClientConfig.workSounds` is true (CD-FX-09). Check the constructor of
-`PlayPosableAnimationPacket` in the Cobblemon jar before writing the call, and check that each sound id in
-the role files exists in Cobblemon's `assets/cobblemon/sounds.json`.
+per actor particle (source = the worker, targeted entity = the focus entity), one per target particle
+(source = the worker, targeted entity = the focus entity), and, when the role names a sound, a
+`WorkSoundPayload`. The client plays that sound only when `ClientConfig.workSounds` is true (CD-FX-09).
+The jar has `PlayPosableAnimationPacket(entityId: Int, animation: Set<String>, expressions: List<String>)`:
+the names go in as a `LinkedHashSet`, which keeps their order. The Stoker role names no sound, so no sound id
+needs checking yet.
+
+Platform facts that changed the plan: actor particles aim at the focus entity too, because Cobblemon's move
+timelines send them with `targetLocators` and `flamethrower_actor` sets its direction from
+`v.target_delta*`. Actor particles use the source locators `special`, `target`, `root`; target particles use
+`target`, `root`; the targeted locator is `middle`, and the client falls back to the focus entity's position
+because the focus entity has no model. Cobblemon's client loads only `.particle.json` files, so the catalog
+reads only those. The catalog reads the jar through `IModFile.findResource`; if it cannot find the folder, it
+warns once and passes every id, because the client skips an unknown id with no error.
 
 `WorkFocusEntity`'s type is built with `EntityType.Builder.of(::WorkFocusEntity, MobCategory.MISC)
 .sized(0.1f, 0.1f).noSave().noSummon().fireImmune().clientTrackingRange(8)` (CD-FX-06). The entity sets
@@ -829,26 +842,43 @@ class ParticleCatalogTest {
 }
 ```
 
-- [ ] **Step 2: Write the failing GameTests**
+- [ ] **Step 2: Write the failing GameTest**
+
+The approver's ruling of 2026-11-09 limits GameTests to code that the plan cannot trust against the real
+platform. Integrated testing happens at the end of Phase 1. One GameTest stays, because it reads the real
+Cobblemon jar:
 
 ```kotlin
 @GameTestHolder(MOD_ID) @PrefixGameTestTemplate(false)
-class FocusEntityTests {
-    // cdFx04FocusSitsAtTargetCenter: while a Stoker is Working, exactly one WorkFocusEntity exists within 0.01 of the furnace center.
-    // cdFx05FocusIsInvisibleWithNoCollision: isInvisible, !isPickable, !canBeCollidedWith; a mock player moved through the
-    //   focus position with player.move(MoverType.SELF, ...) ends past it.
-    // cdFx06FocusIsNeverSaved: with five Working workers, entity.type.canSerialize() is false and entity.save(CompoundTag()) is false.
-    // cdFx07FocusLeavesWithWorking: one Stoker goes to Standby (fill its output), another's claim is released; 1 tick later
-    //   no focus entity remains for either.
-    // cdPerf04NoFocusLeak: create and release 10 claims 5 times (10 furnaces, 10 Charmanders, toggle Work Mode); on every
-    //   tick the focus entity count is at most the WORK claim count.
+class EffectTests {
+    // cdFx11CatalogReadsCobblemonParticles: every actor and target particle id of the Stoker role is in JarParticleCatalog,
+    //   and cobblemon:no_such_particle is not.
 }
 ```
 
+These GameTests are not written:
+
+- CD-FX-04 (`cdFx04FocusSitsAtTargetCenter`: one focus entity within 0.01 of the furnace center while a Stoker works):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-FX-05 (`cdFx05FocusIsInvisibleWithNoCollision`: the property checks, and a player moved with
+  `player.move(MoverType.SELF, ...)` through a focus entity in open air, because the target center lies inside the block):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-FX-06 (`cdFx06FocusIsNeverSaved`: with five Working workers, `type.canSerialize()` and `save(CompoundTag())` are false):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-FX-07 (`cdFx07FocusLeavesWithWorking`: one Stoker to Standby by a full output, another released with
+  `TestKit.release`; 1 tick later no focus entity remains): GameTest deferred (high confidence): verified in the
+  end-of-phase pass.
+- CD-PERF-04 (`cdPerf04NoFocusLeak`: 10 furnaces and 10 Charmanders, Work Mode on and off 5 times; on every tick the focus
+  entity count is at most the work claim count): GameTest deferred (high confidence): verified in the end-of-phase pass.
+
 - [ ] **Step 3: Write the effects code and wire it into engine step 6**
 
-Register the entity type, its renderer (client only, `EntityRenderersEvent.RegisterRenderers`), and
-`WorkSoundPayload` (Task 13 registers payloads; add this one there and use it here).
+Register the entity type, its renderer (client only, `EntityRenderersEvent.RegisterRenderers`, behind
+`FMLEnvironment.dist.isClient`), and `WorkSoundPayload` in `net/DynamicsPayloads.kt`, which Task 13 extends. The
+client handler calls `ClientEffects`, which loads only when a client runs the handler. In step 6 a worker with a
+work claim that is Working gets its focus entity (spawned once, again if it was removed) and
+`EffectPlayer.tickWorking` with `workingSince = worker.statusSince`; every other worker loses its focus entity in
+the same tick. The release path's `clear` and `resetRuntimeForTest` remove it too.
 
 - [ ] **Step 4: Run the tests and see them pass**
 
@@ -858,7 +888,7 @@ Expected: `BUILD SUCCESSFUL`; every GameTest passes.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main src/test src/gametest
+git add -- <each new and changed file under src/main, src/test and src/gametest> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md
 git commit -m "Loop each role's move effect at a hidden focus entity on the target"
 ```
 
@@ -1187,7 +1217,7 @@ git commit -m "Add the /cobblemondynamics claims operator command"
 **Rows:** CD-SEC-05 and CD-SEC-06 (the payload path), CD-WMD-03 and CD-WMD-04 (the payload path).
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/DynamicsPayloads.kt` (registration)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/net/DynamicsPayloads.kt` (registration; Task 10 created it with `work_sound`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/WorkModeTogglePayload.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/PasturePanelPayloads.kt` (`open`, `close`, `state`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/LeashOverviewPayloads.kt` (`request`, `overview`)
