@@ -315,7 +315,7 @@ Level changes the output of the Generator, the Pump and the Muse. The Superheate
 
 ### Stoker
 
-**Types:** Fire. **Level:** any. **Move:** Flamethrower.
+**Types:** Fire. **Level:** any. **Move:** Ember.
 
 **Target:** a furnace, a smoker, a blast furnace, or a modded furnace that extends the vanilla furnace.
 
@@ -352,7 +352,7 @@ Leash](#flip-a-water-wheel-or-a-hand-crank).
 
 ### Burner Keeper
 
-**Types:** Fire. **Level:** any. **Move:** Flamethrower. **Needs:** Create.
+**Types:** Fire. **Level:** any. **Move:** Ember. **Needs:** Create.
 
 **Target:** a Blaze Burner that holds a blaze. An empty Blaze Burner is not a target.
 

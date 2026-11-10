@@ -554,6 +554,10 @@ id and rebuilds `current` without that handler.
 }
 ```
 
+Play-test change (2026-11-10): the Stoker casts Ember, as the Brew Stoker does, with the actor particle
+`cobblemon:ember_actor` and the target particle `cobblemon:ember_target`. The approver found Flamethrower too
+flashy for a loop.
+
 - [ ] **Step 4: Run them and see them pass**
 
 Run: `./gradlew test --tests "codes.honor.cobblemondynamics.role.*"`
@@ -565,8 +569,8 @@ Expected: PASS, 11 tests.
 `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/`, parses it with `RoleCodec`, and
 checks the Role table (CD-FX-02): a map from role id to `(handler, types, autoAssign, priority, first
 animation)`. In M1 the map holds the Stoker row only:
-`stoker -> ("cobblemon_dynamics:furnace", {"fire"}, true, 0, "flamethrower")`. M4 extends the map to every
-Phase 1 role. The test fails when a file is missing from the map or differs from it.
+`stoker -> ("cobblemon_dynamics:furnace", {"fire"}, true, 0, "flamethrower")`, with `"ember"` since the
+play-test. M4 extends the map to every Phase 1 role. The test fails when a file is missing from the map or differs from it.
 
 Run: `./gradlew test --tests "codes.honor.cobblemondynamics.role.BuiltInRoleFilesTest"`
 Expected: PASS.

@@ -16,6 +16,9 @@ object CobblemonJar {
         FileSystems.newFileSystem(Path.of(URI(jar)))
     }
 
+    /** The root of the jar. */
+    val root: Path get() = fileSystem.getPath("/")
+
     /** `assets/cobblemon/bedrock`, which holds the particles and the Pokémon models, posers and animations. */
     val bedrock: Path get() = fileSystem.getPath("/assets/cobblemon/bedrock")
 }

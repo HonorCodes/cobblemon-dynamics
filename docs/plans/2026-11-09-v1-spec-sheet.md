@@ -8,6 +8,8 @@ Corrections after agreement:
   server configs there (found in M1).
 - 2026-11-10, approver's play-test ruling: CD-HEAL-15 spawns only `cobblemon:heal_circles`. The file of
   `cobblemon:heal_sparkles` calls `math.random()` with no arguments, and the Cobblemon 1.8.4 client crashes on it.
+- 2026-11-10, approver's play-test ruling: the Role table gives the Stoker and the Burner Keeper Ember instead of
+  Flamethrower, which was too flashy for a loop. CD-FX-02 checks the role files against it.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -184,8 +186,8 @@ and default priority. The default role files hold these values.
 | --- | --- | --- | --- | --- | --- | --- |
 | Wheel Driver | 1 | Water | Create water wheel, large water wheel | Water Gun | yes | 0 |
 | Generator | 1 | Electric | Blocks whose NeoForge energy capability can receive | Thunder Shock | yes | 0 |
-| Stoker | 1 | Fire | Block entities that extend `AbstractFurnaceBlockEntity` | Flamethrower | yes | 0 |
-| Burner Keeper | 1 | Fire | Filled Create Blaze Burner | Flamethrower | yes | 0 |
+| Stoker | 1 | Fire | Block entities that extend `AbstractFurnaceBlockEntity` | Ember | yes | 0 |
+| Burner Keeper | 1 | Fire | Filled Create Blaze Burner | Ember | yes | 0 |
 | Superheater | 1 | Dragon | Filled Create Blaze Burner | Dragon Breath | yes | 10 |
 | Cranker | 1 | Fighting, Normal | Create hand crank | Pound | yes | 0 |
 | Crystal Tender | 1 | Rock | Blocks in `#c:budding_blocks` | Rock Throw | yes | 0 |
