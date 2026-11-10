@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.test
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.stamina.Stamina
 import codes.honor.cobblemondynamics.stamina.StaminaStore
@@ -10,6 +11,7 @@ import codes.honor.cobblemondynamics.stamina.StaminaView
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
+import com.cobblemon.mod.common.pokemon.activestate.InactivePokemonState
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
@@ -27,7 +29,7 @@ class StaminaStoreTests {
      * furnace, so it never works, and its value may only rise by the base-rate recovery of the ticks since it was set: 1 / 36,000
      * per tick. The restart drops the whole engine, so this test runs alone in its own batch.
      */
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 300, batch = "restart_sta04")
+    @GameTest(template = "floor_15x6x15", timeoutTicks = TIMEOUT_TICKS, batch = "restart_sta04")
     fun cdSta04And05StaminaStartsFullAndFollowsThePokemon(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
@@ -49,6 +51,11 @@ class StaminaStoreTests {
             helper.assertTrue(ok, "$where: $value, allowed ${START * 100}% to ${most * 100}% after $elapsed ticks")
         }
 
+        helper.runAtTickTime(TIMEOUT_TICKS - 1L) {
+            val tethered = PastureAdapter.tetheredIds(pasture).contains(id)
+            val worker = engine.worker(id)?.status
+            helper.fail("stuck at '$step': worker $worker, entity removed ${entity.isRemoved}, tethered $tethered, in PC ${pc[id] != null}")
+        }
         helper.onEachTick {
             when (step) {
                 "join" -> {
@@ -85,9 +92,12 @@ class StaminaStoreTests {
                     TestKit.simulateRestart(helper)
                     val old = pc[id] ?: throw GameTestAssertException("the PC lost the Charmander before the restart")
                     val fresh = Pokemon.loadFromNBT(access, old.saveToNBT(access))
+                    checkValue(StaminaStore.load(fresh, helper.level.gameTime + 1, WorkEngineSettings.current), "after the restart")
+                    // The PC now holds the new instance. Cobblemon gives a pastured Pokémon a SentOutState, and PCStore.remove
+                    // recalls it, which would discard the pasture entity, so the old instance goes inactive first.
+                    old.state = InactivePokemonState()
                     pc.remove(old)
                     pc.add(fresh)
-                    checkValue(StaminaStore.load(fresh, helper.level.gameTime + 1, WorkEngineSettings.current), "after the restart")
                     // Cobblemon's 20-tick swap to the PC's instance, which runs only for an owner in the level's player list.
                     entity.pokemon = fresh
                     step = "swapped"
@@ -104,6 +114,7 @@ class StaminaStoreTests {
     }
 
     private companion object {
+        const val TIMEOUT_TICKS = 300
         const val START = 0.37
         const val CAPACITY_TICKS = 36_000.0
         const val SLACK = 1e-9

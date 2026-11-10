@@ -245,8 +245,14 @@ damaged one reads 100% (CD-STA-05), 18,000 ticks later reads 50% (CD-STA-11), on
 //   to the PC, moved to the party and back, and tethered again; simulateRestart; the PC's instance is replaced by an NBT
 //   round trip of itself, as a restart's reload builds new instances; entity.pokemon = the new instance, which is Cobblemon's
 //   20-tick swap (it runs only for an owner in the level's player list, which a fake player never is). At each step the value
-//   is at least 37% and at most 37% plus the base-rate recovery of the ticks since it was set (CD-STA-04).
+//   is at least 37% and at most 37% plus the base-rate recovery of the ticks since it was set (CD-STA-04). On its last tick
+//   the test fails with the step it waits at.
 ```
+
+`PCStore.remove` recalls the Pokémon, and a pastured Pokémon is "sent out": Cobblemon's `PokemonServerDelegate.tick`
+gives every `PokemonEntity`'s Pokémon a `SentOutState(entity)`, whose `recall()` discards the entity. The test therefore
+sets the old instance to `InactivePokemonState` before it removes it from the PC; a real reload drops the old store and
+removes nothing.
 
 The other two planned GameTests:
 
