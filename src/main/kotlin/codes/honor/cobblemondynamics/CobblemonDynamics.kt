@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.ai.DynamicsActivities
 import codes.honor.cobblemondynamics.ai.DynamicsMemories
 import codes.honor.cobblemondynamics.client.ClientEffects
+import codes.honor.cobblemondynamics.command.DynamicsCommands
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
@@ -53,6 +54,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         EngineEvents.register()
         LeashInteractions.register()
         LeashResets.register()
+        DynamicsCommands.register()
     }
 
     // The server config loads after the data packs, so a load rebuilds the roles too, not only a reload.

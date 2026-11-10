@@ -1256,33 +1256,43 @@ git commit -m "Add the Work Leash: selection, bindings, refusals, resets and the
 
 **Files:**
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/command/DynamicsCommands.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/CommandTests.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/command/ClaimsReport.kt` (the entries and their order, pure)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/command/ClaimsReportTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/CommandTests.kt` (deferred, see Step 1)
 
 **Interfaces:**
 - Produces: `/cobblemondynamics claims`, registered in `RegisterCommandsEvent`, with
   `.requires { it.hasPermission(2) }` on the root literal. Each output line is one entry:
   `claim <kind> <target> <worker name> (<worker uuid>)` or `binding <target> <worker name> (<uuid>)`, where
   `<target>` is `dimension x y z` for blocks and the ally's name for entities. The lines come from lang
-  keys `cobblemon_dynamics.command.claims.claim` and `cobblemon_dynamics.command.claims.binding`.
+  keys `cobblemon_dynamics.command.claims.claim` and `cobblemon_dynamics.command.claims.binding`; the kind
+  from `cobblemon_dynamics.command.claims.kind.<work|bed|heal>`. Claims come first, by kind and target, then
+  bindings, read from every level's `leash_index`. With no entry the command prints
+  `cobblemon_dynamics.command.claims.none`. It returns the entry count. It lists every claim kind, so M2 adds
+  no code for the bed and heal claim lines.
 
-- [ ] **Step 1: Write the failing GameTests**
+- [ ] **Step 1: Write the failing tests**
 
-```kotlin
-// cdUi14ClaimsListsEveryEntry: a Working Stoker (work claim) and a bound Charmander (binding); run the command through
-//   server.commands.performPrefixedCommand(operatorSource, "cobblemondynamics claims") with a CommandSource that records
-//   messages; the output holds one claim line and one binding line, each with the target and the worker name.
-//   M2 Task 6 adds the bed and heal claim lines.
-// cdSec09LevelZeroIsRefused: a level-0 mock player runs both "cobblemondynamics claims" and "cobblemondynamics stamina";
-//   both fail (performPrefixedCommand returns 0 and the recorded output holds no claim line).
-```
+`ClaimsReportTest` checks the block target text (`minecraft:the_nether 12 64 -3`) and that every claim and binding
+gives one line in that order (CD-UI-14). These GameTests are not written:
+
+- CD-UI-14 (`cdUi14ClaimsListsEveryEntry`: a Working Stoker (work claim) and a bound Charmander (binding); run the
+  command through `server.commands.performPrefixedCommand(operatorSource, "cobblemondynamics claims")` with a
+  CommandSource that records messages; the output holds one claim line and one binding line, each with the target and
+  the worker name): GameTest deferred (high confidence): verified in the end-of-phase pass. Task 13's test pack
+  `reload` scenario runs the command from the console of a real server.
+- CD-SEC-09 (`cdSec09LevelZeroIsRefused`: a level-0 mock player runs both "cobblemondynamics claims" and
+  "cobblemondynamics stamina"; both fail, `performPrefixedCommand` returns 0 and the recorded output holds no claim
+  line): GameTest deferred (high confidence): verified in the end-of-phase pass.
 
 - [ ] **Step 2: Write the command, run the tests, see them pass, and commit**
 
-Run: `./gradlew runGameTestServer`
-Expected: PASS.
+Run: `./gradlew build`
+Expected: `BUILD SUCCESSFUL`.
 
 ```bash
-git add src/main src/gametest
+git add -- <each new and changed file under src/main and src/test> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md \
+  docs/plans/2026-11-09-phase-1-m2-stamina-beds-healers.md docs/plans/2026-11-09-phase-1-m5-ui-compat-gate.md
 git commit -m "Add the /cobblemondynamics claims operator command"
 ```
 

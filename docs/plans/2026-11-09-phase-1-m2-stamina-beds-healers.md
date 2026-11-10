@@ -476,6 +476,8 @@ user is the healer and its target the ally.
 
 - [ ] **Step 1: Failing GameTests** — `cdUi15StaminaShowsValueStateAndRule` (a Lv50 healer at 40%: the output
   holds `40`, its state, and `healer rule`); extend `cdUi14ClaimsListsEveryEntry` with a sleeper's bed claim
-  and a healer's heal claim; extend `cdSec09LevelZeroIsRefused` to the stamina command.
+  and a healer's heal claim; extend `cdSec09LevelZeroIsRefused` to the stamina command. M1 deferred both of
+  those GameTests to the end-of-phase pass, so `CommandTests.kt` may not exist yet: write the extensions as
+  their own tests, or defer them with the same marking. The claims command already lists every claim kind.
 - [ ] **Step 2: Write the code, run, commit, push, open the pull request** — `/commit`, then `pr-runner`
   with base `main`. The body lists the rows of Tasks 1 to 6.

@@ -19,5 +19,11 @@
   "cobblemon_dynamics.binding.reason.released": "it was released",
   "cobblemon_dynamics.binding.reason.traded": "it has a new owner",
   "cobblemon_dynamics.binding.reason.no_role": "its new form cannot do the job",
-  "cobblemon_dynamics.binding.reason.pasture_gone": "its pasture block is gone"
+  "cobblemon_dynamics.binding.reason.pasture_gone": "its pasture block is gone",
+  "cobblemon_dynamics.command.claims.claim": "claim %s %s %s (%s)",
+  "cobblemon_dynamics.command.claims.binding": "binding %s %s (%s)",
+  "cobblemon_dynamics.command.claims.none": "No claims and no leash bindings",
+  "cobblemon_dynamics.command.claims.kind.work": "work",
+  "cobblemon_dynamics.command.claims.kind.bed": "bed",
+  "cobblemon_dynamics.command.claims.kind.heal": "heal"
 }
