@@ -9,6 +9,16 @@ when your hands are on the code.
   required test fails; grep the log for `required tests` and `failed at`.
 - GameTest owners are NeoForge `FakePlayer`s (`TestKit.owner`). Vanilla's `makeMockServerPlayerInLevel`
   joins the player list, and its connection rejects Cobblemon's login payloads.
+- `FakePlayer.teleportTo` does nothing: the compiled `FakePlayerNetHandler` drops it, which the sources jar
+  does not show. Move a fake player with `moveTo`. Check NeoForge behaviour with `javap` on the merged jar.
+- The GameTest server ops players at level 0. `TestKit.operator` gets level 2 by overriding
+  `getPermissionLevel()`.
+- Tests in one GameTest batch run side by side and share the engine and the claim registry. A test that
+  resets the engine or unloads a chunk needs its own batch, and a check reads only its own workers.
+- `runAtTickTime` callbacks for the same tick run in hash order, not insertion order.
+- A furnace with both fuel and input burns the fuel on its first tick.
+- ktlint strips `->` from a zero-argument lambda, which makes `AttachmentType.builder` ambiguous. Write
+  `Supplier { ... }`.
 - `Pokemon.entity` is null for pastured Pokémon (it reads `ActivePokemonState` only). Find a pastured
   entity in the level by `entity.pokemon.uuid`.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
