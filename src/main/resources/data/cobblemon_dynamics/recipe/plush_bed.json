@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "DGD",
+    "GBG",
+    "DGD"
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond" },
+    "G": { "item": "minecraft:gold_ingot" },
+    "B": { "item": "cobblemon_dynamics:wool_bed" }
+  },
+  "result": { "id": "cobblemon_dynamics:plush_bed", "count": 1 }
+}

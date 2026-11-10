@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "HHH",
+    "PPP"
+  ],
+  "key": {
+    "H": { "item": "minecraft:hay_block" },
+    "P": { "tag": "minecraft:planks" }
+  },
+  "result": { "id": "cobblemon_dynamics:hay_bed", "count": 1 }
+}

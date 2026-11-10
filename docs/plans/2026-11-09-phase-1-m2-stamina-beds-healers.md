@@ -272,17 +272,24 @@ Expected: PASS.
 **Rows:** CD-BED-01, CD-BED-02, CD-ART-11 (placeholders are allowed).
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/bed/BedTier.kt` (`HAY(1)`, `WOOL(2)`, `PLUSH(3)`, `STARLIT(4)`)
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/bed/BedBlock.kt` (low shape, 0 to 6/16 high)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/bed/BedTier.kt` (`HAY(1)`, `WOOL(2)`, `PLUSH(3)`, `STARLIT(4)`;
+  `tier`, `id`, `of(tier)`, and a `StringRepresentable` codec for the block codec)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/bed/BedBlock.kt` (low shape, 0 to 6/16 high, `HEIGHT = 6/16`; a
+  `BaseEntityBlock` that overrides `getRenderShape` to `MODEL`, because the base class renders nothing)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/bed/BedBlockEntity.kt` (holds the tier; exists so scans find beds in the block entity map)
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsBlocks.kt` (`hay_bed`, `wool_bed`, `plush_bed`, `starlit_bed` and their items)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsBlocks.kt` (`hay_bed`, `wool_bed`, `plush_bed`, `starlit_bed`, their
+  items in the Functional Blocks tab, and the block entity type `cobblemon_dynamics:bed`)
+- Modify: `CobblemonDynamics.kt` (`DynamicsBlocks.register`)
 - Create: `src/main/resources/data/cobblemon_dynamics/recipe/{hay,wool,plush,starlit}_bed.json`
 - Create: `src/main/resources/data/cobblemon_dynamics/loot_table/blocks/*_bed.json` (drop itself)
-- Create: `src/main/resources/assets/cobblemon_dynamics/{blockstates,models/block,models/item}/*_bed.json`
+- Create: `src/main/resources/assets/cobblemon_dynamics/{blockstates,models/block,models/item}/*_bed.json`, and
+  `models/block/template_bed.json`, the one 16 × 6 × 16 element with `#top` and `#side` that each bed's block model takes
+  as its parent
 - Create: placeholder textures `assets/cobblemon_dynamics/textures/block/*_bed_{top,side}.png` with `scripts/placeholder_art.py`
 - Modify: `en_us.json` (`block.cobblemon_dynamics.hay_bed` = `Hay Bed`, and the other three)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/bed/BedTierTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/BedRecipeTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/bed/BedContentFilesTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/BedRecipeTests.kt` (deferred, see Step 1)
 
 Recipes, from the spec's Recipes table:
 
@@ -310,10 +317,17 @@ Recipes, from the spec's Recipes table:
 ```
 
 - [ ] **Step 1: Failing tests** — `BedTierTest` (`CD-BED-01`: four tiers 1 to 4 with ids `hay_bed`,
-  `wool_bed`, `plush_bed`, `starlit_bed`). `BedRecipeTests` (`CD-BED-02`): for each bed, build the exact
-  `CraftingInput` and assert the result; for each upgrade, the same grid with the lower bed replaced by
-  air (shaped) or removed (shapeless) gives no recipe. Also `cdBed01RegistryListsFourBeds`: the block
-  registry holds the four ids and each block entity reports its tier.
+  `wool_bed`, `plush_bed`, `starlit_bed`, their factors 2, 3, 4 and 8, and the tier codec).
+  `BedContentFilesTest` reads the files as the Recipes table states them, the way `WorkLeashRecipeTest` reads
+  the leash recipe (`CD-BED-02`: the Hay Bed pattern and inputs; each shaped upgrade has the lower bed as its
+  one center input and exactly three keys, so a grid with air in the center matches nothing; the Starlit Bed
+  ingredients), and checks the loot tables (each bed drops itself), the lang names, the blockstate, block and
+  item models (the template is 6/16 high, like `BedBlock.HEIGHT`) and the eight 16 × 16 PNGs (CD-ART-11).
+  - CD-BED-02 (`BedRecipeTests`: for each bed, build the exact `CraftingInput` and assert the result; for each
+    upgrade, the same grid with the lower bed replaced by air (shaped) or removed (shapeless) gives no recipe):
+    GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-BED-01 (`cdBed01RegistryListsFourBeds`: the block registry holds the four ids and each block entity
+    reports its tier): GameTest deferred (high confidence): verified in the end-of-phase pass.
 - [ ] **Step 2: Run, write the content, run again, commit** —
   `git commit -m "Add the four bed tiers with recipes and placeholder art"`.
 

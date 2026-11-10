@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        { "type": "minecraft:item", "name": "cobblemon_dynamics:starlit_bed" }
+      ],
+      "conditions": [
+        { "condition": "minecraft:survives_explosion" }
+      ]
+    }
+  ],
+  "random_sequence": "cobblemon_dynamics:blocks/starlit_bed"
+}

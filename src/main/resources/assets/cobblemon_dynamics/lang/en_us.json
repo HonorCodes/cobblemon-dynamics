@@ -1,5 +1,9 @@
 {
   "item.cobblemon_dynamics.work_leash": "Work Leash",
+  "block.cobblemon_dynamics.hay_bed": "Hay Bed",
+  "block.cobblemon_dynamics.wool_bed": "Wool Bed",
+  "block.cobblemon_dynamics.plush_bed": "Plush Bed",
+  "block.cobblemon_dynamics.starlit_bed": "Starlit Bed",
   "entity.cobblemon_dynamics.work_focus": "Work Focus",
   "cobblemon_dynamics.leash.outside_area": "Outside its pasture's work area",
   "cobblemon_dynamics.leash.no_role": "No role fits",
