@@ -10,8 +10,8 @@ another existing Minecraft instance.
   `python3` on Linux.
 - A JDK 21 in `JAVA_HOME`. The script never starts the `java` on the PATH, because that one can be
   older.
-- A built mod jar. Run `./gradlew build` (`gradlew.bat build` on Windows) before `smoke`, `deps` or
-  `client`.
+- A built mod jar. Run `./gradlew build` (`gradlew.bat build` on Windows) before `smoke`, `deps`,
+  `compat` or `client`.
 
 ## Commands
 
@@ -23,6 +23,7 @@ Run each command from the repository root, for example `py scripts/testpack/test
 | `smoke` | Starts a server with the pinned mods and the built jar. Checks that the mod loads and that RCON answers `list`, then stops the server. Prints `SMOKE PASS` or `SMOKE FAIL: <reason>`. |
 | `reload` | Starts the same server, runs `cobblemondynamics claims` over RCON (it must answer that there are no claims), runs `reload`, waits for the reload to end, and checks that the log has no `Skipping role file` line. Prints `RELOAD PASS` or `RELOAD FAIL: <reason>`. |
 | `deps` | Runs the dependency-range cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `DEPS PASS` or `DEPS FAIL`. |
+| `compat` | Runs the compatibility cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `COMPAT PASS` or `COMPAT FAIL`. |
 | `client` | Fills `run/testpack/client/mods/` with the pinned mods and the built jar, for a manual play-test in a clean NeoForge 21.1.265 launcher instance. |
 
 The exit code is 0 for a pass and 1 for a failure.
@@ -47,6 +48,20 @@ After a rejection, the server exits with code 0. So the script checks the log, n
 
 A case is `SKIPPED` when `resolve` found no release for its version.
 
+## Compatibility cases
+
+Each case adds a neighbour mod from the `compat` pins to the pinned set. The server writes every class
+that it loads to `classload.log` in the profile (`-Xlog:class+load`). A case passes when the server starts
+and stops, the named class of ours loads, no class with a forbidden prefix loads, no error line names one,
+and the log has no `Cobblebase hooks ... did not apply` warning and no mixin failure.
+
+| Case | Added mods | Must load | Must never load |
+|---|---|---|---|
+| `compat_cobblebase` | Cobblebase 2.0.1 and Cloth Config 15.0.140, which Cobblebase needs at run time | `compat.CobblebaseHooks` | `compat.Cobbleworkers*` (CD-CMP-06) |
+| `compat_cobbleworkers` | Cobbleworkers 2.0.7 | `compat.CobbleworkersCompat` | `compat.Cobblebase*` and `mixin.compat.cobblebase.*` (CD-CMP-07) |
+
+Class names are under `codes.honor.cobblemondynamics.`.
+
 ## Files
 
 | Path | Content |
@@ -54,7 +69,7 @@ A case is `SKIPPED` when `resolve` found no release for its version.
 | `scripts/testpack/mods.json` | The pins: version, file name, URL and SHA-512 of each download. |
 | `run/testpack/cache/` | Downloads. The script deletes a download whose SHA-512 does not match `mods.json`. |
 | `run/testpack/base/neoforge-<version>/` | One NeoForge server install for each version. |
-| `run/testpack/<profile>/` | One server for each run: `smoke/`, `deps-<case>/` and later scenarios. The script makes it again from the base install on each run. |
+| `run/testpack/<profile>/` | One server for each run: `smoke/`, `deps-<case>/`, `compat_<mod>/` and later scenarios. The script makes it again from the base install on each run. |
 
 A profile has `logs/latest.log` and `console.log` (the server stdout and stderr). Profiles use hard
 links to the large jars where the file system allows it. Each server listens on 127.0.0.1 only,

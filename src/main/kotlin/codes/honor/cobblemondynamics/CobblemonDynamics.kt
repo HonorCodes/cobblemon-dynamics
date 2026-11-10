@@ -5,6 +5,8 @@ import codes.honor.cobblemondynamics.ai.DynamicsActivities
 import codes.honor.cobblemondynamics.ai.DynamicsMemories
 import codes.honor.cobblemondynamics.client.DynamicsClient
 import codes.honor.cobblemondynamics.command.DynamicsCommands
+import codes.honor.cobblemondynamics.compat.CobblebaseHooks
+import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
@@ -58,6 +60,13 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (FMLEnvironment.dist.isClient) DynamicsClient.register(modBus)
         // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.
         modBus.addListener<FMLCommonSetupEvent> { it.enqueueWork(Runnable { BrainBridge.registerTaskTypes() }) }
+        // CD-CMP-06, CD-CMP-07: each compat class loads only when its mod is present.
+        if (ModList.get().isLoaded("cobbleworkers")) CobbleworkersCompat.register()
+        if (ModList.get().isLoaded("cobblebase")) {
+            modBus.addListener<FMLCommonSetupEvent> { event ->
+                event.enqueueWork(Runnable { CobblebaseHooks.check { message -> LOGGER.warn(message) } })
+            }
+        }
         HandlerRegistry.register(FurnaceHandler)
         HandlerRegistry.register(FePushHandler)
         HandlerRegistry.register(BuddingHandler)

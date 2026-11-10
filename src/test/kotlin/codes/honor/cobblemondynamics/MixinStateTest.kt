@@ -39,6 +39,17 @@ class MixinStateTest {
     }
 
     @Test
+    fun `CD-CMP-05 each handler that a target calls counts as applied by its name`() {
+        val target =
+            target(called = "handler\$zzc000\$cobblemon_dynamics\$partOne", merged = "handler\$zzc001\$cobblemon_dynamics\$partTwo")
+        MixinState.recordApplied("codes.honor.cobblemondynamics.mixin.test.PartMixin", target)
+        assertTrue(MixinState.handlerApplied("partOne"))
+        // The merged handler that nothing calls did not apply.
+        assertFalse(MixinState.handlerApplied("partTwo"))
+        assertTrue(MixinState.applied("test.PartMixin"))
+    }
+
+    @Test
     fun `setForTest overrides the recorded state`() {
         val key = "test.OverriddenMixin"
         MixinState.recordApplied("codes.honor.cobblemondynamics.mixin.$key", target(called = "handler\$zzb000\$cobblemon_dynamics\$heat"))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Clean NeoForge 1.21.1 test servers with only the mods a scenario needs. Never the COHO pack.
 
-Usage: py scripts/testpack/testpack.py {resolve,deps,client,<scenario>}   (python3 on Linux)
+Usage: py scripts/testpack/testpack.py {resolve,deps,compat,client,<scenario>}   (python3 on Linux)
 Everything is built under run/testpack/. Downloads are verified against mods.json and cached in
 run/testpack/cache/. Each scenario_<name> function below is a command. `smoke` is the first one.
 """
@@ -184,7 +184,7 @@ def resolve_neoforge(pin: dict) -> str:
 def resolve() -> None:
     """Fill the file name, URL and SHA-512 of every pin in mods.json and write the file back."""
     versions: dict[str, list[dict]] = {}
-    for pin in [PINS["neoforge"], *PINS["mods"].values(), *PINS["demo_versions"].values()]:
+    for pin in [PINS["neoforge"], *PINS["mods"].values(), *PINS["demo_versions"].values(), *PINS["compat"].values()]:
         if "project" not in pin:
             say(resolve_neoforge(pin))
             continue
@@ -401,12 +401,13 @@ class Server:
             self.process.kill()
             self.process.wait()
 
-    def start(self) -> None:
+    def start(self, jvm_args: list[str] | None = None) -> None:
         """Start the server headless. Its stdout and stderr go to console.log in the profile folder."""
         args = sorted(self.folder.glob(f"libraries/net/neoforged/neoforge/*/{ARGS_FILE}"))
         if len(args) != 1:
             raise TestpackError(f"expected one NeoForge {ARGS_FILE} in {rel(self.folder)}, found {len(args)}")
-        command = [java(), "-Xmx3G", "@user_jvm_args.txt", "@" + args[0].relative_to(self.folder).as_posix(), "nogui"]
+        command = [java(), "-Xmx3G", *(jvm_args or []), "@user_jvm_args.txt",
+                   "@" + args[0].relative_to(self.folder).as_posix(), "nogui"]
         with self.console.open("wb") as console:
             self.process = subprocess.Popen(command, cwd=self.folder, stdin=subprocess.DEVNULL, stdout=console,
                                             stderr=subprocess.STDOUT)
@@ -604,6 +605,104 @@ def deps_demo() -> bool:
     return bool(ran) and all(status == "PASS" for status in ran)
 
 
+# Compatibility with Cobbleworkers and Cobblebase
+
+
+class CompatCase(NamedTuple):
+    """One neighbour mod beside the pinned set.
+
+    mods holds the keys under "compat" in mods.json to install: the neighbour first, then the libraries
+    it needs. The server logs every class it loads: present names a class of ours that must load, which
+    shows that the log sees our classes, and absent holds the class name prefixes of the other mod's
+    compat code, which must never load (CD-CMP-06, CD-CMP-07).
+    """
+
+    name: str
+    mods: tuple[str, ...]
+    present: str
+    absent: tuple[str, ...]
+
+
+OUR_PACKAGE = "codes.honor.cobblemondynamics."
+COMPAT_CASES = [
+    # Cobblebase 2.0.1 needs Cloth Config at run time, although its neoforge.mods.toml does not list it.
+    CompatCase("compat_cobblebase", ("cobblebase", "cloth_config"), OUR_PACKAGE + "compat.CobblebaseHooks",
+               (OUR_PACKAGE + "compat.Cobbleworkers",)),
+    CompatCase("compat_cobbleworkers", ("cobbleworkers",), OUR_PACKAGE + "compat.CobbleworkersCompat",
+               (OUR_PACKAGE + "compat.Cobblebase", OUR_PACKAGE + "mixin.compat.cobblebase.")),
+]
+CLASS_LOG = "classload.log"
+# CobblebaseHooks logs this once when a Cobblebase hook did not apply (CD-CMP-05).
+HOOKS_MISSING = r"Cobblebase hooks .* did not apply"
+MIXIN_FAILURE = r"Mixin apply failed|InvalidInjectionException|InjectionError|cobblemon_dynamics\.mixins\.json.*(ERROR|failed)"
+
+
+def loaded_classes(log: pathlib.Path) -> set[str]:
+    """The class names in a -Xlog:class+load log: '[0.123s][info][class,load] a.b.C source: ...'."""
+    if not log.is_file():
+        raise TestpackError(f"no class load log at {rel(log)}")
+    names = set()
+    with log.open(encoding="utf-8", errors="replace") as f:
+        for line in f:
+            match = re.search(r"\[class,load\] (\S+)", line)
+            if match:
+                names.add(match.group(1))
+    return names
+
+
+def run_compat_case(case: CompatCase) -> tuple[str, str]:
+    pins = {mod: PINS["compat"][mod] for mod in case.mods}
+    pin = pins[case.mods[0]]
+    for extra in pins.values():
+        if not extra.get("url"):
+            return "SKIPPED", f"{pin_name(extra)} has no NeoForge {PINS['minecraft']} release"
+    folder = install(case.name, pins)
+    problems = []
+    with Server(folder) as server:
+        server.start([f"-Xlog:class+load=info:file={CLASS_LOG}"])
+        server.wait_log(DONE, BOOT_TIMEOUT)
+        if server.find_log(OUR_MOD_LOADING) is None:
+            problems.append(f"no {OUR_MOD_LOADING!r} line")
+        for prefix in case.absent:
+            error = server.find_log(rf"/(ERROR|FATAL)\].*{re.escape(prefix)}")
+            if error is not None:
+                problems.append(f"an error names {prefix}: {error.strip()}")
+        for pattern in (HOOKS_MISSING, MIXIN_FAILURE):
+            line = server.find_log(pattern)
+            if line is not None:
+                problems.append(line.strip())
+        code = server.stop()
+    if code != 0:
+        problems.append(f"the server exited with code {code} after stop")
+    classes = loaded_classes(folder / CLASS_LOG)
+    if case.present not in classes:
+        problems.append(f"{case.present} never loaded")
+    for prefix in case.absent:
+        loaded = sorted(name for name in classes if name.startswith(prefix))
+        if loaded:
+            problems.append(f"loaded {', '.join(loaded)}")
+    if problems:
+        return "FAIL", "; ".join(problems)
+    return "PASS", f"{pin_name(pin)}: started and stopped, {case.present} loaded, none of {', '.join(case.absent)} loaded"
+
+
+def compat_demo() -> bool:
+    """Run each compat case, print one CASE line each, and return True when none failed."""
+    results = []
+    for case in COMPAT_CASES:
+        say(f"compat case {case.name}")
+        try:
+            status, detail = run_compat_case(case)
+        except (TestpackError, OSError) as error:
+            status, detail = "FAIL", str(error)
+        say(f"  -> {status}")
+        results.append((case.name, status, detail))
+    for name, status, detail in results:
+        say(f"CASE {name}: {status} {detail}")
+    ran = [status for _, status, _ in results if status != "SKIPPED"]
+    return bool(ran) and all(status == "PASS" for status in ran)
+
+
 # Client mods folder
 
 
@@ -622,7 +721,7 @@ def client() -> pathlib.Path:
 def main() -> int:
     sys.stdout.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["resolve", "deps", "client", *scenarios()])
+    parser.add_argument("command", choices=["resolve", "deps", "compat", "client", *scenarios()])
     command = parser.parse_args().command
     try:
         if command == "resolve":
@@ -636,6 +735,10 @@ def main() -> int:
         if command == "deps":
             passed = deps_demo()
             say("DEPS PASS" if passed else "DEPS FAIL")
+            return 0 if passed else 1
+        if command == "compat":
+            passed = compat_demo()
+            say("COMPAT PASS" if passed else "COMPAT FAIL")
             return 0 if passed else 1
         run_scenario(command)
     except (TestpackError, OSError) as error:

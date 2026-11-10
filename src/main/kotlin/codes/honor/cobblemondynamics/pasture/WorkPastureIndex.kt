@@ -13,6 +13,8 @@ class WorkPastureIndex(private val positions: MutableSet<Long>) {
         positions.remove(pos.asLong())
     }
 
+    fun contains(pos: BlockPos): Boolean = pos.asLong() in positions
+
     /** A copy, so callers may change the index while they walk it. */
     fun all(): Set<Long> = positions.toSet()
 

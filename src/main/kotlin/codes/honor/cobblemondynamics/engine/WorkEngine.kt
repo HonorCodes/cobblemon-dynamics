@@ -12,6 +12,7 @@ import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.ClaimRegistry
 import codes.honor.cobblemondynamics.claim.ClaimResult
 import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.compat.WorkerEvents
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.fx.EffectPlayer
@@ -247,6 +248,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             slot.worker.leashed = slot.binding != null
             slot.rule = RecoveryRule.of(hasFairyType(slot.pokemon), slot.binding != null)
             claimBound(t, runtime, slot, taken)
+            // CD-CMP-01: the Cobbleworkers shim marks each worker within one poll of Work Mode turning on.
+            WorkerEvents.polled(slot.pokemon)
         }
     }
 
@@ -739,6 +742,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun drop(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
         release(t, slot)
         flush(slot, t.now)
+        WorkerEvents.left(slot.pokemon)
         val entity = slot.entity
         if (!entity.isRemoved && entity.hasData(DynamicsAttachments.STAMINA_VIEW)) entity.removeData(DynamicsAttachments.STAMINA_VIEW)
         runtime.slots.remove(slot.worker.pokemonId)

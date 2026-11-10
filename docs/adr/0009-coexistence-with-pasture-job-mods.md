@@ -35,6 +35,13 @@ The operator ruled that Work Mode pastures belong to Dynamics.
 - **Other pastures.** Pastures without Work Mode keep the other mods' jobs.
 - **Load order.** `neoforge.mods.toml` lists both mods as optional dependencies, for load order only.
 
+### Amendment (M5, 2026-11-10)
+
+The 2.0.1 jar confirms the inferred fact: Cobblebase runs its whole pasture loop inside its own mixin handler,
+which another mixin cannot target. The shim is four `@Pseudo` mixins on the helper methods that the loop calls,
+and they leave alone every pasture that is not in Work Mode. Cobblebase 2.0.1 also needs Cloth Config at run
+time, although its `neoforge.mods.toml` does not list it.
+
 ## Consequences
 
 - Packs can combine Dynamics with either mod.

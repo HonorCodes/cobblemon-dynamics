@@ -79,7 +79,8 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
   vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
                          other code load)
   cobblemon/client/      PastureWidgetMixin (stamina bars), PasturePokemonScrollListMixin (list height)
-  compat/cobblebase/     @Pseudo mixins
+  compat/cobblebase/     AmbientBehaviorMixin, NavigationHelperMixin, BaseManagerMixin, PassiveXpMixin
+                         (@Pseudo hooks in Cobblebase's helpers)
 src/main/resources/
   META-INF/neoforge.mods.toml
   META-INF/accesstransformer.cfg
@@ -504,6 +505,19 @@ references. This section lists what the code uses.
   through a LOWEST-priority adapter. Telekinesis queries the cable part from the face it sits on,
   because a `null` side reaches the cable. Items land in the interface's 9-slot buffer. AE2 sends
   them to the network on its grid tick, when the interface has a channel and power.
+
+### Cobbleworkers 2.0.7 and Cobblebase 2.0.1
+
+Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-with-pasture-job-mods.md)).
+
+- **Cobbleworkers.** It gives no job to a Pokémon whose `persistentData` holds `cobbleworkers.resting = true`.
+  At each poll the engine sets that flag on every worker of a Work Mode pasture and marks it as ours; when the
+  worker leaves, it clears only a flag that it marked. No Cobbleworkers class is used.
+- **Cobblebase.** Its pasture loop runs inside its own mixin handler at the tail of Cobblemon's pasture ticker,
+  which another mixin cannot target. Four `@Pseudo` mixins hook the helper methods that the loop calls instead:
+  for a Work Mode pasture or one of its workers, Cobblebase finds no water to move a Water-type into, starts no
+  idle behaviour, sleep lock, wander, unstick or job, and gives no passive experience. At start, the mod logs one
+  warning that names each hook that did not apply.
 
 ### NeoForge 21.1 and vanilla 1.21.1
 

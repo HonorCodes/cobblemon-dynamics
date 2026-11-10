@@ -142,10 +142,11 @@ GameTest `cdUi09OverviewHoldsOnlyOwnTargets` (in `LeashTests`) checks the server
 optional).
 
 **Files:** `compat/CobbleworkersRest.kt` (pure flag logic over a `CompoundTag`), `compat/CobbleworkersCompat.kt`
-(loaded only when `cobbleworkers` is present), `compat/CobblebaseCompat.kt` and
-`mixin/compat/cobblebase/CobblebasePastureTickMixin.java` (`@Pseudo`, cancels Cobblebase's pasture tick entry
-for a pasture in Work Mode), `src/test/kotlin/.../compat/CobbleworkersRestTest.kt`, test pack scenarios
-`compat_cobbleworkers` and `compat_cobblebase`.
+(loaded only when `cobbleworkers` is present), `compat/WorkerEvents.kt`, `compat/CobblebaseCompat.kt`,
+`compat/CobblebaseHooks.kt` and `mixin/compat/cobblebase/{AmbientBehavior,NavigationHelper,BaseManager,PassiveXp}Mixin.java`
+(`@Pseudo`, in place of the planned `CobblebasePastureTickMixin`: see the design below),
+`src/test/kotlin/.../compat/CobbleworkersRestTest.kt`, `CobblebaseHooksTest.kt`, test pack scenarios
+`compat_cobbleworkers` and `compat_cobblebase` (command `compat`).
 
 `CobbleworkersRest.mark(data)` sets `cobbleworkers.resting = true` and our ownership key
 `cobblemon_dynamics.set_cw_rest = true` only when the flag was not already set; `unmark(data)` clears the
@@ -156,6 +157,42 @@ when it fails to apply, `MixinState` records nothing and the compat logs one war
 loading: the compat classes sit behind `ModList.isLoaded` checks in their own packages (CD-CMP-06,
 CD-CMP-07).
 
+Design (checked against the Cobbleworkers 2.0.7 and Cobblebase 2.0.1 jars, decompiled with Vineflower):
+
+- Cobbleworkers' `RestManager` reads the boolean `cobbleworkers.resting` at the top level of
+  `Pokemon.persistentData` and removes the key when rest goes off. Our ownership mark is the entry `set_cw_rest`
+  in the `cobblemon_dynamics` compound, as ARCHITECTURE's data model says. The engine tells `WorkerEvents` at
+  each poll of a worker and when a worker leaves (`drop`: it left the pasture, Work Mode turned off, or the
+  pasture is gone). `CobbleworkersCompat` listens only when Cobbleworkers is loaded, and it uses no Cobbleworkers
+  class. With `compat.cobbleworkers = false`, each poll clears the flags that Dynamics set, so none is stranded.
+- The plan's single Cobblebase entry method does not exist. Cobblebase 2.0.1 runs its whole pasture loop inside
+  its own TAIL handler `cobblebase$tick`. Mixin cannot target a handler that another mixin merged, and it finds
+  every injection point before any mixin injects, so no mixin can wrap the call to that handler either. A
+  cancellable TAIL callback ordered before Cobblebase's would skip every later TAIL hook of every mod for Work Mode
+  pastures, Cobbleworkers and Cobbreeding included. So four `@Pseudo` mixins in `mixin/compat/cobblebase` hook
+  the helper methods that the loop calls, 10 handlers in all:
+  - `AmbientBehaviorMixin`: `isSleeping` and `shouldPreventMovement` answer false for a worker, which also turns
+    off Cobblebase's sleep lock on `PokemonEntity.tick`; `tickIdle` answers "handled" for a Work Mode pasture, so
+    no idle behaviour and no wander start; `tickSpecialAnimations` does nothing for a worker.
+  - `NavigationHelperMixin`: `findNearbyWaterCached` finds no water for a Work Mode pasture, so no Water-type is
+    moved into water; `wanderNearOrigin` and `checkAndUnstick` do nothing for a Work Mode pasture, and
+    `escapeLeaves` nothing for a worker.
+  - `BaseManagerMixin`: `tickPokemon`, which runs Cobblebase's jobs and its return-to-pasture teleports, does
+    nothing for a Work Mode pasture.
+  - `PassiveXpMixin`: `tick` gives no passive experience in a Work Mode pasture.
+  `CobblebaseCompat` answers for a pasture through the level's Work Mode index, and for a Pokémon through the
+  work engine, on the server thread only. Both answers are false with `compat.cobblebase = false`.
+- CD-CMP-05: `MixinState.handlerApplied` records each handler that some target calls. At common setup, with
+  Cobblebase loaded, `CobblebaseHooks.check` loads the four classes without initializing them, which makes Mixin
+  apply the hooks, and logs one warning that names every hook that did not apply.
+- The GameTest runs cannot load Cobbleworkers or Cobblebase, which are not on the development run classpath. The
+  test pack's `compat` command checks CD-CMP-06 and CD-CMP-07 on real servers instead. Case `compat_cobblebase`
+  installs Cobblebase 2.0.1 with Cloth Config 15.0.140, which Cobblebase needs at run time although its
+  `neoforge.mods.toml` does not list it. Case `compat_cobbleworkers` installs Cobbleworkers 2.0.7. Each server
+  logs its class loading (`-Xlog:class+load`). A case passes when the server starts and stops, our compat class
+  for its mod loads, no compat class of the other mod loads, no error names one, and no hook warning or mixin
+  failure appears.
+
 - [ ] **Steps:** `CobbleworkersRestTest` (the flag within one poll; a player-set flag survives `unmark`; a
   Dynamics-set flag is cleared) → write the code → add test pack mod pins for Cobbleworkers 2.0.7 and
   Cobblebase 2.0.1 (Modrinth) → scenarios: a server with Cobblebase and no Cobbleworkers starts with no error
@@ -163,7 +200,9 @@ CD-CMP-07).
   runGameTestServer && py scripts/testpack/testpack.py compat` → commit
   `"Switch Cobbleworkers and Cobblebase off in Work Mode pastures"`. CD-CMP-01, CD-CMP-03 and CD-CMP-04 Demo
   parts (a worker that stays at its machine for 1,200 ticks with each mod) go to the manual checklist and
-  the approver's play-test.
+  the approver's play-test. CD-CMP-03, CD-CMP-04, CD-CMP-05 and the Demo part of CD-CMP-01 are Demo rows. Demo:
+  verified in the play-test (manual checklist, M5 Task 8). The play-test client needs the pinned Cobbleworkers
+  jar, or the Cobblebase and Cloth Config jars, from `run/testpack/cache/`.
 
 ---
 
