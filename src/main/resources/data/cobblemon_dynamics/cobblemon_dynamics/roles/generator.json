@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:fe_push",
+  "types": ["electric"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 6.0,
+  "params": {
+    "base_fe_per_tick": 10,
+    "max_fe_per_tick": 5000,
+    "rare_multiplier": 2.0,
+    "rare_labels": ["legendary", "mythical"]
+  },
+  "effect": {
+    "loop_ticks": 40,
+    "animations": ["thundershock", "electric", "special", "cry"],
+    "actor_particles": ["cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"],
+    "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"]
+  }
+}

@@ -309,7 +309,9 @@ interface TargetHandler {
 ```
 
 `WorkContext` carries the level, the canonical target, the worker entity, its `Pokemon`, the role, the
-role parameters and, for Telekinesis, the destination and both faces.
+role parameters and, for Telekinesis, the destination and both faces. It also carries the claim's memo: one
+value that the handler keeps for the length of the work claim, such as the Generator's capability cache. The
+engine gives each claim an empty memo and drops it when the claim ends.
 
 ## 7. Network
 
@@ -490,8 +492,9 @@ references. This section lists what the code uses.
   Accelerator. Extra ticks also speed up the decay of non-flawless budding certus, as AE2's own
   accelerator does.
 - **FE.** AE2 machines accept FE only on their power sides. The Generator handler tries the face toward
-  the worker first, then the other faces, until one face reports `canReceive()`. It caches the face
-  in a `BlockCapabilityCache`. AE2 converts 2 FE to 1 AE by default.
+  the worker first, then the other faces, nearest first, until one face reports `canReceive()`. It keeps
+  the face in a `BlockCapabilityCache` in the claim's memo while that face still receives. AE2 converts
+  2 FE to 1 AE by default.
 - **ME Interface (Phase 2).** The interface block and the interface cable part expose an item handler
   through a LOWEST-priority adapter. Telekinesis queries the cable part from the face it sits on,
   because a `null` side reaches the cable. Items land in the interface's 9-slot buffer. AE2 sends
@@ -595,8 +598,8 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
   "effect": {
     "loop_ticks": 40,
     "animations": ["thundershock", "electric", "special", "cry"],
-    "actor_particles": ["cobblemon:thundershock_actor", "cobblemon:thundershock_actorbolts"],
-    "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetimpact"]
+    "actor_particles": ["cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"],
+    "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"]
   }
 }
 ```
@@ -604,7 +607,8 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
 The Generator computes FE/t = round(m × base × (max ÷ base)^((L − 1) ÷ 99)). The multiplier m is 2 for
 a Pokémon with a label in `rare_labels` and 1 otherwise, and the rounding comes last. With the
 defaults, that gives 10 FE/t at level 1, 217 at level 50 and 5,000 at level 100. A legendary gives 433
-at level 50 and 10,000 at level 100.
+at level 50 and 10,000 at level 100. A level above 100, under a raised level cap, gives the level-100
+rate.
 
 Other role parameters, as fragments of their role files:
 

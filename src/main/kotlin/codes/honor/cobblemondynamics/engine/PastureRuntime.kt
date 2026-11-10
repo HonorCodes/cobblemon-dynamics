@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.fx.WorkFocusEntity
+import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.role.ActiveRole
@@ -14,11 +15,13 @@ import java.util.UUID
 /** The engine's state of one pasture in Work Mode: its workers, its scan schedule and its running scan pass. */
 class PastureRuntime(val level: ServerLevel, val key: PastureKey, now: Long, scanIntervalTicks: Int) {
     /**
-     * One worker with the live objects that its tick needs. [role] is set while the worker holds a work claim, and [focus]
-     * while it is Working. [binding] is the leash binding that each poll reads from the Pokémon, when it names this pasture.
+     * One worker with the live objects that its tick needs. [role] and [memo] belong to the worker's current work claim, and
+     * [focus] is set while it is Working. [binding] is the leash binding that each poll reads from the Pokémon, when it names this
+     * pasture.
      */
     class Slot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pokemon) {
         var role: ActiveRole? = null
+        var memo: ClaimMemo = ClaimMemo()
         var focus: WorkFocusEntity? = null
         var binding: Binding? = null
 

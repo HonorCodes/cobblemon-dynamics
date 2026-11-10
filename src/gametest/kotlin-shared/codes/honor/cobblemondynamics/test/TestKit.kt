@@ -17,12 +17,14 @@ import com.cobblemon.mod.common.pokemon.Pokemon
 import com.mojang.authlib.GameProfile
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.gametest.framework.GameTestInfo
 import net.minecraft.gametest.framework.GameTestListener
 import net.minecraft.gametest.framework.GameTestRunner
 import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
@@ -186,6 +188,11 @@ object TestKit {
     }
 
     fun engine(helper: GameTestHelper): WorkEngine = WorkEngine.require(helper.level.server)
+
+    /** Another mod's block by its id, so that a test places it with no compile dependency on that mod, such as AE2. */
+    fun ae2Block(id: String): Block = BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse(id)).orElseThrow {
+        GameTestAssertException("no block $id is registered")
+    }
 
     fun furnace(
         helper: GameTestHelper,

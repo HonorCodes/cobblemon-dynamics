@@ -15,6 +15,7 @@ import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.fx.EffectPlayer
+import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
@@ -430,6 +431,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         worker.target = target
         worker.spot = spot
         slot.role = role
+        slot.memo = ClaimMemo()
         t.machine.onClaim(worker, t.now)
         return Attempt.GRANTED
     }
@@ -464,7 +466,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             return
         }
         val handler = role.handler
-        val ctx = WorkContext(t.level, target, slot.entity, slot.pokemon, role.definition, t.now)
+        val ctx = context(t, slot, target, role, slot.memo)
         val arrived = isArrived(slot.entity, spot)
         val before = worker.status
         val ok = guarded(handler, false) {
@@ -733,7 +735,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val role = slot.role
         val target = worker.target
         if (callHandler && worker.status == WorkerStatus.WORKING && role != null && target != null) {
-            guarded(role.handler, Unit) { role.handler.onStop(context(t, slot, target, role)) }
+            guarded(role.handler, Unit) { role.handler.onStop(context(t, slot, target, role, slot.memo)) }
         }
         t.machine.onRelease(worker, t.now)
         clear(slot)
@@ -744,13 +746,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         slot.worker.target = null
         slot.worker.spot = null
         slot.role = null
+        slot.memo = ClaimMemo()
         BrainBridge.clear(slot.entity)
         BrainBridge.wake(slot.entity)
         removeFocus(slot)
     }
 
-    private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: ActiveRole) =
-        WorkContext(t.level, target, slot.entity, slot.pokemon, role.definition, t.now)
+    /** [memo] is the slot's for its own claim. A target that the engine only weighs for the worker gets an empty one. */
+    private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: ActiveRole, memo: ClaimMemo = ClaimMemo()) =
+        WorkContext(t.level, target, slot.entity, slot.pokemon, role.definition, t.now, memo = memo)
 
     private fun area(t: Tick, runtime: PastureRuntime): WorkArea = WorkArea.of(runtime.pos, t.settings, PastureAdapter.maxWanderDistance())
 

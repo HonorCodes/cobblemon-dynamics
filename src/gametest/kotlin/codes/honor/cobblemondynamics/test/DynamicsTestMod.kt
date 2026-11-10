@@ -17,9 +17,10 @@ const val REACHED_ENTITY_INTERACTION = "cobblemon_dynamics_test:reached_entity_i
 
 /** Holds the GameTests of the full mod set. */
 @Mod(TEST_MOD_ID)
-class DynamicsTestMod(@Suppress("UNUSED_PARAMETER") modBus: IEventBus) {
+class DynamicsTestMod(modBus: IEventBus) {
     init {
         HandlerRegistry.register(TestTransferHandler)
+        TestBattery.register(modBus)
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, PlayerInteractEvent.EntityInteract::class.java) {
             it.target.persistentData.putBoolean(REACHED_ENTITY_INTERACTION, true)
         }

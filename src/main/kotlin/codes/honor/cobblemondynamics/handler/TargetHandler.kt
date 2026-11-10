@@ -55,4 +55,17 @@ class WorkContext(
     val destination: BlockPos? = null,
     val sourceFace: Direction? = null,
     val destinationFace: Direction? = null,
+    /**
+     * What the handler keeps between the ticks of this claim. A context outside a claim, as when the engine weighs a target for a
+     * worker, has an empty memo of its own.
+     */
+    val memo: ClaimMemo = ClaimMemo(),
 )
+
+/**
+ * One value that a handler keeps for the length of one work claim, such as a capability cache or the tick that its work started. The
+ * engine gives each claim an empty memo and drops it when the claim ends, so nothing in it outlives the claim or the server.
+ */
+class ClaimMemo {
+    var value: Any? = null
+}

@@ -11,10 +11,33 @@ Before Task 1, check the vanilla and NeoForge references of this milestone: `Cap
 `brewTime`, `PotionBrewing.hasMix`, `LayeredCauldronBlock.LEVEL`, and `EnchantmentMenu.lambda$slotsChanged$0`
 with its `RandomSource#setSeed(J)V` call.
 
+Checked with `javap` on the merged NeoForge 21.1.265 jar before Task 1. Every reference exists as named.
+`Capabilities.EnergyStorage.BLOCK` and `Capabilities.FluidHandler.BLOCK` are `BlockCapability<..., Direction>`,
+and Kotlin sees the context type as `Direction?`. `BlockCapabilityCache.create(cap, level, pos, context)`
+registers its invalidation listener with the level, which holds listeners through weak references, and
+`getCapability()` returns null while the position is not loaded. Lookups go through
+`ILevelExtension.getCapability(cap, pos, context)` and `getCapability(cap, pos, state, blockEntity, context)`.
+`BrewingStandBlockEntity.fuel` and `brewTime` are package-private, so Task 3 needs its access transformer
+lines. `PotionBrewing.hasMix(ItemStack, ItemStack)` and `Level.potionBrewing()` are public,
+`LayeredCauldronBlock.LEVEL` is public and `receiveStalactiteDrip` is protected.
+`EnchantmentMenu.lambda$slotsChanged$0(ItemStack, Level, BlockPos)` calls `RandomSource.setSeed(J)V` once. For
+Task 2: `Tags.Blocks.BUDDING_BLOCKS` and `Tags.Blocks.BUDS` are `c:budding_blocks` and `c:buds`,
+`BuddingAmethystBlock.canClusterGrowAtState(BlockState)` is public and static, and
+`BlockStateBase.randomTick(ServerLevel, BlockPos, RandomSource)` is public.
+
 `TestKit` additions: `testBattery(helper, rel, capacity = Int.MAX_VALUE, refuse: Set<Direction> = emptySet())`
 (a test-mod block with an `EnergyStorage` capability that refuses on the given faces), `ae2Block(id)` (looks
 up an AE2 block by id, so the test mod needs no AE2 import for placement), and `gametestCompileOnly` of the
 AE2 jar for the two tests that read grid energy.
+
+As built: `ae2Block(id)` is in the shared `TestKit`. `testBattery` is an extension of `TestKit` in
+`src/gametest/kotlin/.../test/TestBattery.kt`, because only the full test mod registers the battery block
+(`cobblemon_dynamics_test:test_battery`) and its capability. The battery records each real insert in `offers`
+(the tick, the FE offered and the FE taken), and `drain()` empties it. On a face in `refuse`, its capability is
+present but cannot receive. The `gametestCompileOnly` dependency is not added yet: the two tests that read AE2
+energy (CD-GEN-04 and CD-GEN-07) are deferred to the end-of-phase pass, which adds it. AE2's
+`ForgeEnergyAdapter.getEnergyStored()` gives the AE buffer in FE, so a charger's buffer can also be read through
+its FE capability on a power side, with no AE2 import.
 
 ---
 
@@ -24,30 +47,79 @@ AE2 jar for the two tests that read grid energy.
 CD-CFG-13, CD-CFG-05 (GameTest on the Generator), the final part of CD-LSH-05.
 
 **Files:**
-- Create: `handler/capability/EnergyPort.kt` (internal interface over `IEnergyStorage`), `handler/capability/FeCurve.kt`,
+- Create: `handler/capability/EnergyPort.kt` (internal interface over `IEnergyStorage`, and `FeTick`),
+  `handler/capability/FeCurve.kt` (and `GeneratorParams`), `handler/capability/NearestFaces.kt`,
   `handler/capability/FePushHandler.kt`, `roles/generator.json`
-- Test: `src/test/kotlin/.../handler/capability/FeCurveTest.kt`, `src/test/kotlin/.../role/BalanceFilesTest.kt`
-- Test: `src/gametest/kotlin/.../test/GeneratorTests.kt`
+- Modify: `handler/TargetHandler.kt` (`ClaimMemo`), `engine/PastureRuntime.kt`, `engine/WorkEngine.kt`,
+  `CobblemonDynamics.kt` (registers the handler)
+- Test: `src/test/kotlin/.../handler/capability/FeCurveTest.kt`, `EnergyPortTest.kt`, `NearestFacesTest.kt`,
+  `src/test/kotlin/.../role/BalanceFilesTest.kt`, `BuiltInRoleFilesTest.kt` (the Generator's Role table row)
+- Test: `src/gametest/kotlin/.../test/GeneratorTests.kt`, `src/gametest/kotlin/.../test/TestBattery.kt`,
+  `DynamicsTestMod.kt` (registers the battery)
 
-**Interfaces:**
+**Interfaces, as built:**
 
 ```kotlin
 object FeCurve {
-    /** round(m × base × (max ÷ base)^((L − 1) ÷ 99)), rounding last (CD-GEN-02). */
+    /** round(m × base × (max ÷ base)^((L − 1) ÷ 99)), rounding last (CD-GEN-02). L is clamped to 1..100. */
     fun fePerTick(level: Int, rare: Boolean, base: Int, max: Int, rareMultiplier: Double): Int
-    fun isRare(labels: Set<String>, rareLabels: Set<String>): Boolean     // CD-GEN-03: only the listed labels
+    fun isRare(labels: Set<String>, rareLabels: Set<String>): Boolean     // CD-GEN-03: only the listed labels, without case
 }
-interface EnergyPort { fun simulate(fe: Int): Int; fun push(fe: Int): Int }   // the 1.21.9 transfer API port point
+data class GeneratorParams(val base: Int, val max: Int, val rareMultiplier: Double, val rareLabels: Set<String>) {
+    fun fePerTick(level: Int, labels: Set<String>): Int
+    companion object { fun of(params: JsonObject): GeneratorParams }   // the role file's params (CD-CFG-03)
+}
+internal interface EnergyPort {                                         // the 1.21.9 transfer API port point
+    fun simulate(fe: Int): Int
+    fun push(fe: Int): Int
+    companion object { fun of(storage: IEnergyStorage): EnergyPort }
+}
+internal object FeTick {
+    fun hasDemand(port: EnergyPort, fePerTick: Int): Boolean          // CD-GEN-06: fePerTick > 0 && simulate(1) == 1
+    fun work(port: EnergyPort, fePerTick: Int): Int                    // CD-GEN-05: one push of the rate
+}
+object NearestFaces { fun of(block: BlockPos, from: Vec3): List<Direction> }   // CD-GEN-04: nearest face first
+class ClaimMemo { var value: Any? }                                    // WorkContext.memo
 ```
 
-`FePushHandler` (`id = cobblemon_dynamics:fe_push`): `matches` when the block exposes
-`Capabilities.EnergyStorage.BLOCK` on some face with `canReceive()` (CD-GEN-01). It tries the face toward
-the worker first, then the other five, and caches the first face that receives in a
-`BlockCapabilityCache` per target (CD-GEN-04, R41). `applyWork` offers `fePerTick` once and drops what the
-target refuses (CD-GEN-05). `hasDemand` is `simulate(1) == 1` (CD-GEN-06). AE2 converts FE itself
-(CD-GEN-07). `generator.json` holds `base_fe_per_tick` 10, `max_fe_per_tick` 5000, `rare_multiplier` 2.0
-and `rare_labels` `["legendary", "mythical"]` (CD-CFG-03), and the code applies no cap beyond them
-(CD-CFG-13).
+`FePushHandler` (`id = cobblemon_dynamics:fe_push`, `scanKind = BLOCK_ENTITY`): `matches` when the block exposes
+`Capabilities.EnergyStorage.BLOCK` on one of its six faces with `canReceive()` (CD-GEN-01). `stillValid` asks the
+same of the target, so a target that stops receiving ends its claim. `hasDemand` is `FeTick.hasDemand`
+(CD-GEN-06), and `applyWork` is `FeTick.work`: one offer of `fePerTick`, and what the target refuses is gone
+(CD-GEN-05). AE2 converts FE itself (CD-GEN-07). `generator.json` holds `base_fe_per_tick` 10,
+`max_fe_per_tick` 5000, `rare_multiplier` 2.0 and `rare_labels` `["legendary", "mythical"]` (CD-CFG-03), and the
+code applies no cap beyond them (CD-CFG-13).
+
+Design decisions (the plan gave steps only):
+
+- **Claim memo.** "A `BlockCapabilityCache` per target" lives in a new `WorkContext.memo`, a `ClaimMemo` that
+  the engine keeps in `PastureRuntime.Slot`. `claim` gives each new work claim an empty memo, `clear` drops it
+  when the claim ends, and the tick and the release's `onStop` pass the slot's memo. A target that the
+  assigner only weighs for a worker gets an empty memo of its own. A map in the handler would keep a
+  `ServerLevel` alive after an integrated server stops, because a cache holds its level, and it would keep the
+  face of the first worker that probed. Tasks 2 to 4 keep their claim state in the memo too: the Crystal
+  Tender's start tick, the Brew Stoker's remembered `fuel` and the Pump's accumulator and fluid cache.
+- **Face order (CD-GEN-04, R41).** `NearestFaces.of(target, worker.position())`: the face whose center is
+  nearest the worker's feet first, which is the largest dot product of the face normal with the way from the
+  target's center to the worker. Ties keep `Direction` order. The handler takes the first face whose
+  capability receives and keeps it in the memo, in a `BlockCapabilityCache`, while that capability still
+  receives. A face that stops receiving, such as an AE2 machine's new front after a turn, makes it try the
+  faces again. Only the six real faces count: AE2 answers a `null` side only when all six faces are power
+  sides.
+- **Scan kind.** `BLOCK_ENTITY`, because FE machines have block entities. A block whose capability needs none
+  can still be bound with the Work Leash, because `matches` reads only the capability.
+- **Rate.** `GeneratorParams.of(role.params).fePerTick(pokemon.level, pokemon.form.labels)`, read on each tick,
+  as the burner roles read their heat. A level outside 1 to 100 takes the nearest end of the curve, so
+  `max_fe_per_tick` stays the most that a worker gives under a raised level cap (CD-BAL-01). The result is
+  bounded by `Int.MAX_VALUE`, because `IEnergyStorage` takes an int. A key that a pack's file leaves out takes the
+  value of the mod's own file. A rate of 0 gives no demand, so such a worker waits in Standby.
+- **Effect.** Cobblemon's `thundershock` timeline runs its steps with no entity condition on the user and its
+  `is_user == false` steps on the target. So `actor_particles` are `thundershock_actorsparks`,
+  `thundershock_actorbolts` and `thundershock_actor`, and `target_particles` are `thundershock_target`,
+  `thundershock_targetbolts` and `thundershock_targetimpact`. The animations are `thundershock`, `electric`,
+  `special` and `cry`, and the range is 6.0.
+- **CD-GEN-05** is a unit test, as the row's acceptance states, with a fake battery behind `EnergyPort`.
+  `cdGen06FullBatteryMeansStandby` repeats it on the real capability.
 
 - [ ] **Step 1: Failing unit tests**
 
@@ -73,16 +145,45 @@ class BalanceFilesTest {   // reads the built-in role files with RoleCodec
 Write the three `BalanceFilesTest` bodies in full: parse the file, compute the stated value, assert the
 bound. CD-BAL-07's test lands in Task 2 with the file.
 
-- [ ] **Step 2: Failing GameTests** — `cdGen01CapabilityTargets` (an AE2 Energy Acceptor and a test battery
-  are targets, a battery that refuses on all faces is not), `cdGen04NearestAcceptingFace` (an AE2 Charger
-  whose front faces the worker: its buffer rises), `cdGen05NoHiddenBuffer` (a full battery refuses 217; once
-  emptied, the next tick offers 217), `cdGen06FullBatteryMeansStandby` (Standby within 20 ticks, no drain),
-  `cdGen07Ae2RatioAtLv50` (an Energy Acceptor beside an `ae2:energy_cell`; the grid's stored energy rises by
-  108.5 ± 1 AE per tick), `cdCfg03DatapackSetsLevel100Rate` (batch: `RoleRegistry.applyForTest` with
-  `max_fe_per_tick` 2,500; a Lv100 Generator gives 2,500), `cdCfg13NoHiddenCap` (batch: 20,000; a Lv100
-  legendary gives 40,000 to a battery with no receive limit), `cdCfg05DisabledGeneratorGetsNoClaims` (batch:
-  `roles.disabled` holds the Generator; an Electric-type beside a battery 400 ticks: no claim),
-  `cdLsh05PikachuOnBattery` (the row's literal "a target bound to Pikachu" case).
+As built, `FeCurveTest` also checks the default file through `GeneratorParams` (CD-CFG-03; CD-GEN-03 with a
+Lv100 `ultra_beast` and a Lv100 `paradox` Pokémon at 5,000 FE/t), a level-100 rate of 2,500 (CD-CFG-03) and of
+20,000 for a Lv100 legendary (40,000, CD-CFG-13), the level clamp and the int bound. `EnergyPortTest` covers
+CD-GEN-05 and CD-GEN-06 with a fake battery, `NearestFacesTest` the face order of CD-GEN-04. CD-BAL-01 takes
+the highest rate over levels 1 to 100 of every built-in `fe_push` file. CD-BAL-05 reads
+`items_per_second_at_level_100` and computes ceil(rate × L ÷ 100) for L up to 100 (ARCHITECTURE section 6).
+`BuiltInRoleFilesTest` gets the Generator's Role table row (CD-FX-02), its particle split (CD-FX-04) and the
+range of 6 blocks of every ranged role (CD-ASG-10).
+
+- [ ] **Step 2: GameTests** — as built, three, each on NeoForge's real energy capability:
+
+```kotlin
+// cdGen01CapabilityTargets: the handler's matches and stillValid, as the scan and the Work Leash call them: the test battery and
+//   an AE2 Energy Acceptor (TestKit.ae2Block("ae2:energy_acceptor")) are targets, a battery that refuses on all six faces and
+//   the stone floor are not, and the Generator role is active with FePushHandler (CD-GEN-01).
+// cdGen06FullBatteryMeansStandby: an auto-assigned Lv50 Pikachu fills a 2,000 FE battery (nine offers of 217, then one that
+//   it takes 47 of); Standby within 20 ticks, Work Stamina never drops and no offer reaches the full battery for 40 ticks
+//   (CD-GEN-06); once drained, the next offer is 217 and it is taken whole (CD-GEN-05). Every offer is exactly 217, one per
+//   tick (CD-GEN-02).
+// cdLsh05PikachuOnBattery: a Lv50 Pikachu bound to a battery; a Voltorb's binding to it is refused with
+//   "Already assigned to Pikachu" and gets no binding, and the Pikachu works the battery at 217 FE per tick.
+```
+
+  - CD-GEN-04 (`cdGen04NearestAcceptingFace`: an AE2 Charger whose front faces the worker: its buffer rises):
+    GameTest deferred (high confidence): verified in the end-of-phase pass. The face order is `NearestFacesTest`,
+    and the probe and the push are the same capability calls that the three GameTests run.
+  - CD-GEN-07 (`cdGen07Ae2RatioAtLv50`: an Energy Acceptor beside an `ae2:energy_cell`; the grid's stored energy
+    rises by 108.5 ± 1 AE per tick): GameTest deferred (high confidence): verified in the end-of-phase pass. The
+    handler converts nothing, and `cdGen01CapabilityTargets` shows that the acceptor is a target.
+  - CD-CFG-03 (`cdCfg03DatapackSetsLevel100Rate`: batch, `RoleRegistry.applyForTest` with `max_fe_per_tick`
+    2,500; a Lv100 Generator gives 2,500): GameTest deferred (high confidence): verified in the end-of-phase pass.
+    `FeCurveTest` reads the params, and M1's `cdCfg07` and `cdCfg08` test the reload path.
+  - CD-CFG-13 (`cdCfg13NoHiddenCap`: batch, 20,000; a Lv100 legendary gives 40,000 to a battery with no receive
+    limit): GameTest deferred (high confidence): verified in the end-of-phase pass. `FeCurveTest` gives 40,000,
+    and `FeTick.work` offers the whole rate.
+  - CD-CFG-05 (`cdCfg05DisabledGeneratorGetsNoClaims`: batch, `roles.disabled` holds the Generator; an
+    Electric-type beside a battery 400 ticks: no claim): GameTest deferred (high confidence): verified in the
+    end-of-phase pass. Disabling works by role id, which M1's `cdCfg05DisabledRoleGetsNoClaims` tests on the
+    Stoker.
 - [ ] **Step 3: Write the code, run, commit** — `git commit -m "Generate Forge Energy with Electric-types on an exponential level curve"`.
 
 ---

@@ -23,6 +23,7 @@ class BuiltInRoleFilesTest {
         "cranker" to Row("cobblemon_dynamics:hand_crank", setOf("fighting", "normal"), true, 0, "pound"),
         "burner_keeper" to Row("cobblemon_dynamics:burner_heat", setOf("fire"), true, 0, "flamethrower"),
         "superheater" to Row("cobblemon_dynamics:burner_heat", setOf("dragon"), true, 10, "dragonbreath"),
+        "generator" to Row("cobblemon_dynamics:fe_push", setOf("electric"), true, 0, "thundershock"),
     )
 
     /**
@@ -65,6 +66,31 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("cobblemon:dragonbreath_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:dragonbreath_target"), effect.targetParticles.map { it.toString() })
         assertEquals(listOf("dragonbreath", "spray", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /**
+     * Cobblemon's `thundershock` timeline emits its sparks, its bolts and the shock from the user, the shock aimed at the target, and
+     * three hits on the target only.
+     */
+    @Test
+    fun `CD-FX-04 the Generator's Thunder Shock sparks from the worker and strikes the target`() {
+        val effect = BuiltInRoles.parse("generator").effect
+        assertEquals(
+            listOf("cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"),
+            effect.actorParticles.map { it.toString() },
+        )
+        assertEquals(
+            listOf("cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"),
+            effect.targetParticles.map { it.toString() },
+        )
+        assertEquals(listOf("thundershock", "electric", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /** The Cranker is the only role whose move needs contact. */
+    @Test
+    fun `CD-ASG-10 every built-in ranged role works from 6 blocks`() {
+        val files = BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") && f.name != "cranker.json" }.orEmpty()
+        for (file in files) assertEquals(6.0, BuiltInRoles.parse(file).range, file.name)
     }
 
     @Test
