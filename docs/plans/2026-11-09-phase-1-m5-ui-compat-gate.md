@@ -516,20 +516,88 @@ its end-of-phase test. Test names are `Class.method` in `src/gametest/kotlin/`, 
   - CD-SEC-09: `CommandTests.cdSec09LevelZeroPlayerIsRefused` (the claims and the stamina command).
   - CD-SEC-05 and CD-WMD-03, the payload path: `PayloadTests.cdSec05Wmd03PlacerPayloadsSetTheRequestedState`.
   - CD-SEC-06 and CD-WMD-04, the payload path: `PayloadTests.cdSec06Wmd04TwoOperatorsInOneTick`.
-- M2 Tasks 1 to 3: CD-STA-11, CD-STA-12, CD-BED-01, CD-BED-02.
-- M2 Tasks 4 to 6: CD-STA-13 (the second worker at the next scan), CD-LSH-12 (a binding made while Tired), CD-BED-07,
-  CD-BED-11, CD-BED-13, CD-BED-14, CD-CLM-06 (the Work Mode off and second pasture parts), CD-WMD-05, CD-FX-10 (demo),
-  CD-HEAL-06, CD-HEAL-07, CD-HEAL-09, CD-HEAL-11, CD-HEAL-15 (demo), CD-HEAL-17, CD-UI-15, CD-UI-14 (bed and heal
-  claims), CD-SEC-09 (stamina command).
-- M3 Tasks 1 to 3: CD-ASG-01, CD-ASG-04, CD-ASG-19, CD-LSH-03, CD-LSH-06, CD-LSH-11, CD-LSH-14 (each the water-wheel
-  version of the row's final part).
-- M3 Tasks 4 to 6: CD-CRK-04, CD-CRK-07, CD-BRN-02, CD-BRN-03, CD-BRN-04, CD-SEC-10 (wheel and crank).
-- M4 Tasks 1 to 2: CD-GEN-04 (the AE2 Charger, whose buffer reads through its FE capability), CD-GEN-07 (the AE2
-  ratio; reading the grid's energy needs `gametestCompileOnly` of the AE2 jar), CD-CFG-03 (the datapack Generator
-  rate), CD-CFG-13, CD-CFG-05 (the Generator).
-- M4 Tasks 3 to 5: CD-BRF-05 (a stand at fuel 0 released before a brew starts), CD-PMP-06 (the five cauldrons on real
-  blocks).
+- M2 Tasks 1 to 3:
+  - CD-STA-11: `StaminaStoreTests.cdSta11PcTimeRecoversAtBaseRate`.
+  - CD-STA-12: `StaminaStoreTests.cdSta12TimeCommandsChangeNothing` (an operator's `/time set day` and `/time add 24000`, in
+    batch `time_sta12`).
+  - CD-BED-01: `BedContentTests.cdBed01RegistryListsFourBedsWithTheirTiers`.
+  - CD-BED-02: `BedContentTests.cdBed02EachBedCraftsFromTheBedBelow`.
+- M2 Tasks 4 to 6:
+  - CD-STA-13: `RestTests.cdSta13TiredAutoWorkerFreesItsMachineForTheNextScan`.
+  - CD-LSH-12: `RestTests.cdLsh12BindingMadeWhileTiredWaitsUntilFull`.
+  - CD-BED-07: `RestTests.cdBed07OnlyABedInsideTheWorkAreaIsClaimed`.
+  - CD-BED-11: `RestTests.cdBed11BrokenBedMeansRestInPlace`.
+  - CD-BED-13: `RestTests.cdBed13OnlyTiredWorkersOfWorkModePasturesGoToBed`.
+  - CD-BED-14: `RestTests.cdBed14SleeperClaimsABedAfterRestart` (batch `restart_bed14`).
+  - CD-CLM-06 (the Work Mode off and second pasture parts): `LeashClaimTests.cdClm06ReservedTargetWaitsForItsWorker`.
+  - CD-WMD-05: `AssignmentTests.cdWmd05WorkModeOffReleasesEveryClaim`, now with a real sleeper and a real healer
+    (`EveryClaimScene`).
+  - CD-FX-10 (demo): `EffectPacketTests.cdFx10Heal15SleepAndHealEffectsReachANearbyPlayer` (the packets that a recording player
+    in the level's player list gets: the two sleep particles every 40 ticks on a sleeper and on a worker that rests in place, and
+    no work sound); manual checklist 25.
+  - CD-HEAL-06: `HealerTests.cdHeal06OnlyNonFairyAlliesOfTheHealersPasture`.
+  - CD-HEAL-07: `HealerTests.cdHeal07NearestTiredAllyFirst`.
+  - CD-HEAL-09: `HealerTests.cdHeal09OneHealerPerAlly`.
+  - CD-HEAL-11: `HealerTests.cdHeal11HealCancelsAtNoCost` (an ally that reaches 100% on its bed, then an ally that leaves the
+    pasture).
+  - CD-HEAL-15 (demo): `EffectPacketTests.cdFx10Heal15SleepAndHealEffectsReachANearbyPlayer` (the healer's `special` and `cry`
+    animation and the two heal particles on the ally); manual checklist 28.
+  - CD-HEAL-17: `HealerTests.cdHeal17SpentHealerGoesToBedOrRestsInPlace`.
+  - CD-UI-15: `CommandTests.cdUi15StaminaShowsValueStateAndRule`.
+  - CD-UI-14 (bed and heal claims): `CommandTests.cdUi14ClaimsListsTheBedAndTheHealClaim`.
+  - CD-SEC-09 (stamina command): `CommandTests.cdSec09LevelZeroPlayerIsRefused`.
+- M3 Tasks 1 to 3, each the water-wheel version of the row's final part:
+  - CD-ASG-01: `WheelRowTests.cdAsg01OnlyAHealthyPasturedWaterTypeClaimsTheWheel`.
+  - CD-ASG-04: `WheelRowTests.cdAsg04AzumarillLeavesTheDryWheelAlone`.
+  - CD-ASG-19: `WheelRowTests.cdAsg19WheelDriverMovesToADryWheel`.
+  - CD-LSH-03, CD-LSH-06 and CD-LSH-11: `WheelRowTests.cdLsh03Lsh06Lsh11VaporeonBindsAndRebindsWheels`; manual checklist 18
+    (CD-LSH-06 on screen).
+  - CD-LSH-14: `WheelRowTests.cdLsh14EvolutionWithoutWaterClearsTheWheelBinding` (Cobblemon's evolution of a bound Surskit, Bug
+    and Water, into Masquerain, Bug and Flying).
+- M3 Tasks 4 to 6:
+  - CD-CRK-04: `CrankerTests.cdCrk04ValveHandleIsNotATarget`.
+  - CD-CRK-07: `CrankerTests.cdCrk07NoNetworkStillWorks`.
+  - CD-BRN-02: `BurnerTests.cdBrn02EmptyBurnerIsNeverClaimed`.
+  - CD-BRN-03: `BurnerTests.cdBrn03NoBasinMeansStandby`.
+  - CD-BRN-04: `BurnerTests.cdBrn04FuelBurnsDownAsNormal`.
+  - CD-SEC-10 (wheel and crank): `CreateFlipTests.cdSec10StrangersAndIdleTargetsNeverFlip`.
+- M4 Tasks 1 to 2:
+  - CD-GEN-04: `GeneratorTests.cdGen04NearestAcceptingFace` (the charger's buffer, read through its FE capability on a power
+    face).
+  - CD-GEN-07: `GeneratorTests.cdGen07Ae2RatioAtLv50`. The full test mod now has the AE2 jar as `gametestCompileOnly`, and the
+    test reads the grid's one energy cell through AE2's `IAEPowerStorage`: `IEnergyService.getStoredPower` gives a total that
+    AE2 recomputes only every 90 ticks or on a storage event. A test pack case could not do it, because its servers have no
+    player to pasture a worker.
+  - CD-CFG-03 and CD-CFG-13: `RoleDataTests.cdCfg03Cfg13DatapackSetsTheGeneratorRates` (batch `roles_gen`, through the reload
+    path of `RoleRegistry`).
+  - CD-CFG-05 (the Generator): `RoleDataTests.cdCfg05DisabledRoleGetsNoClaims`, which now disables the Generator beside the
+    Stoker.
+- M4 Tasks 3 to 5:
+  - CD-BRF-05: `BrewingTests.cdBrf05ReleaseBeforeABrewLeavesFuel0` (the row's literal case).
+  - CD-PMP-06: `PumpTests.cdPmp06FiveCauldronsOnRealBlocks` (the handler's five results, and five bound Pumps that agree).
 - M5 Tasks 5 to 7: the real-restart parts that need a pastured worker, which the test pack cannot make without a
-  player: CD-CLM-07 (claims held before the restart), CD-LSH-07, CD-WHL-07 and CD-CRK-08 (a flip by a bound worker),
-  CD-STA-04 and CD-BED-14. Their GameTests simulate the restart; a manual checklist line repeats them with a real
-  restart in the play-test.
+  player. Their GameTests simulate the restart; a manual checklist line repeats each with a real restart in the play-test.
+  - CD-CLM-07: `AssignmentTests.cdClm07ClaimsAreNotSaved`, now with two work claims, a bed claim and a heal claim
+    (`EveryClaimScene`); the test pack's `restart`; manual checklist 13.
+  - CD-LSH-07: `LeashTests.cdLsh07BindingSurvivesRestartAndToggle`; manual checklist 24.
+  - CD-WHL-07 and CD-CRK-08: `CreateFlipTests.cdWhl07Crk08FlipsByBoundWorkersSurviveARestart` (the binder's flip of a wheel and
+    a crank that bound workers drive, then the engine reset and each block entity reloaded from its save);
+    `DriveBehaviourTests`; the test pack's `restart`; manual checklists 33 and 34.
+  - CD-STA-04: `StaminaStoreTests.cdSta04And05StaminaStartsFullAndFollowsThePokemon`; manual checklist 26.
+  - CD-BED-14: `RestTests.cdBed14SleeperClaimsABedAfterRestart`; manual checklist 27.
+
+The same pass checked the three behaviour items of the rehydration note's carry-over list, each with a GameTest that failed
+before its fix:
+
+- Worker deadlock: `WorkerPushTests.workersMeetingHeadOnInOneRowPassAndWork` and `aWalkerPassesAWorkingWorkerInOneRow` (a
+  corridor one block wide), and `onlyTwoDirectedWorkersSkipTheirPush`. Fix: `WorkerPushMixin` skips the push between two
+  workers that the engine directs, in any state but Idle. The delegate's preferred fix named Traveling and Working. Standby
+  workers hold their spots as Working ones do, and workers that walk to a bed or an ally meet held workers in the same rows, so
+  every directed state counts. An Idle worker has no place to hold, so it still pushes and is pushed. Manual checklist 15
+  repeats the check in a crowded pasture.
+- Creative Blaze Burner: `BurnerTests.creativeBlazeBurnerHasNoDemand`. Fix: `BurnerHeatHandler.hasDemand` is false for a
+  creative burner.
+- Wide worker spot (CD-ASG-09): `WideWorkerTests.cdAsg09WideWorkerGetsASpotItsBodyFits`. With one cell checked, a Camerupt 2.3
+  blocks wide got a spot in a gap one block wide, where its body overlapped the walls. Fix: `SpotGrid.fitsBody` needs room for
+  the body on the spot's center and where navigation stops it (`WorkerBody`). Manual checklist 14 repeats the check in the
+  play-test.
