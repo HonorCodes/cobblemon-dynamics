@@ -106,6 +106,15 @@ when your hands are on the code.
   Delete it before you run the test pack.
 - `data merge block` sets a block entity's saved state without a player, and a new folder in
   `world/datapacks/` is enabled by the next `/reload`.
+- Wait one tick after `releasePokemon` before you tether the same Pokémon to another pasture, or it loses
+  the new tethering.
+- GameTest chunks are force-loaded, so a target near its pasture never really unloads in a test.
+- A pasture whose only worker is leashed scans for nothing. To test that a leashed worker ignores other
+  targets, add an unleashed worker of the same role.
+- A trade test sets both offers and both acceptances before `performTrade`, or Cobblemon crashes.
+- An empty-hand `TestKit.clickBlock` on a pasture creates Cobblemon's pasture link, which payload tests need.
+- Fake players never tick their inventory, so a test calls `inventoryTick` itself.
+- `ServerPlayer.getPermissionLevel()` is protected. Use `hasPermissions(n)`.
 - On Windows, Python's `write_text` writes CRLF unless you pass `newline="\n"`. Check for CR characters
   before staging.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
