@@ -87,6 +87,7 @@ class EffectPacketTests {
      * particles on its `middle` locator every 40 ticks, and no work sound (CD-FX-10, the server's part; manual checklist 25). Then a
      * Clefairy joins and heals one of them. Cobblemon 1.8.4 has no Floral Healing effect, so the healer plays its `special`
      * animation, then its cry, and Cobblemon's heal particles show on the ally (CD-HEAL-15, the server's part; manual checklist 28).
+     * Until the heal ends, the ally also gets its sleep particles every 40 ticks, so the heal check leaves those out.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 1_600, batch = LISTENER_BATCH)
     fun cdFx10Heal15SleepAndHealEffectsReachANearbyPlayer(helper: GameTestHelper) {
@@ -165,7 +166,8 @@ class EffectPacketTests {
             },
             "CD-HEAL-15: the healer's animations were ${animations.map { it.animation }}",
         )
-        val shots = particlesOn(listener, ally)
+        // The ally sleeps until the heal ends, so its sleep loop (CD-FX-10) can reach the player in the same window.
+        val shots = particlesOn(listener, ally).filterNot { it.second.effectId in SleepEffect.PARTICLES }
         val ids = shots.map { it.second.effectId }.toSet()
         helper.assertTrue(ids == HealEffect.FALLBACK_PARTICLES.toSet(), "CD-HEAL-15: the ally got the particles $ids")
         helper.assertTrue(

@@ -29,6 +29,7 @@ import net.minecraft.world.entity.EntityType
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -253,7 +254,8 @@ class RestTests {
      * Carry-over from M1. Cobblemon's night sleep gives a pastured Pokémon the battle SLEEP status and its sleeping memory, and only its
      * own wake-up task, in the sleeping activity, clears them. A work order replaces that activity, so the Brain bridge wakes the
      * Pokémon when it starts work: no battle status, no sleeping memory and no sleep pose while it works (CD-AI-07). The batch runs at
-     * night, and the test keeps the Charmander drowsy so that Cobblemon's own go_to_sleep task puts it to sleep soon.
+     * night, and the test keeps the Charmander drowsy so that Cobblemon's own go_to_sleep task puts it to sleep soon. The furnace comes
+     * only while the Charmander sleeps, so its claim wakes a sleeper.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 2_400, batch = NIGHT_BATCH)
     fun cdAi07NightSleepEndsWhenWorkStarts(helper: GameTestHelper) {
@@ -263,10 +265,15 @@ class RestTests {
         val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
         val engine = TestKit.engine(helper)
         val id = fire.pokemon.uuid
+        val furnacePos = BlockPos(7, 1, 3)
+        var furnace: AbstractFurnaceBlockEntity? = null
         var claimedAt = -1L
         var asleep = false
+        var earlyWakes = 0
         helper.runAtTickTime(2_399) {
-            helper.fail("asleep $asleep, status ${fire.pokemon.status?.status?.name}, worker ${engine.worker(id)?.status}")
+            helper.fail(
+                "asleep $asleep, status ${fire.pokemon.status?.status?.name}, worker ${engine.worker(id)?.status}, early wakes $earlyWakes",
+            )
         }
         helper.onEachTick {
             val brain = fire.brain
@@ -276,12 +283,21 @@ class RestTests {
             if (!asleep) {
                 if (hasBattleSleep(fire) && brain.isMemoryValue(CobblemonMemories.POKEMON_SLEEPING, true)) {
                     asleep = true
-                    TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
+                    furnace = TestKit.furnace(helper, furnacePos, ItemStack(Items.RAW_IRON, 8))
                 }
                 return@onEachTick
             }
             if (claim == null) {
-                helper.assertTrue(hasBattleSleep(fire), "Cobblemon woke the Charmander before it got a claim")
+                if (!hasBattleSleep(fire)) {
+                    // The drowsy sensor also clears the memory by chance (its rouse chance, 1 in 240 for each run, once a second).
+                    // Cobblemon's wake-up task then wakes the Charmander in the same Brain tick, before this handler sets the memory
+                    // again. Take the furnace away and wait for the next sleep, so that the claim still comes while the Charmander sleeps.
+                    earlyWakes++
+                    asleep = false
+                    furnace?.clearContent()
+                    furnace = null
+                    helper.setBlock(furnacePos, Blocks.AIR)
+                }
                 return@onEachTick
             }
             if (claimedAt < 0) claimedAt = helper.tick
