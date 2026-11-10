@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:hand_crank",
+  "types": ["fighting", "normal"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 2.0,
+  "params": {},
+  "effect": {
+    "loop_ticks": 40,
+    "animations": ["pound", "punch", "tail", "physical", "cry"],
+    "actor_particles": [],
+    "target_particles": ["cobblemon:pound_target", "cobblemon:pound_targetsparks"]
+  }
+}

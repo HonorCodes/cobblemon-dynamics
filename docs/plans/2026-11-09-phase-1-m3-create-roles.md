@@ -330,30 +330,67 @@ target, and only the two `target` particles on the target. Target particles play
 
 ### Task 4: Cranker
 
-**Rows:** CD-CRK-01, CD-CRK-02, CD-CRK-03, CD-CRK-04, CD-CRK-06, CD-CRK-07, CD-BAL-04 (crank), CD-ASG-10
-(the 2-block range in game).
+**Rows:** CD-CRK-01, CD-CRK-02, CD-CRK-03, CD-CRK-04, CD-CRK-05 (a new worked crank), CD-CRK-06, CD-CRK-07,
+CD-BAL-04 (crank), CD-ASG-10 (the 2-block range in game).
 
 **Files:**
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/HandCrankHandler.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CrankClock.kt`
+- Create: `src/main/java/codes/honor/cobblemondynamics/mixin/create/ItemUseOverridesMixin.java`
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/cranker.json`
+- Modify: `src/main/resources/cobblemon_dynamics.mixins.json`, `src/main/java/codes/honor/cobblemondynamics/MixinState.java`
+  (`ITEM_USE_OVERRIDES`), `handler/create/CreateCompat.kt` (registers the handler, loads `ItemUseOverrides`, warns when its
+  mixin is missing), `handler/create/DriveBehaviour.kt` (`drivenSince`), `leash/LeashInteractions.kt` (`isWorkLeash`)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/CrankClockTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/CrankerTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt`, `role/BuiltInRoles.kt` (parses the
+  mod's role files for the unit tests)
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/CrankerTests.kt`, `CreateKit.handCrank`
 
-`HandCrankHandler` (`id = cobblemon_dynamics:hand_crank`): `matches` when the block entity is a
-`HandCrankBlockEntity` and not a `ValveHandleBlockEntity` (CD-CRK-04). `hasDemand` is always true
-(CD-CRK-07). `applyWork` calls `be.turn(direction < 0)` when `CrankClock.shouldTurn(workingSince, now)`,
-every 5 ticks (CD-CRK-02). Create's `turn` keeps the crank at 32 RPM and 256 SU (CD-CRK-03). `flip`
-reverses the direction; the next `turn` applies it within 5 ticks (CD-CRK-06). `cranker.json`: types
-`["fighting", "normal"]`, `auto_assign` true, priority 0, range 2.0, effect Pound (`pound`, `punch`, `tail`,
-`physical`, `cry`; target particles `cobblemon:pound_target`, `cobblemon:pound_targetsparks`).
+`HandCrankHandler` (`id = cobblemon_dynamics:hand_crank`), as built: `matches` when the block entity is a
+`HandCrankBlockEntity` and not a `ValveHandleBlockEntity` (CD-CRK-04). `hasDemand` is always true (CD-CRK-07).
+`onStart` sets the crank's `DriveBehaviour.driven` and `drivenSince`; `applyWork` turns the crank when
+`CrankClock.shouldTurn(drivenSince, now)`: on the first tick of the drive and every 5 ticks after (CD-CRK-02), and it
+starts the drive again when a new block entity reset it. Checked against the 6.0.10 jar with `javap`: `turn(back)` sets
+`inUse = 10` and calls `updateGeneratedRotation()` on a start or a direction change, `tick()` counts `inUse` down and stops
+the crank at 0, and `getGeneratedSpeed()` is `(backwards ? -1 : 1) * 32`, passed through `convertToDirection(speed, FACING)`,
+which negates it for a `FACING` along a negative axis. So the handler calls `turn(direction * FACING.axisDirection.step < 0)`,
+not `turn(direction < 0)`: the speed's sign is the stored direction on every crank, and a new crank turns at +32 RPM
+whichever way it faces (CD-CRK-05). Create's `turn` gives 32 RPM and 8 SU per RPM, so 256 SU (CD-CRK-03). `flip` refuses a
+crank that no worker drives, reverses the direction and turns the crank at once (CD-CRK-06). `onStop` clears `driven`, and
+Create stops the crank 10 ticks after the last turn, as for a player. `cranker.json`: types `["fighting", "normal"]`,
+`auto_assign` true, priority 0, range 2.0, effect Pound (`pound`, `punch`, `tail`, `physical`, `cry`; no actor particles;
+target particles `cobblemon:pound_target`, `cobblemon:pound_targetsparks`, which Cobblemon's `pound` timeline emits on the
+target only).
 
-- [ ] **Step 1: Failing tests** — `CrankClockTest`: turns at 0, 5 and 10, none at 4 (CD-CRK-02).
-  `CrankerTests`: CD-CRK-01 is a unit test on the role file (Machop and Rattata eligible, Pikachu not);
-  `cdCrk02Holds32RpmFor600Ticks` (the speed never drops below 32 on any tick); `cdCrk03CreateValues`;
-  `cdCrk04ValveHandleIsNotATarget` (a Machop beside a valve handle 400 ticks: no claim);
-  `cdCrk06BinderFlips` (−32 RPM 5 ticks after the click); `cdCrk07NoNetworkStillWorks` (Working and
-  stamina drains); `cdBal04CrankNeverExceeds32`.
+The leash on a crank. Create registers `HandCrankBlock` (and the analog lever) with `ItemUseOverrides.addBlock`, and
+`ItemUseOverrides.onBlockActivated`, a `RightClickBlock` listener at normal priority, uses the block for every held item but
+Create's wrench and cancels the event (checked with `javap`). NeoForge then returns from `useItemOn` before
+`WorkLeashItem.onItemUseFirst`, so the leash could neither bind a crank nor flip one. `ItemUseOverridesMixin` injects at the
+head of `onBlockActivated` and returns for the Work Leash, the same exemption that Create gives its wrench. A protection mod
+that cancels the click still stops the leash (CD-SEC-11). With no selection and no flip, the leash's click goes on to the
+crank's own `useItemOn`, which turns it as before. The crank role does not depend on this mixin; when it does not apply,
+`CreateCompat.register` logs one warning and the Cranker still auto-assigns.
+
+- [ ] **Step 1: Failing tests** — `CrankClockTest`: turns at 0, 5 and 10, none at 4, and every interval is 5 ticks
+  (CD-CRK-02). `BuiltInRoleFilesTest`: the Role table row (CD-FX-02) and the Pound particle split (CD-FX-04); CD-CRK-01 on
+  the role file (Machop's `fighting` and Rattata's `normal` are eligible, Pikachu's `electric` is not); CD-ASG-10 on the
+  role files (a spot at 6.0 blocks is in range for the Stoker and one at 6.1 is not; 2.0 and 2.1 for the Cranker).
+  `CrankerTests`, each crank with no network behind it:
+
+```kotlin
+// cdCrk02Bal04CrankHolds32RpmFor600Ticks: once a Machop works a crank at 32 RPM, the crank reads exactly 32 RPM on every one of the
+//   next 600 ticks, so it never drops (CD-CRK-02) and never passes Create's maximum (CD-BAL-04); the worker's spot is within 2.0 blocks
+//   of the crank's center (CD-ASG-10 in game).
+// cdCrk03Crk05NewCranksTurnAtCreateValues: a crank that faces up and one that faces north, each with a Working Machop: both turn at
+//   +32 RPM (CD-CRK-05) with 256 SU, as calculateAddedStressCapacity() × |speed| and as the capacity of the crank's network (CD-CRK-03).
+// cdCrk06BinderFlips: the crank mixin applied; the owner binds a Machop to the crank and sneak-clicks it at +32 RPM: 5 ticks later the
+//   crank reads −32 RPM and its stored direction is −1.
+```
+
+  - CD-CRK-04 (`cdCrk04ValveHandleIsNotATarget`: a Machop beside a valve handle for 400 ticks: no claim; `matches` is a type
+    check against Create's own class tree): GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-CRK-07 (`cdCrk07NoNetworkStillWorks`: a crank with no network keeps its worker Working, and stamina drains; `hasDemand`
+    is constant): GameTest deferred (high confidence): verified in the end-of-phase pass.
 - [ ] **Step 2: Write the code, run, commit** — `git commit -m "Turn Create hand cranks with Fighting- and Normal-types"`.
 
 ---

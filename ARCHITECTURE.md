@@ -74,8 +74,8 @@ src/main/java/codes/honor/cobblemondynamics/
 src/main/java/codes/honor/cobblemondynamics/mixin/
   MixinPlugin.java       skips each mixin whose target mod is absent, records each injection
   create/                WaterWheelBlockEntityMixin, BlazeBurnerBlockEntityMixin,
-                         EncasedFanBlockEntityMixin, NozzleBlockEntityMixin,
-                         WindmillBearingBlockEntityMixin
+                         ItemUseOverridesMixin, EncasedFanBlockEntityMixin,
+                         NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
   vanilla/               EnchantmentMenuMixin
   cobblemon/client/      PastureWidgetMixin (stamina bars)
   compat/cobblebase/     @Pseudo mixins
@@ -417,8 +417,14 @@ references. This section lists what the code uses.
   maps to it: `WaterWheelStructuralBlock.getMaster(level, pos, state)` after
   `stillValid(level, pos, state, false)` gives the controller position.
 - **Hand crank.** `HandCrankBlockEntity.turn(boolean back)` on the server every 5 ticks. `turn` sets
-  `inUse = 10`, so the crank never stops between calls. The valve handle is excluded, because
+  `inUse = 10`, so the crank never stops between calls. Create negates a crank's speed when its
+  `FACING` points along a negative axis, so the handler folds the facing into `back`, and the stored
+  direction is the sign of the speed. The valve handle is excluded, because
   `ValveHandleBlockEntity.activate` turns a fixed angle and refuses while it turns.
+- **Leash clicks on a crank.** Create's `ItemUseOverrides` uses a hand crank for every held item but
+  its wrench and cancels the click before the item gets it. Mixin `ItemUseOverridesMixin` exempts the
+  Work Leash the same way, so the leash binds and flips cranks, and a protection mod that cancels the
+  click still stops it.
 - **Blaze Burner heat.** Mixin `BlazeBurnerBlockEntityMixin` on
   `com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity`:
 

@@ -44,6 +44,10 @@ object LeashInteractions {
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, PlayerInteractEvent.EntityInteract::class.java) { onEntityInteract(it) }
     }
 
+    /** For Create's hand crank mixin, which lets the leash's own click reach a crank. */
+    @JvmStatic
+    fun isWorkLeash(stack: ItemStack): Boolean = stack.`is`(DynamicsItems.WORK_LEASH.get())
+
     /**
      * CD-LSH-02: a click on one's own Pokémon is cancelled on both sides before `Player.interactOn` calls the entity, so Cobblemon's
      * `mobInteract` never opens its wheel or mounts the Pokémon. A click on another player's or a wild Pokémon goes on (CD-SEC-07).

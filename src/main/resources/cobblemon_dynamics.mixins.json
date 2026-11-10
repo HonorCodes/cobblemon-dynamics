@@ -5,6 +5,7 @@
   "plugin": "codes.honor.cobblemondynamics.mixin.MixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "create.ItemUseOverridesMixin",
     "create.WaterWheelBlockEntityMixin"
   ],
   "client": [],

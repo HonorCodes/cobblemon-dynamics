@@ -30,6 +30,9 @@ class DriveBehaviour(be: SmartBlockEntity) : BlockEntityBehaviour(be) {
     /** The first game tick on which the handler may read the target's real flow again. Not saved. */
     var nextFlowCheck: Long = 0
 
+    /** The game tick on which the current drive of a hand crank began; its turns count from here. Not saved. */
+    var drivenSince: Long = 0
+
     fun flip() {
         direction = -direction
         blockEntity.notifyUpdate()

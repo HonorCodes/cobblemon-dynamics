@@ -4,10 +4,12 @@ import com.simibubi.create.AllBlocks
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.content.kinetics.base.RotatedPillarKineticBlock
+import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.world.level.block.Blocks
 import kotlin.math.abs
 
 /** Builds Create machines for GameTests. Only the full GameTest run has Create, so this stays out of `kotlin-shared`. */
@@ -32,6 +34,14 @@ object CreateKit {
 
     fun isRingBuilt(helper: GameTestHelper, rel: BlockPos): Boolean =
         ringOf(rel).all { helper.getBlockState(it).`is`(AllBlocks.WATER_WHEEL_STRUCTURAL.get()) }
+
+    /** A hand crank at [rel] whose `FACING` is [facing]. Create drops a crank with nothing solid behind it, so this puts stone there. */
+    fun handCrank(helper: GameTestHelper, rel: BlockPos, facing: Direction): HandCrankBlockEntity {
+        val support = rel.relative(facing.opposite)
+        if (helper.getBlockState(support).isAir) helper.setBlock(support, Blocks.STONE)
+        helper.setBlock(rel, AllBlocks.HAND_CRANK.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
+        return helper.getBlockEntity(rel)
+    }
 
     /** The capacity that [be] adds at its current speed, as Create's goggles compute it. */
     fun capacity(be: KineticBlockEntity): Float = be.calculateAddedStressCapacity() * abs(be.getSpeed())

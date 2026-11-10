@@ -16,6 +16,7 @@ import org.objectweb.asm.tree.MethodNode;
 public final class MixinState {
     public static final String WATER_WHEEL = "create.WaterWheelBlockEntityMixin";
     public static final String BLAZE_BURNER = "create.BlazeBurnerBlockEntityMixin";
+    public static final String ITEM_USE_OVERRIDES = "create.ItemUseOverridesMixin";
     public static final String ENCHANTMENT_MENU = "vanilla.EnchantmentMenuMixin";
     public static final String PASTURE_WIDGET = "cobblemon.client.PastureWidgetMixin";
 
