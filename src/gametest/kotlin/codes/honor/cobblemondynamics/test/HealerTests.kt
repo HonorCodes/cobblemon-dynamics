@@ -110,7 +110,10 @@ class HealerTests {
     /**
      * A Lv50 Clefairy shares its pasture with a Tired Azumarill (Water and Fairy), and a Tired Machop sits in a second Work Mode
      * pasture 3 blocks away. For 400 ticks the Clefairy takes no heal claim and both stay Tired (CD-HEAL-06). Then a Machop of the
-     * Clefairy's own pasture gets Tired, and the Clefairy takes a heal claim on it within one scan, which shows that it heals.
+     * Clefairy's own pasture gets Tired, and the Clefairy heals it, which shows that it heals. The engine takes a heal claim after a
+     * scan pass and runs the heal later in the same tick, so a Clefairy that already stands within 2 blocks of the Machop takes the
+     * claim and completes the heal before the test can see the claim. The test then sees the result: the Machop is no longer Tired,
+     * and the Clefairy paid the heal's cost.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 700)
     fun cdHeal06OnlyNonFairyAlliesOfTheHealersPasture(helper: GameTestHelper) {
@@ -125,6 +128,7 @@ class HealerTests {
         val engine = TestKit.engine(helper)
         var tiredAt = -1L
         var ally: PokemonEntity? = null
+        var healerBefore = -1.0
         helper.onEachTick {
             if (tiredAt < 0) {
                 if (!workersReady(helper, healer, azumarill, neighbour)) return@onEachTick
@@ -146,14 +150,22 @@ class HealerTests {
             }
             val local = ally ?: return@onEachTick
             val worker = TestKit.workerOf(helper, local) ?: return@onEachTick
-            if (!worker.tired) {
+            val healerStamina = TestKit.workerOf(helper, healer)?.stamina?.fraction ?: return@onEachTick
+            if (healerBefore < 0) {
                 tire(helper, local)
+                healerBefore = healerStamina
                 return@onEachTick
             }
-            if (claim == null) return@onEachTick
-            val onLocal = claim.kind == ClaimKind.HEAL && claim.key == TargetKey.Entity(local.pokemon.uuid)
-            helper.assertTrue(onLocal, "the healer took $claim")
-            helper.succeed()
+            if (claim != null) {
+                val onLocal = claim.kind == ClaimKind.HEAL && claim.key == TargetKey.Entity(local.pokemon.uuid)
+                helper.assertTrue(onLocal, "the healer took $claim")
+                helper.succeed()
+            } else if (!worker.tired) {
+                // Nothing else wakes a Tired Machop at 0% within the test: only the Clefairy heals in its pasture.
+                val paid = healerBefore - healerStamina
+                helper.assertTrue(paid >= HEAL_COST_SEEN, "the Machop woke, but the healer paid only $paid of its Work Stamina")
+                helper.succeed()
+            }
         }
     }
 
@@ -441,6 +453,9 @@ class HealerTests {
     companion object {
         const val FLORAL_BATCH = "floral_healing"
         private const val QUIET_TICKS = 400
+
+        /** Below the default heal cost of 0.25, as the healer recovers a little between the two readings. */
+        private const val HEAL_COST_SEEN = 0.2
 
         val recorder = RecordingKeyframe()
     }
