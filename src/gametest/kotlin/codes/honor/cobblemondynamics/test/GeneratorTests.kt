@@ -1,10 +1,14 @@
 package codes.honor.cobblemondynamics.test
 
+import appeng.api.networking.IGrid
+import appeng.api.networking.IInWorldGridNodeHost
+import appeng.api.networking.energy.IAEPowerStorage
 import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.handler.capability.FePushHandler
+import codes.honor.cobblemondynamics.handler.capability.NearestFaces
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.role.RoleRegistry
@@ -13,9 +17,13 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
+import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.world.level.block.state.properties.DirectionProperty
+import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
+import kotlin.math.abs
 
 /** The Generator through NeoForge's real energy capability, into the test battery and AE2's blocks. */
 @GameTestHolder(MOD_ID)
@@ -23,6 +31,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 class GeneratorTests {
     /** round(10 × 500^(49 ÷ 99)): the Lv50 rate of the default `generator.json` (CD-GEN-02). */
     private val lv50Rate = 217
+
+    /** The ticks of work over which CD-GEN-07 measures the grid's gain. */
+    private val sampleTicks = 40
 
     private val batteryRel = BlockPos(7, 1, 3)
 
@@ -122,6 +133,110 @@ class GeneratorTests {
             }
         }
     }
+
+    /** An AE2 block at [rel] of [id], with its `facing` property set when [facing] is not null. */
+    private fun ae2(helper: GameTestHelper, rel: BlockPos, id: String, facing: Direction? = null): BlockPos {
+        var state = TestKit.ae2Block(id).defaultBlockState()
+        if (facing != null) {
+            val property = state.block.stateDefinition.getProperty("facing") as? DirectionProperty
+                ?: throw GameTestAssertException("$id has no facing property")
+            state = state.setValue(property, facing)
+        }
+        helper.setBlock(rel, state)
+        return helper.absolutePos(rel)
+    }
+
+    /**
+     * An AE2 Charger faces south, toward the pasture, and takes FE on every face but its front. A Lv50 Pikachu is held south of it until
+     * it claims, so it works from the front, whose face is nearest. The Generator pushes through the nearest face that accepts FE, and
+     * the charger's buffer, read through a power face, rises (CD-GEN-04).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdGen04NearestAcceptingFace(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 9), owner)
+        TestKit.workMode(pasture, true)
+        val charger = ae2(helper, BlockPos(7, 2, 5), "ae2:charger", Direction.SOUTH)
+        val level = helper.level
+        val front = level.getCapability(Capabilities.EnergyStorage.BLOCK, charger, Direction.SOUTH)
+        helper.assertTrue(front == null || !front.canReceive(), "the charger's front takes FE, so the scene proves nothing")
+        val pikachu = TestKit.tether(helper, pasture, owner, "pikachu level=50")
+        val hold = BlockPos(7, 2, 7)
+        var before = -1
+        helper.onEachTick {
+            val buffer = level.getCapability(Capabilities.EnergyStorage.BLOCK, charger, Direction.UP)?.energyStored
+                ?: throw GameTestAssertException("the charger has no FE capability on its top")
+            val claim = TestKit.claimOf(helper, pikachu)
+            if (claim == null) {
+                TestKit.moveTo(helper, pikachu, hold)
+                return@onEachTick
+            }
+            val worker = TestKit.workerOf(helper, pikachu) ?: return@onEachTick
+            if (worker.status != WorkerStatus.WORKING) return@onEachTick
+            val spot = worker.spot ?: throw GameTestAssertException("a Working worker with no spot")
+            val nearest = NearestFaces.of(charger, pikachu.position()).first()
+            helper.assertTrue(nearest == Direction.SOUTH, "the Pikachu works from $spot, where the nearest face is $nearest, not the front")
+            if (before < 0) {
+                before = buffer
+                return@onEachTick
+            }
+            if (buffer > before) {
+                helper.succeed()
+                return@onEachTick
+            }
+            val worked = helper.tick - worker.statusSince
+            helper.assertTrue(worked < 20, "CD-GEN-04: the charger's buffer stays at $buffer FE after $worked ticks of work")
+        }
+    }
+
+    /**
+     * A Lv50 Pikachu works an AE2 Energy Acceptor beside an energy cell, which form one grid. Over 40 ticks of work the grid's stored
+     * energy rises by 108.5 ± 1 AE per tick: AE2 turns the Generator's 217 FE per tick into AE at its own ratio of 2 FE to 1 AE
+     * (CD-GEN-07).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdGen07Ae2RatioAtLv50(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 9), owner)
+        TestKit.workMode(pasture, true)
+        val acceptor = ae2(helper, BlockPos(7, 2, 5), "ae2:energy_acceptor")
+        val cell = ae2(helper, BlockPos(7, 2, 4), "ae2:energy_cell")
+        val pikachu = TestKit.tether(helper, pasture, owner, "pikachu level=50")
+        var start = -1L
+        val stored = ArrayList<Double>()
+        helper.onEachTick {
+            if (!onOneGrid(helper, acceptor, cell)) return@onEachTick
+            val energy = storedAe(helper, cell)
+            val worker = TestKit.workerOf(helper, pikachu) ?: return@onEachTick
+            val claim = TestKit.claimOf(helper, pikachu)
+            if (claim?.key != TestKit.keyOf(helper, acceptor) || worker.status != WorkerStatus.WORKING) return@onEachTick
+            if (start < 0) start = helper.tick
+            stored += energy
+            if (stored.size <= sampleTicks) return@onEachTick
+            val perTick = (stored.last() - stored.first()) / sampleTicks
+            val steps = stored.zipWithNext { a, b -> b - a }
+            helper.assertTrue(abs(perTick - lv50Rate / 2.0) <= 1.0, "CD-GEN-07: the grid gains $perTick AE per tick; steps $steps")
+            helper.succeed()
+        }
+    }
+
+    private fun gridOf(helper: GameTestHelper, pos: BlockPos): IGrid? {
+        val host = helper.level.getBlockEntity(pos) as? IInWorldGridNodeHost ?: return null
+        val node = host.getGridNode(null) ?: Direction.entries.firstNotNullOfOrNull { host.getGridNode(it) } ?: return null
+        return node.grid
+    }
+
+    private fun onOneGrid(helper: GameTestHelper, a: BlockPos, b: BlockPos): Boolean {
+        val grid = gridOf(helper, a) ?: return false
+        return grid === gridOf(helper, b)
+    }
+
+    /**
+     * The stored energy of the grid, which is its one energy cell's. AE2's `IEnergyService.getStoredPower` reads a total that AE2
+     * recomputes only every 90 ticks or on a storage event, so the test reads the cell, the grid's only power storage, directly.
+     */
+    private fun storedAe(helper: GameTestHelper, cell: BlockPos): Double =
+        (helper.level.getBlockEntity(cell) as? IAEPowerStorage)?.aeCurrentPower ?: throw GameTestAssertException("no AE2 energy cell")
 
     /**
      * The row's literal case: a target bound to Pikachu refuses a second binding and names Pikachu. The bound Pikachu works the

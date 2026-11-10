@@ -160,6 +160,8 @@ dependencies {
     localRuntime "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
     localRuntime "com.tterrag.registrate:Registrate:${registrate_version}"
     localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    // CD-GEN-07: the full GameTest run reads an AE2 grid's stored energy through AE2's API. The main source set never sees AE2 (CD-CRY-05).
+    gametestCompileOnly("org.appliedenergistics:appliedenergistics2:${ae2_version}") { transitive = false }
 
     testImplementation platform('org.junit:junit-bom:6.1.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
