@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:brewing_fuel",
+  "types": ["fire"],
+  "auto_assign": true,
+  "priority": 10,
+  "range": 6.0,
+  "params": {},
+  "effect": {
+    "loop_ticks": 40,
+    "animations": ["ember", "fire", "spray", "special", "cry"],
+    "actor_particles": ["cobblemon:ember_actor"],
+    "target_particles": ["cobblemon:ember_target"]
+  }
+}

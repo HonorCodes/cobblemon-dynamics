@@ -25,6 +25,8 @@ class BuiltInRoleFilesTest {
         "superheater" to Row("cobblemon_dynamics:burner_heat", setOf("dragon"), true, 10, "dragonbreath"),
         "generator" to Row("cobblemon_dynamics:fe_push", setOf("electric"), true, 0, "thundershock"),
         "crystal_tender" to Row("cobblemon_dynamics:budding", setOf("rock"), true, 0, "rockthrow"),
+        "brew_stoker" to Row("cobblemon_dynamics:brewing_fuel", setOf("fire"), true, 10, "ember"),
+        "brewer" to Row("cobblemon_dynamics:brewing_speed", setOf("poison"), true, 0, "poisongas"),
     )
 
     /**
@@ -97,6 +99,24 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("cobblemon:rockthrow_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(emptyList<String>(), effect.targetParticles.map { it.toString() })
         assertEquals(listOf("rockthrow", "rock", "physical", "cry"), effect.animationsWithCry)
+    }
+
+    /** Cobblemon's `ember` timeline sends the ember from the user, aimed at the target, and only the hit lands on the target. */
+    @Test
+    fun `CD-FX-04 the Brew Stoker's Ember flies from the worker and burns at the stand`() {
+        val effect = BuiltInRoles.parse("brew_stoker").effect
+        assertEquals(listOf("cobblemon:ember_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:ember_target"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("ember", "fire", "spray", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /** Cobblemon's `poisongas` timeline sends the gas from the user, aimed at the target, and only the cloud forms on the target. */
+    @Test
+    fun `CD-FX-04 the Brewer's Poison Gas drifts from the worker and clouds the stand`() {
+        val effect = BuiltInRoles.parse("brewer").effect
+        assertEquals(listOf("cobblemon:poisongas_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:poisongas_target"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("poisongas", "spray", "special", "cry"), effect.animationsWithCry)
     }
 
     /** The Cranker is the only role whose move needs contact. */

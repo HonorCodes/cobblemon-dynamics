@@ -1,10 +1,13 @@
 package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
+import net.minecraft.world.item.Items
+import net.minecraft.world.item.alchemy.Potions
 import net.neoforged.bus.api.EventPriority
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.common.Mod
 import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.event.brewing.RegisterBrewingRecipesEvent
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent
 
 const val TEST_MOD_ID = "cobblemon_dynamics_test"
@@ -24,6 +27,8 @@ class DynamicsTestMod(modBus: IEventBus) {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, PlayerInteractEvent.EntityInteract::class.java) {
             it.target.persistentData.putBoolean(REACHED_ENTITY_INTERACTION, true)
         }
+        // A brew that a stand can repeat: water and a stick give water. No vanilla brew can follow itself.
+        NeoForge.EVENT_BUS.addListener<RegisterBrewingRecipesEvent> { it.builder.addMix(Potions.WATER, Items.STICK, Potions.WATER) }
         TestWorld.register()
     }
 }

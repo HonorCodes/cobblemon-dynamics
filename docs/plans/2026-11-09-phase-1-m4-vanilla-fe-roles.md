@@ -276,6 +276,52 @@ that value if it is higher (CD-BRF-05). Brewer: while a brew runs (`brewTime > 0
 extra step per tick and never below 1, so a brew takes 200 ticks (CD-BRW-02); demand while `brewTime > 0`
 (CD-BRW-03); never touch `fuel` (CD-BRW-04).
 
+As built (`BrewingFuelHandler` is `cobblemon_dynamics:brewing_fuel`, `BrewingSpeedHandler` is
+`cobblemon_dynamics:brewing_speed`, both `scanKind = BLOCK_ENTITY`; also `handler/vanilla/BrewingRules.kt`,
+`src/test/kotlin/.../handler/vanilla/BrewingRulesTest.kt`, the handler registrations in `CobblemonDynamics.kt`, and a brewing
+recipe in `DynamicsTestMod.kt`):
+
+```kotlin
+object BrewingRules {
+    const val VANILLA_BREW_TICKS = 400
+    fun fuelWhileWorking(fuel: Int, canBrew: Boolean): Int   // CD-BRF-02: max(fuel, 1) while it can brew
+    fun fuelAfterStop(fuel: Int, atStart: Int): Int          // CD-BRF-05: min(fuel, atStart)
+    fun brewTimeWhileWorking(brewTime: Int): Int             // CD-BRW-02: brewTime − 1, never below 1
+}
+```
+
+Design decisions (the plan gave steps only):
+
+- **Vanilla's stand, checked with `javap` on the merged jar.** `serverTick` first turns a blaze powder into 20 fuel
+  whenever `fuel <= 0`, whether or not anything can brew. A running brew counts `brewTime` down by 1 and ends at 0.
+  A stand that does not brew starts one when it can brew and `fuel > 0`: `fuel--` and `brewTime = 400`. Block
+  entities tick before the work engine, so the handlers write after the stand's own step of each tick.
+- **Can brew.** The handler repeats vanilla's private `isBrewable` with public calls, as NeoForge compiles it: an
+  ingredient that `level.potionBrewing().isIngredient` accepts and that `hasMix(bottle, ingredient)` brews with one
+  of the three bottles.
+- **Fuel.** `applyWork` raises the fuel to 1 only while the stand can brew, and leaves the stand's own fuel as it
+  is, as the Stoker leaves a burning furnace's `litTime`. `onStart` keeps the fuel of that moment in the claim's
+  memo, and `onStop` lowers the fuel to it. A stopped Brew Stoker whose chunk is gone writes nothing, because a
+  read would load the chunk.
+- **Blaze powder between brews (a consequence of the rows).** No vanilla brew can follow itself: after a brew,
+  nothing can brew until the player changes the stand. The worker then enters Standby (CD-BRF-04) and gives the
+  stand its own fuel back (CD-BRF-05). When that fuel is 0, vanilla turns a blaze powder in the fuel slot into
+  20 fuel on its next tick. So the powder stays only while the worker Works (CD-BRF-03). `cdBrf03` uses a brew
+  that can follow itself, which the test mod registers through `RegisterBrewingRecipesEvent`: water and a stick
+  give water.
+- **Brew time.** The Brewer's step comes after the stand's step, so a brew that the Brewer works from its first
+  tick ends 200 ticks after it starts (`BrewingRulesTest` simulates vanilla's countdown). The Brewer has demand
+  only while a brew runs, and a worker in Standby checks for demand every 20 ticks (CD-ASG-12), so it starts on a
+  new brew up to 19 ticks late, and that brew takes up to 210 ticks. `cdBrw02` starts its brew on the tick of the
+  Brewer's Standby check.
+- **Effects.** Cobblemon's `ember` timeline sends `ember_actor` from the user to the target and plays `ember_target`
+  on the target only (`is_user == false`). `poisongas` does the same with `poisongas_actor` and `poisongas_target`.
+  So `actor_particles` and `target_particles` hold one of each. The animations are `ember`, `fire`, `spray`,
+  `special` and `cry`, and `poisongas`, `spray`, `special` and `cry`. The range is 6.0.
+- **CD-ASG-16.** `DefaultPriorityTest` gives `Assigner.pickForIdle` each target with every default role whose
+  handler matches it, as a scan does: `burner_heat` for a Blaze Burner, and `brewing_fuel` and `brewing_speed` for a
+  stand. A pure Fire-type on the burner and a pure Poison-type on the stand get the other role.
+
 - [ ] **Step 1: Failing tests** — `DefaultPriorityTest` (CD-ASG-16 with the default files: Turtonator
   `fire`+`dragon` on a burner gets the Superheater; Salazzle `poison`+`fire` on a stand gets the Brew Stoker);
   extend `BuiltInRoleFilesTest` to all eleven machine roles from the Role table (CD-FX-02). GameTests: one per
@@ -283,6 +329,27 @@ extra step per tick and never below 1, so a brew takes 200 ticks (CD-BRW-02); de
   powder stays after 3 brews; removing the ingredient gives Standby within 20 ticks; fuel 0 worked then
   released reads 0; a worked brew takes 198 to 202 ticks; equal fuel after one brew each with and without a
   Brewer).
+
+  As built, `BrewingRulesTest` covers the four rules (CD-BRF-02, CD-BRF-03, CD-BRF-05, CD-BRW-02) on a model of
+  vanilla's `serverTick`. `BuiltInRoleFilesTest` gets the two Role table rows (CD-FX-02) and both particle splits
+  (CD-FX-04), and Tasks 4 and 5 add the Pump and the Muse. Three GameTests, each on a real stand:
+
+```kotlin
+// cdBrf02BrewStokerBrewsWithNoBlazePowder: a Lv10 Charmander claims a stand with 3 water bottles, a nether wart and no powder as
+//   the Brew Stoker (CD-BRF-01); the stand holds fuel 1 or more on every Working tick, and 3 awkward potions brew (CD-BRF-02);
+//   with the wart used up, Standby within 20 ticks (CD-BRF-04) and fuel 0 (CD-BRF-05).
+// cdBrf03BlazePowderStaysThroughThreeBrews: 3 water bottles and 4 sticks; 1 blaze powder goes in once the Brew Stoker Works; the
+//   worker Works and the stand holds fuel 1 or more through 3 brews, and the powder count stays 1 (CD-BRF-02, CD-BRF-03); then the
+//   last stick goes: Standby within 20 ticks (CD-BRF-04), fuel 0 (CD-BRF-05).
+// cdBrw02WorkedBrewTakes200Ticks: a Lv20 Ekans claims the stand in its work area as the Brewer (CD-BRW-01) and waits in Standby
+//   with no brew (CD-BRW-03); both stands hold fuel 20; the brew that it works from its first tick takes 198 to 202 ticks
+//   (CD-BRW-02), then Standby within 20 ticks (CD-BRW-03); the stand outside the work area takes 400; both end with equal fuel
+//   (CD-BRW-04).
+```
+
+  - CD-BRF-05 (the row's literal case: a stand at fuel 0 is worked, then released before a brew starts): GameTest
+    deferred (high confidence): verified in the end-of-phase pass. The release path calls the same `onStop` with
+    the claim's memo as Standby does, which `cdBrf02` and `cdBrf03` check.
 - [ ] **Step 2: Write the code, run, commit** — `git commit -m "Fuel and speed up brewing stands with Fire- and Poison-types"`.
 
 ---
