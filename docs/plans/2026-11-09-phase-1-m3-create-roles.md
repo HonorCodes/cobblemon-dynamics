@@ -164,8 +164,9 @@ Add `./gradlew runGameTestServerCore` to `.github/workflows/build.yml` after the
 **Rows:** CD-WHL-04, CD-WHL-06, CD-WHL-07, CD-CRK-05, CD-CRK-08.
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/DriveBehaviour.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/DriveBehaviour.kt` (`DriveBehaviour` and `DriveNbt`)
 - Modify: `handler/create/CreateCompat.kt` (subscribe `BlockEntityBehaviourEvent` for `WATER_WHEEL`, `LARGE_WATER_WHEEL`, `HAND_CRANK`)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/DriveNbtTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/DriveBehaviourTests.kt`
 
 **Interfaces:**
@@ -173,17 +174,27 @@ Add `./gradlew runGameTestServerCore` to `.github/workflows/build.yml` after the
 
 ```kotlin
 class DriveBehaviour(be: SmartBlockEntity) : BlockEntityBehaviour(be) {
-    var direction: Int = +1        // +1 or -1, CD-WHL-04, CD-CRK-05
-    var driven: Boolean = false    // true while a worker Works on it
+    var direction: Int = +1        // +1 or -1, CD-WHL-04, CD-CRK-05; private set
+    var driven: Boolean = false    // true while a worker Works on it; a change calls blockEntity.sendData()
     fun flip()                     // direction = -direction; blockEntity.notifyUpdate()
-    // write/read: NBT keys "cd_direction" and "cd_driven"; both go into client packets too
-    companion object { val TYPE: BehaviourType<DriveBehaviour>; fun of(be: BlockEntity): DriveBehaviour? }
+    // write/read through DriveNbt: "cd_direction" always, "cd_driven" only when clientPacket is true
+    companion object { val TYPE: BehaviourType<DriveBehaviour>; fun of(be: BlockEntity?): DriveBehaviour? }
 }
+object DriveNbt { const val DIRECTION = "cd_direction"; const val DRIVEN = "cd_driven"; write, direction, driven }
 ```
 
-- [ ] **Step 1: Failing GameTests** — `cdWhl04NewWheelsStartPositive` (two new wheels read +1; flipping A
-  leaves B at +1), `cdWhl07DirectionSurvivesReload` and `cdCrk08` (flip, save the block entity with
-  `saveWithFullMetadata`, load it with `BlockEntity.loadStatic`, the direction reads −1),
+As built: `cd_driven` goes into client packets only, never into a save. Claims are never saved (CD-CLM-07),
+so a saved `driven = true` would turn a wheel with no worker after a restart. Create posts
+`BlockEntityBehaviourEvent` from `SmartBlockEntity.initialize()` (the first tick) or from the first NBT read
+(`read`, before the behaviours read their NBT), on both sides (checked with `javap`), so `DriveBehaviour.of`
+is null for a new block entity until its first tick, and a loaded one reads its saved direction. The event's
+`forType` compares block entity types, so a valve handle, which has its own type, gets no drive.
+
+- [ ] **Step 1: Failing tests** — `DriveNbtTest` (no saved direction reads +1; a saved +1 or −1 reads back; a
+  client packet carries `cd_driven`, a save does not). GameTests: `cdWhl04NewWheelsStartPositive` (two new
+  wheels read +1; flipping A leaves B at +1), `cdWhl07DirectionSurvivesReload` and
+  `cdCrk08DirectionSurvivesReload` (flip and set `driven`, save the block entity with `saveWithFullMetadata`,
+  load it with `BlockEntity.loadStatic`: the direction reads −1 and `driven` is false),
   `cdCrk05NewCrankStartsPositive`. CD-WHL-06 needs workers, so its GameTest is in Task 3.
 - [ ] **Step 2: Write the behaviour, run, commit** —
   `git commit -m "Store a drive direction on Create wheels and hand cranks"`.
