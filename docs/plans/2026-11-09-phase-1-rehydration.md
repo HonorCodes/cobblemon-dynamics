@@ -124,7 +124,8 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 - CD-LSH-16 to CD-LSH-20 and CD-SEC-11 use the test-only role `cobblemon_dynamics:test_transfer` from the
   test mod, because Telekinesis ships in Phase 2.
 - GameTests simulate restarts (`WorkEngine.resetRuntimeForTest()` plus NBT round trips) and chunk unloads.
-  The test pack repeats them for real in M5 Task 6.
+  The test pack's `restart` and `reload` scenarios (M5 Task 6) repeat for real the checks that need no pastured
+  worker, because a dedicated test server has no player.
 - Keep the Task 9 GameTests cdAi01 and cdAi06, although rule 6 would not have asked for them.
 
 ## Carry-over items

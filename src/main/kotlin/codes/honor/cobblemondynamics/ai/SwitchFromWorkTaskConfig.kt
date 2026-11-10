@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.ai
 
+import codes.honor.cobblemondynamics.engine.EngineTiming
 import com.cobblemon.mod.common.api.ai.BehaviourConfigurationContext
 import com.cobblemon.mod.common.api.ai.config.task.SingleTaskConfig
 import com.cobblemon.mod.common.api.npc.configuration.MoLangConfigVariable
@@ -25,13 +26,13 @@ class SwitchFromWorkTaskConfig : SingleTaskConfig {
 }
 
 class SwitchFromWorkTask : OneShot<LivingEntity>() {
-    override fun trigger(level: ServerLevel, entity: LivingEntity, gameTime: Long): Boolean {
+    override fun trigger(level: ServerLevel, entity: LivingEntity, gameTime: Long): Boolean = EngineTiming.time {
         val brain = entity.brain
-        if (!brain.checkMemory(DynamicsMemories.WORK_ORDER.get(), MemoryStatus.VALUE_ABSENT)) return false
+        if (!brain.checkMemory(DynamicsMemories.WORK_ORDER.get(), MemoryStatus.VALUE_ABSENT)) return@time false
         brain.updateActivityFromSchedule(level.dayTime, level.gameTime)
         // The schedule update runs at most once in 20 ticks. The default activity is Cobblemon's idle activity, at once (CD-AI-03).
         if (brain.isActive(DynamicsActivities.WORK.get())) brain.useDefaultActivity()
         (entity as? PokemonEntity)?.let(BrainBridge::wake)
-        return true
+        true
     }
 }

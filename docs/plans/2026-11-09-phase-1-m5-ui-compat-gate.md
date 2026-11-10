@@ -260,6 +260,50 @@ input), waits until all 64 are Working, records `EngineTiming` for 6,000 ticks, 
 and p95 ≤ 2.0 ms. It also counts Dynamics log lines written after the warm-up and asserts that each one is
 a once-per-cause warning (CD-PERF-05). The approver can repeat the measurement with spark in the test pack.
 
+Design (as built):
+
+- `EngineTiming` times every per-tick entry point of Dynamics, not only `tickLevel`: the engine's level ticks,
+  the leash index check, the panel sends, and the work Brain tasks (`canStillUse`, `start`, `tick` and `stop` of
+  the move and look tasks, and the triggers of the two switch tasks). A section inside another counts once.
+  `EngineEvents` ends each tick in `ServerTickEvent.Post`, after the panel sends. A recording starts at the next
+  whole tick and keeps the per-tick totals in a ring buffer (`TickTimes`). With no recording, a section only runs
+  its block. The p95 is the nearest-rank percentile. `EngineTimingTest` covers the sums, the nesting, the ring and
+  both statistics on a fake clock.
+- NeoForge's `GameTestRegistry` takes a test's namespace as the namespace of its template too, so
+  `gen_test_structures.py` also writes `floor_41x8x41` under `data/cobblemon_dynamics_perf/structure/` in the
+  full test mod. The run `gameTestServerPerf` loads the full mod set and enables only that namespace.
+- The reference world: on `floor_41x8x41`, 8 pastures on a 3 × 3 grid with 16 blocks between them, one owner,
+  8 level-50 Charmanders per pasture, and a ring of 8 furnaces 3 blocks out from each pasture, each with 64 raw
+  iron, so that every furnace has demand for the whole run. No furnace lies in two work areas. The test waits
+  until all 64 workers are Working and then 200 ticks more, records 6,000 ticks, and asserts on every recorded
+  tick that all 64 are still Working.
+- CD-PERF-05, runtime part: during the 6,000 ticks a log4j appender on the root logger of the mod's logger
+  context collects the lines at INFO and above from the `codes.honor.cobblemondynamics.` loggers, without the
+  test mod's. Each must be a WARN, and no message may repeat.
+- Fake players never join the level, so no work effect packet goes out during the measurement. The approver's
+  spark run in the test pack, with a client beside the workers, covers that cost.
+- Measured on the development machine, 2026-11-10: mean 0.120 ms, p95 0.202 ms of Dynamics server time per
+  tick over 6,000 ticks with 64 Working workers, and no Dynamics log line after the warm-up. The gate report
+  and the M5 pull request quote these numbers.
+- CI runs `runGameTestServerPerf` in the build job and keeps its log. The run takes about a minute, and the
+  budget leaves a margin of 5 to 10 times, so a slower runner does not fail it.
+
+Real restarts and `/reload` in the test pack (as built):
+
+- `restart` checks for real: CD-CFG-01 (the file and every key of the `ConfigTest` list, before the first
+  restart; `ConfigTest` fails when the scenario's list differs from its own), CD-WHL-07 and CD-CRK-08 (a water
+  wheel and a hand crank set to direction -1 with `data merge block` still read -1 after a real stop and start,
+  so `DriveBehaviour` saves and loads the direction with the block entity), and CD-CLM-07 (the claims command
+  reports none after the restart).
+- `reload` checks CD-CFG-08 for real: a world data pack replaces the Stoker's role file with one that names an
+  unregistered handler, and after `/reload` the role registry logs that the Stoker is disabled for that handler.
+- A dedicated test server has no player, so it cannot pasture a Pokémon. The checks that need a worker stay in
+  the GameTests, which simulate the restart: claims held before a restart (CD-CLM-07,
+  `cdClm07ClaimsAreNotSaved`), the binding (CD-LSH-07, `cdLsh07BindingSurvivesRestartAndToggle`), flips by a
+  worker (CD-WHL-07, CD-CRK-08, `DriveBehaviourTests`), Work Stamina (CD-STA-04,
+  `cdSta04And05StaminaStartsFullAndFollowsThePokemon`), and the bed claim after a restart (CD-BED-14, whose
+  GameTest M2 deferred). Real restart with a worker: manual checklist (Task 8), listed in Task 9.
+
 - [ ] **Steps:** write `EngineTiming` and the test → `./gradlew runGameTestServerPerf` → record mean and p95
   in the pull request → commit `"Measure engine server time with 64 Working workers"`.
 
@@ -344,3 +388,7 @@ Deferred rows (the index's execution rule 6; append as milestones defer more):
   rate), CD-CFG-13, CD-CFG-05 (the Generator).
 - M4 Tasks 3 to 5: CD-BRF-05 (a stand at fuel 0 released before a brew starts), CD-PMP-06 (the five cauldrons on real
   blocks).
+- M5 Tasks 5 to 7: the real-restart parts that need a pastured worker, which the test pack cannot make without a
+  player: CD-CLM-07 (claims held before the restart), CD-LSH-07, CD-WHL-07 and CD-CRK-08 (a flip by a bound worker),
+  CD-STA-04 and CD-BED-14. Their GameTests simulate the restart; a manual checklist line repeats them with a real
+  restart in the play-test.

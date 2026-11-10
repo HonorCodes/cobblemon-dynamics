@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.leash
 
 import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.claim.LeashIndex
+import codes.honor.cobblemondynamics.engine.EngineTiming
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.guarded
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
@@ -51,7 +52,7 @@ object LeashResets {
         }
         NeoForge.EVENT_BUS.addListener<LevelTickEvent.Post> { event ->
             val level = event.level as? ServerLevel ?: return@addListener
-            if (level.gameTime % CHECK_TICKS == 0L) checkIndex(level)
+            if (level.gameTime % CHECK_TICKS == 0L) EngineTiming.time { checkIndex(level) }
         }
     }
 

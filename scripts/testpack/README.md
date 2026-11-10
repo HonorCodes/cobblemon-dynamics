@@ -10,8 +10,8 @@ another existing Minecraft instance.
   `python3` on Linux.
 - A JDK 21 in `JAVA_HOME`. The script never starts the `java` on the PATH, because that one can be
   older.
-- A built mod jar. Run `./gradlew build` (`gradlew.bat build` on Windows) before `smoke`, `deps`,
-  `compat` or `client`.
+- A built mod jar. Run `./gradlew build` (`gradlew.bat build` on Windows) before any command except
+  `resolve`.
 
 ## Commands
 
@@ -21,7 +21,8 @@ Run each command from the repository root, for example `py scripts/testpack/test
 |---|---|
 | `resolve` | Finds each pin of `mods.json` on Modrinth or on the NeoForge maven, then writes its file name, URL and SHA-512 back to `mods.json`. A version without a NeoForge 1.21.1 release gets `null`. |
 | `smoke` | Starts a server with the pinned mods and the built jar. Checks that the mod loads and that RCON answers `list`, then stops the server. Prints `SMOKE PASS` or `SMOKE FAIL: <reason>`. |
-| `reload` | Starts the same server, runs `cobblemondynamics claims` over RCON (it must answer that there are no claims), runs `reload`, waits for the reload to end, and checks that the log has no `Skipping role file` line. Prints `RELOAD PASS` or `RELOAD FAIL: <reason>`. |
+| `reload` | Starts the same server and runs `cobblemondynamics claims` over RCON (it must answer that there are no claims). Then it writes the world data pack `cd_reload_probe`, whose Stoker role file names a handler that nobody registers, runs `reload` and waits for the reload to end. The log must say that the Stoker is disabled for that handler (CD-CFG-08) and have no `Skipping role file` line. Prints `RELOAD PASS` or `RELOAD FAIL: <reason>`. |
+| `restart` | Starts the same server and checks that `config/cobblemon_dynamics-server.toml` holds every key of the CD-CFG-01 list in `ConfigTest` (CD-CFG-01). It force-loads chunk 0, 0, places a Create water wheel and a hand crank, and sets the turn direction that they save (`cd_direction`) to -1 with `data merge block`. Then it stops and starts the server: both blocks must still read -1 (CD-WHL-07, CD-CRK-08), `cobblemondynamics claims` must report none (CD-CLM-07), and the new log must have no error of ours. Prints `RESTART PASS` or `RESTART FAIL: <reason>`. |
 | `deps` | Runs the dependency-range cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `DEPS PASS` or `DEPS FAIL`. |
 | `compat` | Runs the compatibility cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `COMPAT PASS` or `COMPAT FAIL`. |
 | `client` | Fills `run/testpack/client/mods/` with the pinned mods and the built jar, for a manual play-test in a clean NeoForge 21.1.265 launcher instance. |
@@ -69,9 +70,10 @@ Class names are under `codes.honor.cobblemondynamics.`.
 | `scripts/testpack/mods.json` | The pins: version, file name, URL and SHA-512 of each download. |
 | `run/testpack/cache/` | Downloads. The script deletes a download whose SHA-512 does not match `mods.json`. |
 | `run/testpack/base/neoforge-<version>/` | One NeoForge server install for each version. |
-| `run/testpack/<profile>/` | One server for each run: `smoke/`, `deps-<case>/`, `compat_<mod>/` and later scenarios. The script makes it again from the base install on each run. |
+| `run/testpack/<profile>/` | One server for each run: `smoke/`, `reload/`, `restart/`, `deps-<case>/` and `compat_<mod>/`. The script makes it again from the base install on each run. |
 
-A profile has `logs/latest.log` and `console.log` (the server stdout and stderr). Profiles use hard
+A profile has `logs/latest.log` and `console.log` (the server stdout and stderr). After a restart, the
+first run's files are `logs/before-restart.log` and `before-restart.log`. Profiles use hard
 links to the large jars where the file system allows it. Each server listens on 127.0.0.1 only,
 with `online-mode=false`, free ports and a random RCON password.
 
@@ -98,3 +100,8 @@ The `Server` object has these methods:
   wait for the next occurrence of a line.
 - `rcon(command)` runs a console command over RCON and returns the reply.
 - `stop()` sends `stop` over RCON and waits for the process to end.
+- `restart()` stops the server and starts it again in the same folder. The log methods then read the
+  new run only.
+
+A dedicated test server has no player, so a scenario cannot pasture a Pokémon. Checks that need a
+worker stay in the GameTests.

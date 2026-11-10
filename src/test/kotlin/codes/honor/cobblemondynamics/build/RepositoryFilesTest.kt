@@ -36,6 +36,13 @@ class RepositoryFilesTest {
     }
 
     @Test
+    fun `CD-PERF-01 build workflow runs the perf GameTest and keeps its log`() {
+        val text = File(root, ".github/workflows/build.yml").readText()
+        assertTrue(text.contains("./gradlew runGameTestServerPerf"))
+        assertTrue(text.contains("run/gametest-perf/logs/"))
+    }
+
+    @Test
     fun `CD-REL-02 security workflow runs CodeQL and dependency review`() {
         val text = File(root, ".github/workflows/security.yml").readText()
         assertTrue(text.contains("github/codeql-action/analyze"))

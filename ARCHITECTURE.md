@@ -741,6 +741,14 @@ Rules:
   `@GameTestGenerator`. Run `gradlew runGameTestServer` with
   `neoforge.enabledGameTestNamespaces=cobblemon_dynamics`. The exit code is the number of failed
   required tests. Cobblemon, Create and AE2 join the run as `localRuntime` dependencies.
+- **Performance run.** `gradlew runGameTestServerPerf` runs `PerfTests` alone, in the namespace
+  `cobblemon_dynamics_perf`: 8 pastures with 64 Working Stokers for 6,000 ticks. While a recording runs,
+  `EngineTiming` adds up, per server tick, the time of every per-tick entry point of Dynamics: the engine's
+  level ticks, the leash index check, the panel sends and the work Brain tasks. The test checks the mean and
+  p95 budgets (CD-PERF-01, CD-PERF-02) and that Dynamics logs only once-per-cause warnings (CD-PERF-05).
+- **Isolated test pack.** `scripts/testpack/testpack.py` starts clean dedicated servers with pinned mods for
+  the dependency ranges, the compatibility cases, a real `/reload` and a real restart. Its servers have no
+  player, so the checks that need a pastured worker stay in the GameTests.
 - **Manual checklist.** `docs/testing/manual-checklist.md` (written in milestone M5) covers what tests
   cannot see: animations, the pasture panel button and bars, head bars, sleep visuals, leash messages,
   fan particles on the client, and coexistence with Cobbleworkers and Cobblebase. The spec sheet's

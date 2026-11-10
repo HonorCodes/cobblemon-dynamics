@@ -131,6 +131,14 @@ neoForge {
             loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_coretest]
             systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
         }
+        // CD-PERF-01, CD-PERF-02, CD-PERF-05: the reference world alone on its server. The namespace keeps PerfTests out of the other runs.
+        gameTestServerPerf {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('run/gametest-perf')
+            loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_test]
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'cobblemon_dynamics_perf'
+        }
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.INFO

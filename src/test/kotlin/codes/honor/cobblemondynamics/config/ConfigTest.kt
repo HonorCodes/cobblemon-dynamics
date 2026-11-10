@@ -2,8 +2,10 @@ package codes.honor.cobblemondynamics.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class ConfigTest {
     @Test
@@ -35,7 +37,27 @@ class ConfigTest {
 
     @Test
     fun `CD-CFG-01 every documented key exists`() {
-        val keys = listOf(
+        for (k in CFG_01_KEYS) assertTrue(ServerConfig.hasKey(k), k)
+    }
+
+    @Test
+    fun `CD-CFG-01 the test pack looks for the same keys in the file of a real server`() {
+        val script = File(System.getProperty("cd.projectDir"), "scripts/testpack/testpack.py").readText()
+        val tuple = Regex("""^SERVER_CONFIG_KEYS = \((.*?)\)$""", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
+            .find(script)?.groupValues?.get(1)
+        assertNotNull(tuple, "testpack.py has no SERVER_CONFIG_KEYS tuple")
+        assertEquals(CFG_01_KEYS, Regex(""""([^"]+)"""").findAll(tuple!!).map { it.groupValues[1] }.toList())
+    }
+
+    @Test
+    fun `CD-CFG-06 client workSounds defaults to false`() {
+        assertTrue(ClientConfig.hasKey("effects.workSounds"))
+        assertFalse(ClientConfig.defaultWorkSounds)
+    }
+
+    private companion object {
+        /** The keys of the spec's Config section. The test pack's restart scenario looks for the same keys. */
+        val CFG_01_KEYS = listOf(
             "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
             "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
             "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
@@ -43,12 +65,5 @@ class ConfigTest {
             "stamina.healerRecoveryMinutesAtLevel100", "stamina.flushIntervalTicks", "beds.speedFactors",
             "heal.cost", "heal.lowStaminaThreshold", "roles.disabled", "compat.cobbleworkers", "compat.cobblebase",
         )
-        for (k in keys) assertTrue(ServerConfig.hasKey(k), k)
-    }
-
-    @Test
-    fun `CD-CFG-06 client workSounds defaults to false`() {
-        assertTrue(ClientConfig.hasKey("effects.workSounds"))
-        assertFalse(ClientConfig.defaultWorkSounds)
     }
 }
