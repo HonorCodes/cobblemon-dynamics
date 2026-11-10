@@ -175,6 +175,8 @@ The spec sheet area CMP holds the exact compatibility rules.
 
 | Document | Contents |
 | --- | --- |
+| [docs/player-guide.md](docs/player-guide.md) | How to play: Work Mode, the Work Leash, Work Stamina, beds, healers, every role, config and commands |
+| [docs/testing/manual-checklist.md](docs/testing/manual-checklist.md) | The manual play-test checklist for the Demo rows |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Components, data flow, integration points, art and milestones |
 | [docs/roles.md](docs/roles.md) | Role catalog for all 18 types: Phase 1, Phase 2 and later ideas |
 | [docs/plans/2026-11-09-v1-spec-sheet.md](docs/plans/2026-11-09-v1-spec-sheet.md) | Requirements for 1.0, each with an acceptance test |
