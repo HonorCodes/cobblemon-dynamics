@@ -223,4 +223,5 @@ Deferred rows (the index's execution rule 6; append as milestones defer more):
 - M4 Tasks 1 to 2: CD-GEN-04 (the AE2 Charger, whose buffer reads through its FE capability), CD-GEN-07 (the AE2
   ratio; reading the grid's energy needs `gametestCompileOnly` of the AE2 jar), CD-CFG-03 (the datapack Generator
   rate), CD-CFG-13, CD-CFG-05 (the Generator).
-- M4 Tasks 3 to 5: CD-BRF-05 (a stand at fuel 0 released before a brew starts).
+- M4 Tasks 3 to 5: CD-BRF-05 (a stand at fuel 0 released before a brew starts), CD-PMP-06 (the five cauldrons on real
+  blocks).

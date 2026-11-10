@@ -1,11 +1,14 @@
 package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.engine.WorkSpots
+import com.google.gson.JsonElement
+import com.google.gson.JsonParser
 import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class BuiltInRoleFilesTest {
     private data class Row(
@@ -27,7 +30,14 @@ class BuiltInRoleFilesTest {
         "crystal_tender" to Row("cobblemon_dynamics:budding", setOf("rock"), true, 0, "rockthrow"),
         "brew_stoker" to Row("cobblemon_dynamics:brewing_fuel", setOf("fire"), true, 10, "ember"),
         "brewer" to Row("cobblemon_dynamics:brewing_speed", setOf("poison"), true, 0, "poisongas"),
+        "pump" to Row("cobblemon_dynamics:fluid_fill", setOf("water"), false, 0, "watergun"),
     )
+
+    /** The `auto_assign` key as the file writes it, so that a missing key fails as well as `true`. */
+    private fun autoAssignKey(name: String): JsonElement? {
+        val json = JsonParser.parseString(File(BuiltInRoles.dir, "$name.json").readText())
+        return json.asJsonObject.get("auto_assign")
+    }
 
     /**
      * Cobblemon's `watergun` timeline emits the spray and the actor burst from the user, aimed at the target, and only the two
@@ -117,6 +127,22 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("cobblemon:poisongas_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:poisongas_target"), effect.targetParticles.map { it.toString() })
         assertEquals(listOf("poisongas", "spray", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /** The Pump casts the Wheel Driver's Water Gun: the spray and the actor burst from the worker, the splash on the target. */
+    @Test
+    fun `CD-FX-04 the Pump's Water Gun sprays from the worker and splashes at the target`() {
+        val effect = BuiltInRoles.parse("pump").effect
+        assertEquals(listOf("cobblemon:watergun_spray", "cobblemon:watergun_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:watergun_target", "cobblemon:watergun_targetfoam"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("watergun", "spray", "beam", "special", "cry"), effect.animationsWithCry)
+    }
+
+    @Test
+    fun `CD-PMP-02 the Pump role file sets auto_assign to false`() {
+        val key = autoAssignKey("pump")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "pump.json has auto_assign $key")
+        assertFalse(BuiltInRoles.parse("pump").autoAssign)
     }
 
     /** The Cranker is the only role whose move needs contact. */

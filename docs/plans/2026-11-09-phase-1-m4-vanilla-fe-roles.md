@@ -369,11 +369,85 @@ Demand: a simulated 1 mB fill succeeds (CD-PMP-05). Cauldrons go through `Cauldr
 target raises the level one step per 333 mB by setting the block state, as `receiveStalactiteDrip` does
 (CD-PMP-04); demand while empty or water below level 3, never for lava or powder snow (CD-PMP-06).
 
+As built (`id = cobblemon_dynamics:fluid_fill`; also `handler/capability/PumpParams.kt`, `FluidPortTest.kt` and
+`PumpParamsTest.kt`, the handler registration in `CobblemonDynamics.kt`, and the Pump's Role table row, particles and
+flag in `BuiltInRoleFilesTest.kt`):
+
+```kotlin
+internal interface FluidPort {                                  // water only; the 1.21.9 transfer API port point
+    fun simulate(mb: Int): Int
+    fun fill(mb: Int): Int
+    fun holdsWater(): Boolean
+    companion object { fun of(handler: IFluidHandler): FluidPort }
+}
+internal object FluidTick {
+    fun acceptsWater(port: FluidPort): Boolean               // CD-PMP-01: simulate(1) == 1, or a tank holds water already
+    fun hasDemand(port: FluidPort, mbPerTick: Int): Boolean  // CD-PMP-05: mbPerTick > 0 && simulate(1) == 1
+    fun work(port: FluidPort, mbPerTick: Int): Int           // CD-PMP-03: one fill of the rate
+}
+data class PumpParams(val mbPerLevel: Double) {
+    fun mbPerTick(level: Int): Int                           // round(mb_per_level × L), inside an int
+    companion object { fun of(params: JsonObject): PumpParams }
+}
+object CauldronFill {
+    const val MB_PER_LEVEL = 333
+    const val FULL_LEVEL = 3
+    enum class Contents { EMPTY, WATER, LAVA, POWDER_SNOW }
+    data class Fill(val level: Int, val storedMb: Int)
+    fun hasDemand(contents: Contents, level: Int): Boolean        // CD-PMP-06
+    fun deliver(level: Int, storedMb: Int, offeredMb: Int): Fill  // CD-PMP-04
+}
+```
+
+Design decisions (the plan gave steps only):
+
+- **Targets.** `matches` takes vanilla's four cauldrons, and any block whose `FluidHandler.BLOCK` on one of its six
+  faces takes a simulated 1 mB of water or already holds water in a tank. The plan named the simulated fill only,
+  which refuses the bind to a water tank that happens to be full. A tank of another fluid takes neither, so its bind
+  is refused. `stillValid` asks only for a fluid capability on some face, or a cauldron, so a tank that fills up or
+  changes its fluid keeps its binding and has no demand (CD-PMP-05), and a cauldron that changes between
+  `minecraft:cauldron` and `minecraft:water_cauldron` stays the target.
+- **Cauldrons never use the capability.** NeoForge's wrapper fills an empty cauldron only with a whole 1,000 mB, so
+  the handler checks the four vanilla cauldron blocks first. The block decides the contents, not the `LEVEL`
+  property, because the powder snow cauldron has one too.
+- **Face order.** As the Generator does (Task 1): the claim keeps, in its memo, a `BlockCapabilityCache` of the face
+  nearest the worker that takes water, and tries the faces again when that face stops taking it. For a cauldron, the
+  memo holds the mB delivered toward its next level instead.
+- **Rate.** `PumpParams.of(role.params).mbPerTick(pokemon.level)` on each tick, 5 × L with the default file. The
+  rate is linear, so it has no level clamp, unlike the Generator's curve: a Lv150 Pump under a raised level cap gives
+  750 mB per tick (CD-CFG-13). A `mb_per_level` that a pack's file leaves out takes 5. One fill per tick, and what the
+  target refuses is gone, as with FE.
+- **Cauldron fill.** `CauldronFill.deliver` adds the tick's offer to the claim's stored mB and raises the level once per
+  333 mB, up to 3. A cauldron that fills keeps nothing. The new level goes in with `setBlockAndUpdate` and the
+  `BLOCK_CHANGE` game event, as `LayeredCauldronBlock.receiveStalactiteDrip` does (checked with `javap`). Its drip
+  sound (level event 1047) stays out, because work sounds play only for clients that turn them on (ADR-0007).
+- **Effect.** The Pump casts the Wheel Driver's Water Gun, with the same split: `watergun_spray` and `watergun_actor`
+  from the worker, `watergun_target` and `watergun_targetfoam` at the target.
+
 - [ ] **Step 1: Failing tests** — `CauldronFillTest` (50 mB per tick reaches level 3 at tick 20; the five
   demand cases). GameTests: bind to a Create fluid tank, a basin and a cauldron (CD-PMP-01); a Lv1 Pump adds
   5,000 ± 50 mB in 1,000 ticks and a Lv100 Pump 500 mB per tick (CD-PMP-03); a full tank gives Standby within
   20 ticks (CD-PMP-05); an unleashed Water-type beside an empty tank 400 ticks gets no claim (CD-ASG-05);
   the role file has `"auto_assign": false` (CD-PMP-02, in `BuiltInRoleFilesTest`).
+
+  As built, `CauldronFillTest` also checks levels 1 and 2 at ticks 7 and 14, a 500 mB fill in 2 ticks, and that a
+  full cauldron keeps nothing. `FluidPortTest` covers CD-PMP-01, CD-PMP-03 and CD-PMP-05 with a fake tank, and
+  `PumpParamsTest` the rate of the default file. Four GameTests, through NeoForge's real fluid capability, with
+  Create's blocks placed by id (`TestKit.ae2Block`), so no test names a Create class:
+
+```kotlin
+// cdPmp01BindsToATankABasinAndACauldron: a Lv10 Squirtle bound to create:fluid_tank, then create:basin, then a cauldron; each bind
+//   gives a Pump binding (CD-PMP-01); the empty cauldron is full after 19 to 21 ticks of work (CD-PMP-04).
+// cdPmp03Lv1PumpAdds5000MbIn1000Ticks: the tank holds 5 × n mB after n ticks of work, and 5,000 ± 50 after 1,000 (CD-PMP-03).
+// cdPmp03Lv100PumpGives500MbPerTickUntilTheTankIsFull: 500 mB on each tick of work up to the tank's 8,000 mB (CD-PMP-03); then
+//   Standby within 20 ticks, on its claim (CD-PMP-05).
+// cdAsg05UnleashedWaterTypeLeavesAnEmptyTankAlone: an unleashed Squirtle 2 blocks from an empty Create fluid tank holds no claim and
+//   stays Idle for 400 ticks (CD-ASG-05).
+```
+
+  - CD-PMP-06 (the five cauldrons of the row: an empty one and water at level 2 have demand, water at level 3, lava
+    and powder snow have none): GameTest deferred (high confidence): verified in the end-of-phase pass.
+    `CauldronFillTest` holds the five cases, and the handler maps the four cauldron blocks by block, not by `LEVEL`.
 - [ ] **Step 2: Write the code, run, commit** — `git commit -m "Pump water into tanks and cauldrons with leashed Water-types"`.
 
 ---
