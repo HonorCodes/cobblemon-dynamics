@@ -131,11 +131,19 @@ class BalanceTest {
 
 The BAL-02 simulation runs 720,000 ticks of a tight loop; it takes well under a second.
 
+The test files also hold one-tick-step versions of CD-STA-06/08 (a Lv1 worker is Tired on tick 3,600, not
+3,599), CD-STA-07/10 (a Lv10 worker stays Tired until tick 36,000) and CD-CFG-04 (tick 7,200), a Starlit Bed
+boundary for CD-BED-03 (37.5 min, not 1 tick less), the HEALER and WORKER cases of `RecoveryRule.of`,
+configured healer times and bed factors, healer levels above 100, and CD-BAL-03 for every tier at Lv1 and
+Lv10.
+
 - [ ] **Step 2: Run them and see them fail** — `./gradlew test --tests "codes.honor.cobblemondynamics.stamina.*"`, unresolved references.
 - [ ] **Step 3: Write the code** — `work` subtracts `ticks / capacityTicks`, clamps at 0, sets `tired` at 0;
   `rest` adds `ticks × bedFactor / fullRecoveryTicks`, clamps at 1, clears `tired` at 1. The healer full
-  recovery is `healerMinutes(level) × TICKS_PER_MINUTE`.
-- [ ] **Step 4: Run them and see them pass** — 13 tests.
+  recovery is `healerMinutes(level) × TICKS_PER_MINUTE`. Both ends snap within 1e-9, because one-tick steps
+  add rounding error and the last tick of a drain can leave 1e-13 instead of 0. `healerMinutes` clamps the
+  level to 1..100, because Cobblemon's level cap is a config value and the line reaches 0 at level 111.
+- [ ] **Step 4: Run them and see them pass** — 22 tests.
 - [ ] **Step 5: Commit** — `git commit -m "Add Work Stamina capacity, drain, recovery and bed factors"`.
 
 ---
