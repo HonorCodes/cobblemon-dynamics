@@ -35,6 +35,23 @@ class StaminaBarTest {
         assertEquals(3, setOf(StaminaBar.GREEN, StaminaBar.YELLOW, StaminaBar.RED).size)
     }
 
+    /** The head bars draw the parts as coplanar quads, which must not overlap, or they flicker. */
+    @Test
+    fun `a bar's parts tile it without overlap, with the fill at its colour`() {
+        val bar = Rect(-10, -2, 30, 4)
+        for (percent in listOf(0, 1, 42, 99, 100)) {
+            val parts = StaminaBar.parts(bar, percent)
+            val area = parts.sumOf { it.first.width * it.first.height }
+            assertEquals(bar.width * bar.height, area, "the parts at $percent% must cover the bar")
+            for ((i, a) in parts.withIndex()) {
+                assertEquals(true, bar.contains(a.first), "${a.first} leaves the bar")
+                for (b in parts.drop(i + 1)) assertEquals(false, a.first.overlaps(b.first), "${a.first} overlaps ${b.first}")
+            }
+            val fill = parts.filter { it.second == StaminaBar.color(percent) }.sumOf { it.first.width }
+            assertEquals(StaminaBar.fillWidth(percent, bar.width - 2), fill, "the fill width at $percent%")
+        }
+    }
+
     @Test
     fun `CD-UI-10 CD-UI-11 the tooltip of a bar at 42 percent shows 42% Work Stamina and the state name`() {
         val lines = StaminaBar.tooltip(42, WorkerStatus.WORKING)

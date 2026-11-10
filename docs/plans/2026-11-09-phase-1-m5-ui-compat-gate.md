@@ -104,13 +104,31 @@ CD-UI-04, CD-UI-10 and the Demo parts of CD-UI-07 and CD-UI-08 are Demo rows. De
 **Rows:** CD-UI-06, CD-UI-09, CD-UI-11.
 
 **Files:** `client/HeadBars.kt` (`RenderLivingEvent.Post` for `PokemonEntity`, reads the synced
-`stamina_view`), `client/TargetOutlines.kt` (`RenderLevelStageEvent` after translucent blocks,
-`LevelRenderer.renderLineBox` around each target in `ClientState.leashOverview`), `client/HeldLeash.kt`
-(sends `leash_overview_request` when the main hand changes to the leash), `src/test/kotlin/.../client/HeadBarRangeTest.kt`.
+`stamina_view`), `client/HeadBarRange.kt`, `client/TargetOutlines.kt` (`RenderLevelStageEvent` after translucent
+blocks, `LevelRenderer.renderLineBox` around each target in `ClientState.leashOverview`), `client/HeldLeash.kt`
+(sends `leash_overview_request` when the main hand changes to the leash), `client/OverviewRequests.kt`,
+`src/test/kotlin/.../client/HeadBarRangeTest.kt`, `OverviewRequestsTest.kt`.
 
 Head bars draw only while the main hand holds the Work Leash, for workers within `hud.headBarRange` blocks
 (16.0 draws, 16.1 does not) (CD-UI-06). Outlines show only the targets of the viewer's own bound workers,
 because the server's overview reply holds only those (CD-UI-09).
+
+Design (checked against the NeoForge 21.1.265 and Cobblemon 1.8.4 jars):
+
+- Cobblemon's `PokemonRenderer.render` calls `super.render`, so `RenderLivingEvent.Post` fires for Pokémon. The head
+  bar draws as vanilla draws a name tag: turned to the camera, scale 0.025, y down, 0.75 blocks above the bounding
+  box. The icon, 8 × 8, sits left of the bar, 30 × 4 (`HeadBarRange.ICON`, `HeadBarRange.BAR`). The bar's frame,
+  fill and empty part are quads that do not overlap (`StaminaBar.parts`), so the coplanar quads never fight over
+  depth. They use `RenderType.textBackground()`, the icon `RenderType.text(icon)`, both at full brightness.
+- `HeadBarRange.inRange` measures from the player's position to the worker's position in three dimensions.
+- `HeldLeash` asks for the overview on the tick that the leash comes into the main hand, as planned, and again every
+  20 ticks while it stays there (`OverviewRequests`), so a binding made with the leash in hand gets its outline.
+- NeoForge posts `AFTER_TRANSLUCENT_BLOCKS` with no pose stack (the event makes a fresh one), while the view rotation
+  is on the model-view stack. `TargetOutlines` therefore draws camera-relative lines, as vanilla draws the block
+  outline: `LevelRenderer.renderLineBox` around the block's box, then `endBatch(RenderType.lines())`.
+
+CD-UI-06 and CD-UI-09 are Demo rows. Demo: verified in the play-test (manual checklist, M5 Task 8). The
+GameTest `cdUi09OverviewHoldsOnlyOwnTargets` (in `LeashTests`) checks the server side of CD-UI-09.
 
 - [ ] **Steps:** `HeadBarRangeTest` (16.0 in, 16.1 out); a GameTest `cdUi09OverviewHoldsOnlyOwnTargets` (two
   players with one binding each: each overview reply holds one entry) → write the code → `./gradlew build

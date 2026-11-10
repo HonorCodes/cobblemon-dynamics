@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.leash.LeashComponents
+import codes.honor.cobblemondynamics.net.LeashOverviewPayload
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
@@ -150,5 +151,30 @@ class LeashTests {
                 "on" -> if (isWorkingAt(helper, scene.pokemon, furnace)) helper.succeed()
             }
         }
+    }
+
+    /**
+     * CD-UI-09: the client outlines the targets in the server's overview reply, and each reply holds only the asking player's
+     * bindings. Two owners in one level bind one furnace each, and each reply names that owner's furnace alone.
+     */
+    @GameTest(template = "floor_41x8x41")
+    fun cdUi09OverviewHoldsOnlyOwnTargets(helper: GameTestHelper) {
+        val scenes = listOf(BlockPos(10, 1, 10), BlockPos(30, 1, 30)).map { pastureRel ->
+            val owner = TestKit.owner(helper)
+            val pasture = TestKit.placePasture(helper, pastureRel, owner)
+            TestKit.workMode(pasture, true)
+            TestKit.standBeside(owner, pasture)
+            val pokemon = TestKit.tether(helper, pasture, owner, "charmander level=10")
+            val furnaceRel = pastureRel.north(4)
+            val furnace = TestKit.furnace(helper, furnaceRel, ItemStack(Items.RAW_IRON, 8)).blockPos
+            val binding = TestKit.bind(helper, owner, pokemon, furnaceRel)
+            helper.assertTrue(binding?.target == furnace, "the Charmander of ${owner.gameProfile.name} is bound to $binding")
+            owner to furnace
+        }
+        for ((owner, furnace) in scenes) {
+            val targets = LeashOverviewPayload.of(owner).entries.map { it.second }
+            helper.assertTrue(targets == listOf(furnace), "the overview of ${owner.gameProfile.name} holds $targets, not only $furnace")
+        }
+        helper.succeed()
     }
 }

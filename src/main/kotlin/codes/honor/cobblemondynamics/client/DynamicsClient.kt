@@ -9,6 +9,9 @@ object DynamicsClient {
     fun register(modBus: IEventBus) {
         ClientEffects.register(modBus)
         PastureScreenHooks.register()
+        HeldLeash.register()
+        HeadBars.register()
+        TargetOutlines.register()
         NeoForge.EVENT_BUS.addListener<ClientPlayerNetworkEvent.LoggingOut> {
             ClientState.reset()
             PastureScreenHooks.reset()

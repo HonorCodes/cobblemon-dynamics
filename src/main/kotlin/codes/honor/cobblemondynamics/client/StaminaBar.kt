@@ -24,6 +24,21 @@ object StaminaBar {
         return if (clamped == 0) 0 else max(1, width * clamped / 100)
     }
 
+    /** [bar] as rectangles that do not overlap, each with its colour: the 1-pixel frame, the fill and the empty rest. */
+    fun parts(bar: Rect, percent: Int): List<Pair<Rect, Int>> {
+        val inner = Rect(bar.x + 1, bar.y + 1, bar.width - 2, bar.height - 2)
+        val filled = fillWidth(percent, inner.width)
+        val parts = mutableListOf(
+            Rect(bar.x, bar.y, bar.width, 1) to FRAME,
+            Rect(bar.x, bar.bottom - 1, bar.width, 1) to FRAME,
+            Rect(bar.x, inner.y, 1, inner.height) to FRAME,
+            Rect(inner.right, inner.y, 1, inner.height) to FRAME,
+        )
+        if (filled > 0) parts += Rect(inner.x, inner.y, filled, inner.height) to color(percent)
+        if (filled < inner.width) parts += Rect(inner.x + filled, inner.y, inner.width - filled, inner.height) to EMPTY
+        return parts
+    }
+
     fun color(percent: Int): Int = when {
         percent >= 50 -> GREEN
         percent >= 25 -> YELLOW

@@ -54,10 +54,6 @@ object PanelBars {
     }
 
     private fun drawBar(graphics: GuiGraphics, bar: Rect, percent: Int) {
-        graphics.fill(bar.x, bar.y, bar.right, bar.bottom, StaminaBar.FRAME)
-        val inner = Rect(bar.x + 1, bar.y + 1, bar.width - 2, bar.height - 2)
-        graphics.fill(inner.x, inner.y, inner.right, inner.bottom, StaminaBar.EMPTY)
-        val filled = StaminaBar.fillWidth(percent, inner.width)
-        if (filled > 0) graphics.fill(inner.x, inner.y, inner.x + filled, inner.bottom, StaminaBar.color(percent))
+        for ((rect, color) in StaminaBar.parts(bar, percent)) graphics.fill(rect.x, rect.y, rect.right, rect.bottom, color)
     }
 }
