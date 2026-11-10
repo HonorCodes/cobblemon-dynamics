@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.pasture.WorkModeData
 import codes.honor.cobblemondynamics.pasture.WorkPastureIndex
+import codes.honor.cobblemondynamics.stamina.StaminaView
 import net.neoforged.neoforge.attachment.AttachmentType
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredRegister
@@ -24,6 +25,13 @@ object DynamicsAttachments {
     val LEASH_INDEX: DeferredHolder<AttachmentType<*>, AttachmentType<LeashIndex>> =
         REGISTER.register("leash_index", Supplier { leashIndex() })
 
+    /**
+     * On a worker's `PokemonEntity`: its Work Stamina and state for head bars. NeoForge syncs it to the clients that track the
+     * entity, on each `setData` and `removeData`. It has no serializer, so it is never saved.
+     */
+    val STAMINA_VIEW: DeferredHolder<AttachmentType<*>, AttachmentType<StaminaView>> =
+        REGISTER.register("stamina_view", Supplier { staminaView() })
+
     private fun workMode(): AttachmentType<WorkModeData> =
         AttachmentType.builder(Supplier { WorkModeData.OFF }).serialize(WorkModeData.CODEC) { it.enabled }.build()
 
@@ -32,4 +40,7 @@ object DynamicsAttachments {
 
     private fun leashIndex(): AttachmentType<LeashIndex> =
         AttachmentType.builder(Supplier { LeashIndex(HashMap()) }).serialize(LeashIndex.CODEC).build()
+
+    private fun staminaView(): AttachmentType<StaminaView> =
+        AttachmentType.builder(Supplier { StaminaView.FULL }).sync(StaminaView.STREAM_CODEC).build()
 }

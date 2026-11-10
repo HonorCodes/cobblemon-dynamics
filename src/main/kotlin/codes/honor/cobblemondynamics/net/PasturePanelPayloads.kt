@@ -28,15 +28,12 @@ data object PasturePanelClosePayload : CustomPacketPayload {
 /** One Pokémon of the pasture list: its Work Stamina as 0 to 100 and its worker state. */
 data class PanelEntry(val pokemonId: UUID, val percent: Int, val state: WorkerStatus) {
     companion object {
-        private val STATE_CODEC: StreamCodec<ByteBuf, WorkerStatus> =
-            ByteBufCodecs.VAR_INT.map({ WorkerStatus.entries.getOrElse(it) { WorkerStatus.IDLE } }, WorkerStatus::ordinal)
-
         val STREAM_CODEC: StreamCodec<ByteBuf, PanelEntry> = StreamCodec.composite(
             UUIDUtil.STREAM_CODEC,
             PanelEntry::pokemonId,
             ByteBufCodecs.VAR_INT,
             PanelEntry::percent,
-            STATE_CODEC,
+            StreamCodecs.WORKER_STATUS,
             PanelEntry::state,
             ::PanelEntry,
         )

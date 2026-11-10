@@ -212,3 +212,4 @@ Deferred rows (the index's execution rule 6; append as milestones defer more):
   CD-LSH-17, CD-LSH-18, CD-LSH-19, CD-LSH-20, CD-LSH-21, CD-LSH-24, CD-LSH-25, CD-LSH-26, CD-LSH-27, CD-WMD-07,
   CD-CLM-05, CD-CLM-06, CD-ASG-20, CD-SEC-07, CD-SEC-11, CD-UI-14, CD-SEC-09, and the payload path of CD-SEC-05,
   CD-SEC-06, CD-WMD-03 and CD-WMD-04.
+- M2 Tasks 1 to 3: CD-STA-11, CD-STA-12.

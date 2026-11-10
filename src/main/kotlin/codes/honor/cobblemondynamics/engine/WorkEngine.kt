@@ -25,6 +25,11 @@ import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import codes.honor.cobblemondynamics.role.RoleSelection
 import codes.honor.cobblemondynamics.role.RoleSet
+import codes.honor.cobblemondynamics.stamina.FlushRule
+import codes.honor.cobblemondynamics.stamina.RecoveryRule
+import codes.honor.cobblemondynamics.stamina.StaminaStore
+import codes.honor.cobblemondynamics.stamina.StaminaView
+import codes.honor.cobblemondynamics.stamina.ViewSync
 import com.cobblemon.mod.common.api.types.ElementalTypes
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
@@ -82,7 +87,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         for (runtime in runtimesOf(dimension)) if (level.isLoaded(runtime.pos) && runtime.isPollDue(t.now)) poll(t, runtime)
         validateClaims(t)
         for (runtime in runtimesOf(dimension)) if (level.isLoaded(runtime.pos)) scan(t, runtime)
-        for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) tickWorker(t, runtime, slot)
+        for (runtime in runtimesOf(dimension)) {
+            for (slot in runtime.slots.values.toList()) {
+                tickWorker(t, runtime, slot)
+                if (runtime.slots[slot.worker.pokemonId] === slot) tickStamina(t, slot)
+            }
+        }
         for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) direct(t, slot)
     }
 
@@ -137,10 +147,20 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
-     * The GameTest form of a restart. A restart also loses the Brain memories, because the work order has no codec, and the focus
-     * entities, because their type is never saved.
+     * Every worker's live Work Stamina goes to its Pokémon's saved data. The server stop calls it before Cobblemon saves its stores
+     * (ADR-0008).
+     */
+    fun flushAll() {
+        val now = server.overworld().gameTime
+        for (slot in slots.values) flush(slot, now)
+    }
+
+    /**
+     * The GameTest form of a restart. A real stop flushes Work Stamina first. A restart also loses the Brain memories, because the
+     * work order has no codec, and the focus entities, because their type is never saved.
      */
     fun resetRuntimeForTest() {
+        flushAll()
         for (slot in slots.values) {
             BrainBridge.clear(slot.entity)
             removeFocus(slot)
@@ -181,7 +201,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 slot.entity = entity
                 slot.pokemon = pokemon
             } else if (tethered.pokemonId !in slots) {
-                val joined = PastureRuntime.Slot(Worker(tethered.pokemonId, runtime.key), entity, pokemon)
+                val worker = Worker(tethered.pokemonId, runtime.key)
+                // CD-STA-05, CD-STA-11: a new worker starts at 100%, and a known one recovers for its time away.
+                worker.stamina = StaminaStore.load(pokemon, t.now, t.settings)
+                worker.staminaUntil = t.now
+                val joined = PastureRuntime.Slot(worker, entity, pokemon)
                 runtime.slots[tethered.pokemonId] = joined
                 slots[tethered.pokemonId] = joined
             }
@@ -192,6 +216,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             // A binding counts only for the pasture that it names. LeashResets clears one that names another.
             slot.binding = BindingStore.read(slot.pokemon)?.takeIf { it.dimension == t.dimension && it.pasture == runtime.pos }
             slot.worker.leashed = slot.binding != null
+            slot.rule = RecoveryRule.of(hasFairyType(slot.pokemon), slot.binding != null)
             claimBound(t, runtime, slot, taken)
         }
     }
@@ -421,6 +446,46 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
+     * Work Stamina drains on each tick that the handler worked and recovers on every other tick, at the worker's rule (CD-STA-06,
+     * CD-STA-07, CD-HEAL-12, CD-HEAL-13). Then it is flushed when due, and the view follows (CD-STA-15).
+     */
+    private fun tickStamina(t: Tick, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        val ticks = t.now + 1 - worker.staminaUntil
+        if (ticks > 0) {
+            val level = slot.pokemon.level
+            if (worker.status == WorkerStatus.WORKING) {
+                worker.stamina.work(ticks, level, t.settings)
+            } else {
+                worker.stamina.rest(ticks, level, slot.rule, null, t.settings)
+            }
+            worker.staminaUntil = t.now + 1
+        }
+        if (FlushRule.isDue(slot.flushedStatus, worker.status, slot.flushedAt, t.now, t.settings)) flush(slot, t.now)
+        syncView(slot)
+    }
+
+    /** To the instance that the last poll read from the PC, which is the PC's own until Cobblemon reloads the store. */
+    private fun flush(slot: PastureRuntime.Slot, now: Long) {
+        StaminaStore.save(slot.pokemon, slot.worker.stamina, slot.worker.staminaUntil)
+        slot.flushedStatus = slot.worker.status
+        slot.flushedAt = now
+    }
+
+    /** A new entity has no view yet, so it gets one at once. */
+    private fun syncView(slot: PastureRuntime.Slot) {
+        val entity = slot.entity
+        if (entity.isRemoved) return
+        val stamina = slot.worker.stamina
+        val status = slot.worker.status
+        if (slot.viewEntity === entity && !ViewSync.shouldSync(slot.viewPercent, stamina.percent, slot.viewStatus, status)) return
+        entity.setData(DynamicsAttachments.STAMINA_VIEW, StaminaView.of(stamina, status))
+        slot.viewEntity = entity
+        slot.viewPercent = stamina.percent
+        slot.viewStatus = status
+    }
+
+    /**
      * Step 6: the work order goes into the Brain on every tick, because Cobblemon rebuilds Brains (CD-AI-04). A Working worker
      * has its focus entity and its effect loop, and any other worker has no focus entity, from this tick on (CD-FX-07).
      */
@@ -471,8 +536,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
+    /** The worker leaves: its Work Stamina is saved, which covers entity unload, and a Pokémon that no longer works shows no bar. */
     private fun drop(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
         release(t, slot)
+        flush(slot, t.now)
+        val entity = slot.entity
+        if (!entity.isRemoved && entity.hasData(DynamicsAttachments.STAMINA_VIEW)) entity.removeData(DynamicsAttachments.STAMINA_VIEW)
         runtime.slots.remove(slot.worker.pokemonId)
         slots.remove(slot.worker.pokemonId)
     }

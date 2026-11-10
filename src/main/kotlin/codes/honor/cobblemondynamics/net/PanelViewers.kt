@@ -1,10 +1,14 @@
 package codes.honor.cobblemondynamics.net
 
+import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.pasture.WorkModePolicy
+import codes.honor.cobblemondynamics.stamina.Stamina
+import codes.honor.cobblemondynamics.stamina.StaminaStore
+import codes.honor.cobblemondynamics.stamina.StaminaView
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
@@ -15,9 +19,6 @@ import java.util.UUID
 /** The players who have a pasture's panel open, and the last state that each was sent. Server thread only. */
 object PanelViewers {
     private const val PERMISSION_OPERATOR = 2
-
-    /** Until Work Stamina exists, every Pokémon of the list reads full. */
-    private const val FULL_PERCENT = 100
 
     private val viewers = HashMap<PastureKey, LinkedHashSet<ServerPlayer>>()
     private val lastSent = HashMap<UUID, PasturePanelStatePayload>()
@@ -64,9 +65,17 @@ object PanelViewers {
         val engine = WorkEngine.get()
         val canToggle = WorkModePolicy.mayToggle(player.uuid, player.hasPermissions(PERMISSION_OPERATOR), PastureAdapter.placer(be))
         val entries = PastureAdapter.tetheredIds(be).map { id ->
-            PanelEntry(id, FULL_PERCENT, engine?.worker(id)?.status ?: WorkerStatus.IDLE)
+            val worker = engine?.worker(id)
+            val stamina = worker?.stamina ?: savedStamina(player.serverLevel(), be, id)
+            PanelEntry(id, StaminaView.displayPercent(stamina.percent), worker?.status ?: WorkerStatus.IDLE)
         }
         return PasturePanelStatePayload(PastureAdapter.isWorkMode(be), canToggle, entries)
+    }
+
+    /** A Pokémon that is not a worker shows its saved Work Stamina with the recovery of its time away, or 100% with none. */
+    private fun savedStamina(level: ServerLevel, be: PokemonPastureBlockEntity, pokemonId: UUID): Stamina {
+        val pokemon = PastureAdapter.tetheredPokemon(be, pokemonId)?.pokemon ?: return Stamina()
+        return StaminaStore.load(pokemon, level.gameTime, WorkEngineSettings.current)
     }
 
     private fun keyOf(level: ServerLevel, pos: BlockPos) = PastureKey(level.dimension().location(), pos.asLong())

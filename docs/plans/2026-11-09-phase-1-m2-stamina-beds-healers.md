@@ -153,13 +153,20 @@ Lv10.
 **Rows:** CD-STA-04, CD-STA-05, CD-STA-11, CD-STA-12, CD-STA-15, CD-UI-05 (cadence rule).
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/stamina/StaminaStore.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/stamina/StaminaStore.kt` (also `OfflineRecovery`, `FlushRule`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/stamina/StaminaView.kt` (entity attachment, synced)
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/stamina/ViewSync.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/stamina/ViewSync.kt` (also `PanelCadence`)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/StreamCodecs.kt` (the `WorkerStatus` ordinal codec that
+  `PanelEntry` and `StaminaView` share)
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsAttachments.kt` (`STAMINA_VIEW`)
-- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt` (drain, recover, flush)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt` (load, drain, recover, flush, view),
+  `engine/Worker.kt` (`stamina`, `staminaUntil`; `tired` reads the stamina's flag), `engine/PastureRuntime.kt` (the slot's
+  rule, flush and view state), `engine/EngineEvents.kt` (`ServerStoppingEvent` flush)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/net/PanelViewers.kt` (the panel entries carry the real percent)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/stamina/ViewSyncTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/stamina/OfflineRecoveryTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/stamina/PanelCadenceTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/stamina/StaminaStoreTest.kt` (the store on a plain compound)
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/StaminaStoreTests.kt`
 
 **Interfaces:**
@@ -167,22 +174,38 @@ Lv10.
 
 ```kotlin
 object StaminaStore {      // Pokemon.persistentData -> "cobblemon_dynamics" -> "stamina" {percent, tired, last_game_time}
-    fun load(pokemon: Pokemon, now: Long, level: Int, s: EngineSettings): Stamina   // absent -> 100% (CD-STA-05); else offline recovery at base rate
-    fun save(pokemon: Pokemon, stamina: Stamina, now: Long)                           // then pokemon.onChange()
+    fun load(pokemon: Pokemon, now: Long, s: EngineSettings): Stamina    // absent -> 100% (CD-STA-05); else offline recovery
+    fun save(pokemon: Pokemon, stamina: Stamina, savedAt: Long)          // then pokemon.onChange()
+    fun ruleOf(pokemon: Pokemon): RecoveryRule                           // the Pokémon's types and binding
+    data class Saved(val fraction: Double, val tired: Boolean, val lastGameTime: Long)
+    fun read(data: CompoundTag): Saved?                                  // the pure layer, unit-tested on a plain compound
+    fun write(data: CompoundTag, stamina: Stamina, savedAt: Long)
+    fun restore(data: CompoundTag, now: Long, level: Int, rule: RecoveryRule, s: EngineSettings): Stamina
 }
 object OfflineRecovery { fun apply(stamina: Stamina, elapsed: Long, level: Int, rule: RecoveryRule, s: EngineSettings) }  // never a bed factor
-data class StaminaView(val percent: Int, val state: Int)    // 0-100 and WorkerStatus ordinal; attachment syncs to clients
+object FlushRule { fun isDue(flushedStatus: WorkerStatus?, status: WorkerStatus, flushedAt: Long, now: Long, s: EngineSettings): Boolean }
+data class StaminaView(val percent: Int, val state: WorkerStatus)   // 0-100 rounded down; the codec sends the state's ordinal
 object ViewSync {
     fun shouldSync(lastSyncedPercent: Double, nowPercent: Double, lastState: WorkerStatus, nowState: WorkerStatus): Boolean
 }
 object PanelCadence { fun shouldSend(openedAt: Long, now: Long): Boolean }   // 0, 20, 40 (CD-UI-05)
 ```
 
-Time always comes from `server.overworld().gameTime`, which `/time` never changes (CD-STA-12). The engine
-keeps each worker's `Stamina` in memory, drains it 1 tick per Working tick and recovers it on every other
-tick, and flushes it to the PC's own `Pokemon` instance (`tethering.getPokemon()`, so Cobblemon's 20-tick
-instance swap never loses it) on each state change, every `flushIntervalTicks`, on entity unload and on
-server stop.
+`load` reads the level and the rule from the Pokémon, so it takes no level. A damaged entry counts as none.
+`last_game_time` is the first tick that the saved value does not include yet: the engine keeps
+`Worker.staminaUntil`, applies each tick once (`now + 1 - staminaUntil` ticks per engine tick), and saves
+`staminaUntil`, so a flush at any point of a tick, followed by a load, neither loses nor repeats a tick.
+
+Time always comes from game time, which `/time` never changes (CD-STA-12): `TimeCommand` calls only
+`ServerLevel.setDayTime` (checked with `javap`), and `level.gameTime` is the overworld's in every dimension
+(`DerivedLevelData.getGameTime` delegates). The engine keeps each worker's `Stamina` in memory, drains it 1
+tick per Working tick and recovers it on every other tick, and flushes it to the PC's own `Pokemon` instance
+(`tethering.getPokemon()`, which each poll reads again, so Cobblemon's 20-tick instance swap never loses it)
+on each state change, every `flushIntervalTicks`, when the worker leaves (which covers entity unload) and on
+`ServerStoppingEvent`, before Cobblemon saves its stores on `ServerStoppedEvent`. The GameTest restart
+(`resetRuntimeForTest`) flushes first, as a real stop does. A Pokémon that stops working loses its
+`stamina_view`, so its head bar goes. The panel entries carry the live percent of a worker, and the saved
+percent with offline recovery of any other tethered Pokémon; the 20-tick panel send itself is M5 Task 2.
 
 - [ ] **Step 1: Write the failing unit tests**
 
@@ -207,22 +230,39 @@ class PanelCadenceTest {
 }
 ```
 
+The test files also hold: a drain also syncs, a point read back through rounding still syncs, the view rounds
+down and its codec keeps every state (CD-STA-15); a healer's time away and a negative time away
+(CD-STA-11); and `StaminaStoreTest` on a plain `persistentData` compound written and read as binary NBT: the
+value, the flag and the time survive a save, the entry sits beside the binding (CD-STA-04), no entry or a
+damaged one reads 100% (CD-STA-05), 18,000 ticks later reads 50% (CD-STA-11), only game time moves the value
+(CD-STA-12), and the ADR-0008 flush cadence.
+
 - [ ] **Step 2: Write the failing GameTests**
 
 ```kotlin
-// cdSta04SurvivesPcPartyRestartAndSwap: a worker at 37%; release to the PC and tether again; simulateRestart; replace
-//   entity.pokemon with the PC instance (entity.pokemon = tethering.getPokemon()); the value is within the recovery
-//   that the elapsed ticks allow.
-// cdSta05NewWorkerStartsFull: a Pokémon with no Dynamics data joins a Work Mode pasture; it reads 100%.
-// cdSta11PcTimeRecoversAtBaseRate: a Lv10 worker at 0% (StaminaStore.save with 0) is released to the PC at game time T;
-//   advance by setting last_game_time to T - 18,000 in persistentData before it is tethered again; it reads 50% ± 0.1%.
-// cdSta12TimeCommandsChangeNothing: a worker in the PC; run "time set day" and "time add 24000"; StaminaStore.load gives the
-//   same value as before the commands.
+// cdSta04And05StaminaStartsFullAndFollowsThePokemon (own batch, because it resets the engine): a new Lv10 Charmander with no
+//   Dynamics data joins a Work Mode pasture and reads 100% with the view (100, IDLE) (CD-STA-05); it is set to 37%, released
+//   to the PC, moved to the party and back, and tethered again; simulateRestart; the PC's instance is replaced by an NBT
+//   round trip of itself, as a restart's reload builds new instances; entity.pokemon = the new instance, which is Cobblemon's
+//   20-tick swap (it runs only for an owner in the level's player list, which a fake player never is). At each step the value
+//   is at least 37% and at most 37% plus the base-rate recovery of the ticks since it was set (CD-STA-04).
 ```
+
+The other two planned GameTests:
+
+- CD-STA-11 (`cdSta11PcTimeRecoversAtBaseRate`: a Lv10 worker at 0% is released to the PC at game time T, its
+  `last_game_time` is set to T - 18,000 before it is tethered again, and it reads 50% ± 0.1%): GameTest
+  deferred (high confidence): verified in the end-of-phase pass. The join path through the PC is the one that
+  cdSta04And05 runs, and `OfflineRecoveryTest` and `StaminaStoreTest` check the value.
+- CD-STA-12 (`cdSta12TimeCommandsChangeNothing`: a worker in the PC; `time set day` and `time add 24000`;
+  `StaminaStore.load` gives the same value as before): GameTest deferred (high confidence): verified in the
+  end-of-phase pass. `TimeCommand` calls only `setDayTime`, and `StaminaStoreTest` shows that only game time
+  moves the value.
 
 - [ ] **Step 3: Write the code, run everything, see it pass, commit**
 
-Run: `./gradlew build runGameTestServer`. Expected: PASS.
+Run: `./gradlew build`, then `./gradlew runGameTestServer` at the end of the part (Tasks 1 to 3), twice.
+Expected: PASS.
 `git commit -m "Persist Work Stamina with the Pokémon and sync a display value to clients"`
 
 ---

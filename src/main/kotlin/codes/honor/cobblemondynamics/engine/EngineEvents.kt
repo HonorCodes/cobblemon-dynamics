@@ -10,12 +10,15 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.event.server.ServerStartingEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
+import net.neoforged.neoforge.event.server.ServerStoppingEvent
 import net.neoforged.neoforge.event.tick.LevelTickEvent
 
 /** The game events that drive the work engine. */
 object EngineEvents {
     fun register() {
         NeoForge.EVENT_BUS.addListener<ServerStartingEvent> { WorkEngine.start(it.server) }
+        // Cobblemon saves its PC and party stores on ServerStoppedEvent, so Work Stamina is flushed before it.
+        NeoForge.EVENT_BUS.addListener<ServerStoppingEvent> { WorkEngine.get()?.flushAll() }
         NeoForge.EVENT_BUS.addListener<ServerStoppedEvent> {
             WorkEngine.stop()
             WorkModeService.reset()
