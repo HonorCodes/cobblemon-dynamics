@@ -93,9 +93,11 @@ object BrainBridge {
 
     /**
      * Ends a pose of ours. Cobblemon saves the recalculation flag with the entity, so a flag left off would freeze the pose for good
-     * (CD-AI-08). An entity that loads with our mark, because it was saved while it slept, gets its pose back here too.
+     * (CD-AI-08). An entity that loads with our mark, because it was saved while it slept, gets its pose back here too. The flag is
+     * read first, because NeoForge creates an entity's data tag on its first read, and most entities never had a pose of ours.
      */
     fun wake(entity: PokemonEntity) {
+        if (entity.enablePoseTypeRecalculation) return
         val data = entity.persistentData
         if (!data.getBoolean(POSED)) return
         data.remove(POSED)
