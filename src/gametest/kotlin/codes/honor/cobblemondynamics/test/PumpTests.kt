@@ -4,7 +4,10 @@ import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.handler.capability.FluidFillHandler
 import codes.honor.cobblemondynamics.id
+import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
@@ -163,6 +166,61 @@ class PumpTests {
             }
         }
     }
+
+    /**
+     * Five real cauldrons: empty, water at level 2, water at level 3, lava and powder snow. The Pump handler gives demand for the first
+     * two only (CD-PMP-06). Five Lv10 Squirtles bound one to each cauldron agree: the two with demand Work and fill to level 3, and the
+     * three without wait in Standby and never Work, and their cauldrons stay as they were.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun cdPmp06FiveCauldronsOnRealBlocks(helper: GameTestHelper) {
+        val (owner, pasture) = pasture(helper)
+        val water2 = Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 2)
+        val water3 = Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3)
+        val snow = Blocks.POWDER_SNOW_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3)
+        val cases = listOf(
+            Triple("the empty cauldron", Blocks.CAULDRON.defaultBlockState(), true),
+            Triple("the water cauldron at level 2", water2, true),
+            Triple("the water cauldron at level 3", water3, false),
+            Triple("the lava cauldron", Blocks.LAVA_CAULDRON.defaultBlockState(), false),
+            Triple("the powder snow cauldron", snow, false),
+        )
+        val rels = cases.indices.map { BlockPos(3 + 2 * it, 1, 3) }
+        for ((rel, case) in rels.zip(cases)) helper.setBlock(rel, case.second)
+        val pumps = rels.map { rel ->
+            val squirtle = TestKit.tether(helper, pasture, owner, "squirtle level=10")
+            bindPump(helper, owner, squirtle, rel)
+            squirtle
+        }
+        val pump = RoleRegistry.current.get(id("pump"))?.definition ?: throw GameTestAssertException("no Pump role")
+        for ((index, case) in cases.withIndex()) {
+            val entity = pumps[index]
+            val ctx = WorkContext(helper.level, helper.absolutePos(rels[index]), entity, entity.pokemon, pump, helper.level.gameTime)
+            val demand = FluidFillHandler.hasDemand(ctx)
+            helper.assertTrue(demand == case.third, "CD-PMP-06: the Pump handler gives ${case.first} demand $demand")
+        }
+        val worked = BooleanArray(cases.size)
+        helper.onEachTick {
+            var settled = 0
+            for ((index, case) in cases.withIndex()) {
+                val (what, start, demand) = case
+                val worker = TestKit.workerOf(helper, pumps[index]) ?: return@onEachTick
+                if (worker.status == WorkerStatus.WORKING) worked[index] = true
+                val state = helper.getBlockState(rels[index])
+                if (demand) {
+                    if (worked[index] && state == water3 && worker.status == WorkerStatus.STANDBY) settled++
+                } else {
+                    helper.assertFalse(worked[index], "CD-PMP-06: a Pump works $what")
+                    helper.assertTrue(state == start, "CD-PMP-06: $what became $state")
+                    if (worker.status == WorkerStatus.STANDBY && isOn(helper, pumps[index], rels[index])) settled++
+                }
+            }
+            if (settled == cases.size) helper.succeed()
+        }
+    }
+
+    private fun isOn(helper: GameTestHelper, entity: PokemonEntity, rel: BlockPos): Boolean =
+        TestKit.claimOf(helper, entity)?.key == TestKit.keyOf(helper, helper.absolutePos(rel))
 
     /** The row's case: an unleashed Water-type and an empty Create fluid tank for 400 ticks. The Pump is leash only (CD-ASG-05). */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
