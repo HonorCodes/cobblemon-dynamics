@@ -56,8 +56,6 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
-import kotlin.math.abs
-import kotlin.math.max
 
 /**
  * The server's work engine: the workers of every pasture in Work Mode, their claims and their states. Runs on the server
@@ -781,13 +779,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         fun require(server: MinecraftServer): WorkEngine =
             instance?.takeIf { it.server === server } ?: error("The work engine is not running")
 
-        /** At most `max(0.75, bbWidth / 2)` from the spot center horizontally, and less than 1.5 blocks from its floor. */
-        fun isArrived(entity: Entity, spot: BlockPos): Boolean {
-            val dx = entity.x - (spot.x + 0.5)
-            val dz = entity.z - (spot.z + 0.5)
-            val reach = max(0.75, entity.bbWidth / 2.0)
-            return dx * dx + dz * dz <= reach * reach && abs(entity.y - spot.y) < 1.5
-        }
+        /** Where navigation stops [entity] for [spot], by the rule of [Arrival]. */
+        fun isArrived(entity: Entity, spot: BlockPos): Boolean = Arrival.isAt(entity.x, entity.y, entity.z, entity.bbWidth.toDouble(), spot)
 
         private fun typesOf(pokemon: Pokemon): Set<String> = pokemon.types.mapTo(HashSet()) { it.showdownId }
 

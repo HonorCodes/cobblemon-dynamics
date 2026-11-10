@@ -344,8 +344,11 @@ Per `LevelTickEvent.Post` on a `ServerLevel`, `tickLevel` runs these steps for t
    `WorkSpots.find` over `LevelSpotGrid` before it claims; with no spot it claims nothing and skips the
    target for `retryWaitTicks`. A spot that another worker of the level holds is not standable, so two
    workers never share a cell.
-5. Every worker with a claim: `arrived` is the entity's horizontal distance to the spot center at most
-   `max(0.75, entity.bbWidth / 2)`, with `|dy| < 1.5`. Run `WorkerMachine.onTick`. On entering Working call
+5. Every worker with a claim: `arrived` is `Arrival.isAt` (corrected in M3 Task 5): on each of x and z at most
+   `max(0.75, entity.bbWidth / 2)` from `spot + (int)(bbWidth + 1) / 2`, the point that navigation steers the mob to
+   (`Path.getEntityPosAtNode`; the spot's center for a mob narrower than a block, its corner for one 1 to 2 blocks wide),
+   with `|dy| < 1.5`. The first rule, a distance to the spot's center, left a Dragonair 1.1 blocks wide short of its
+   spot on about 4 approaches in 10, until its travel timed out. Run `WorkerMachine.onTick`. On entering Working call
    `handler.onStart`, snap the entity to the spot center, and on leaving Working call `handler.onStop`.
    While Working call `handler.applyWork` every tick. While Traveling, set the Brain's `WALK_TARGET` to the
    spot's bottom center (speed 0.4, close enough 0) every tick; Cobblemon's core `follow_walk_target` task
