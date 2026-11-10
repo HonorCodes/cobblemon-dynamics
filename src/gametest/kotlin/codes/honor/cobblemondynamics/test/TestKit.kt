@@ -4,7 +4,10 @@ import codes.honor.cobblemondynamics.claim.Claim
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.Worker
+import codes.honor.cobblemondynamics.leash.Binding
+import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.pasture.WorkModeService
+import codes.honor.cobblemondynamics.registry.DynamicsItems
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties
@@ -19,8 +22,13 @@ import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.gametest.framework.GameTestInfo
 import net.minecraft.gametest.framework.GameTestListener
 import net.minecraft.gametest.framework.GameTestRunner
+import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.MenuProvider
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.behavior.BehaviorControl
 import net.minecraft.world.entity.schedule.Activity
@@ -29,9 +37,13 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.common.util.FakePlayer
 import net.neoforged.neoforge.common.util.FakePlayerFactory
+import java.util.OptionalInt
 import java.util.UUID
+import java.util.function.Consumer
 
 /** Builds GameTest scenes: owners, pastures and Pokémon. */
 object TestKit {
@@ -61,6 +73,57 @@ object TestKit {
 
     private class OperatorPlayer(level: ServerLevel, profile: GameProfile) : FakePlayer(level, profile) {
         override fun getPermissionLevel(): Int = 2
+    }
+
+    /** A fake player that counts the menus that blocks open for it. A plain FakePlayer drops a menu before it opens. */
+    class MenuCountingPlayer(level: ServerLevel, profile: GameProfile) : FakePlayer(level, profile) {
+        var menusOpened = 0
+            private set
+
+        override fun openMenu(menu: MenuProvider?, extraDataWriter: Consumer<RegistryFriendlyByteBuf>?): OptionalInt {
+            menusOpened++
+            return OptionalInt.empty()
+        }
+    }
+
+    fun menuCountingOwner(helper: GameTestHelper, name: String = "owner"): MenuCountingPlayer {
+        val uuid = UUID.randomUUID()
+        val player = MenuCountingPlayer(helper.level, GameProfile(uuid, "${name}_${uuid.toString().take(6)}"))
+        val center = helper.absoluteVec(BlockPos(1, 1, 1).bottomCenter)
+        player.moveTo(center.x, center.y, center.z)
+        return player
+    }
+
+    /** Puts a new Work Leash in [player]'s main hand. */
+    fun leash(player: ServerPlayer): ItemStack {
+        val stack = ItemStack(DynamicsItems.WORK_LEASH.get())
+        player.setItemInHand(InteractionHand.MAIN_HAND, stack)
+        return stack
+    }
+
+    /** A main-hand right-click on [entity] through `Player.interactOn`, so NeoForge's event and Cobblemon's handlers run. */
+    fun clickEntity(player: ServerPlayer, entity: Entity, sneak: Boolean = false): InteractionResult {
+        player.isShiftKeyDown = sneak
+        try {
+            return player.interactOn(entity, InteractionHand.MAIN_HAND)
+        } finally {
+            player.isShiftKeyDown = false
+        }
+    }
+
+    /** A main-hand right-click on [face] of the block at [rel], through `ServerPlayerGameMode.useItemOn`, as the packet handler calls it. */
+    fun clickBlock(helper: GameTestHelper, player: ServerPlayer, rel: BlockPos, face: Direction = Direction.UP): InteractionResult {
+        val pos = helper.absolutePos(rel)
+        val hit = BlockHitResult(Vec3.atCenterOf(pos).relative(face, 0.5), face, pos, false)
+        return player.gameMode.useItemOn(player, helper.level, player.mainHandItem, InteractionHand.MAIN_HAND, hit)
+    }
+
+    /** Selects [entity] with a new Work Leash, then clicks the block at [rel]. Returns the binding that the clicks made. */
+    fun bind(helper: GameTestHelper, player: ServerPlayer, entity: PokemonEntity, rel: BlockPos): Binding? {
+        leash(player)
+        clickEntity(player, entity)
+        clickBlock(helper, player, rel)
+        return BindingStore.read(entity.pokemon)
     }
 
     /** Puts [player] 2 blocks east of the pasture block, in reach of its Work Mode button. */
@@ -147,7 +210,10 @@ object TestKit {
         engine(helper).release(entity.pokemon.uuid)
     }
 
-    /** The GameTest form of a restart: every in-memory claim, worker and pending selection is gone. */
+    /**
+     * The GameTest form of a restart: every in-memory claim and worker is gone. Bindings and the leash's selection and pending
+     * source are saved data, so they stay.
+     */
     fun simulateRestart(helper: GameTestHelper) {
         engine(helper).resetRuntimeForTest()
     }

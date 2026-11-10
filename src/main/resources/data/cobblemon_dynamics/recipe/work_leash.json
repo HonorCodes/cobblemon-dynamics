@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "minecraft:lead" },
+    { "item": "cobblemon:poke_ball" }
+  ],
+  "result": { "id": "cobblemon_dynamics:work_leash", "count": 1 }
+}

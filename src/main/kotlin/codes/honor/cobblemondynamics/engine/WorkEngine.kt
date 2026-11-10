@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.ai.WorkOrder
 import codes.honor.cobblemondynamics.claim.ClaimKind
@@ -13,6 +14,8 @@ import codes.honor.cobblemondynamics.fx.EffectPlayer
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.leash.Binding
+import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.pasture.TetheredPokemon
@@ -27,6 +30,9 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
 import net.minecraft.core.SectionPos
+import net.minecraft.core.registries.Registries
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
@@ -46,8 +52,8 @@ import kotlin.math.max
  * thread only, and holds nothing that a restart keeps (CD-CLM-07).
  */
 class WorkEngine private constructor(val server: MinecraftServer) {
-    /** The Work Leash adds reservations. Until then no target is reserved. */
-    val claims = ClaimRegistry { null }
+    /** A block target that a leash binding reserves belongs to its bound worker, read from the target level's index (CD-CLM-06). */
+    val claims = ClaimRegistry { key -> reservedFor(key) }
 
     private val pastures = LinkedHashMap<PastureKey, PastureRuntime>()
     private val slots = HashMap<UUID, PastureRuntime.Slot>()
@@ -58,6 +64,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     fun worker(pokemonId: UUID): Worker? = slots[pokemonId]?.worker
 
     fun entityOf(pokemonId: UUID): PokemonEntity? = slots[pokemonId]?.entity?.takeUnless { it.isRemoved }
+
+    fun pokemonOf(pokemonId: UUID): Pokemon? = slots[pokemonId]?.pokemon
 
     /** One engine tick of [level], after the level ticked its block entities and entities. */
     fun tickLevel(level: ServerLevel) {
@@ -105,6 +113,27 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val slot = slots[pokemonId] ?: return
         val runtime = pastures[slot.worker.pasture] ?: return
         release(tick(runtime.level), slot)
+    }
+
+    /**
+     * A new binding takes its target from any other worker in this tick (CD-CLM-05). The bound worker's pasture polls on the next
+     * engine tick, which ends the worker's claim elsewhere and claims the bound target.
+     */
+    fun onBound(level: ServerLevel, pokemonId: UUID, binding: Binding) {
+        val t = tick(level)
+        val holder = claims.holderOf(TargetKey.block(t.dimension, binding.target))
+        if (holder != null && holder.worker != pokemonId) {
+            val slot = slots[holder.worker]
+            if (slot != null) release(t, slot) else claims.release(holder.worker)
+        }
+        pastures[PastureKey(t.dimension, binding.pasture.asLong())]?.requestPoll()
+    }
+
+    /** The worker is no longer leashed. A claim on its old target stays only while its role may auto-assign. */
+    fun onUnbound(pokemonId: UUID) {
+        val slot = slots[pokemonId] ?: return
+        slot.binding = null
+        slot.worker.leashed = false
     }
 
     /**
@@ -158,6 +187,40 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             }
         }
         for (slot in runtime.slots.values.toList()) if (slot.worker.pokemonId !in present) drop(t, runtime, slot)
+        val taken = takenSpots(t)
+        for (slot in runtime.slots.values.toList()) {
+            // A binding counts only for the pasture that it names. LeashResets clears one that names another.
+            slot.binding = BindingStore.read(slot.pokemon)?.takeIf { it.dimension == t.dimension && it.pasture == runtime.pos }
+            slot.worker.leashed = slot.binding != null
+            claimBound(t, runtime, slot, taken)
+        }
+    }
+
+    /** A leashed worker claims its bound target and no other (CD-ASG-20). A Tired worker waits until it has rested (CD-STA-14). */
+    private fun claimBound(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot, taken: MutableSet<Long>) {
+        val binding = slot.binding ?: return
+        val worker = slot.worker
+        val key = TargetKey.block(t.dimension, binding.target)
+        val current = claims.claimOf(worker.pokemonId)
+        if (current?.kind == ClaimKind.WORK && current.key != key) release(t, slot)
+        if (claims.claimOf(worker.pokemonId) != null || worker.tired || worker.isSkipped(key, t.now)) return
+        if (!BrainBridge.canHoldOrder(slot.entity)) return
+        val role = t.roles.get(binding.roleId)?.takeIf { RoleSelection.isEligible(it.definition, typesOf(slot.pokemon)) } ?: return
+        val valid = t.level.isLoaded(binding.target) && guarded(role.handler, false) { role.handler.stillValid(t.level, binding.target) }
+        if (valid && claim(t, runtime, slot, binding.target, role, taken, moving = false) == Attempt.NO_SPOT) {
+            cannotReach(t, slot, binding.target)
+        }
+    }
+
+    /** The work spots that workers of this level hold, as `BlockPos.asLong()`. */
+    private fun takenSpots(t: Tick): MutableSet<Long> =
+        slots.values.filter { it.worker.pasture.dimension == t.dimension }.mapNotNullTo(HashSet()) { it.worker.spot?.asLong() }
+
+    /** CD-LSH-21: the owner of a leashed worker learns why its machine waits. */
+    private fun cannotReach(t: Tick, slot: PastureRuntime.Slot, target: BlockPos) {
+        val owner = slot.pokemon.getOwnerUUID() ?: return
+        val name = t.level.getBlockState(target).block.name
+        Feedback.actionBar(owner, server, Component.translatable(CANNOT_REACH, slot.pokemon.getDisplayName(), name))
     }
 
     /** Owned, not fainted, no battle clone, in this level, and tethered by its owner. */
@@ -231,9 +294,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun assign(t: Tick, runtime: PastureRuntime, found: List<FoundTarget>) {
         if (found.isEmpty()) return
         val byKey: Map<TargetKey, FoundTarget> = found.associateBy { TargetKey.block(t.dimension, it.pos) }
-        val taken = slots.values.filter { it.worker.pasture.dimension == t.dimension }.mapNotNullTo(HashSet()) { it.worker.spot?.asLong() }
+        val taken = takenSpots(t)
         for (slot in runtime.slots.values) {
             val worker = slot.worker
+            // CD-ASG-20: the poll gives a leashed worker its bound target, and a scan never gives it another.
+            if (worker.leashed) continue
             val current = claims.claimOf(worker.pokemonId)
             val idle = current == null && worker.status == WorkerStatus.IDLE
             val moving = current?.kind == ClaimKind.WORK && t.machine.canMoveFromStandby(worker, t.now)
@@ -250,7 +315,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 Assigner.pickForStandbyMove(view, current.key, candidates, isFree)
             } ?: continue
             val target = byKey.getValue(pick.first.key)
-            claim(t, runtime, slot, target, target.roles.first { it.definition.id == pick.second.id }, taken, moving = current != null)
+            claim(t, runtime, slot, target.pos, target.roles.first { it.definition.id == pick.second.id }, taken, moving = current != null)
         }
     }
 
@@ -264,38 +329,41 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
+    private enum class Attempt { GRANTED, NO_SPOT, REFUSED }
+
     /** A worker gets the claim only with a work spot. With none, it skips the target for `retryWaitTicks`. */
     private fun claim(
         t: Tick,
         runtime: PastureRuntime,
         slot: PastureRuntime.Slot,
-        target: FoundTarget,
+        target: BlockPos,
         role: ActiveRole,
         taken: MutableSet<Long>,
         moving: Boolean,
-    ) {
+    ): Attempt {
         val worker = slot.worker
-        val key = TargetKey.block(t.dimension, target.pos)
+        val key = TargetKey.block(t.dimension, target)
         val own = worker.spot?.asLong()
-        val grid = LevelSpotGrid(t.level, role.handler, target.pos, if (own == null) taken else taken - own)
-        val center = role.handler.targetCenter(target.pos)
+        val grid = LevelSpotGrid(t.level, role.handler, target, if (own == null) taken else taken - own)
+        val center = role.handler.targetCenter(target)
         val spot = guarded(role.handler, null) {
             WorkSpots.find(grid, area(t, runtime), center, role.definition.range, slot.entity.position())
         }
         if (spot == null) {
             worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
-            return
+            return Attempt.NO_SPOT
         }
         if (moving) {
             release(t, slot)
             own?.let(taken::remove)
         }
-        if (claims.tryClaim(worker.pokemonId, key, ClaimKind.WORK, runtime.key, t.now) !is ClaimResult.Granted) return
+        if (claims.tryClaim(worker.pokemonId, key, ClaimKind.WORK, runtime.key, t.now) !is ClaimResult.Granted) return Attempt.REFUSED
         taken += spot.asLong()
-        worker.target = target.pos
+        worker.target = target
         worker.spot = spot
         slot.role = role
         t.machine.onClaim(worker, t.now)
+        return Attempt.GRANTED
     }
 
     /** Step 5: arrival, the worker's state, and the handler calls of that state. */
@@ -341,6 +409,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                     event.skip?.let { worker.skipUntil[it] = event.until }
                     clear(slot)
                 }
+
+                MachineEvent.MissedArrival -> cannotReach(t, slot, target)
 
                 else -> {}
             }
@@ -433,7 +503,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     private fun area(t: Tick, runtime: PastureRuntime): WorkArea = WorkArea.of(runtime.pos, t.settings, PastureAdapter.maxWanderDistance())
 
+    private fun reservedFor(key: TargetKey): UUID? {
+        val block = key as? TargetKey.Block ?: return null
+        val level = server.getLevel(ResourceKey.create(Registries.DIMENSION, block.dimension)) ?: return null
+        return level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.get(BlockPos.of(block.pos))?.pokemonId
+    }
+
     companion object {
+        private const val CANNOT_REACH = "cobblemon_dynamics.leash.cannot_reach"
+
         @Volatile
         private var instance: WorkEngine? = null
 
@@ -474,7 +552,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 }
 
 /** A handler that throws is turned off with one warning (CD-PERF-05). The next tick releases the claims of its roles. */
-private inline fun <T> guarded(handler: TargetHandler, fallback: T, block: () -> T): T = try {
+internal inline fun <T> guarded(handler: TargetHandler, fallback: T, block: () -> T): T = try {
     block()
 } catch (e: Exception) {
     RoleRegistry.disableHandler(handler.id, e.toString())

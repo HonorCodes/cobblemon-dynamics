@@ -1,0 +1,23 @@
+{
+  "item.cobblemon_dynamics.work_leash": "Work Leash",
+  "entity.cobblemon_dynamics.work_focus": "Work Focus",
+  "cobblemon_dynamics.leash.outside_area": "Outside its pasture's work area",
+  "cobblemon_dynamics.leash.no_role": "No role fits",
+  "cobblemon_dynamics.leash.already_assigned": "Already assigned to %s",
+  "cobblemon_dynamics.leash.not_work_mode": "Not in a Work Mode pasture",
+  "cobblemon_dynamics.leash.no_selection": "Select a Pokémon first",
+  "cobblemon_dynamics.leash.bound": "Bound %s to %s",
+  "cobblemon_dynamics.leash.select_destination": "Select a destination for %s",
+  "cobblemon_dynamics.leash.destination_same": "Destination must differ from the source",
+  "cobblemon_dynamics.leash.cannot_reach": "%s cannot reach %s",
+  "cobblemon_dynamics.leash.selected": "Selected %s",
+  "cobblemon_dynamics.leash.cleared": "Cleared the binding of %s",
+  "cobblemon_dynamics.binding.lost": "%s lost its work binding: %s",
+  "cobblemon_dynamics.binding.reason.target_gone": "its target was broken or replaced",
+  "cobblemon_dynamics.binding.reason.left_pasture": "it left its pasture",
+  "cobblemon_dynamics.binding.reason.other_pasture": "it moved to another pasture",
+  "cobblemon_dynamics.binding.reason.released": "it was released",
+  "cobblemon_dynamics.binding.reason.traded": "it has a new owner",
+  "cobblemon_dynamics.binding.reason.no_role": "its new form cannot do the job",
+  "cobblemon_dynamics.binding.reason.pasture_gone": "its pasture block is gone"
+}

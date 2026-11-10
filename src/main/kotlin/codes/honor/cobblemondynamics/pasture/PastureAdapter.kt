@@ -42,7 +42,33 @@ object PastureAdapter {
         }
     }
 
+    /** The tethering of [pokemonId] in [be], with no entity lookup. Its [TetheredPokemon.pokemon] is null once the PC no longer holds it. */
+    fun tetheredPokemon(be: PokemonPastureBlockEntity, pokemonId: UUID): TetheredPokemon? = be.tetheredPokemon
+        .firstOrNull { it.pokemonId == pokemonId }
+        ?.let { TetheredPokemon(it.pokemonId, it.playerId, it.getPokemon(), null) }
+
     fun pastureOf(entity: PokemonEntity): BlockPos? = entity.tethering?.pasturePos
+
+    /** True while [pokemon] is tethered to some pasture. */
+    fun isTethered(pokemon: Pokemon): Boolean = pokemon.tetheringId != null
+
+    /** The pasture in Work Mode that [entity] is tethered to, or null. */
+    fun workModePastureOf(entity: PokemonEntity): BlockPos? {
+        val tethering = entity.tethering ?: return null
+        val level = entity.level() as? ServerLevel ?: return null
+        val be = pastureAt(level, tethering.pasturePos) ?: return null
+        return be.blockPos.takeIf { isWorkMode(be) && be.tetheredPokemon.any { it.tetheringId == tethering.tetheringId } }
+    }
+
+    /** The pasture in Work Mode in [level] that holds [pokemon]'s current tethering, or null. */
+    fun workModePastureOf(level: ServerLevel, pokemon: Pokemon): BlockPos? {
+        val tetheringId = pokemon.tetheringId ?: return null
+        val positions = level.getExistingDataOrNull(DynamicsAttachments.WORK_PASTURES)?.all().orEmpty()
+        return positions.asSequence().map(BlockPos::of).firstOrNull { pos ->
+            val be = pastureAt(level, pos)
+            be != null && isWorkMode(be) && be.tetheredPokemon.any { it.pokemonId == pokemon.uuid && it.tetheringId == tetheringId }
+        }
+    }
 
     /** The pasture whose panel [player] has open. Cobblemon drops the link in another dimension or beyond 10 blocks. */
     fun linkedPasture(player: ServerPlayer): BlockPos? = PastureLinkManager.getLinkByPlayer(player)?.pos

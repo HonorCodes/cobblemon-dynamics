@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.registry
 
 import codes.honor.cobblemondynamics.MOD_ID
+import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.pasture.WorkModeData
 import codes.honor.cobblemondynamics.pasture.WorkPastureIndex
 import net.neoforged.neoforge.attachment.AttachmentType
@@ -19,9 +20,16 @@ object DynamicsAttachments {
     val WORK_PASTURES: DeferredHolder<AttachmentType<*>, AttachmentType<WorkPastureIndex>> =
         REGISTER.register("work_pastures", Supplier { workPastures() })
 
+    /** On the `ServerLevel`: the leash bindings of the level by target (CD-CLM-06). */
+    val LEASH_INDEX: DeferredHolder<AttachmentType<*>, AttachmentType<LeashIndex>> =
+        REGISTER.register("leash_index", Supplier { leashIndex() })
+
     private fun workMode(): AttachmentType<WorkModeData> =
         AttachmentType.builder(Supplier { WorkModeData.OFF }).serialize(WorkModeData.CODEC) { it.enabled }.build()
 
     private fun workPastures(): AttachmentType<WorkPastureIndex> =
         AttachmentType.builder(Supplier { WorkPastureIndex(HashSet()) }).serialize(WorkPastureIndex.CODEC).build()
+
+    private fun leashIndex(): AttachmentType<LeashIndex> =
+        AttachmentType.builder(Supplier { LeashIndex(HashMap()) }).serialize(LeashIndex.CODEC).build()
 }

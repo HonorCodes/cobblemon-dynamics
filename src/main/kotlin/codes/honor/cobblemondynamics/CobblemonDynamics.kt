@@ -10,9 +10,13 @@ import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.EngineEvents
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
+import codes.honor.cobblemondynamics.leash.LeashComponents
+import codes.honor.cobblemondynamics.leash.LeashInteractions
+import codes.honor.cobblemondynamics.leash.LeashResets
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.registry.DynamicsEntities
+import codes.honor.cobblemondynamics.registry.DynamicsItems
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.mojang.logging.LogUtils
 import net.neoforged.bus.api.IEventBus
@@ -36,6 +40,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         DynamicsActivities.REGISTER.register(modBus)
         DynamicsMemories.REGISTER.register(modBus)
         DynamicsEntities.REGISTER.register(modBus)
+        LeashComponents.REGISTER.register(modBus)
+        DynamicsItems.register(modBus)
         DynamicsPayloads.register(modBus)
         if (FMLEnvironment.dist.isClient) ClientEffects.register(modBus)
         // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.
@@ -45,6 +51,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }
         EngineEvents.register()
+        LeashInteractions.register()
+        LeashResets.register()
     }
 
     // The server config loads after the data packs, so a load rebuilds the roles too, not only a reload.

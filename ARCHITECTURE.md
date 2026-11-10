@@ -121,9 +121,9 @@ files live under `assets/cobblemon_dynamics/`.
 | Work Mode flag | Data attachment `cobblemon_dynamics:work_mode` on Cobblemon's `PokemonPastureBlockEntity`. Field: `enabled` (default `false`). Ownership comes from Cobblemon's `ownerId` only. | Saved in the block entity NBT under `neoforge:attachments`. Call `setChanged()` after a change. | Not through the block entity, because Cobblemon's pasture sends no update tag. The `pasture_panel_state` payload carries it. |
 | Work Mode pasture index | Level attachment `cobblemon_dynamics:work_pastures` on each `ServerLevel`: the set of positions of pastures with Work Mode on. | Saved in the level's `neoforge_data_attachments` SavedData. | No |
 | Leash binding (per Pokémon) | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `binding`: role id, pasture position, target position and clicked face. A Telekinesis binding also holds the destination position and its clicked face. The dimension is the pasture's dimension. | Saved with the Pokémon in the PC and the party. Call `onChange()` after a change. | No |
-| Leash binding index | Level attachment `cobblemon_dynamics:leash_index`: target position to Pokémon UUID. For Telekinesis, the key is the source. Used to refuse a second binding on the same target. | Saved with the level. | No |
+| Leash binding index | Level attachment `cobblemon_dynamics:leash_index`: target position to the bound Pokémon's UUID, its owner, its pasture position and the role id. For Telekinesis, the key is the source. Used to refuse a second binding on the same target, to reserve the target in the claim registry, and by the 10-tick reset check. | Saved with the level. | No |
 | Work claims, bed claims, heal claims | `ClaimRegistry` in server memory. | Not saved. Scans rebuild them after a restart, so no claim goes stale. | No |
-| Pending leash selection | `PendingSelections` in server memory, keyed by player UUID: the selected Pokémon and, for Telekinesis, the chosen source. | Not saved. It expires after 600 ticks (30 s) or on a right-click on air. | No |
+| Leash selection and pending source | Data components on the Work Leash stack: `cobblemon_dynamics:leash_selection` (the selected Pokémon's UUID and name) and `cobblemon_dynamics:pending_source` (for Telekinesis, the source position, its clicked face and the click tick). The server binds only from its own copy of the stack. | Saved with the stack. The pending source expires after 600 ticks (30 s) or on a right-click on air. | Yes, as item data |
 | Worker runtime state | `WorkerState` in the work engine, keyed by Pokémon UUID: state, Tired flag, claim, work spot, timers, per-target skip list. | Not saved. | Through the stamina view below. |
 | Work Stamina | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `stamina`: `percent` (0.0 to 1.0), `tired` (boolean), `last_game_time` (long, overworld game time). | Saved with the Pokémon. The engine flushes it on each state change, every 600 ticks, on entity unload and on server stop. | Entity attachment `cobblemon_dynamics:stamina_view` (`percent` as 0 to 100, `state` as an enum ordinal), synced with NeoForge attachment sync. |
 | Fan worker mark | Entity attachment `cobblemon_dynamics:fan_worker`: the position of the fan that this Pokémon serves as a working catalyst, or none. | Not saved. The engine sets it while the Fan Catalyst works. | NeoForge attachment sync, so the client exempts the worker from the fan push. |
@@ -367,8 +367,9 @@ references. This section lists what the code uses.
 - **Events.** `CobblemonEvents.POKEMON_FAINTED`, `EVOLUTION_COMPLETE`, `LEVEL_UP_EVENT` and
   `POKEMON_RELEASED_EVENT_POST`. Cobblemon has no pasture events.
 - **Interaction.** The Work Leash listens to NeoForge `PlayerInteractEvent.EntityInteract` at HIGH
-  priority. It acts only when `target.tethering?.playerId` equals the player's UUID. It cancels the
-  event on both sides with `setCancellationResult(InteractionResult.SUCCESS)`.
+  priority. It acts only on a Pokémon that the player owns: the server reads the owner from the
+  Pokémon's store, and the client from the entity's synced owner. It cancels the event on both sides with
+  `setCancellationResult(InteractionResult.SUCCESS)`, and `Player.interactOn` then never calls the entity.
 - **Effect ids.** Move timelines live in `data/cobblemon/action_effects/moves/`. Particles live in
   `assets/cobblemon/bedrock/particles/moves/<move>/`. The note lists the animation names and
   particle ids of every role move. Sleep uses `cobblemon:sleep_actor` and

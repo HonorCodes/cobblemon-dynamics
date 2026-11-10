@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.fx.WorkFocusEntity
+import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.role.ActiveRole
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
@@ -13,11 +14,12 @@ import java.util.UUID
 class PastureRuntime(val level: ServerLevel, val key: PastureKey, now: Long, scanIntervalTicks: Int) {
     /**
      * One worker with the live objects that its tick needs. [role] is set while the worker holds a work claim, and [focus]
-     * while it is Working.
+     * while it is Working. [binding] is the leash binding that each poll reads from the Pokémon, when it names this pasture.
      */
     class Slot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pokemon) {
         var role: ActiveRole? = null
         var focus: WorkFocusEntity? = null
+        var binding: Binding? = null
     }
 
     val pos: BlockPos = BlockPos.of(key.pos)
@@ -37,6 +39,11 @@ class PastureRuntime(val level: ServerLevel, val key: PastureKey, now: Long, sca
 
     fun markPolled() {
         polled = true
+    }
+
+    /** The next engine tick polls this pasture, for example after a new leash binding. */
+    fun requestPoll() {
+        polled = false
     }
 
     /** A changed scan interval takes effect at the first boundary of the new interval after the running pass. */

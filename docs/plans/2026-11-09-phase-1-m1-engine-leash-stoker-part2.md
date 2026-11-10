@@ -925,8 +925,14 @@ CD-CLM-05, CD-CLM-06, CD-ASG-20 (GameTest).
   `scripts/placeholder_art.py`, CD-ART-11)
 - Create: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/TestTransferHandler.kt` and the test role
   `src/gametest/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/test_transfer.json`
+- Modify: `engine/WorkEngine.kt` (reservations, leashed claims, `onBound`, `onUnbound`), `engine/PastureRuntime.kt`
+  (`Slot.binding`, `requestPoll`), `pasture/PastureAdapter.kt`, `registry/DynamicsAttachments.kt` (`leash_index`),
+  `CobblemonDynamics.kt`, and in the test mod `DynamicsTestMod.kt` and `TestKit.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/BindRulesTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/PendingSourceTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/BindingTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/WorkLeashRecipeTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/claim/LeashIndexTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/LeashTests.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/LeashResetTests.kt`
 
@@ -972,6 +978,7 @@ object BindRules {
 }
 object Feedback {                                       // every message goes through here; tests read `recorded`
     fun actionBar(player: ServerPlayer, message: Component)
+    fun actionBar(playerId: UUID, server: MinecraftServer, message: Component)   // an owner who may be offline (CD-LSH-21)
     fun chat(playerId: UUID, server: MinecraftServer, message: Component)
     val recorded: MutableMap<UUID, MutableList<Component>>     // filled only when `recording` is true (GameTests)
     var recording: Boolean
@@ -1007,6 +1014,7 @@ the source (`"Outside its pasture's work area"`). A target bound to another Pok�
 | `cobblemon_dynamics.binding.reason.no_role` | `its new form cannot do the job` |
 | `cobblemon_dynamics.binding.reason.pasture_gone` | `its pasture block is gone` |
 | `item.cobblemon_dynamics.work_leash` | `Work Leash` |
+| `entity.cobblemon_dynamics.work_focus` | `Work Focus` |
 
 Interaction wiring:
 
@@ -1030,18 +1038,46 @@ Interaction wiring:
   worker claims its bound target on its next scan or poll when it is not Tired (CD-STA-14 in M2).
 - A leashed worker that misses its arrival shows its owner `{Pokémon} cannot reach {target}` (CD-LSH-21).
 
+Platform facts and choices that changed the plan:
+
+- The server owner check reads the Pokémon's store (`pokemon.getOwnerUUID()`), because a new entity copies
+  its owner only on its first tick. The client reads the entity's synced `ownerUUID`. `Player.interactOn`
+  posts the event and returns at once when it is cancelled, before `Entity.interact` (compiled class).
+- `LeashSelection` stays `(pokemonId, name)`. At a block click the server finds the Pokémon in the player's
+  PC or party, and its pasture by the level's `work_pastures` index: a pasture in Work Mode whose tethered
+  list holds the Pokémon's current tethering. A refusal with `no_selection` removes the stale selection.
+- Both the selection and the pending source are data components on the stack, saved and synced (the spec
+  rows test the stack). ARCHITECTURE's in-memory `PendingSelections` is gone.
+- With a pending source, only `SOURCE_AND_DESTINATION` roles whose handler matches both the source and the
+  clicked block fit; the work-area and assignment checks are the source's. The first click refuses a source
+  outside the work area or bound to another Pokémon, so a refusal never waits for the second click.
+- The leash acts in the main hand only, for block clicks too. With no selection the item passes, so the
+  block opens as usual. The tooltip names the selected Pokémon, and the item is in the Tools tab.
+- A bind calls `WorkEngine.onBound`: another worker's work claim on the target ends in the same tick
+  (CD-CLM-05), and the pasture polls on the next engine tick. Each poll reads the binding into the slot and
+  sets `Worker.leashed`; a leashed worker with no claim then claims its bound target and no other. A scan
+  never assigns a leashed worker (CD-ASG-20). A leashed worker that finds no work spot gets the
+  `cannot_reach` message and waits `retryWaitTicks`.
+- `LeashIndex` is a saved level attachment, so a reservation holds after a restart, also while its pasture
+  is off (CD-CLM-06).
+- `ServerPlayerGameMode.useItemOn` returns the cancellation result of `RightClickBlock` before it calls
+  `onItemUseFirst` (compiled class), so CD-SEC-11 holds with no code of ours.
+
 `LeashResets` clears a binding, removes its index entry and, except for the owner's own sneak-click,
-sends the binder `"{Pokémon} lost its work binding: {reason}"` in chat (CD-LSH-13) when:
+sends the binder `"{Pokémon} lost its work binding: {reason}"` in chat (CD-LSH-13) when the causes below
+apply. Cobblemon has no pasture events, so one index check every 10 ticks covers every cause that the
+events do not. It reads each entry whose pasture or target chunk is loaded, also for a pasture in Work
+Mode off:
 
 | Cause | Detection | Row |
 | --- | --- | --- |
-| Target broken or replaced | every 10 ticks, `handler.stillValid` for index entries in loaded chunks | CD-LSH-08 |
-| Pokémon recalled to the PC or the party | the 20-tick pasture poll no longer sees it tethered | CD-LSH-08 |
-| Pokémon tethered to another pasture | the poll sees it under another pasture position | CD-LSH-24 |
+| Target broken or replaced | the index check: `handler.stillValid` false on a loaded target | CD-LSH-08 |
+| Pokémon recalled to the PC or the party | the index check: the loaded pasture's tethered list lacks it, and it is untethered | CD-LSH-08 |
+| Pokémon tethered to another pasture | the index check: the old pasture lacks it, and it is tethered | CD-LSH-24 |
 | Pokémon released | `CobblemonEvents.POKEMON_RELEASED_EVENT_POST` | CD-LSH-25 |
 | New owner | `CobblemonEvents.POKEMON_GAINED` with `playerId != binding.binder` | CD-LSH-26 |
-| Pasture block gone | the poll or index check finds no pasture at `binding.pasture` | CD-WMD-07, CD-LSH-27 |
-| Evolution leaves no fitting role | `CobblemonEvents.EVOLUTION_COMPLETE`, then the role check | CD-LSH-14 |
+| Pasture block gone | the index check finds no pasture at `binding.pasture` | CD-WMD-07, CD-LSH-27 |
+| Evolution leaves no fitting role | `CobblemonEvents.EVOLUTION_COMPLETE` and the index check: no role of the bound role's handler fits the new types | CD-LSH-14 |
 
 A target in an unloaded chunk keeps its binding (CD-LSH-09).
 
@@ -1083,66 +1119,101 @@ class BindRulesTest {
 }
 ```
 
+`BindRulesTest` also checks the order of the checks, the priority pick, the first-click refusals of a source and
+`destination_same`. `BindingTest` and `LeashIndexTest` round-trip the codecs that save bindings and reservations
+(CD-LSH-07, CD-CLM-06). `WorkLeashRecipeTest` reads the recipe file (CD-LSH-15).
+
 - [ ] **Step 2: Write the failing GameTests**
 
-`LeashTests` (each test sets `Feedback.recording = true` and reads `Feedback.recorded[player.uuid]`):
+The approver's ruling of 2026-11-09 (the index's execution rule 6) keeps GameTests where the real platform could take
+the click: Cobblemon's own entity interaction, the block's screen, the bound worker's work, and the reset path against
+Cobblemon's real PC and party. `TestKit.clickEntity` and `TestKit.clickBlock` go through `Player.interactOn` and
+`ServerPlayerGameMode.useItemOn`. The test mod turns `Feedback.recording` on at server start, because tests run side by
+side, and the tests read `Feedback.recorded[player.uuid]`.
+
+`LeashTests`:
 
 ```kotlin
 // cdLsh01SelectsOwnedPasturedPokemon: owner clicks a pastured Vaporeon (Work Mode on); the stack's LeashSelection holds its UUID.
-// cdLsh02ClickIsCancelledBeforeCobblemon: plain and sneak clicks return SUCCESS from clickEntity and the Pokémon is not
-//   on the player's shoulder and no interaction GUI packet is recorded (Cobblemon opens its wheel from mobInteract, which
-//   never runs when the event is cancelled; assert mobInteract did not run with a test-only flag on the entity's
-//   persistentData set by a NeoForge EntityInteract listener at LOWEST priority).
-// cdLsh03BindsFurnace: select a Charmander, click a furnace in its work area; 1 tick later BindingStore.read is set.
-// cdLsh04FurnaceScreenStaysShut: after the bind click, owner.containerMenu is still owner.inventoryMenu.
-// cdLsh05RefusalsShowTheirMessage: a furnace at offset 9 (offset 8 binds), a stone block, a furnace bound to another
-//   Charmander (its display name appears in the message), and a selection whose Charmander left the pasture.
-// cdLsh06BoundMessage: the recorded action bar reads "Bound Charmander to Furnace".
-// cdLsh07BindingSurvivesRestartAndToggle: bind, simulateRestart, Work Mode off then on; the binding is present after each step.
-// cdLsh10SneakClickClears: sneak-click a bound Charmander; 1 tick later no binding.
-// cdLsh11RebindReplaces: bind to furnace A, then furnace B; A is no longer reserved and the binding names B.
-// cdLsh15RecipeCraftsOneLeash: CraftingInput of size 3x3 with a Lead and a cobblemon:poke_ball in two slots;
-//   level.recipeManager.getRecipeFor(RecipeType.CRAFTING, input, level) assembles one Work Leash.
-// cdLsh17PendingSourceOnChest: select an Alakazam (test_transfer role), click a chest's top face; the stack's PendingSource
-//   holds the chest position and UP, and no binding exists.
-// cdLsh18SecondClickBindsDestination: then click a barrel's north face; the binding holds source, destination and both faces.
-// cdLsh19AirClickClears: with a pending source, player.gameMode.useItem(...) on air clears it at once.
-// cdLsh20SelectDestinationMessage: the recorded action bar reads "Select a destination for Alakazam".
-// cdLsh21CannotReachMessage: a bound furnace boxed in glass; the owner's recorded action bar reads
-//   "Charmander cannot reach Furnace" within 601 ticks of the claim.
-// cdClm05BindTakesOverAutoClaim: auto worker A holds a furnace; bind worker B; 1 tick later A has no claim; 20 ticks later
-//   B holds the work claim.
-// cdClm06ReservedTargetStaysReserved: bound worker in Standby elsewhere (Work Mode off on its pasture), an Idle Charmander in a
-//   second Work Mode pasture 3 blocks from the target for 400 ticks; the target gets no claim.
-// cdAsg20LeashedWorkerStaysOnItsTarget: a leashed Stoker in Standby at an empty furnace, an unclaimed furnace with input 3
-//   blocks away, 400 ticks; it never claims the second furnace and keeps its binding.
-// cdSec07NotYourPokemon: player B clicks player A's pastured Pokémon and a wild Pokémon; neither is selected.
-// cdSec11CancelledClickNeverBinds: a test listener cancels RightClickBlock on a chest; click it with a selected Alakazam;
-//   no pending source and no binding.
+// cdLsh02ClickIsCancelledBeforeCobblemon: plain and sneak clicks with the leash return SUCCESS and never reach a test listener
+//   at LOWEST priority, which marks the entity's NeoForge data for every click that is not cancelled. Player.interactOn calls
+//   the entity, where Cobblemon's mobInteract opens its wheel or mounts the Pokémon, only after that. A first click with an
+//   empty hand is marked, which shows that the marker works. The Pokémon is on no shoulder.
+// cdLsh03BindsFurnaceAndWorksIt: select a Charmander, click a furnace with input in its work area; 1 tick later
+//   BindingStore.read names the furnace, and then the leashed Charmander holds the work claim and is Working there.
+// cdLsh04FurnaceScreenStaysShut: the owner is a fake player that counts opened menus, because NeoForge's FakePlayer drops
+//   every menu, so containerMenu never changes. An empty-hand click on the furnace opens one menu; the bind click opens none.
+// cdLsh07BindingSurvivesRestartAndToggle: bind, wait until the worker is Working, round-trip the Pokémon through its NBT
+//   codec, simulateRestart, Work Mode off, then on; the binding is unchanged on every tick, and the worker is Working at
+//   the furnace again.
 ```
 
 `LeashResetTests`:
 
 ```kotlin
 // cdLsh08RecallAndTargetLoss: four bound Charmanders: one unpastured to the PC (pasture.releasePokemon), one moved to the
-//   party (releasePokemon then party.add), one whose furnace is destroyed, one whose furnace is replaced with stone;
-//   20 ticks later none has a binding, and each binder has a recorded chat message with the name and the reason.
-// cdLsh09UnloadKeepsBinding: EngineEvents.onChunkUnload for the target's chunk; 100 ticks later the binding remains and the
-//   worker is Working again within 600 ticks.
-// cdLsh13LossMessages: covered by cdLsh08 and cdLsh14 assertions on the chat text.
-// cdLsh14EvolutionWithoutFittingRole: bind a Charmander, set pokemon.species to Squirtle's species (a form with no Fire
-//   type) and fire the role re-check; 20 ticks later no binding.
-// cdLsh24MovedToAnotherPasture: release from pasture A and tether to pasture B; 20 ticks later no binding and the old
-//   target is not reserved.
-// cdLsh25ReleasedPokemon: call Cobblemon's release path (party.remove plus the POKEMON_RELEASED_EVENT_POST post); 20 ticks
-//   later the old target is not reserved.
-// cdLsh26TradeClearsData: build a Pokémon whose persistentData holds a binding made by owner A; post POKEMON_GAINED for owner B;
-//   the binding data is gone. (Unit-level, inside a GameTest so Cobblemon's event bus is live.)
-// cdLsh27PastureBroken (also CD-WMD-07): bind three workers, destroy the pasture block; 20 ticks later no binding remains
-//   and no target is reserved.
+//   party (releasePokemon, then PC remove and party add), one whose furnace is destroyed, one whose furnace becomes stone;
+//   20 ticks later none has a binding, none of the furnaces is reserved, and the binder has two "it left its pasture" and
+//   two "its target was broken or replaced" chat messages, each naming the Charmander.
 ```
 
-Write every test in full.
+These GameTests are not written:
+
+- CD-LSH-05 (`cdLsh05RefusalsShowTheirMessage`: a furnace at offset 9 (offset 8 binds), a stone block, a furnace bound to
+  another Charmander, whose display name appears in the message, and a selection whose Charmander left the pasture):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-06 (`cdLsh06BoundMessage`: the recorded action bar reads "Bound Charmander to Furnace"): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-09 (`cdLsh09UnloadKeepsBinding`: `EngineEvents.onChunkUnload` for the target's chunk; 100 ticks later the binding
+  remains and the worker is Working again within 600 ticks): GameTest deferred (high confidence): verified in the
+  end-of-phase pass.
+- CD-LSH-10 (`cdLsh10SneakClickClears`: sneak-click a bound Charmander; 1 tick later no binding): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-11 (`cdLsh11RebindReplaces`: bind to furnace A, then furnace B; A is no longer reserved and the binding names B):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-13 (`cdLsh13LossMessages`: the evolution message, with cdLsh14; cdLsh08 checks the messages for recall and target
+  loss): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-14 (`cdLsh14EvolutionWithoutFittingRole`: bind a Charmander, set `pokemon.species` to Squirtle's species and call
+  `LeashResets.recheckRole`, which `EVOLUTION_COMPLETE` calls; 20 ticks later no binding): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-15 (`cdLsh15RecipeCraftsOneLeash`: a 3 × 3 `CraftingInput` with a Lead and a `cobblemon:poke_ball` in two slots;
+  `level.recipeManager.getRecipeFor(RecipeType.CRAFTING, input, level)` assembles one Work Leash): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-17 (`cdLsh17PendingSourceOnChest`: select an Alakazam (test_transfer role), click a chest's top face; the stack's
+  PendingSource holds the chest position and UP, and no binding exists): GameTest deferred (high confidence): verified in
+  the end-of-phase pass.
+- CD-LSH-18 (`cdLsh18SecondClickBindsDestination`: then click a barrel's north face; the binding holds source, destination
+  and both faces): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-19 (`cdLsh19AirClickClears`: with a pending source, `player.gameMode.useItem(...)` on air clears it at once):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-20 (`cdLsh20SelectDestinationMessage`: the recorded action bar reads "Select a destination for Alakazam"):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-21 (`cdLsh21CannotReachMessage`: a bound furnace boxed in glass; the owner's recorded action bar reads "Charmander
+  cannot reach Furnace" within 601 ticks of the claim): GameTest deferred (high confidence): verified in the end-of-phase
+  pass.
+- CD-LSH-24 (`cdLsh24MovedToAnotherPasture`: release from pasture A and tether to pasture B; 20 ticks later no binding and
+  the old target is not reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-25 (`cdLsh25ReleasedPokemon`: Cobblemon's release path, `pc.remove` plus the `POKEMON_RELEASED_EVENT_POST` post;
+  20 ticks later the old target is not reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-26 (`cdLsh26TradeClearsData`: a Pokémon whose persistentData holds a binding made by owner A; post `POKEMON_GAINED`
+  for owner B; the binding data is gone): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-27 and CD-WMD-07 (`cdLsh27PastureBroken`: bind three workers, destroy the pasture block; 20 ticks later no binding
+  remains and no target is reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-CLM-05 (`cdClm05BindTakesOverAutoClaim`: auto worker A holds a furnace; bind worker B; 1 tick later A has no claim; 20
+  ticks later B holds the work claim): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-CLM-06 (`cdClm06ReservedTargetStaysReserved`: bound worker in Standby elsewhere (Work Mode off on its pasture), an Idle
+  Charmander in a second Work Mode pasture 3 blocks from the target for 400 ticks; the target gets no claim): GameTest
+  deferred (high confidence): verified in the end-of-phase pass.
+- CD-ASG-20 (`cdAsg20LeashedWorkerStaysOnItsTarget`: a leashed Stoker in Standby at an empty furnace, an unclaimed furnace
+  with input 3 blocks away, 400 ticks; it never claims the second furnace and keeps its binding): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-SEC-07 (`cdSec07NotYourPokemon`: player B clicks player A's pastured Pokémon and a wild Pokémon; neither is
+  selected): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-SEC-11 (`cdSec11CancelledClickNeverBinds`: a test listener cancels RightClickBlock on a chest; click it with a selected
+  Alakazam; no pending source and no binding): GameTest deferred (high confidence): verified in the end-of-phase pass.
+
+The test mod registers `TestTransferHandler` and holds the role file `test_transfer.json`, so the end-of-phase pass can
+write the source-and-destination tests.
 
 - [ ] **Step 3: Write the leash code, the recipe and the placeholder texture**
 
@@ -1172,7 +1243,8 @@ Expected: `BUILD SUCCESSFUL`; every GameTest passes.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main src/test src/gametest scripts/placeholder_art.py
+git add -- <each new and changed file under src/main, src/test and src/gametest> scripts/placeholder_art.py ARCHITECTURE.md \
+  docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md docs/plans/2026-11-09-phase-1-m5-ui-compat-gate.md
 git commit -m "Add the Work Leash: selection, bindings, refusals, resets and the recipe"
 ```
 
