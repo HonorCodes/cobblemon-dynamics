@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
 import net.minecraft.core.BlockPos
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -58,5 +59,64 @@ class WorkSpotsTest {
     fun `the nearest spot to the worker wins`() {
         val grid = GridFixture(emptySet(), target)
         assertEquals(BlockPos(1, 1, 0), WorkSpots.find(grid, area, center, 6.0, Vec3(1.5, 1.0, 0.5)))
+    }
+
+    @Test
+    fun `CD-ASG-09 a spot with no room for the worker's body is never chosen`() {
+        val tight = BlockPos(1, 1, 0)
+        val grid = object : SpotGrid by GridFixture(emptySet(), target) {
+            override fun fitsBody(x: Int, y: Int, z: Int): Boolean = BlockPos(x, y, z) != tight
+        }
+        val spot = WorkSpots.find(grid, area, center, 6.0, Vec3(1.5, 1.0, 0.5))
+        assertNotNull(spot)
+        assertTrue(spot != tight, "the spot with no room for the body was chosen")
+        assertTrue(grid.isStandable(spot!!.x, spot.y, spot.z) && grid.fitsBody(spot.x, spot.y, spot.z))
+        assertTrue(WorkSpots.hasLineOfSight(grid, Vec3.atCenterOf(spot), center))
+    }
+}
+
+class WorkerBodyTest {
+    private val spot = BlockPos(6, 2, 10)
+
+    private fun assertBox(expected: AABB, actual: AABB) {
+        val pairs = listOf(
+            expected.minX to actual.minX,
+            expected.minY to actual.minY,
+            expected.minZ to actual.minZ,
+            expected.maxX to actual.maxX,
+            expected.maxY to actual.maxY,
+            expected.maxZ to actual.maxZ,
+        )
+        for ((e, a) in pairs) assertEquals(e, a, 0.01, "box $actual, expected $expected")
+    }
+
+    @Test
+    fun `a worker narrower than a block and at most 2 high fills only its spot's two cells`() {
+        assertTrue(WorkerBody.fitsInCell(0.6, 1.0))
+        assertTrue(WorkerBody.fitsInCell(1.0, 2.0))
+        val boxes = WorkerBody.boxes(spot, 0.6, 1.0)
+        assertEquals(1, boxes.size)
+        assertBox(AABB(6.2, 2.0, 10.2, 6.8, 3.0, 10.8), boxes.single())
+    }
+
+    @Test
+    fun `a worker taller than 2 blocks needs more room than the spot's two cells`() {
+        assertFalse(WorkerBody.fitsInCell(0.9, 2.4))
+    }
+
+    /** The engine snaps a worker to its spot's center, and navigation stops a Dragonair at the spot's corner (Arrival). */
+    @Test
+    fun `a Dragonair 1_1 blocks wide fills its spot's center and the corner where navigation stops it`() {
+        assertFalse(WorkerBody.fitsInCell(1.1, 2.5))
+        val (center, stop) = WorkerBody.boxes(spot, 1.1, 2.5)
+        assertBox(AABB(5.95, 2.0, 9.95, 7.05, 4.5, 11.05), center)
+        assertBox(AABB(6.45, 2.0, 10.45, 7.55, 4.5, 11.55), stop)
+    }
+
+    @Test
+    fun `a Camerupt 2_4 blocks wide stops 1_5 blocks from the spot's corner`() {
+        val (center, stop) = WorkerBody.boxes(spot, 2.4, 1.8)
+        assertBox(AABB(5.3, 2.0, 9.3, 7.7, 3.8, 11.7), center)
+        assertBox(AABB(6.3, 2.0, 10.3, 8.7, 3.8, 12.7), stop)
     }
 }

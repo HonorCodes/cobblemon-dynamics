@@ -442,7 +442,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val worker = slot.worker
         val key = TargetKey.block(t.dimension, target)
         val own = worker.spot?.asLong()
-        val grid = LevelSpotGrid(t.level, role.handler, target, if (own == null) taken else taken - own)
+        val entity = slot.entity
+        val others = if (own == null) taken else taken - own
+        val grid = LevelSpotGrid(t.level, role.handler, target, others, entity.bbWidth.toDouble(), entity.bbHeight.toDouble())
         val center = role.handler.targetCenter(target)
         val spot = guarded(role.handler, null) {
             WorkSpots.find(grid, area(t, runtime), center, role.definition.range, slot.entity.position())

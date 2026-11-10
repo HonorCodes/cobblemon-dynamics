@@ -130,8 +130,10 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 ## Carry-over items
 
-- End-of-phase pass (M5): a work spot is one cell, so a wide worker's body can overlap the blocks beside it
-  (CD-ASG-09). Check it in the play-test and widen the spot check if it shows.
+- Done in the end-of-phase pass (M5): a work spot was one cell, so a wide worker's body could overlap the blocks
+  beside it (CD-ASG-09). A Camerupt on real blocks got a spot in a gap one block wide. The spot check now needs
+  room for the worker's body on the spot's center and where navigation stops it
+  (`WideWorkerTests.cdAsg09WideWorkerGetsASpotItsBodyFits`). The play-test still checks it (manual checklist 14).
 - Done in the end-of-phase pass (M5): a Burner Keeper worked a creative Blaze Burner, which gains nothing
   from it. `hasDemand` is now false for a creative burner (`BurnerTests.creativeBlazeBurnerHasNoDemand`).
 - Done in the end-of-phase pass (M5): two Pokémon that walk toward each other on the same row of cell centres
