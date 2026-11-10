@@ -56,6 +56,14 @@ when your hands are on the code.
   centre on the floor, the wheel breaks itself.
 - The core GameTest run (`runGameTestServerCore`) logs to `run/gametest-core/logs/latest.log`. Shared test
   code (`src/gametest/kotlin-shared/`) must not name a Create class.
+- Create uses a hand crank or an analog lever for any held item except its wrench, and cancels the click,
+  so an item's `onItemUseFirst` never runs there. `ItemUseOverridesMixin` exempts the Work Leash.
+- A crank's `turn(false)` gives -32 RPM when the crank faces along a negative axis.
+- Navigation steers a mob 1 to 2 blocks wide to a corner of its target cell, not the centre. Compare
+  positions with `Arrival.isAt`, never with the spot centre.
+- A mechanical piston does not assemble without an extension pole behind it, and does nothing if its speed
+  points inward. A west-facing piston extends with positive speed.
+- A Create boiler counts heat only with an engine attached. GameTests call `boiler.updateTemperature(tank)`.
 - On Windows, Python's `write_text` writes CRLF unless you pass `newline="\n"`. Check for CR characters
   before staging.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
