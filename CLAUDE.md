@@ -101,7 +101,8 @@ when your hands are on the code.
   run) needs its own copy of the structure.
 - CI's super-linter v9.0.0 runs ruff 0.16.8, which sorts modules new in Python 3.11 (such as `tomllib`) as
   third-party, unlike local ruff 0.17. Import such a module inside the function that uses it.
-- Two Pokémon that walk toward each other on the same row of cell centres push each other back and never pass.
+- Two Pokémon that walk toward each other on the same row of cell centres push each other back and never pass,
+  unless both are workers that the engine directs: `WorkerPushMixin` skips their push.
 - A jar built with `-Prelease_version` stays in `build/libs`, and the test pack installs the newest jar there.
   Delete it before you run the test pack.
 - `data merge block` sets a block entity's saved state without a player, and a new folder in

@@ -11,6 +11,7 @@ import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.EngineEvents
+import codes.honor.cobblemondynamics.engine.WorkerPush
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.capability.FePushHandler
 import codes.honor.cobblemondynamics.handler.capability.FluidFillHandler
@@ -80,6 +81,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }
         EngineEvents.register()
+        WorkerPush.warnIfMissing()
         LeashInteractions.register()
         LeashResets.register()
         EnchantingMenus.register()

@@ -13,7 +13,8 @@
     "create.ItemUseOverridesMixin",
     "create.WaterWheelBlockEntityMixin",
     "vanilla.EnchantmentMenuAccess",
-    "vanilla.EnchantmentMenuMixin"
+    "vanilla.EnchantmentMenuMixin",
+    "vanilla.WorkerPushMixin"
   ],
   "client": [
     "cobblemon.client.PasturePokemonScrollListMixin",

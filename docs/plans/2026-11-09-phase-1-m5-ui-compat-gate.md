@@ -282,7 +282,9 @@ Design (as built):
   into a Working worker that it had pushed off its spot, and the two pushed each other straight back, because
   Minecraft pushes two entities apart along the line between their centres. The walk timed out after 600 ticks,
   and CD-ASG-14 then kept the worker off its furnace for 6,000 ticks. A trace of the stuck worker showed a valid
-  path to its spot. The finding is a carry-over item for the end-of-phase pass (rehydration note). If a worker is
+  path to its spot. The finding was a carry-over item for the end-of-phase pass, which fixed it: two workers that the engine
+  directs no longer push each other (`WorkerPushMixin`, `WorkerPushTests`). The test still puts Traveling workers on their
+  spots, because it measures work, not walks. If a worker is
   not Working at 2,400 ticks, the test fails and names each idle worker's state, position, target, spot and
   skipped targets.
 - CD-PERF-05, runtime part: during the 6,000 ticks a log4j appender on the root logger of the mod's logger

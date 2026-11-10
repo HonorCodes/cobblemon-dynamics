@@ -77,7 +77,7 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
                          ItemUseOverridesMixin, EncasedFanBlockEntityMixin,
                          NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
   vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
-                         other code load)
+                         other code load), WorkerPushMixin (no push between two directed workers)
   cobblemon/client/      PastureWidgetMixin (stamina bars), PasturePokemonScrollListMixin (list height)
   compat/cobblebase/     AmbientBehaviorMixin, NavigationHelperMixin, BaseManagerMixin, PassiveXpMixin
                          (@Pseudo hooks in Cobblebase's helpers)
@@ -295,6 +295,14 @@ Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that 
    marked entity too.
 7. Entering the work activity ends Cobblemon's own night sleep, as its wake-up task does: it clears the
    battle SLEEP status and the `pokemon_sleeping` memory, which only that task clears otherwise.
+
+Two workers that the engine directs, in any state but Idle, do not push each other: `WorkerPushMixin`
+skips `LivingEntity.push` between them, on the server. Minecraft pushes two entities apart along the
+line between their centres, and navigation follows cell centres. So two workers that met in one row
+pushed each other straight back, and a walker pushed a Working worker off its spot, which then walked
+back into it, until the trip timed out and CD-ASG-14 kept the worker off its target for 6,000 ticks.
+Players, wild Pokémon, other mobs and Idle Pokémon still push workers and are pushed by them. When the
+mixin does not inject, the mod logs one warning and workers push each other as before.
 
 `TargetHandler` contract (Kotlin sketch):
 

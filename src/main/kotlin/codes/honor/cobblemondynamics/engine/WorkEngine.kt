@@ -85,6 +85,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /** The role of a worker's work claim, while it holds one. */
     fun roleOf(pokemonId: UUID): ActiveRole? = slots[pokemonId]?.role
 
+    /**
+     * True while [entity] is the entity of a worker that the engine directs: any state but Idle, in which the worker walks to or holds
+     * a place that the engine gave it. Two such workers do not push each other (`WorkerPush`).
+     */
+    fun isDirected(entity: PokemonEntity): Boolean {
+        val slot = slots[entity.pokemon.uuid] ?: return false
+        return slot.entity === entity && slot.worker.status != WorkerStatus.IDLE
+    }
+
     /** One engine tick of [level], after the level ticked its block entities and entities. */
     fun tickLevel(level: ServerLevel) {
         val dimension = level.dimension().location()
