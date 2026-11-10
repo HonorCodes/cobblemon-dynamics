@@ -12,7 +12,8 @@
     "vanilla.EnchantmentMenuMixin"
   ],
   "client": [
-    "cobblemon.client.PasturePokemonScrollListMixin"
+    "cobblemon.client.PasturePokemonScrollListMixin",
+    "cobblemon.client.PastureWidgetMixin"
   ],
   "injectors": {
     "defaultRequire": 0

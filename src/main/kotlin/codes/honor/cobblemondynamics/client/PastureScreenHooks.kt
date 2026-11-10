@@ -37,6 +37,7 @@ object PastureScreenHooks {
             openScreen = screen
             ClientState.clearPanel()
             mixins.listShortened()
+            mixins.barsOn()
             ClientNet.send(PasturePanelOpenPayload)
         }
         val rect = PanelLayout.button(screen.width, screen.height)

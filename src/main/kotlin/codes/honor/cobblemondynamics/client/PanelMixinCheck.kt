@@ -9,6 +9,9 @@ import codes.honor.cobblemondynamics.MixinState
 class PanelMixinCheck(private val applied: (String) -> Boolean, private val warn: (String) -> Unit) {
     private val warned = HashSet<String>()
 
+    /** False when no row shows its Work Stamina bar and state icon. */
+    fun barsOn(): Boolean = check(MixinState.PASTURE_WIDGET, "the pasture panel shows no Work Stamina bars")
+
     /** False when the list keeps Cobblemon's height and reaches under the Work Mode button. */
     fun listShortened(): Boolean = check(MixinState.PASTURE_LIST, "the pasture list reaches under the Work Mode button")
 

@@ -15,6 +15,7 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import net.neoforged.neoforge.event.server.ServerStoppingEvent
 import net.neoforged.neoforge.event.tick.LevelTickEvent
+import net.neoforged.neoforge.event.tick.ServerTickEvent
 
 /** The game events that drive the work engine. */
 object EngineEvents {
@@ -40,6 +41,7 @@ object EngineEvents {
             val level = event.level as? ServerLevel ?: return@addListener
             WorkEngine.get()?.tickLevel(level)
         }
+        NeoForge.EVENT_BUS.addListener<ServerTickEvent.Post> { PanelViewers.tick(it.server.tickCount.toLong()) }
         NeoForge.EVENT_BUS.addListener<ChunkEvent.Unload> { event ->
             val level = event.level as? ServerLevel ?: return@addListener
             onChunkUnload(level, event.chunk.pos)

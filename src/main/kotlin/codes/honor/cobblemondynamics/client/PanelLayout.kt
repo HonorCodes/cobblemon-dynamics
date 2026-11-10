@@ -64,6 +64,30 @@ object PanelLayout {
     fun otherControls(screenWidth: Int, screenHeight: Int): List<Rect> =
         listOf(LIST, RECALL).map { onScreen(it, screenWidth, screenHeight) }
 
+    /** A row of the list and the 3 pixels below it, as `AbstractSelectionList` spaces the 29-pixel slots. */
+    const val ROW_HEIGHT = 32
+
+    /** The top of row [index], as `AbstractSelectionList.getRowTop` computes it for a list with no header. */
+    fun rowTop(listY: Int, scrollAmount: Double, index: Int): Int = listY + 4 - scrollAmount.toInt() + index * ROW_HEIGHT
+
+    /** The part of [list] that shows rows: Cobblemon clips them to `y + 4` until `y - 1 + height`. */
+    fun listWindow(list: Rect): Rect = Rect(list.x, list.y + 4, list.width, list.height - 5)
+
+    /** A row's state icon and Work Stamina bar. Hovering either one shows the row's tooltip (CD-UI-10). */
+    data class RowParts(val icon: Rect, val bar: Rect) {
+        fun contains(px: Double, py: Double): Boolean = icon.contains(px, py) || bar.contains(px, py)
+    }
+
+    /**
+     * Cobblemon draws a row's 62 × 29 slot at (rowLeft - 4, rowTop + 2). The icon fills the dark strip above the slot's move
+     * button, and the bar runs along the top edge of the slot's card, from the gap above the slot into its frame.
+     */
+    fun rowParts(rowLeft: Int, rowTop: Int): RowParts {
+        val slotX = rowLeft - 4
+        val slotY = rowTop + 2
+        return RowParts(icon = Rect(slotX + 2, slotY + 2, 8, 8), bar = Rect(slotX + 11, slotY - 1, 50, 4))
+    }
+
     /** The text scale that fits a label [textWidth] pixels wide into a button [width] pixels wide. */
     fun labelScale(textWidth: Int, width: Int): Float {
         val room = width - 2 * LABEL_MARGIN

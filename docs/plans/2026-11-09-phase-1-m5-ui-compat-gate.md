@@ -61,15 +61,36 @@ CD-UI-01, CD-UI-02 and CD-UI-03 are Demo rows. Demo: verified in the play-test (
 **Rows:** CD-UI-04, CD-UI-05, CD-UI-07, CD-UI-08, CD-UI-10, CD-UI-11, CD-UI-13, CD-ART-11.
 
 **Files:** `mixin/cobblemon/client/PastureWidgetMixin.java` (TAIL of `renderWidget`), `client/PanelBars.kt`,
-`client/StateIcons.kt`, placeholder sprites `textures/gui/state/{idle,traveling,working,standby,tired,sleeping,healing}.png`
-and `textures/gui/stamina_bar.png` from `scripts/placeholder_art.py` (each icon a different shape: dot, arrow,
-gear, pause bars, droop, Z, plus), `src/test/kotlin/.../client/StateIconsTest.kt`.
+`client/StaminaBar.kt`, `client/StateIcons.kt`, `net/PanelViewers.kt` (the 20-tick send), placeholder sprites
+`textures/gui/state/{idle,traveling,working,standby,tired,sleeping,healing}.png` from `scripts/placeholder_art.py`
+(each icon a different shape: dot, arrow, gear, pause bars, droop, Z, plus), `src/test/kotlin/.../client/StateIconsTest.kt`,
+`StaminaBarTest.kt`, `PanelMixinCheckTest.kt`.
 
 `StateIcons.iconFor(status)` maps the eight states to seven icons: ToBed and RestingInPlace share Tired
 (CD-UI-07). The server sends `pasture_panel_state` every 20 ticks while the panel is open
 (`PanelCadence`, CD-UI-05). Hovering a bar shows `NN% Work Stamina` and the state name (CD-UI-10, CD-UI-11).
 If `MixinState.applied(PASTURE_WIDGET)` is false, the bars are skipped with one warning, and the button and
 head bars still work (CD-UI-13).
+
+Design (checked against the Cobblemon 1.8.4 jar):
+
+- Each row shows its parts over Cobblemon's 62 × 29 slot, which starts at (rowLeft − 4, rowTop + 2): the state
+  icon, 8 × 8, in the dark strip above the slot's move button at slot offset (2, 2), and the bar, 50 × 4, along the
+  top edge of the slot's card at (11, −1). Neither covers the move button or the Defend button. `PanelLayout.rowTop`
+  repeats `AbstractSelectionList.getRowTop`, which is protected, and the parts are clipped to the list's window
+  (`y + 4` until `y - 1 + height`), as Cobblemon clips its rows.
+- The bar is flat colour, so the planned `stamina_bar.png` is not needed: a 1-pixel frame, then the fill, green from
+  50%, yellow from 25% and red below (`StaminaBar`). The icons are 16 × 16 placeholders drawn at 8 × 8.
+- Hovering the icon or the bar shows two lines, `cobblemon_dynamics.ui.stamina` = `%s%% Work Stamina` and the state
+  name. `Screen.setTooltipForNextRenderPass` draws it above every widget. The parts draw at z + 200, above the row
+  models. `hud.panelBars = false` hides them.
+- `PanelMixinCheck` warns once per game when a panel opens and `PastureWidgetMixin` did not apply. Only the bars
+  depend on that mixin.
+- `PanelViewers.tick` runs from `ServerTickEvent.Post`. It sends each viewer its pasture's state 20, 40, ... ticks
+  after the panel opened, and drops a viewer whose Cobblemon pasture link now points elsewhere.
+
+CD-UI-04, CD-UI-10 and the Demo parts of CD-UI-07 and CD-UI-08 are Demo rows. Demo: verified in the play-test
+(manual checklist, M5 Task 8).
 
 - [ ] **Steps:** `StateIconsTest` (eight states, seven distinct textures, ToBed and RestingInPlace share one;
   the seven PNGs differ pixel by pixel in their alpha mask, so shape differs, not only color — CD-UI-08) →
