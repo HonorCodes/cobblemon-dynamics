@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.pasture.PastureKey
+import net.minecraft.core.BlockPos
 import java.util.UUID
 
 /** The engine's runtime state of one tethered Pokémon. [WorkerMachine] makes every status change. */
@@ -12,6 +13,10 @@ class Worker(val pokemonId: UUID, var pasture: PastureKey) {
 
     /** The tick of the current work claim. */
     var claimTick: Long = -1
+
+    /** The canonical target of the current work claim, and the standable cell that the worker works it from. */
+    var target: BlockPos? = null
+    var spot: BlockPos? = null
 
     /** The tick of the last status change. */
     var statusSince: Long = 0

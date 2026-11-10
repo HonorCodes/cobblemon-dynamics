@@ -269,10 +269,15 @@ CD-CLM-08, CD-CFG-05, CD-CFG-07, CD-CFG-08, CD-PERF-03.
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/engine/LevelSpotGrid.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/vanilla/FurnaceHandler.kt`
 - Modify: `src/main/resources/META-INF/accesstransformer.cfg`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/Worker.kt` (`target`, `spot`)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleRegistry.kt` (`applyForTest`)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/pasture/WorkModeService.kt` (calls the engine)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/engine/TargetScanTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/StokerTests.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/AssignmentTests.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/RoleDataTests.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/WorkModeTests.kt` (`cdWmd06`), `TestKit.kt`
 
 **Interfaces:**
 - Consumes: Tasks 1 to 7.
@@ -286,19 +291,26 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     fun tickLevel(level: ServerLevel)                                    // LevelTickEvent.Post
     fun onWorkModeChanged(level: ServerLevel, pasture: BlockPos, enabled: Boolean)
     fun onChunkUnload(level: ServerLevel, chunk: ChunkPos)
+    fun release(pokemonId: UUID)                                         // the release path: onStop if Working, then Idle
     fun resetRuntimeForTest()
     companion object {
         fun start(server: MinecraftServer)     // ServerStartingEvent
         fun stop()                             // ServerStoppedEvent
         fun get(): WorkEngine?
         fun require(server: MinecraftServer): WorkEngine
+        fun isArrived(entity: Entity, spot: BlockPos): Boolean   // the step 5 rule; GameTests use it too
     }
 }
+// Worker gains `var target: BlockPos?` (the canonical target) and `var spot: BlockPos?`, set while it holds a work claim.
+// PastureRuntime(level, key, now, scanIntervalTicks) holds one pasture's slots (Worker, entity, Pokemon, ActiveRole?),
+// its ScanScheduler and its running TargetScan.
 
 /** Pure part of a scan pass, so CD-PERF-03 is a unit test. */
 interface ScanWorld {
     fun blockEntitiesIn(area: WorkArea): Sequence<Pair<BlockPos, BlockEntity>>
     fun blockState(x: Int, y: Int, z: Int): BlockState
+    // TargetHandler.matches and canonical take a ServerLevel, so the world makes those calls for the scan.
+    fun match(handler: TargetHandler, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): BlockPos?
 }
 class TargetScan(area: WorkArea, roles: List<ActiveRole>, workersNeedBlockScan: Boolean, budget: Int) {
     fun startPass(world: ScanWorld)                 // block entities, in one tick
@@ -310,28 +322,44 @@ data class FoundTarget(val pos: BlockPos, val roles: List<ActiveRole>)
 
 Per `LevelTickEvent.Post` on a `ServerLevel`, `tickLevel` runs these steps for that level, in order:
 
-1. Pastures due for their 20-tick poll (staggered by `ScanScheduler.phaseFor(pos.asLong(), 20)`): read the
+0. Every position in the level's `WORK_PASTURES` gets a `PastureRuntime`, so a restart rebuilds them from the
+   saved index; a runtime whose position left the index is removed. Steps 1 and 3 skip a pasture whose chunk
+   is not loaded, and nothing in the engine loads a chunk.
+1. Pastures due for their 20-tick poll (staggered by `ScanScheduler.phaseFor(pos.asLong(), 20)`; a new
+   runtime polls on its first tick): read the
    tethered list through `PastureAdapter.tethered`, add new workers, and release and forget workers that
    left (CD-ASG-15). A worker counts only when its Pokémon is player-owned, not fainted, not a battle
    clone, its entity is in this level, and `tethering.playerId == pokemon.getOwnerUUID()` (CD-ASG-01).
-   A pasture whose block is gone leaves the index.
-2. Claimed targets: `handler.stillValid(level, pos)` for every claim in this level. An invalid target
-   releases its claim in the same tick (CD-CLM-08).
-3. Scans: each Work Mode pasture whose `ScanScheduler` is due starts a `TargetScan`. Only a pasture with a
-   worker eligible for a `ScanKind.BLOCK` role iterates block positions (CD-PERF-03).
+   A pasture whose block is gone, or whose attachment reads off, leaves the index.
+2. Claimed targets: `handler.stillValid(level, pos)` for every work claim in this level, after
+   `level.isLoaded(pos)`. An invalid target releases its claim in the same tick (CD-CLM-08). The same
+   step releases a work claim whose role is gone from `RoleRegistry.current` or no longer takes the worker
+   (a reload, a disabled role or handler), and a work claim that no worker of the engine holds.
+3. Scans: each Work Mode pasture whose `ScanScheduler` is due starts a `TargetScan`, with the auto-assign
+   roles that a worker of the pasture may take (not leashed, not Tired, no Fairy type). Only a pasture
+   with a worker eligible for a `ScanKind.BLOCK` role iterates block positions (CD-PERF-03). A scheduler's
+   first start is the pasture's stagger boundary, `phaseFor(pos.asLong(), interval)`.
 4. When a scan completes: every Idle worker gets `Assigner.pickForIdle`, and every auto worker in Standby
-   for `standbyMoveTicks` gets `Assigner.pickForStandbyMove`. A granted claim picks a work spot with
-   `WorkSpots.find` over `LevelSpotGrid`. With no spot, the claim is released and the target is skipped
-   for `retryWaitTicks`.
+   for `standbyMoveTicks` gets `Assigner.pickForStandbyMove`. The engine finds the work spot with
+   `WorkSpots.find` over `LevelSpotGrid` before it claims; with no spot it claims nothing and skips the
+   target for `retryWaitTicks`. A spot that another worker of the level holds is not standable, so two
+   workers never share a cell.
 5. Every worker with a claim: `arrived` is the entity's horizontal distance to the spot center at most
    `max(0.75, entity.bbWidth / 2)`, with `|dy| < 1.5`. Run `WorkerMachine.onTick`. On entering Working call
    `handler.onStart`, snap the entity to the spot center, and on leaving Working call `handler.onStop`.
-   While Working call `handler.applyWork` every tick.
+   While Working call `handler.applyWork` every tick. While Traveling, set the Brain's `WALK_TARGET` to the
+   spot's bottom center (speed 0.4, close enough 0) every tick; Cobblemon's core `follow_walk_target` task
+   walks the Pokémon there, and wandering pauses while a walk target exists. Task 9 replaces this interim
+   write with `BrainBridge.write`. A worker whose entity is removed loses its claim and its slot, and joins
+   again at the next poll. A worker whose claim another caller released goes to Idle in the same tick.
 6. Task 9 writes the Brain memory here, and Task 10 runs the effects here.
 
-`EngineEvents` subscribes `ServerStartingEvent`, `ServerStoppedEvent`, `LevelTickEvent.Post` and
-`ChunkEvent.Unload` on `NeoForge.EVENT_BUS`. `onChunkUnload` releases every claim whose target sits in that
-chunk (CD-CLM-08).
+A handler call that throws turns the handler off through `RoleRegistry.disableHandler` (one warning,
+CD-PERF-05), and the next tick releases the claims of its roles.
+
+`EngineEvents` subscribes `ServerStartingEvent`, `ServerStoppedEvent` (which also runs
+`WorkModeService.reset()`), `LevelTickEvent.Post` and `ChunkEvent.Unload` on `NeoForge.EVENT_BUS`.
+`onChunkUnload` releases every claim whose target sits in that chunk (CD-CLM-08).
 
 `FurnaceHandler` (`id = cobblemon_dynamics:furnace`, `scanKind = BLOCK_ENTITY`):
 
@@ -339,9 +367,11 @@ chunk (CD-CLM-08).
 - `hasDemand`: the input slot holds an item, `quickCheck` finds a recipe, and the result fits the output
   slot. This repeats vanilla's `canBurn` check in Kotlin, so no access transformer on the patched private
   `canBurn` is needed (CD-STK-05).
-- `applyWork`: while `hasDemand`, `litTime = max(litTime, 2)` and `litDuration = litTime`. If the block
+- `applyWork`: while `hasDemand`, when `litTime < 2`, set `litTime = 2` and `litDuration = 2`; a furnace that
+  burns its own fuel keeps its own values. If the block
   state has `LIT = false`, set it to true with flag 3 (CD-STK-04). Call `setChanged()`. No fuel item is
-  touched, because vanilla only burns fuel when the furnace is unlit (CD-STK-02, CD-STK-03).
+  touched, because vanilla only burns fuel when its tick brings `litTime` to 0, and the engine works after
+  the block entities tick (CD-STK-02, CD-STK-03).
 - `onStop`: nothing. `litTime` is at most 2, so the furnace goes out within 2 ticks and follows vanilla
   fuel rules after that (CD-STK-06).
 - `stillValid`: the block entity at the position is still an `AbstractFurnaceBlockEntity`.
@@ -368,6 +398,8 @@ class TargetScanTest {
         var stateReads = 0
         override fun blockEntitiesIn(area: WorkArea) = bes.asSequence()
         override fun blockState(x: Int, y: Int, z: Int): BlockState { stateReads++; error("not used in this test") }
+        override fun match(handler: TargetHandler, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): BlockPos? =
+            error("not used in this test")
     }
 
     @Test
@@ -422,21 +454,25 @@ class StokerTests {
         var workingSince = -1L
         helper.onEachTick {
             val w = TestKit.engine(helper).claims.holderOf(TargetKey.block(helper.level.dimension().location(), furnace.blockPos))
-            if (workingSince < 0 && w != null && TestKit.engine(helper).worker(w.worker)?.status == WorkerStatus.WORKING) workingSince = helper.tickTime
+            if (workingSince < 0 && w != null && TestKit.engine(helper).worker(w.worker)?.status == WorkerStatus.WORKING) workingSince = helper.tick
             if (furnace.getItem(2).count == 8) {
-                val took = helper.tickTime - workingSince
+                val took = helper.tick - workingSince
                 helper.assertTrue(took in 1_580..1_620, "8 smelts took $took ticks")
                 helper.succeed()
             }
         }
     }
     // cdStk02SmokerCooksEightBeefIn800Ticks: same with Blocks.SMOKER and 8 beef, 780..820 ticks.
-    // cdStk03CoalIsNeverConsumed: fuel = 1 coal; after 8 smelts the fuel slot still holds 1 coal.
+    // cdStk03CoalIsNeverConsumed: 1 coal goes into the fuel slot on the tick Working starts (vanilla burns a coal that sits
+    //   beside input in an unlit furnace before any Stoker arrives); after 8 smelts the fuel slot still holds 1 coal.
     // cdStk04LitIsSetOneTickAfterWorkingStarts: record the tick Working starts; on the next tick the block state's LIT is true.
     // cdStk05FullOutputGivesStandby: output slot set to 64 iron ingots; the worker is in STANDBY within 20 ticks of reaching the spot.
-    // cdStk06ReleaseReturnsVanillaRules: once Working, release the claim (TestKit.engine(helper).claims.release(...) through the
-    //   engine's release path); with no fuel LIT is false within 2 ticks; in a second furnace with 1 coal the coal is consumed.
-    // cdStk07GaugeIsNotEmptyWhileCooking: while Working and cooking, litTime > 0 and litDuration > 0 (dataAccess indices 0 and 1).
+    // cdStk06 is two tests. Once Working, set the worker's skipUntil for the furnace 200 ticks ahead, so that the next scan
+    //   cannot claim it again, and call TestKit.engine(helper).release(id). cdStk06ReleaseLetsAFurnaceWithNoFuelGoOut: LIT is
+    //   false within 2 ticks. cdStk06ReleaseLetsVanillaBurnTheCoal: 1 coal goes in at Working and is still there 40 ticks
+    //   later; after the release the coal is burned within 2 ticks, and the furnace stays lit.
+    // cdStk07GaugeIsNotEmptyWhileCooking: while Working, litTime > 0, litDuration > 0 and litTime / litDuration >= 0.5, the
+    //   ratio that the menu draws (the fields, through the access transformer; dataAccess is protected).
 }
 ```
 
@@ -446,34 +482,48 @@ class AssignmentTests {
     // cdAsg01OnlyOwnedHealthyPastured: a wild Charmander (TestKit.wild), a party Charmander sent out by the owner
     //   (pokemon.sendOut(level, pos, null)), a pastured Charmander with currentHealth = 0, and a healthy pastured
     //   Charmander, all 3 blocks from a furnace with input, for 400 ticks; only the healthy pastured one holds a claim.
-    // cdAsg03NearestFurnaceWins: furnaces with input 3 and 6 blocks from one Idle Charmander (moveTo before Work Mode on);
-    //   the claim is on the 3-block furnace.
-    // cdAsg08WorkAreaEdges (template floor_23x10x23 and floor_23x17x23): furnaces at horizontal offsets 8 and 9 from the
-    //   pasture, then at vertical offsets 6 and 7 (on pillars); the 8 and 6 furnaces get claimed, the 9 and 7 never do.
-    // cdAsg11WorkingWithinOneTickOfArrival: track the first tick the worker is within arrival distance; status is WORKING
+    // cdAsg03NearestFurnaceWins: furnaces with input 3 and 6 blocks from one Idle Charmander, on opposite sides; moveTo holds
+    //   the Charmander at its spot every tick until it claims, because it wanders between the poll and the scan; the claim
+    //   is on the 3-block furnace.
+    // cdAsg08 is two tests, each with two Charmanders, so a free worker exists for the outer furnace. Horizontal
+    //   (floor_23x10x23, pasture at (11,1,11)): furnaces at x offsets +8 and -9. Vertical (floor_23x17x23): furnaces at
+    //   y offsets 6 and 7, each on a stone pillar with a one-block stone ledge beside it as its only work spot. Over 300
+    //   ticks the 8 and 6 furnaces get claimed, and the 9 and 7 never do.
+    // cdAsg11WorkingWithinOneTickOfArrival: track the first tick WorkEngine.isArrived(entity, worker.spot); status is WORKING
     //   on that tick or the next.
     // cdAsg12StandbyKeepsClaimAndResumes: remove the input once Working; the claim stays; put input back; WORKING within 20 ticks.
-    // cdAsg13UnreachableTargetTimesOut: a furnace boxed in glass on all sides with no standable spot in range, but with a
-    //   spot found through a 1-block gap closed after the claim; the claim is held at claimTick + 599 and gone at + 601.
+    // cdAsg13UnreachableTargetTimesOut: moveTo holds the Charmander 9 blocks from the furnace, beyond the Stoker's range, until
+    //   it claims, so its work spot lies some blocks away; then glass walls the Charmander in, two blocks high, so it can
+    //   never arrive; the claim is held at claim.sinceTick + 599 and gone at + 601 (level game time). A glass box around the
+    //   furnace with a gap closed after the claim does not work: the spot found through the gap stays reachable outside the
+    //   box, and the worker arrives.
     // cdAsg15LeavingThePastureReleasesTheClaim: once Working, pasture.releasePokemon(uuid); no claim 20 ticks later.
     // cdWmd05WorkModeOffReleasesEveryClaim: two Working Stokers; inject a BED and a HEAL claim for two more workers of the
     //   same pasture with engine.claims.tryClaim; apply Work Mode off; 1 tick later the registry holds none of the four.
     //   M2 Task 4 replaces the injected claims with a real sleeper and a real healer.
-    // cdClm07ClaimsAreNotSaved: two Working Stokers; TestKit.simulateRestart(helper); the registry is empty before the next scan.
-    // cdClm08BrokenReplacedUnloaded: three Working Stokers; break furnace 1 (destroyBlock), replace furnace 2 with stone,
-    //   call EngineEvents.onChunkUnload for furnace 3's chunk; 1 tick later none of the three claims remains.
+    // cdClm07ClaimsAreNotSaved (batch "restart_clm07", because the reset drops the whole engine): two Working Stokers;
+    //   TestKit.simulateRestart(helper); the registry is empty, and for 20 ticks every claim is newer than the restart.
+    // cdClm08BrokenReplacedUnloaded (batch "unload_clm08", because one chunk can hold parts of two test structures): three
+    //   Working Stokers; break furnace 1 (destroyBlock), replace furnace 2 with stone, call EngineEvents.onChunkUnload for
+    //   furnace 3's chunk; 1 tick later none of the three claims remains (compare the Claim values, because a new scan
+    //   may claim furnace 3 again: its chunk stays loaded).
 }
 
 @GameTestHolder(MOD_ID) @PrefixGameTestTemplate(false)
 class RoleDataTests {
+    // Each test restores the state with TestKit.afterTest(helper) { ... }, a GameTestListener on helper.testInfo that runs
+    // when the test passes or fails; a finally block would run when the test method returns, before the test ticks.
     // batch = "roles_cfg07": cdCfg07DatapackLetsWaterTypesStoke: RoleRegistry.applyForTest(stoker with types fire + water);
-    //   a Squirtle claims a furnace with input; restore the parsed map in a finally block.
-    // batch = "roles_cfg08": cdCfg08ReloadAppliesChangedTypes: applyForTest(stoker with types water only); a Charmander
-    //   gets no claim for 200 ticks; restore.
-    // batch = "roles_cfg05": cdCfg05DisabledRoleGetsNoClaims: WorkEngineSettings.current = DEFAULT.copy(disabledRoles =
+    //   a Squirtle claims a furnace with input; restore the parsed map.
+    // batch = "roles_cfg08": cdCfg08ReloadAppliesChangedTypes: applyForTest(stoker with types water only); two furnaces; a
+    //   Charmander gets no claim for 200 ticks, and a Squirtle holds one at tick 200; restore.
+    // batch = "roles_cfg05": cdCfg05DisabledRoleGetsNoClaims: WorkEngineSettings.current = current.copy(disabledRoles =
     //   setOf(stoker id)), RoleRegistry.rebuild(); a Charmander beside a furnace with input gets no claim for 400 ticks; restore.
 }
 ```
+
+Every test reads only its own workers and targets: the registry and the engine are global, and the tests of one
+batch run side by side.
 
 Add to `WorkModeTests` (moved from Task 7, because `TestKit.claimOf` reads the engine):
 
@@ -484,10 +534,14 @@ fun cdWmd06OffPastureGivesNoClaims(helper: GameTestHelper) {
     val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
     TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
     val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+    TestKit.moveTo(helper, fire, BlockPos(7, 1, 5))
     helper.onEachTick { helper.assertTrue(TestKit.claimOf(helper, fire) == null, "a Pokémon in a pasture that is off got a claim") }
     helper.runAtTickTime(400) { helper.succeed() }
 }
 ```
+
+`TestKit` gets `engine`, `furnace`, `workerOf`, `claimOf`, `keyOf(helper, pos)`, `moveTo`, `simulateRestart` and
+`afterTest`.
 
 Write every commented test in full before Step 3. `RoleRegistry.applyForTest(definitions)` replaces the
 parsed map and rebuilds `current`, exactly as `apply` does after a `/reload`, so CD-CFG-07 and CD-CFG-08
@@ -497,16 +551,20 @@ data pack and a real `/reload`.
 - [ ] **Step 3: Run them and see them fail**
 
 Run: `./gradlew runGameTestServer`
-Expected: the new tests fail (no engine, no handler), the M0 and Task 7 tests pass.
+Expected: the new tests fail (no engine, no handler), the M0 and Task 7 tests pass. The tests compile against
+a `WorkEngine` with the API above and empty bodies. The two MUST NOT tests, `cdWmd06` and `cdCfg05`, pass
+already, because nothing claims.
 
 - [ ] **Step 4: Write the engine, the scan, the spot grid and the handler**
 
-`LevelSpotGrid(level, handler, canonical)` implements `SpotGrid`: standable when the block below has a
-full top face (`isFaceSturdy(level, below, Direction.UP)`) and the cells at `y` and `y + 1` have empty
-collision shapes; a cell blocks sight when its collision shape is not empty and
-`handler.isPartOfTarget(level, canonical, pos)` is false.
+`LevelSpotGrid(level, handler, canonical, taken)` implements `SpotGrid`: standable when the block below has a
+full top face (`isFaceSturdy(level, below, Direction.UP)`), the cells at `y` and `y + 1` have empty
+collision shapes, and the cell is not in `taken` (the spots of other workers); a cell blocks sight when its
+collision shape is not empty and `handler.isPartOfTarget(level, canonical, pos)` is false. A cell in an
+unloaded chunk is neither standable nor in the way.
 
-Register `FurnaceHandler` in the mod constructor with `HandlerRegistry.register(FurnaceHandler)`.
+Register `FurnaceHandler` in the mod constructor with `HandlerRegistry.register(FurnaceHandler)`, and call
+`EngineEvents.register()` there. `WorkModeService.apply` calls `WorkEngine.get()?.onWorkModeChanged(...)`.
 
 - [ ] **Step 5: Run the tests and see them pass**
 
@@ -516,7 +574,7 @@ Expected: `BUILD SUCCESSFUL`; every GameTest passes.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main src/test src/gametest
+git add -- <each new and changed file under src/main, src/test and src/gametest> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md
 git commit -m "Run the work engine per level and keep furnaces lit with the Stoker role"
 ```
 
@@ -634,7 +692,8 @@ claim.
 
 Run: `./gradlew build runGameTestServer`
 Expected: `BUILD SUCCESSFUL`; every GameTest passes, including Task 8's tests, which now move through the
-Brain instead of teleporting.
+work activity instead of the interim `WALK_TARGET` write of Task 8's step 5. Remove that write when
+`BrainBridge.write` takes over.
 
 - [ ] **Step 5: Commit**
 

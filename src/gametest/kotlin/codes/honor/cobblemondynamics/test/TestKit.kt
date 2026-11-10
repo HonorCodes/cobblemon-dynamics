@@ -1,5 +1,9 @@
 package codes.honor.cobblemondynamics.test
 
+import codes.honor.cobblemondynamics.claim.Claim
+import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.engine.WorkEngine
+import codes.honor.cobblemondynamics.engine.Worker
 import codes.honor.cobblemondynamics.pasture.WorkModeService
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.CobblemonBlocks
@@ -12,9 +16,15 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.gametest.framework.GameTestInfo
+import net.minecraft.gametest.framework.GameTestListener
+import net.minecraft.gametest.framework.GameTestRunner
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.phys.AABB
 import net.neoforged.neoforge.common.util.FakePlayer
 import net.neoforged.neoforge.common.util.FakePlayerFactory
@@ -96,5 +106,54 @@ object TestKit {
         entity.moveTo(pos.x, pos.y, pos.z)
         helper.level.addFreshEntity(entity)
         return entity
+    }
+
+    fun engine(helper: GameTestHelper): WorkEngine = WorkEngine.require(helper.level.server)
+
+    fun furnace(
+        helper: GameTestHelper,
+        rel: BlockPos,
+        input: ItemStack?,
+        fuel: ItemStack? = null,
+        block: Block = Blocks.FURNACE,
+    ): AbstractFurnaceBlockEntity {
+        helper.setBlock(rel, block)
+        val furnace = helper.getBlockEntity<AbstractFurnaceBlockEntity>(rel)
+        input?.let { furnace.setItem(0, it) }
+        fuel?.let { furnace.setItem(1, it) }
+        return furnace
+    }
+
+    fun workerOf(helper: GameTestHelper, entity: PokemonEntity): Worker? = engine(helper).worker(entity.pokemon.uuid)
+
+    fun claimOf(helper: GameTestHelper, entity: PokemonEntity): Claim? = engine(helper).claims.claimOf(entity.pokemon.uuid)
+
+    fun keyOf(helper: GameTestHelper, pos: BlockPos): TargetKey.Block = TargetKey.block(helper.level.dimension().location(), pos)
+
+    /** Teleports [entity] to the bottom center of [rel], which must lie inside its roam box. */
+    fun moveTo(helper: GameTestHelper, entity: PokemonEntity, rel: BlockPos) {
+        val pos = helper.absoluteVec(rel.bottomCenter)
+        entity.navigation.stop()
+        entity.teleportTo(pos.x, pos.y, pos.z)
+    }
+
+    /** The GameTest form of a restart: every in-memory claim, worker and pending selection is gone. */
+    fun simulateRestart(helper: GameTestHelper) {
+        engine(helper).resetRuntimeForTest()
+    }
+
+    /** Runs [action] when the test passes or fails, to put back global state that the test changed. */
+    fun afterTest(helper: GameTestHelper, action: () -> Unit) {
+        helper.testInfo.addListener(
+            object : GameTestListener {
+                override fun testStructureLoaded(testInfo: GameTestInfo) {}
+
+                override fun testPassed(test: GameTestInfo, runner: GameTestRunner) = action()
+
+                override fun testFailed(test: GameTestInfo, runner: GameTestRunner) = action()
+
+                override fun testAddedForRerun(oldTest: GameTestInfo, newTest: GameTestInfo, runner: GameTestRunner) {}
+            },
+        )
     }
 }

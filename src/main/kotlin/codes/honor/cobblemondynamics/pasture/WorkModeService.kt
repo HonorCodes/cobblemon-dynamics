@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.pasture
 
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
+import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
@@ -51,6 +52,7 @@ object WorkModeService {
         val index = level.getData(DynamicsAttachments.WORK_PASTURES)
         if (enabled) index.add(pasturePos) else index.remove(pasturePos)
         level.setData(DynamicsAttachments.WORK_PASTURES, index)
+        WorkEngine.get()?.onWorkModeChanged(level, pasturePos, enabled)
     }
 
     /** Forgets every player's last request when a server stops, because the next server runs on another clock. */

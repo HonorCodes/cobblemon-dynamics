@@ -8,6 +8,8 @@ import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.phys.Vec3
@@ -149,6 +151,17 @@ class WorkModeTests {
             helper.assertFalse(PastureAdapter.isWorkMode(pasture), "the final state is on")
             helper.succeed()
         }
+    }
+
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 450)
+    fun cdWmd06OffPastureGivesNoClaims(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
+        val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        TestKit.moveTo(helper, fire, BlockPos(7, 1, 5))
+        helper.onEachTick { helper.assertTrue(TestKit.claimOf(helper, fire) == null, "a Pokémon in a pasture that is off got a claim") }
+        helper.runAtTickTime(400) { helper.succeed() }
     }
 
     /** No per-player limit, so only the pasture's own limit can refuse the Pokémon. */

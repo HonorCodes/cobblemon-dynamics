@@ -34,11 +34,21 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
             val role = result.result().orElse(null)
             if (role != null) roles[id] = role else LOGGER.error(RoleCodec.describeError(id, result))
         }
-        synchronized(this) {
-            parsed = roles
-            logged.clear()
-            rebuild()
-        }
+        synchronized(this) { replace(roles) }
+    }
+
+    /** Replaces the parsed role files exactly as a data pack load does, and returns the previous ones. GameTests only. */
+    @Synchronized
+    fun applyForTest(definitions: Map<ResourceLocation, RoleDefinition>): Map<ResourceLocation, RoleDefinition> {
+        val previous = parsed
+        replace(definitions)
+        return previous
+    }
+
+    private fun replace(roles: Map<ResourceLocation, RoleDefinition>) {
+        parsed = roles
+        logged.clear()
+        rebuild()
     }
 
     /** Applies the live `roles.disabled` list and the handler set to the last parsed role files. */
