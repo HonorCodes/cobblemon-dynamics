@@ -209,54 +209,71 @@ CD-LSH-14.
 
 **Files:**
 - Create: `src/main/java/codes/honor/cobblemondynamics/mixin/create/WaterWheelBlockEntityMixin.java`
-- Create: `src/main/java/codes/honor/cobblemondynamics/mixin/create/RealFlowAccess.java` (duck interface)
+- Create: `src/main/java/codes/honor/cobblemondynamics/handler/create/RealFlowAccess.java` (duck interface; outside the
+  mixin package, which Mixin reserves: see Task 1)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/VirtualFlow.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/WaterWheelHandler.kt`
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/wheel_driver.json`
 - Modify: `src/main/resources/cobblemon_dynamics.mixins.json` (`"mixins": ["create.WaterWheelBlockEntityMixin"]`)
-- Modify: `leash/LeashInteractions.kt` (the flip gesture)
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/WheelDriverTests.kt`
+- Modify: `handler/create/CreateCompat.kt` (registers the handler), `handler/create/DriveBehaviour.kt` (`nextFlowCheck`)
+- Modify: `leash/LeashInteractions.kt` (the flip gesture), `leash/WorkLeashItem.kt` (calls it), `engine/WorkEngine.kt` (`roleOf`)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt` (the Role table row, the particle split)
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/WheelDriverTests.kt`, `CreateKit.kt` (Create scenes,
+  full run only), `TestKit.clickBlock(..., sneak)`
 
 The mixin, from the research note:
 
 ```java
 @Mixin(WaterWheelBlockEntity.class)
-abstract class WaterWheelBlockEntityMixin implements RealFlowAccess {
+public abstract class WaterWheelBlockEntityMixin implements RealFlowAccess {
     @Unique private int cobblemon_dynamics$realScore;
 
     @ModifyArg(method = "determineAndApplyFlowScore()V", at = @At(value = "INVOKE",
         target = "Lcom/simibubi/create/content/kinetics/waterwheel/WaterWheelBlockEntity;setFlowScoreAndUpdate(I)V"))
     private int cobblemon_dynamics$virtualFlow(int realScore) {
         this.cobblemon_dynamics$realScore = realScore;
-        int virtual = VirtualFlow.sign((WaterWheelBlockEntity) (Object) this);   // -1, 0 or +1
-        return realScore != 0 ? realScore : virtual;
+        return realScore != 0 ? realScore : VirtualFlow.sign((WaterWheelBlockEntity) (Object) this);   // -1, 0 or +1
     }
 
     @Override public int cobblemon_dynamics$realFlowScore() { return cobblemon_dynamics$realScore; }
 }
 ```
 
-`VirtualFlow.sign(be)` returns `DriveBehaviour.of(be)?.takeIf { it.driven }?.direction ?: 0`. The mixin
-applies on both sides; the behaviour syncs `driven` and `direction`, so the client computes the same flow
-and Create's goggles show the capacity (CD-WHL-09).
+Checked against the 6.0.10 build 280 jar with `javap`: `determineAndApplyFlowScore()` ends with its one call
+of `setFlowScoreAndUpdate(I)V`, which returns early on an unchanged score, else calls
+`updateGeneratedRotation()`, which on the server applies the speed and calls `sendData()`.
+`getGeneratedSpeed()` is `clamp(flowScore, -1, 1) * 8 / getSize()`. `VirtualFlow.sign(be)` returns
+`DriveBehaviour.of(be)?.takeIf { it.driven }?.direction ?: 0`. The mixin applies on both sides; the behaviour
+syncs `driven` and `direction`, so the client computes the same flow and Create's goggles show the capacity
+(CD-WHL-09).
 
-`WaterWheelHandler` (`id = cobblemon_dynamics:water_wheel`, `scanKind = BLOCK_ENTITY`):
+`WaterWheelHandler` (`id = cobblemon_dynamics:water_wheel`, `scanKind = BLOCK_ENTITY`), as built:
 
-- `matches`: the block entity is a `WaterWheelBlockEntity` (small or large).
+- `matches`: the block entity is a `WaterWheelBlockEntity` (small or large), or the block is a valid
+  `WaterWheelStructuralBlock` whose master holds one. The leash checks `matches` on the clicked block before it
+  asks for the canonical target, so a click on a ring block must match too.
 - `canonical`: for a `WaterWheelStructuralBlock` position, `getMaster(level, pos, state)` after
-  `stillValid(level, pos, state, false)`; otherwise the position itself (CD-CLM-04). The leash and the scan
-  both call it, so every ring block maps to the controller.
+  `stillValid(level, pos, state, false)` (an instance method of the structural block); otherwise the position
+  itself (CD-CLM-04). The leash and the scan both call it, so every ring block maps to the controller.
 - `isPartOfTarget`: the position is the controller or a structural block whose master is the controller.
 - `hasDemand`: `(be as RealFlowAccess).cobblemon_dynamics$realFlowScore() == 0` after calling
-  `be.determineAndApplyFlowScore()` at most once per 20 ticks per wheel (CD-WHL-03, R43).
+  `be.determineAndApplyFlowScore()` at most once per 20 ticks per wheel (CD-WHL-03, R43). The wheel's
+  `DriveBehaviour.nextFlowCheck` holds the next allowed tick. Create also recomputes on its lazy tick (60
+  ticks) and on a neighbour update, which records the real score through the mixin. A wheel with no drive
+  behaviour yet has no demand.
 - `onStart`: `driven = true`, then `determineAndApplyFlowScore()`. `onStop`: `driven = false`, then
-  `determineAndApplyFlowScore()`, so the wheel stops in the same tick (CD-WHL-08).
+  `determineAndApplyFlowScore()` while the chunk still ticks, so the wheel stops in the same tick (CD-WHL-08).
+  During a chunk unload the wheel keeps the flow that it saves, and its next load recomputes it with no drive.
+- `applyWork`: drives the wheel again when its drive was reset while its worker Works (a new block entity).
 - `flip`: when `driven`, `DriveBehaviour.flip()` and `determineAndApplyFlowScore()` (CD-WHL-05).
 
-The flip gesture: a sneak-right-click on a block with the Work Leash. If the block's canonical target
-holds a `DriveBehaviour` that is `driven`, and the player is the worker's binder, the pasture's placer
-or an operator, call `handler.flip` and return `SUCCESS`. Otherwise leave the direction unchanged and fall
-through to the normal leash rules (CD-SEC-10 in Task 6).
+The flip gesture: a sneak-right-click on a block with the Work Leash. `WorkLeashItem.onItemUseFirst` calls
+`LeashInteractions.onSneakBlockClick` first, with or without a selection. It finds an active role whose handler
+matches the clicked block, takes that handler's canonical target, and the work claim on it. When the player is
+an operator (permission level 2), the binder of the claim's worker, or the placer of the claim's pasture, it
+calls `flip` on the handler of the worker's role (`WorkEngine.roleOf`) and returns `SUCCESS`; `flip` refuses a
+target that is not driven. Otherwise the direction stays unchanged and the click falls through to the normal
+leash rules (CD-SEC-10 in Task 6).
 
 `wheel_driver.json`: handler `cobblemon_dynamics:water_wheel`, types `["water"]`, `auto_assign` true,
 priority 0, range 6.0, effect Water Gun: animations `["watergun", "spray", "beam", "special", "cry"]`,
@@ -265,31 +282,46 @@ actor `cobblemon:watergun_spray`, `cobblemon:watergun_actor`, target `cobblemon:
 target, and only the two `target` particles on the target. Target particles play at the work focus entity
 (M1 Task 10), so a spray listed as a target particle would never travel from the worker (CD-FX-04).
 
-- [ ] **Step 1: Failing GameTests** (`WheelDriverTests`; each scene puts the wheel on a stone base with
-  no water nearby):
+- [ ] **Step 1: Failing tests** — `BuiltInRoleFilesTest`: the Role table row of the Wheel Driver
+  (CD-FX-02) and its particle split (CD-FX-04). GameTests (`WheelDriverTests`; each scene puts the wheel on the
+  stone floor with no water nearby):
 
 ```kotlin
-// cdWhl01SmallAndLargeWheelsAreTargets: one Squirtle claims a dry small wheel, another a dry large wheel.
-// cdWhl02CreateValues: Working on a small wheel: getSpeed() == 8f and the generated capacity is 256 SU
-//   (calculateAddedStressCapacity() × |speed|); on a large wheel 4f and 512 SU.
-// cdWhl03RealWaterMeansStandby: a dry wheel keeps its worker Working; place flowing water at a checked offset:
-//   the worker is in STANDBY within 20 ticks and its stamina does not drain.
+// cdWhl01Whl02SmallAndLargeWheelsTurnAtCreateValues: two Squirtles, a dry small wheel and a dry large wheel; each wheel has
+//   a Working worker (CD-WHL-01), the small one turns at getSpeed() == 8f with 256 SU and the large one at 4f with 512 SU,
+//   both as calculateAddedStressCapacity() × |speed| and as the capacity of the wheel's kinetic network (CD-WHL-02).
+// cdWhl03RealWaterMeansStandby: a dry wheel keeps its worker Working for 40 ticks; then a water source on the wheel's top,
+//   walled on three sides, flows north over the edge into a walled one-block column on the wheel's north side, which turns
+//   the wheel the same way: the worker is in STANDBY within 20 ticks of the source, the mixin's real score is not 0, and
+//   its stamina does not drain in the next 40 ticks.
 // cdWhl05BinderFlips: the binder sneak-clicks a worked wheel at +8 RPM: -8 RPM 2 ticks later.
-// cdWhl06TakeoverKeepsDirection: worker A north of the wheel at +8, release A, bind B south of it: still +8.
+// cdWhl06TakeoverKeepsDirection: worker A, bound from north of the wheel, turns it at +8; the owner clears A's binding and
+//   the claim is released; worker B, bound from south of it: still +8. Each spot is checked to be on its side.
 // cdWhl08StopWithinTwoTicks: release the claim on a worked dry wheel: speed 0 two ticks later.
-// cdWhl09ClientSeesCapacity: the behaviour's update tag holds cd_driven = true and cd_direction = 1 (the goggle view is
-//   a Demo in the manual checklist; this asserts the data it needs reaches the client).
-// cdClm04LargeWheelIsOneTarget: worker A claims through ring block 1; binding worker B to ring block 2 refuses with
-//   "Already assigned to ..." and the registry holds one claim keyed on the controller.
-// cdBal04WheelsNeverExceedCreate: 1,200 ticks: small at most 8 RPM, large at most 4 RPM.
-// cdAsg01WheelVersion: the row's four Water-types (wild, sent-out party, fainted pastured, healthy pastured) 3 blocks from
-//   a dry wheel for 400 ticks; only the healthy pastured one claims.
-// cdAsg04AzumarillSkipsTheWheel: an unleashed Azumarill 3 blocks from a dry wheel for 400 ticks: no claim.
-// cdAsg19WheelDriverMovesToADryWheel: a Wheel Driver waits 400 ticks at a wheel that real water turns; place a dry wheel in
-//   the work area: within 80 ticks its claim is on the dry wheel.
-// cdLsh03BindsVaporeonToAWheel / cdLsh06BoundMessageNamesTheWheel ("Bound Vaporeon to Water Wheel") /
-// cdLsh11RebindMovesToWheelB / cdLsh14FormWithoutWaterClearsBinding (change the form to one with no Water type).
+// cdWhl09ClientSeesCapacity: the update tag holds cd_driven = true, cd_direction = 1 and FlowScore = 1, a drive behaviour
+//   that reads it as a client packet is driven at +1, and the saved tag holds no cd_driven (the goggle view is a Demo in
+//   the manual checklist; this asserts the data it needs reaches the client).
+// cdClm04LargeWheelIsOneTarget: worker A binds through ring block 1 (the binding names the controller); binding worker B
+//   through ring block 2 refuses with "Already assigned to ...", B gets no binding and no claim for 100 ticks, and the
+//   registry holds one claim keyed on the controller and none on a ring block.
+// cdBal04WheelsNeverExceedCreate: 1,200 ticks once both wheels turn: small at most 8 RPM, large at most 4 RPM.
 ```
+
+  The water-wheel versions of the final parts below exercise engine and leash code that the furnace tests of
+  M1 cover, on a target that the tests above prove; each: GameTest deferred (high confidence): verified in the end-of-phase pass.
+
+  - CD-ASG-01 (`cdAsg01WheelVersion`: the row's four Water-types (wild, sent-out party, fainted pastured, healthy
+    pastured) 3 blocks from a dry wheel for 400 ticks; only the healthy pastured one claims): GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-ASG-04 (`cdAsg04AzumarillSkipsTheWheel`: an unleashed Azumarill 3 blocks from a dry wheel for 400 ticks: no
+    claim): GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-ASG-19 (`cdAsg19WheelDriverMovesToADryWheel`: a Wheel Driver waits 400 ticks at a wheel that real water turns;
+    place a dry wheel in the work area: within 80 ticks its claim is on the dry wheel): GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-LSH-03 (`cdLsh03BindsVaporeonToAWheel`): GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-LSH-06 (`cdLsh06BoundMessageNamesTheWheel`: the recorded action bar reads "Bound Vaporeon to Water Wheel"):
+    GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-LSH-11 (`cdLsh11RebindMovesToWheelB`): GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-LSH-14 (`cdLsh14FormWithoutWaterClearsBinding`: change the form to one with no Water type; 20 ticks later no
+    binding): GameTest deferred (high confidence): verified in the end-of-phase pass.
 
 - [ ] **Step 2: Write the mixin, handler, role file and gesture; run; commit** —
   `git commit -m "Turn dry Create water wheels with Water-types at Create's own speeds"`.

@@ -217,3 +217,5 @@ Deferred rows (the index's execution rule 6; append as milestones defer more):
   CD-BED-11, CD-BED-13, CD-BED-14, CD-CLM-06 (the Work Mode off and second pasture parts), CD-WMD-05, CD-FX-10 (demo),
   CD-HEAL-06, CD-HEAL-07, CD-HEAL-09, CD-HEAL-11, CD-HEAL-15 (demo), CD-HEAL-17, CD-UI-15, CD-UI-14 (bed and heal
   claims), CD-SEC-09 (stamina command).
+- M3 Tasks 1 to 3: CD-ASG-01, CD-ASG-04, CD-ASG-19, CD-LSH-03, CD-LSH-06, CD-LSH-11, CD-LSH-14 (each the water-wheel
+  version of the row's final part).

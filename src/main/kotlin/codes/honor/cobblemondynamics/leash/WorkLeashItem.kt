@@ -17,13 +17,19 @@ import net.minecraft.world.level.Level
 /** The Work Leash. It selects a Pokémon with an entity click (see [LeashInteractions]) and binds it with a block click. */
 class WorkLeashItem(properties: Item.Properties) : Item(properties) {
     /**
-     * Runs before the block's own interaction. With a selection it always consumes the click, so the block never opens its screen
-     * (CD-LSH-04). The client only predicts that from its synced copy of the stack; the server decides the bind.
+     * Runs before the block's own interaction. A sneak-click on a target that a worker drives flips it first (CD-WHL-05). With a
+     * selection it always consumes the click, so the block never opens its screen (CD-LSH-04). The client only predicts that from
+     * its synced copy of the stack; the server decides the flip and the bind.
      */
     override fun onItemUseFirst(stack: ItemStack, context: UseOnContext): InteractionResult {
-        if (context.hand != InteractionHand.MAIN_HAND || !stack.has(LeashComponents.SELECTION.get())) return InteractionResult.PASS
-        val player = context.player as? ServerPlayer ?: return InteractionResult.SUCCESS
-        LeashInteractions.onBlockClick(player, stack, context.clickedPos, context.clickedFace)
+        if (context.hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS
+        val player = context.player
+        if (player is ServerPlayer && player.isShiftKeyDown && LeashInteractions.onSneakBlockClick(player, context.clickedPos)) {
+            return InteractionResult.SUCCESS
+        }
+        if (!stack.has(LeashComponents.SELECTION.get())) return InteractionResult.PASS
+        val serverPlayer = player as? ServerPlayer ?: return InteractionResult.SUCCESS
+        LeashInteractions.onBlockClick(serverPlayer, stack, context.clickedPos, context.clickedFace)
         return InteractionResult.SUCCESS
     }
 

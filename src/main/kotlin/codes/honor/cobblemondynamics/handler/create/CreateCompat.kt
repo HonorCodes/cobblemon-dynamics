@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.create
 
 import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import com.simibubi.create.AllBlockEntityTypes
 import com.simibubi.create.api.event.BlockEntityBehaviourEvent
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
@@ -18,6 +19,7 @@ object CreateCompat {
         val mixinTargets = listOf(WaterWheelBlockEntity::class.java, BlazeBurnerBlockEntity::class.java)
         CobblemonDynamics.LOGGER.debug("Create integration on, mixin targets loaded: {}", mixinTargets.map { it.simpleName })
         NeoForge.EVENT_BUS.addListener(BlockEntityBehaviourEvent::class.java, ::attachDrive)
+        HandlerRegistry.register(WaterWheelHandler)
     }
 
     /**

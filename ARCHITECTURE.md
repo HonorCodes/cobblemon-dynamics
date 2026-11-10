@@ -68,8 +68,11 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   compat/                Cobbleworkers and Cobblebase shims
   command/               /cobblemondynamics operator commands
   client/                pasture panel hooks, head bars, client state cache
+src/main/java/codes/honor/cobblemondynamics/
+  MixinState.java        which mixins injected their handler call; outside the mixin package,
+                         because Mixin refuses to load a class of that package
 src/main/java/codes/honor/cobblemondynamics/mixin/
-  MixinPlugin.java       skips each mixin whose target mod is absent
+  MixinPlugin.java       skips each mixin whose target mod is absent, records each injection
   create/                WaterWheelBlockEntityMixin, BlazeBurnerBlockEntityMixin,
                          EncasedFanBlockEntityMixin, NozzleBlockEntityMixin,
                          WindmillBearingBlockEntityMixin
@@ -432,8 +435,9 @@ references. This section lists what the code uses.
 - **Boilers.** Create's `BoilerHeater` registry reads the burner block state. `KINDLED` gives 1 heat
   and `SEETHING` gives 2. Boilers need no extra code.
 - **Drive direction.** `BlockEntityBehaviourEvent.forType(...)` for `AllBlockEntityTypes.WATER_WHEEL`,
-  `LARGE_WATER_WHEEL` and `HAND_CRANK` attaches our behaviour. Create saves it and sends it to the
-  client. A flip works only on a driven target, and only for the player who bound its worker, the
+  `LARGE_WATER_WHEEL` and `HAND_CRANK` attaches our behaviour. Create saves its direction and sends the
+  direction and the driven flag to the client. The driven flag is never saved, because claims are never
+  saved. A flip works only on a driven target, and only for the player who bound its worker, the
   pasture's owner or an operator.
 - **Fan Catalyst (Phase 2).**
   - We register our own `FanProcessingType` for each catalyst kind on both sides, in

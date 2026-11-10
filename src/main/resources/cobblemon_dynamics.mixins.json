@@ -4,7 +4,9 @@
   "package": "codes.honor.cobblemondynamics.mixin",
   "plugin": "codes.honor.cobblemondynamics.mixin.MixinPlugin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [],
+  "mixins": [
+    "create.WaterWheelBlockEntityMixin"
+  ],
   "client": [],
   "injectors": {
     "defaultRequire": 0

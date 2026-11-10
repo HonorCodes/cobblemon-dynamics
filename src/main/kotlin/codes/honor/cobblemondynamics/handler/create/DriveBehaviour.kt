@@ -27,6 +27,9 @@ class DriveBehaviour(be: SmartBlockEntity) : BlockEntityBehaviour(be) {
             blockEntity.sendData()
         }
 
+    /** The first game tick on which the handler may read the target's real flow again. Not saved. */
+    var nextFlowCheck: Long = 0
+
     fun flip() {
         direction = -direction
         blockEntity.notifyUpdate()
