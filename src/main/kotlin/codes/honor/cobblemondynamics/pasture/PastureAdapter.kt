@@ -42,6 +42,9 @@ object PastureAdapter {
         }
     }
 
+    /** The Pokémon of the pasture list, in Cobblemon's order. */
+    fun tetheredIds(be: PokemonPastureBlockEntity): List<UUID> = be.tetheredPokemon.map { it.pokemonId }
+
     /** The tethering of [pokemonId] in [be], with no entity lookup. Its [TetheredPokemon.pokemon] is null once the PC no longer holds it. */
     fun tetheredPokemon(be: PokemonPastureBlockEntity, pokemonId: UUID): TetheredPokemon? = be.tetheredPokemon
         .firstOrNull { it.pokemonId == pokemonId }

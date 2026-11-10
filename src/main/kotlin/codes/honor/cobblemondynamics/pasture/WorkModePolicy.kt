@@ -15,6 +15,9 @@ object WorkModePolicy {
         data class Reject(val reason: String) : Decision
     }
 
+    /** An operator may toggle any pasture, and anyone else only a pasture that they placed (CD-SEC-01, CD-SEC-02). */
+    fun mayToggle(requester: UUID, isOperator: Boolean, placer: UUID?): Boolean = isOperator || (placer != null && placer == requester)
+
     /** The checks run in this order: owner, then distance and dimension, then rate. */
     fun decide(
         requester: UUID,
@@ -26,7 +29,7 @@ object WorkModePolicy {
         lastAccepted: Long?,
         cooldownTicks: Int,
     ): Decision = when {
-        !isOperator && (placer == null || placer != requester) -> Decision.Reject("not_owner")
+        !mayToggle(requester, isOperator, placer) -> Decision.Reject("not_owner")
         !sameDimension || distance > MAX_DISTANCE -> Decision.Reject("too_far")
         lastAccepted != null && now - lastAccepted < cooldownTicks -> Decision.Ignore
         else -> Decision.Apply

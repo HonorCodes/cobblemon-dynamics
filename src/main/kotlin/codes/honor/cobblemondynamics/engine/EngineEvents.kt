@@ -1,9 +1,12 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.net.PanelViewers
 import codes.honor.cobblemondynamics.pasture.WorkModeService
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.ChunkPos
 import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.event.server.ServerStartingEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
@@ -16,6 +19,10 @@ object EngineEvents {
         NeoForge.EVENT_BUS.addListener<ServerStoppedEvent> {
             WorkEngine.stop()
             WorkModeService.reset()
+            PanelViewers.reset()
+        }
+        NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { event ->
+            (event.entity as? ServerPlayer)?.let(PanelViewers::forget)
         }
         NeoForge.EVENT_BUS.addListener<LevelTickEvent.Post> { event ->
             val level = event.level as? ServerLevel ?: return@addListener

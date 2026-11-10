@@ -37,6 +37,13 @@ class WorkModePolicyTest {
         assertEquals(Decision.Apply, decide(placer, now = 110, last = 100))
     }
 
+    @Test fun `CD-UI-03 the panel may toggle only for the placer and operators`() {
+        assertEquals(true, WorkModePolicy.mayToggle(placer, isOperator = false, placer = placer))
+        assertEquals(true, WorkModePolicy.mayToggle(stranger, isOperator = true, placer = null))
+        assertEquals(false, WorkModePolicy.mayToggle(stranger, isOperator = false, placer = placer))
+        assertEquals(false, WorkModePolicy.mayToggle(stranger, isOperator = false, placer = null))
+    }
+
     @Test fun `CD-SEC-04 10_0 blocks passes, 10_1 blocks and another dimension fail`() {
         assertEquals(Decision.Apply, decide(placer, distance = 10.0))
         assertInstanceOf(Decision.Reject::class.java, decide(placer, distance = 10.1))

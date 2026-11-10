@@ -1309,31 +1309,49 @@ git commit -m "Add the /cobblemondynamics claims operator command"
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/LeashOverviewPayloads.kt` (`request`, `overview`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/PanelViewers.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/client/ClientState.kt`
+- Modify: `pasture/WorkModeService.kt` (`apply` sends the new state to the viewers), `pasture/WorkModePolicy.kt`
+  (`mayToggle`), `pasture/PastureAdapter.kt` (`tetheredIds`), `engine/EngineEvents.kt` (viewers leave on logout
+  and server stop), `scripts/testpack/testpack.py` and its `README.md` (the `reload` scenario)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/net/PayloadCodecTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/PayloadTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/pasture/WorkModePolicyTest.kt` (`mayToggle`)
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/PayloadTests.kt` (deferred, see Step 2)
 
 **Interfaces:**
 - Produces: payload ids from ARCHITECTURE section 7. `WorkModeTogglePayload(enabled: Boolean)`;
   `PasturePanelStatePayload(workMode: Boolean, canToggle: Boolean, entries: List<PanelEntry>)` with
   `PanelEntry(pokemonId: UUID, percent: Int, state: WorkerStatus)`; `LeashOverviewPayload(entries: List<Pair<Int, BlockPos>>)`.
-  `PanelViewers` maps a pasture key to the players with its panel open. The server handler of the toggle
-  resolves the pasture with `PastureAdapter.linkedPasture(player)` and calls `WorkModeService.request`.
-  Client handlers store the last state in `ClientState` (M5 draws it). Registration uses
-  `RegisterPayloadHandlersEvent` with `registrar.playToServer` and `registrar.playToClient`. Every payload
-  is required, so a client without the mod cannot join (CD-PLAT-06).
+  The payloads with no fields (`pasture_panel_open`, `pasture_panel_close`, `leash_overview_request`) are Kotlin
+  `data object`s with `StreamCodec.unit`. `PanelViewers` maps a pasture key to the players with its panel open and
+  keeps the last state sent to each player (`lastSent`), which the GameTests read because fake players drop packets.
+  The server handler of the toggle resolves the pasture with `PastureAdapter.linkedPasture(player)` and calls
+  `WorkModeService.request`. Cobblemon keeps that link only while the player is closer than 10.0 blocks
+  (`PastureLinkManager.kt:37`), while the service itself accepts exactly 10.0, so a toggle from exactly 10.0 blocks
+  finds no pasture. `WorkModeService.apply` sends the new state to every viewer of the pasture after each change,
+  in arrival order (CD-SEC-06), and a refused or ignored toggle sends the requester the current state. `canToggle`
+  is `WorkModePolicy.mayToggle`: the placer or an operator (CD-UI-03). Until M2 adds Work Stamina, every entry's
+  `percent` is 100 and its state is the engine's worker state, or Idle. The overview reply holds the requester's
+  own bindings in their level, with entity id -1 for a worker whose entity is not loaded. Client handlers store the
+  last state in `ClientState` (M5 draws it). Registration uses `RegisterPayloadHandlersEvent` with
+  `registrar.playToServer` and `registrar.playToClient`; handlers run on the main thread, NeoForge's default. Every
+  payload is required, so a client without the mod cannot join (CD-PLAT-06).
 
-- [ ] **Step 1: Write the codec round-trip unit test** for each payload with a
-  `RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY)`; for `PasturePanelStatePayload` use two
-  entries with different states. If `RegistryAccess.EMPTY` needs a bootstrap, use the payload's plain
-  `StreamCodec<ByteBuf, ...>` form, which every payload here can use because none carries registry data.
+- [ ] **Step 1: Write the codec round-trip unit test** for each payload with its plain `StreamCodec<ByteBuf, ...>`
+  form, which every payload here can use because none carries registry data; for `PasturePanelStatePayload` use two
+  entries with different states. The test also checks that the decode reads every byte.
 
 - [ ] **Step 2: Write the GameTests**
 
-```kotlin
-// cdSec05DuplicateOnPayloadStaysOn: handle WorkModeTogglePayload(true) twice, 10 ticks apart, for the linked placer -> on.
-// cdSec06LastPayloadWinsAndViewersSeeIt: two operators linked to the pasture send on, then off, in one tick; Work Mode is
-//   off and PanelViewers' recorded last state for each viewer says off.
-```
+These GameTests are not written:
+
+- CD-SEC-05 and CD-WMD-03, the payload path (`cdSec05DuplicateOnPayloadStaysOn`: handle `WorkModeTogglePayload(true)`
+  twice, 10 ticks apart, for the linked placer; Work Mode stays on): GameTest deferred (high confidence): verified in
+  the end-of-phase pass.
+- CD-SEC-06 and CD-WMD-04, the payload path (`cdSec06LastPayloadWinsAndViewersSeeIt`: two operators linked to the
+  pasture send on, then off, in one tick; Work Mode is off and `PanelViewers.lastSent` for each viewer says off):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+
+The handlers call `WorkModeService.request`, whose rows Task 7's GameTests already check; the codec test checks that
+the payload carries the requested state.
 
 - [ ] **Step 3: Run everything**
 
@@ -1346,7 +1364,10 @@ Run: `./gradlew build && py scripts/testpack/testpack.py smoke` and add a `reloa
 start the server with the M1 jar, run `cobblemondynamics claims` from the console over RCON (it must answer),
 run `reload`, and check that the log holds no `Skipping role file` line.
 Expected: `SMOKE PASS`, `RELOAD PASS`. Pasturing a Pokémon needs a player, so worker scenarios stay in the
-GameTests; the approver's play-test covers them in a real client.
+GameTests; the approver's play-test covers them in a real client. The command must answer
+`No claims and no leash bindings`. The reload ends on the server thread after the command replies, so the scenario
+waits for vanilla's next `Loaded N recipes` line (`Server.count_log` and `wait_log(..., count=)`) before it reads the
+log.
 
 - [ ] **Step 5: Commit, open the pull request, resolve reviews, merge**
 

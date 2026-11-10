@@ -21,6 +21,7 @@ Run each command from the repository root, for example `py scripts/testpack/test
 |---|---|
 | `resolve` | Finds each pin of `mods.json` on Modrinth or on the NeoForge maven, then writes its file name, URL and SHA-512 back to `mods.json`. A version without a NeoForge 1.21.1 release gets `null`. |
 | `smoke` | Starts a server with the pinned mods and the built jar. Checks that the mod loads and that RCON answers `list`, then stops the server. Prints `SMOKE PASS` or `SMOKE FAIL: <reason>`. |
+| `reload` | Starts the same server, runs `cobblemondynamics claims` over RCON (it must answer that there are no claims), runs `reload`, waits for the reload to end, and checks that the log has no `Skipping role file` line. Prints `RELOAD PASS` or `RELOAD FAIL: <reason>`. |
 | `deps` | Runs the dependency-range cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `DEPS PASS` or `DEPS FAIL`. |
 | `client` | Fills `run/testpack/client/mods/` with the pinned mods and the built jar, for a manual play-test in a clean NeoForge 21.1.265 launcher instance. |
 
@@ -74,8 +75,10 @@ reason.
 
 The `Server` object has these methods:
 
-- `wait_log(pattern, timeout)` waits for a line of `logs/latest.log` that matches the regular
-  expression and returns the line. It searches from the first line of the log.
+- `wait_log(pattern, timeout, count=1)` waits until `count` lines of `logs/latest.log` match the
+  regular expression and returns the last of them. It searches from the first line of the log.
 - `find_log(pattern)` returns the first matching line so far, or `None`.
+- `count_log(pattern)` returns the number of matching lines so far. Pass it plus one to `wait_log` to
+  wait for the next occurrence of a line.
 - `rcon(command)` runs a console command over RCON and returns the reply.
 - `stop()` sends `stop` over RCON and waits for the process to end.

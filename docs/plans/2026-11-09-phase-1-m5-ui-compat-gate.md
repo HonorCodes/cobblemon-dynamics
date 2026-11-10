@@ -210,4 +210,5 @@ Deferred rows (the index's execution rule 6; append as milestones defer more):
 - M1 Task 10: CD-FX-04, CD-FX-05, CD-FX-06, CD-FX-07, CD-PERF-04.
 - M1 Tasks 11 to 13: CD-LSH-05, CD-LSH-06, CD-LSH-09, CD-LSH-10, CD-LSH-11, CD-LSH-13, CD-LSH-14, CD-LSH-15,
   CD-LSH-17, CD-LSH-18, CD-LSH-19, CD-LSH-20, CD-LSH-21, CD-LSH-24, CD-LSH-25, CD-LSH-26, CD-LSH-27, CD-WMD-07,
-  CD-CLM-05, CD-CLM-06, CD-ASG-20, CD-SEC-07, CD-SEC-11, CD-UI-14, CD-SEC-09.
+  CD-CLM-05, CD-CLM-06, CD-ASG-20, CD-SEC-07, CD-SEC-11, CD-UI-14, CD-SEC-09, and the payload path of CD-SEC-05,
+  CD-SEC-06, CD-WMD-03 and CD-WMD-04.
