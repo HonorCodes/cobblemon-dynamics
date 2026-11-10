@@ -12,6 +12,7 @@ import codes.honor.cobblemondynamics.engine.EngineEvents
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.capability.FePushHandler
 import codes.honor.cobblemondynamics.handler.create.CreateCompat
+import codes.honor.cobblemondynamics.handler.vanilla.BuddingHandler
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
 import codes.honor.cobblemondynamics.leash.LeashComponents
 import codes.honor.cobblemondynamics.leash.LeashInteractions
@@ -54,6 +55,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         modBus.addListener<FMLCommonSetupEvent> { it.enqueueWork(Runnable { BrainBridge.registerTaskTypes() }) }
         HandlerRegistry.register(FurnaceHandler)
         HandlerRegistry.register(FePushHandler)
+        HandlerRegistry.register(BuddingHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
         if (ModList.get().isLoaded("create")) CreateCompat.register()
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }

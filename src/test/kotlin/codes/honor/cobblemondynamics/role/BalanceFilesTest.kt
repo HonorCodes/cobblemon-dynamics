@@ -31,6 +31,19 @@ class BalanceFilesTest {
         assertEquals(10_000, topRate(GeneratorParams.of(BuiltInRoles.parse("generator").params)))
     }
 
+    /** One AE2 Growth Accelerator gives its neighbors 1 random tick per 10 ticks with AE2's default config. */
+    @Test
+    fun `CD-BAL-07 the Crystal Tender interval is at least 10 ticks`() {
+        val tenders = withHandler("cobblemon_dynamics:budding")
+        assertTrue(tenders.isNotEmpty(), "no built-in role file uses the budding handler")
+        for (role in tenders) {
+            val interval = role.params.get(INTERVAL_TICKS)
+            assertNotNull(interval, "${role.id} has no $INTERVAL_TICKS")
+            assertTrue(interval.asInt >= 10, "${role.id} gives a random tick every ${interval.asInt} ticks")
+        }
+        assertEquals(10, BuiltInRoles.parse("crystal_tender").params.get(INTERVAL_TICKS).asInt)
+    }
+
     /** ARCHITECTURE section 6: a worker moves up to ceil(items_per_second_at_level_100 × L ÷ 100) items per second. */
     @Test
     fun `CD-BAL-05 Telekinesis and Magnet move at most 64 items per second if their files exist`() {
@@ -45,6 +58,7 @@ class BalanceFilesTest {
     }
 
     private companion object {
+        const val INTERVAL_TICKS = "interval_ticks"
         const val ITEMS_PER_SECOND_AT_LEVEL_100 = "items_per_second_at_level_100"
     }
 }

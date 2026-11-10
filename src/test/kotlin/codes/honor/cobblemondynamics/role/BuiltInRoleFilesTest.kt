@@ -24,6 +24,7 @@ class BuiltInRoleFilesTest {
         "burner_keeper" to Row("cobblemon_dynamics:burner_heat", setOf("fire"), true, 0, "flamethrower"),
         "superheater" to Row("cobblemon_dynamics:burner_heat", setOf("dragon"), true, 10, "dragonbreath"),
         "generator" to Row("cobblemon_dynamics:fe_push", setOf("electric"), true, 0, "thundershock"),
+        "crystal_tender" to Row("cobblemon_dynamics:budding", setOf("rock"), true, 0, "rockthrow"),
     )
 
     /**
@@ -84,6 +85,18 @@ class BuiltInRoleFilesTest {
             effect.targetParticles.map { it.toString() },
         )
         assertEquals(listOf("thundershock", "electric", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /**
+     * Cobblemon's `rockthrow` timeline emits one particle, from the user, aimed at the target. Its hit and its stars are events of
+     * that thrown rock, so the client plays them where the rock lands, and the role file names no target particle.
+     */
+    @Test
+    fun `CD-FX-04 the Crystal Tender's Rock Throw is thrown from the worker`() {
+        val effect = BuiltInRoles.parse("crystal_tender").effect
+        assertEquals(listOf("cobblemon:rockthrow_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(emptyList<String>(), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("rockthrow", "rock", "physical", "cry"), effect.animationsWithCry)
     }
 
     /** The Cranker is the only role whose move needs contact. */

@@ -195,17 +195,66 @@ range of 6 blocks of every ranged role (CD-ASG-10).
 **Files:** `handler/vanilla/BuddingHandler.kt` (`scanKind = BLOCK`), `handler/vanilla/TickClock.kt`,
 `roles/crystal_tender.json` (types `["rock"]`, params `{ "interval_ticks": 10 }`, effect Rock Throw),
 `src/test/kotlin/.../handler/vanilla/TickClockTest.kt`, `src/gametest/kotlin/.../test/CrystalTenderTests.kt`,
-`src/gametestCore/kotlin/.../coretest/CoreTests.kt` (CD-CRY-04).
+`src/gametestCore/kotlin/.../coretest/CoreTests.kt` (CD-CRY-04). As built, also `CobblemonDynamics.kt` (registers
+the handler), `BalanceFilesTest.kt` (CD-BAL-07) and `BuiltInRoleFilesTest.kt` (the Crystal Tender's Role table
+row and its particles).
 
 `BuddingHandler` matches blocks in `TagKey.create(Registries.BLOCK, ResourceLocation.parse("c:budding_blocks"))`
 (CD-CRY-01), calls `state.randomTick(level, pos, level.random)` when `TickClock.every(10)` fires (CD-CRY-02),
 and has demand while some face's neighbor is air, water, or in `c:buds` (a bud that can still grow)
 (CD-CRY-03). No AE2 class is named.
 
+As built (`id = cobblemon_dynamics:budding`):
+
+```kotlin
+object TickClock {
+    /** On the tick [since] and every [intervalTicks] ticks after it (CD-CRY-02). An interval below 1 counts as 1. */
+    fun every(intervalTicks: Int, since: Long, now: Long): Boolean
+}
+```
+
+- **Tag.** `matches` and `stillValid` test `Tags.Blocks.BUDDING_BLOCKS`, NeoForge's constant for
+  `c:budding_blocks`. AE2's budding certus loses a tier on some growths and ends as a quartz block, which leaves
+  the tag, so `stillValid` ends that claim.
+- **Random ticks (CD-CRY-02).** `onStart` puts the tick that the work starts in the claim's memo (Task 1), and
+  `applyWork` gives the target one `randomTick` when `TickClock.every(interval_ticks, start, now)` fires: on the
+  first tick of the work and every 10 ticks after it. Like AE2's accelerator, it skips `isRandomlyTicking`.
+  Standby checks demand every 20 ticks, so a worker that stops at a full block and starts again keeps to the
+  rate. `interval_ticks` defaults to 10 when a pack's file leaves it out.
+- **Demand (CD-CRY-03).** Vanilla's `BuddingAmethystBlock` and AE2's `BuddingCertusQuartzBlock` grow the same way
+  (checked with `javap`): a new bud into a cell for which `BuddingAmethystBlock.canClusterGrowAtState` holds (air,
+  or a water source), and the next stage of a bud whose `FACING` is the face's direction. So a face can still
+  grow when its neighbor passes `canClusterGrowAtState`, or is in `Tags.Blocks.BUDS` and faces away from the
+  block (a bud with no `FACING` counts). A cluster is full grown.
+- **Loaded neighbors.** `hasDemand` and the random tick run only while `level.shouldTickBlocksAt(target)`. A
+  block-ticking chunk has its neighbors loaded, so neither reads a chunk into memory, and a target whose chunk
+  does not tick its blocks waits in Standby.
+- **Effect.** Cobblemon's `rockthrow` timeline emits one particle, `rockthrow_actor`, from the user toward the
+  target. `rockthrow_target` and `rockthrow_targetstars` are events of that particle, so `target_particles` is
+  empty. The animations are `rockthrow`, `rock`, `physical` and `cry`, and the range is 6.0.
+
 - [ ] **Step 1: Failing tests** — `TickClockTest` (ticks 0, 10, 20, none at 9). GameTests: Rock-type claims
   budding amethyst and AE2 flawless budding certus (`ae2:flawless_budding_quartz` by id); six full amethyst
   clusters around a budding block give Standby within 20 ticks. Core run: without AE2, a Rock-type claims
   budding amethyst (CD-CRY-04). `BalanceFilesTest` CD-BAL-07 body.
+
+  As built, the GameTests use a Lv20 Rockruff, a pure Rock-type:
+
+```kotlin
+// cdCry01RockTypesClaimBuddingAmethystAndCertus: two Rockruffs hold Crystal Tender claims on a budding amethyst and on
+//   ae2:flawless_budding_quartz, both in the floor (CD-CRY-01).
+// cdCry02TenderGrowsRealAmethyst: a budding amethyst on the floor, 5 faces open; within 600 ticks of Working a bud of #c:buds
+//   (or a cluster) grows on a face, facing away from it (CD-CRY-02 on the real block). ServerChunkCache.tickChunks random-ticks
+//   only chunks near a player and the fake players never join, so the growth is the worker's. A miss has a chance of about
+//   1 in 70,000.
+// cdCry03FullClustersMeanStandby: once the Tender Works, a full amethyst cluster goes on each of the 6 faces: Standby within
+//   20 ticks, the claim stays and Work Stamina does not drain (CD-CRY-03). A block with a cluster on every face has no line of
+//   sight to any work spot, so the clusters go on after the claim.
+// CoreTests.cdCry04CrystalTenderWithoutAe2: without AE2, the role is active and a Rockruff claims a budding amethyst (CD-CRY-04).
+```
+
+  `BalanceFilesTest`: every built-in `budding` file has `interval_ticks` of at least 10, and `crystal_tender.json`
+  has 10 (CD-BAL-07). No GameTest of this task is deferred.
 - [ ] **Step 2: Write the code, run all three test runs, commit** — `git commit -m "Tend budding blocks with Rock-types at one Growth Accelerator's rate"`.
 
 ---

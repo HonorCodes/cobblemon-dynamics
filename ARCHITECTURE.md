@@ -490,7 +490,8 @@ references. This section lists what the code uses.
 - **Crystal Tender.** The role targets `#c:budding_blocks`. That tag holds `minecraft:budding_amethyst`
   and the four AE2 budding certus blocks. One random tick every 10 ticks matches one AE2 Growth
   Accelerator. Extra ticks also speed up the decay of non-flawless budding certus, as AE2's own
-  accelerator does.
+  accelerator does. A target has demand while a face holds air, a water source, or a bud of `#c:buds`
+  that faces away from it, because vanilla and AE2 grow buds the same way.
 - **FE.** AE2 machines accept FE only on their power sides. The Generator handler tries the face toward
   the worker first, then the other faces, nearest first, until one face reports `canReceive()`. It keeps
   the face in a `BlockCapabilityCache` in the claim's memo while that face still receives. AE2 converts
