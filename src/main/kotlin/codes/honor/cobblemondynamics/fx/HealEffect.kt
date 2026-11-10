@@ -14,9 +14,11 @@ object HealEffect {
     /** The healer's animations, in order: its `special` animation, or its cry when its model has no `special`. */
     val FALLBACK_ANIMATIONS: List<String> = listOf("special", "cry")
 
-    /** On the ally. */
-    val FALLBACK_PARTICLES: List<ResourceLocation> =
-        listOf(ResourceLocation.parse("cobblemon:heal_circles"), ResourceLocation.parse("cobblemon:heal_sparkles"))
+    /**
+     * On the ally. Not `cobblemon:heal_sparkles`: its file calls `math.random()` with no arguments, which Cobblemon 1.8.4's MoLang
+     * rejects, and the client crashes while it ticks the particle.
+     */
+    val FALLBACK_PARTICLES: List<ResourceLocation> = listOf(ResourceLocation.parse("cobblemon:heal_circles"))
 
     val ALLY_LOCATORS: List<String> = listOf("middle")
 

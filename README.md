@@ -82,7 +82,7 @@ with two types can do the roles of either type, one role at a time.
 | Fighting, Normal | Cranker | Create hand crank | Pound | 1 |
 | Rock | Crystal Tender | Budding amethyst, AE2 budding certus quartz | Rock Throw | 1 |
 | Poison | Brewer | Brewing stand (speed) | Poison Gas | 1 |
-| Fairy | Healer | Tired allies in the same pasture | Special pose, heal sparkles | 1 |
+| Fairy | Healer | Tired allies in the same pasture | Special pose, heal circles | 1 |
 | Fairy | Muse (leash only) | Enchanting table | Fairy Wind | 1 |
 | Psychic | Telekinesis (leash only) | A source container and a destination, AE2 ME Interface included | Kinesis | 2 |
 | Steel | Magnet (leash only) | A container that collects dropped items from the work area | Metal sparks | 2 |

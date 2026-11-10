@@ -70,3 +70,9 @@ The build changed one detail of the decision. Actor particles still go out as
 `SpawnSnowstormParticlePacket` at the work focus entity's position. Cobblemon's client spawns an
 entity-sourced particle at a locator of its source entity and uses the targeted entity only for the aim,
 so a target particle sent that way burst on the worker instead of on the target.
+
+## Amendment (2026-11-10, play-test): no heal sparkles
+
+The healer no longer shows `cobblemon:heal_sparkles` on the ally. Its particle file calls `math.random()`
+with no arguments, which Cobblemon 1.8.4's MoLang rejects, and the client crashed with "Ticking Particle"
+on the first heal. Only `cobblemon:heal_circles` plays on the ally.

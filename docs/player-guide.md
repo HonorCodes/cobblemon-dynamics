@@ -271,7 +271,7 @@ Work Stamina of the other workers in its pasture.
   that ally for 5 minutes.
 - A heal that takes the healer to 0% makes it Tired. It then goes to a bed like any worker.
 - If Cobblemon has a Floral Healing action effect, the heal plays it. Otherwise, as on Cobblemon 1.8.4, the
-  healer plays its special pose or its cry, and heal circles and sparkles show on the ally.
+  healer plays its special pose or its cry, and heal circles show on the ally.
 
 ### Healer recovery
 

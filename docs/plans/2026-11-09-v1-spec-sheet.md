@@ -2,8 +2,12 @@
 
 Status: agreed (2026-11-09). Approver: Trevor Forbes (GitHub: HonorCodes). Rows prefix: CD.
 
-Corrections after agreement: 2026-11-09, CD-CFG-01 and the term "server config" name the `config/` folder,
-because NeoForge 21.1 writes server configs there (found in M1).
+Corrections after agreement:
+
+- 2026-11-09: CD-CFG-01 and the term "server config" name the `config/` folder, because NeoForge 21.1 writes
+  server configs there (found in M1).
+- 2026-11-10, approver's play-test ruling: CD-HEAL-15 spawns only `cobblemon:heal_circles`. The file of
+  `cobblemon:heal_sparkles` calls `math.random()` with no arguments, and the Cobblemon 1.8.4 client crashes on it.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -405,7 +409,7 @@ and default priority. The default role files hold these values.
 | CD-HEAL-12 | Where a Pokémon follows the healer rule, the stamina component MUST set its full recovery time to 4 × (300 − 270 × (L − 1) ÷ 99) min. | MUST | R14, ADR 0008 | Higher-level healers recover faster, as the approver ruled. | Unit: Lv1 gives 1,200 min, Lv50 gives 665.5 ± 0.5 min, and Lv100 gives 120 min. Fails if: a value differs. | stamina | agreed |
 | CD-HEAL-13 | Where a Pokémon with a Fairy type holds a machine binding, the stamina component MUST apply the worker rule to it. | MUST | R18, R24 | A leashed Fairy-type is a worker. | Unit: a leashed Lv50 Azumarill recovers from 0% to 100% outside Working. Fails if: the time falls outside 150 ± 0.5 min. | stamina | agreed |
 | CD-HEAL-14 | While a Pokémon with a Fairy type holds a machine binding, the work engine MUST NOT give it heal targets. | MUST NOT | R18 | A Muse or other leashed Fairy-type does not heal. | GameTest: a leashed Clefairy Muse and a Tired ally share a pasture for 1,200 ticks. Fails if: Clefairy heals the ally. | work engine | agreed |
-| CD-HEAL-15 | When a heal completes while Cobblemon's server data has no `cobblemon:floralhealing` action effect, the effects component MUST play the healer's `special` animation, falling back to `cry`, and spawn `cobblemon:heal_circles` and `cobblemon:heal_sparkles` on the ally. | MUST | R13, RES1, REV1 | No Cobblemon heal move has a move effect in 1.8.4. | Demo: on Cobblemon 1.8.4, a heal shows the healer's pose and the sparkles on the ally. Fails if: either part is missing. | effects | agreed |
+| CD-HEAL-15 | When a heal completes while Cobblemon's server data has no `cobblemon:floralhealing` action effect, the effects component MUST play the healer's `special` animation, falling back to `cry`, and spawn `cobblemon:heal_circles` on the ally. | MUST | R13, RES1, REV1 | No Cobblemon heal move has a move effect in 1.8.4. The file of `cobblemon:heal_sparkles` calls `math.random()` with no arguments, which crashes the 1.8.4 client. | Demo: on Cobblemon 1.8.4, a heal shows the healer's pose and the heal circles on the ally. Fails if: either part is missing, or the client crashes. | effects | agreed |
 | CD-HEAL-16 | When a heal completes while Cobblemon's server data has a `cobblemon:floralhealing` action effect, the effects component MUST run that action effect with the healer as the user and the ally entity as the target. | MUST | R13, REV1 | The approver wants Floral Healing as soon as Cobblemon ships it. The target is an entity, so the action effect needs no work focus entity. | Unit: a stub action-effect registry with `cobblemon:floralhealing` runs it with the healer as user and the ally as target, and a registry without it sends the CD-HEAL-15 visual. Fails if: either path is wrong, or the roles in the context are swapped. | effects | agreed |
 | CD-HEAL-17 | When a heal drops a healer to 0%, the work engine MUST move it from Healing to ToBed, or to RestingInPlace when no unclaimed bed is in the work area. | MUST | R13, REV1, state × event sweep | A healer that spends its last 25% rests like any Tired worker. | GameTest: a healer at 25% heals once with one free bed in range, and a second healer at 25% heals once with no free bed. Fails if: the first is not in ToBed, or the second is not in RestingInPlace, 1 tick after its heal. | work engine | agreed |
 

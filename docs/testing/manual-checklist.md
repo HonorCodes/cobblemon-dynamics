@@ -196,8 +196,8 @@ world.
 28. **CD-HEAL-15.** Setup: a Work Mode pasture with a level 30 Clefairy and a level 1 Charmander Working at a
     furnace with 64 raw iron. Action: watch until the Clefairy heals the Charmander. The heal starts when the
     Charmander drops under 25%, after about 2 minutes. Expected: when the Clefairy reaches the Charmander, it
-    plays its special pose or its cry. Heal circles and sparkles show on the Charmander, and its bar goes to
-    100%.
+    plays its special pose or its cry. Heal circles show on the Charmander, and its bar goes to 100%. The
+    client does not crash.
 
 ## Stoker
 

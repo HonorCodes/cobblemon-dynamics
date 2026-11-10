@@ -404,8 +404,10 @@ references. This section lists what the code uses.
 - **Effect ids.** Move timelines live in `data/cobblemon/action_effects/moves/`. Particles live in
   `assets/cobblemon/bedrock/particles/moves/<move>/`. The note lists the animation names and
   particle ids of every role move. Sleep uses `cobblemon:sleep_actor` and
-  `cobblemon:sleep_actorresidual`. The healer uses `cobblemon:heal_circles` and
-  `cobblemon:heal_sparkles`. The Magnet uses `cobblemon:metal_sparks`.
+  `cobblemon:sleep_actorresidual`. The healer uses `cobblemon:heal_circles`. It never uses
+  `cobblemon:heal_sparkles`, because that file calls `math.random()` with no arguments. Cobblemon 1.8.4's
+  MoLang rejects the call, and the client crashes while it ticks the particle. The Magnet uses
+  `cobblemon:metal_sparks`.
 - **Floral Healing exception.** When Cobblemon's server data holds the action effect
   `cobblemon:floralhealing`, the healer runs that timeline with a custom context: the healer is the
   user and the ally entity is the target. The context defines the battle-only queries, as

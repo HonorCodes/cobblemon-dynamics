@@ -74,7 +74,7 @@ Thirteen types have roles in version 1.0.
 | Brew Stoker | Fire | Brewing stand | Keeps the stand fueled as if it held blaze powder, while a brew can start. | Ember | Auto | BRF |
 | Brewer | Poison | Brewing stand | Makes a running brew finish faster. | Poison Gas | Auto | BRW |
 | Muse | Fairy | Enchanting table | Adds bookshelf power while a player uses the table. The power scales with level. | Fairy Wind | Leash only | MUS |
-| Healer | Fairy | Tired or low allies in the same pasture | Restores an ally's Work Stamina. Each heal costs the healer some of its own Work Stamina. | Special pose, heal sparkles on the ally | Auto | HEAL |
+| Healer | Fairy | Tired or low allies in the same pasture | Restores an ally's Work Stamina. Each heal costs the healer some of its own Work Stamina. | Special pose, heal circles on the ally | Auto | HEAL |
 
 The Valve Handle is not a Cranker target. Create lets a valve handle turn only a set
 angle, so it cannot supply continuous power.
