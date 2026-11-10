@@ -327,8 +327,8 @@ Cobblemon packets that the effect player sends, to players within 64 blocks:
 | Packet | Use |
 |---|---|
 | `PlayPosableAnimationPacket(entityId, names, expressions)` | The work pose. The client plays the first name that the model has, so the role lists names from most to least specific. |
-| `SpawnSnowstormEntityParticlePacket(effectId, sourceId, sourceLocators, targetedEntityId, targetLocators)` | Move particles from the worker to the work focus entity, or to the healed ally. Sleep particles on a sleeping worker. |
-| `SpawnSnowstormParticlePacket(effectId, position)` | Position-only particles, when a role needs them. |
+| `SpawnSnowstormEntityParticlePacket(effectId, sourceId, sourceLocators, targetedEntityId, targetLocators)` | A role's actor particles, from the worker toward the work focus entity, or to the healed ally. Sleep particles on a sleeping worker. |
+| `SpawnSnowstormParticlePacket(effectId, position)` | A role's target particles, at the work focus entity's position. The entity packet would spawn them on the worker. |
 
 ## 8. Integration points
 

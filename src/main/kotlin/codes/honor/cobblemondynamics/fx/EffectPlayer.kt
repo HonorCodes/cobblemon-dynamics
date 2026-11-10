@@ -9,6 +9,7 @@ import codes.honor.cobblemondynamics.role.RoleDefinition
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.net.messages.client.animation.PlayPosableAnimationPacket
 import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormEntityParticlePacket
+import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormParticlePacket
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
@@ -20,7 +21,6 @@ object EffectPlayer {
 
     /** Cobblemon's move timelines emit actor particles from `special`, else `target`. Every model has `root`. */
     private val actorLocators = listOf("special", "target", "root")
-    private val targetLocators = listOf("target", "root")
 
     /** The focus entity has no model, so the client aims at its position. */
     private val focusLocators = listOf("middle")
@@ -42,12 +42,11 @@ object EffectPlayer {
     /** The animation goes out even when no particle id is known (CD-FX-11). */
     fun play(entity: PokemonEntity, focus: WorkFocusEntity, effect: EffectDefinition, players: List<ServerPlayer>) {
         PlayPosableAnimationPacket(entity.id, LinkedHashSet(effect.animationsWithCry), emptyList()).sendToPlayers(players)
-        // Actor particles stream toward their target, as in Cobblemon's move timelines, so they aim at the focus entity too.
-        for (id in particles.filter(effect.actorParticles)) {
-            SpawnSnowstormEntityParticlePacket(id, entity.id, actorLocators, focus.id, focusLocators).sendToPlayers(players)
-        }
-        for (id in particles.filter(effect.targetParticles)) {
-            SpawnSnowstormEntityParticlePacket(id, entity.id, targetLocators, focus.id, focusLocators).sendToPlayers(players)
+        for (shot in ParticleShots.of(effect, particles::filter)) {
+            when (shot) {
+                is ParticleShot.FromWorker -> SpawnSnowstormEntityParticlePacket(shot.id, entity.id, actorLocators, focus.id, focusLocators)
+                is ParticleShot.AtFocus -> SpawnSnowstormParticlePacket(shot.id, focus.position())
+            }.sendToPlayers(players)
         }
         val sound = effect.sound ?: return
         val payload = WorkSoundPayload(entity.id, sound)

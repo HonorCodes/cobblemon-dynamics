@@ -792,8 +792,8 @@ data class WorkSoundPayload(val entityId: Int, val sound: ResourceLocation) : Cu
 On each effect tick, `EffectPlayer` sends to every player in the level with
 `Recipients.inRange(player.distanceToSqr(entity), effectBroadcastRadius)`:
 `PlayPosableAnimationPacket` with `role.effect.animationsWithCry`, one `SpawnSnowstormEntityParticlePacket`
-per actor particle (source = the worker, targeted entity = the focus entity), one per target particle
-(source = the worker, targeted entity = the focus entity), and, when the role names a sound, a
+per actor particle (source = the worker, targeted entity = the focus entity), one
+`SpawnSnowstormParticlePacket(id, focus.position())` per target particle, and, when the role names a sound, a
 `WorkSoundPayload`. The client plays that sound only when `ClientConfig.workSounds` is true (CD-FX-09).
 The jar has `PlayPosableAnimationPacket(entityId: Int, animation: Set<String>, expressions: List<String>)`:
 the names go in as a `LinkedHashSet`, which keeps their order. The Stoker role names no sound, so no sound id
@@ -801,11 +801,15 @@ needs checking yet.
 
 Platform facts that changed the plan: actor particles aim at the focus entity too, because Cobblemon's move
 timelines send them with `targetLocators` and `flamethrower_actor` sets its direction from
-`v.target_delta*`. Actor particles use the source locators `special`, `target`, `root`; target particles use
-`target`, `root`; the targeted locator is `middle`, and the client falls back to the focus entity's position
-because the focus entity has no model. Cobblemon's client loads only `.particle.json` files, so the catalog
-reads only those. The catalog reads the jar through `IModFile.findResource`; if it cannot find the folder, it
-warns once and passes every id, because the client skips an unknown id with no error.
+`v.target_delta*`. Actor particles use the source locators `special`, `target`, `root`; the targeted locator is
+`middle`, and the client falls back to the focus entity's position because the focus entity has no model.
+Target particles go out as the position packet at the focus entity, because Cobblemon's client spawns an
+entity-sourced particle at a locator of its source entity and uses the targeted entity only as the aim
+(`SpawnSnowstormEntityParticleHandler`), so a target particle sent that way bursts on the worker.
+`ParticleShots` holds this routing, and `ParticleShotsTest` checks it. Cobblemon's client loads only
+`.particle.json` files, so the catalog reads only those. The catalog reads the jar through
+`IModFile.findResource`; if it cannot find the folder, it warns once and passes every id, because the client
+skips an unknown id with no error.
 
 `WorkFocusEntity`'s type is built with `EntityType.Builder.of(::WorkFocusEntity, MobCategory.MISC)
 .sized(0.1f, 0.1f).noSave().noSummon().fireImmune().clientTrackingRange(8)` (CD-FX-06). The entity sets
