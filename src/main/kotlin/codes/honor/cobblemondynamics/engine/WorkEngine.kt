@@ -1,5 +1,8 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.ai.BrainBridge
+import codes.honor.cobblemondynamics.ai.WorkOrder
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.ClaimRegistry
 import codes.honor.cobblemondynamics.claim.ClaimResult
@@ -28,7 +31,6 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
-import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -48,6 +50,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     private val pastures = LinkedHashMap<PastureKey, PastureRuntime>()
     private val slots = HashMap<UUID, PastureRuntime.Slot>()
+
+    /** The species already warned about, because their Brains cannot hold a work order. */
+    private val unbridged = HashSet<ResourceLocation>()
 
     fun worker(pokemonId: UUID): Worker? = slots[pokemonId]?.worker
 
@@ -69,6 +74,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         validateClaims(t)
         for (runtime in runtimesOf(dimension)) if (level.isLoaded(runtime.pos)) scan(t, runtime)
         for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) tickWorker(t, runtime, slot)
+        for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) direct(t, slot)
     }
 
     fun onWorkModeChanged(level: ServerLevel, pasture: BlockPos, enabled: Boolean) {
@@ -100,8 +106,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         release(tick(runtime.level), slot)
     }
 
-    /** The GameTest form of a restart. */
+    /** The GameTest form of a restart. A restart also loses the Brain memories, because the work order has no codec. */
     fun resetRuntimeForTest() {
+        for (slot in slots.values) BrainBridge.clear(slot.entity)
         claims.clear()
         pastures.clear()
         slots.clear()
@@ -134,6 +141,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             present += tethered.pokemonId
             val slot = runtime.slots[tethered.pokemonId]
             if (slot != null) {
+                if (slot.entity !== entity) BrainBridge.clear(slot.entity)
                 slot.entity = entity
                 slot.pokemon = pokemon
             } else if (tethered.pokemonId !in slots) {
@@ -211,7 +219,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     private fun mayAutoAssign(slot: PastureRuntime.Slot): Boolean =
-        !slot.worker.leashed && !slot.worker.tired && !hasFairyType(slot.pokemon)
+        !slot.worker.leashed && !slot.worker.tired && !hasFairyType(slot.pokemon) && BrainBridge.canHoldOrder(slot.entity)
 
     private fun assign(t: Tick, runtime: PastureRuntime, found: List<FoundTarget>) {
         if (found.isEmpty()) return
@@ -222,7 +230,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val current = claims.claimOf(worker.pokemonId)
             val idle = current == null && worker.status == WorkerStatus.IDLE
             val moving = current?.kind == ClaimKind.WORK && t.machine.canMoveFromStandby(worker, t.now)
-            if (!idle && !moving) continue
+            if ((!idle && !moving) || !BrainBridge.canHoldOrder(slot.entity)) continue
             val types = typesOf(slot.pokemon)
             val view = WorkerView(worker.pokemonId, slot.entity.position(), types, hasFairyType(slot.pokemon), worker.tired) {
                 worker.isSkipped(it, t.now)
@@ -312,10 +320,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             when (val event = t.machine.onTick(worker, t.now, arrived, { handler.hasDemand(ctx) }, claim.key)) {
                 MachineEvent.StartedWorking -> {
                     handler.onStart(ctx)
-                    snap(slot.entity, spot)
+                    snap(slot.entity, spot, handler.targetCenter(target))
                 }
 
-                MachineEvent.EnteredStandby -> if (before == WorkerStatus.WORKING) handler.onStop(ctx)
+                MachineEvent.EnteredStandby -> when (before) {
+                    WorkerStatus.WORKING -> handler.onStop(ctx)
+                    WorkerStatus.TRAVELING -> snap(slot.entity, spot, handler.targetCenter(target))
+                    else -> {}
+                }
 
                 is MachineEvent.ReleaseClaim -> {
                     claims.release(worker.pokemonId)
@@ -325,14 +337,30 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
                 else -> {}
             }
-            when (worker.status) {
-                WorkerStatus.WORKING -> handler.applyWork(ctx)
-                WorkerStatus.TRAVELING -> steer(slot.entity, spot)
-                else -> {}
-            }
+            if (worker.status == WorkerStatus.WORKING) handler.applyWork(ctx)
             true
         }
         if (!ok) release(t, slot, callHandler = false)
+    }
+
+    /** Step 6: the work order goes into the Brain on every tick, because Cobblemon rebuilds Brains (CD-AI-04). */
+    private fun direct(t: Tick, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        val claim = claims.claimOf(worker.pokemonId) ?: return
+        val role = slot.role ?: return
+        val target = worker.target ?: return
+        val spot = worker.spot ?: return
+        val entity = slot.entity
+        if (claim.kind != ClaimKind.WORK || entity.isRemoved) return
+        val lookAt = guarded(role.handler, null) { role.handler.targetCenter(target) }
+        BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), lookAt, hold = isArrived(entity, spot)))
+        if (BrainBridge.holdsOrder(entity)) return
+        val species = slot.pokemon.species.resourceIdentifier
+        if (unbridged.add(species)) {
+            CobblemonDynamics.LOGGER.warn("{} has a baseAI that skips Cobblemon's auto behaviours, so it cannot work", species)
+        }
+        worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
+        release(t, slot)
     }
 
     private fun removePasture(t: Tick, runtime: PastureRuntime, fromIndex: Boolean) {
@@ -369,6 +397,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         slot.worker.target = null
         slot.worker.spot = null
         slot.role = null
+        BrainBridge.clear(slot.entity)
     }
 
     private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: ActiveRole) =
@@ -377,9 +406,6 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun area(t: Tick, runtime: PastureRuntime): WorkArea = WorkArea.of(runtime.pos, t.settings, PastureAdapter.maxWanderDistance())
 
     companion object {
-        /** The walk speed factor of a traveling worker. */
-        private const val TRAVEL_SPEED = 0.4f
-
         @Volatile
         private var instance: WorkEngine? = null
 
@@ -408,15 +434,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
         private fun hasFairyType(pokemon: Pokemon): Boolean = pokemon.types.any { it == ElementalTypes.FAIRY }
 
-        /** Cobblemon's core `follow_walk_target` task walks a Pokémon to the Brain's walk target. */
-        private fun steer(entity: PokemonEntity, spot: BlockPos) {
-            entity.brain.setMemory(MemoryModuleType.WALK_TARGET, WalkTarget(Vec3.atBottomCenterOf(spot), TRAVEL_SPEED, 0))
-        }
-
-        private fun snap(entity: PokemonEntity, spot: BlockPos) {
+        /** On arrival: the spot center, at rest, facing the target. The Brain's work activity holds it from the next tick. */
+        private fun snap(entity: PokemonEntity, spot: BlockPos, lookAt: Vec3) {
             entity.navigation.stop()
             entity.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             entity.teleportTo(spot.x + 0.5, spot.y.toDouble(), spot.z + 0.5)
+            entity.deltaMovement = Vec3.ZERO
+            BrainBridge.face(entity, lookAt)
         }
     }
 }

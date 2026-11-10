@@ -1,5 +1,8 @@
 package codes.honor.cobblemondynamics
 
+import codes.honor.cobblemondynamics.ai.BrainBridge
+import codes.honor.cobblemondynamics.ai.DynamicsActivities
+import codes.honor.cobblemondynamics.ai.DynamicsMemories
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
@@ -14,6 +17,7 @@ import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.config.ModConfigEvent
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.AddReloadListenerEvent
 import org.slf4j.Logger
@@ -25,6 +29,10 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         container.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC)
         container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC)
         DynamicsAttachments.REGISTER.register(modBus)
+        DynamicsActivities.REGISTER.register(modBus)
+        DynamicsMemories.REGISTER.register(modBus)
+        // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.
+        modBus.addListener<FMLCommonSetupEvent> { it.enqueueWork(Runnable { BrainBridge.registerTaskTypes() }) }
         HandlerRegistry.register(FurnaceHandler)
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }

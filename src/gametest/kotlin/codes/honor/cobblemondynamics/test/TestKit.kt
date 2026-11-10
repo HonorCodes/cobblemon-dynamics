@@ -21,6 +21,9 @@ import net.minecraft.gametest.framework.GameTestListener
 import net.minecraft.gametest.framework.GameTestRunner
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.ai.Brain
+import net.minecraft.world.entity.ai.behavior.BehaviorControl
+import net.minecraft.world.entity.schedule.Activity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
@@ -137,10 +140,34 @@ object TestKit {
         entity.teleportTo(pos.x, pos.y, pos.z)
     }
 
+    /** Releases [entity] through the engine, and keeps it off [target] for 200 ticks, so that the next scan cannot claim it again. */
+    fun release(helper: GameTestHelper, entity: PokemonEntity, target: BlockPos) {
+        val worker = workerOf(helper, entity) ?: throw GameTestAssertException("${entity.pokemon.species.name} is no worker")
+        worker.skipUntil[keyOf(helper, target)] = helper.level.gameTime + 200
+        engine(helper).release(entity.pokemon.uuid)
+    }
+
     /** The GameTest form of a restart: every in-memory claim, worker and pending selection is gone. */
     fun simulateRestart(helper: GameTestHelper) {
         engine(helper).resetRuntimeForTest()
     }
+
+    /** The activities that [brain] can run. Brain keeps its activity table private, so the tests read it through reflection. */
+    fun activitiesOf(brain: Brain<*>): Set<Activity> = brainField<Map<Activity, *>>(brain, "activityRequirements").keys
+
+    /** The tasks that [activity] holds in [brain], at every priority. */
+    fun tasksOf(brain: Brain<*>, activity: Activity): List<BehaviorControl<*>> =
+        brainField<Map<Int, Map<Activity, Set<BehaviorControl<*>>>>>(brain, "availableBehaviorsByPriority").values.flatMap {
+            it[activity].orEmpty()
+        }
+
+    /** Vanilla marks this getter as a debug view. */
+    @Suppress("DEPRECATION")
+    fun runningTasks(brain: Brain<*>): List<BehaviorControl<*>> = brain.runningBehaviors
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> brainField(brain: Brain<*>, name: String): T =
+        Brain::class.java.getDeclaredField(name).apply { isAccessible = true }.get(brain) as T
 
     /** Runs [action] when the test passes or fails, to put back global state that the test changed. */
     fun afterTest(helper: GameTestHelper, action: () -> Unit) {

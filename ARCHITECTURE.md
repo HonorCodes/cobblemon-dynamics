@@ -265,8 +265,9 @@ writes are safe in any order against block entity ticks (see section 8).
 
 Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that tick:
 
-1. The auto behaviour adds a task at idle priority 0. When the `work_order` memory exists, the task
-   switches the Brain to the `cobblemon_dynamics:work` activity.
+1. The auto behaviour adds a task at core priority 0. When the `work_order` memory exists, the task
+   switches the Brain to the `cobblemon_dynamics:work` activity. Core tasks run in every activity, so a
+   work order also wins over Cobblemon's night sleep.
 2. In the work activity, one task sets `WALK_TARGET` to the work spot. Cobblemon's core
    `follow_walk_target` then moves the Pokémon.
 3. Our own look task sets `LOOK_TARGET` to the target's center and turns the Pokémon toward it.

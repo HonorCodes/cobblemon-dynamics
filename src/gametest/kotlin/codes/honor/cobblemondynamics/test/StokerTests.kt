@@ -42,13 +42,6 @@ class StokerTests {
     private fun isLit(helper: GameTestHelper, furnace: AbstractFurnaceBlockEntity) =
         helper.level.getBlockState(furnace.blockPos).getValue(AbstractFurnaceBlock.LIT)
 
-    /** Releases the Stoker through the engine, and keeps it off the furnace so that the next scan cannot claim it again. */
-    private fun release(helper: GameTestHelper, entity: PokemonEntity, furnace: AbstractFurnaceBlockEntity) {
-        val worker = TestKit.workerOf(helper, entity) ?: throw IllegalStateException("no worker")
-        worker.skipUntil[TestKit.keyOf(helper, furnace.blockPos)] = helper.level.gameTime + 200
-        TestKit.engine(helper).release(entity.pokemon.uuid)
-    }
-
     @GameTest(template = "floor_15x6x15", timeoutTicks = 400)
     fun cdStk01FurnaceSmokerAndBlastFurnaceAreClaimed(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
@@ -152,7 +145,7 @@ class StokerTests {
         helper.onEachTick {
             if (releasedAt < 0) {
                 if (isWorking(helper, fire)) {
-                    release(helper, fire, furnace)
+                    TestKit.release(helper, fire, furnace.blockPos)
                     releasedAt = helper.tick
                 }
             } else if (!isLit(helper, furnace)) {
@@ -178,7 +171,7 @@ class StokerTests {
             } else if (releasedAt < 0) {
                 if (helper.tick - coalSince >= 40) {
                     helper.assertTrue(furnace.getItem(1).count == 1, "the coal burned while the Stoker heated the furnace")
-                    release(helper, fire, furnace)
+                    TestKit.release(helper, fire, furnace.blockPos)
                     releasedAt = helper.tick
                 }
             } else if (furnace.getItem(1).isEmpty) {

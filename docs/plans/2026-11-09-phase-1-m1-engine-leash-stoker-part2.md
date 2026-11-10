@@ -592,9 +592,14 @@ git commit -m "Run the work engine per level and keep furnaces lit with the Stok
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/WorkTaskConfig.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/SwitchFromWorkTaskConfig.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/BrainBridge.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/LookMath.kt`
 - Create: `src/main/resources/data/cobblemon_dynamics/behaviours/pokemon/auto/work.json`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt` (step 6, the arrival snap, the release path)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/ai/LookMathTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/BrainTests.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/TestKit.kt` (`release`, `activitiesOf`, `tasksOf`,
+  `runningTasks`), `StokerTests.kt` (uses `TestKit.release`)
 
 **Interfaces:**
 - Produces:
@@ -605,9 +610,13 @@ object DynamicsMemories { val WORK_ORDER: DeferredHolder<MemoryModuleType<*>, Me
 data class WorkOrder(val spot: Vec3, val lookAt: Vec3?, val hold: Boolean, val sleep: Boolean = false)
 object BrainBridge {
     fun registerTaskTypes()                                   // adds the three ids to TaskConfig.types, in common setup
-    fun write(entity: PokemonEntity, order: WorkOrder)        // brain.setMemory, every tick (CD-AI-04)
+    fun write(entity: PokemonEntity, order: WorkOrder)        // brain.setMemory every tick (CD-AI-04); enterWork when WORK is not active
     fun clear(entity: PokemonEntity)                          // brain.eraseMemory
     fun isWorking(entity: PokemonEntity): Boolean             // brain.isActive(WORK)
+    fun holdsOrder(entity: PokemonEntity): Boolean            // the memory has a value
+    fun canHoldOrder(entity: PokemonEntity): Boolean          // the memory is registered; false for a species with baseAI
+    fun enterWork(entity: PokemonEntity)                      // setActiveActivityIfPossible(WORK), then brain.stopAll
+    fun face(entity: LivingEntity, target: Vec3)              // yRot = yBodyRot = yHeadRot = LookMath.yawTowards(position, target)
 }
 object LookMath { fun yawTowards(from: Vec3, to: Vec3): Float }   // degrees, Minecraft convention
 ```
@@ -637,14 +646,34 @@ sleep. Machines run at night.
 
 `SwitchToWorkTaskConfig` follows `SwitchToActionEffectTaskConfig`: it declares `WORK_ORDER` with
 `behaviourConfigurationContext.addMemories(...)`, and its trigger requires `present(WORK_ORDER)` and calls
-`brain.setActiveActivityIfPossible(WORK)` when WORK is not active. `SwitchFromWorkTaskConfig` follows
+`BrainBridge.enterWork` when WORK is not active. `SwitchFromWorkTaskConfig` follows
 `SwitchFromActionEffectTaskConfig`: `absent(WORK_ORDER)` triggers `updateActivityFromSchedule(dayTime,
-gameTime)` and sets `enablePoseTypeRecalculation = true` (CD-AI-03, and CD-AI-08 in M2). `WorkTaskConfig`
-builds one task that, while `present(WORK_ORDER)`: when `hold` is false, sets `WALK_TARGET` to the spot
-(speed 0.4, close enough 0); when `hold` is true, erases `WALK_TARGET`, sets `PATH_COOLDOWN` for 40 ticks
-and stops the navigation (CD-AI-02); and in both cases sets `LOOK_TARGET` to a `BlockPosTracker` at
-`lookAt` and turns the body: `yBodyRot = yHeadRot = yRot = LookMath.yawTowards(position, lookAt)`
-(CD-AI-05, CD-AI-09). The engine sets `hold = true` once the worker has arrived.
+gameTime)`, then `useDefaultActivity()` if WORK is still active, because the schedule update runs at most
+once in 20 ticks, and sets `enablePoseTypeRecalculation = true` (CD-AI-03, and CD-AI-08 in M2).
+`WorkTaskConfig` builds two tasks, which run while `present(WORK_ORDER)` and never time out.
+`WorkMoveTask`: when `hold` is false, sets `WALK_TARGET` to the spot (speed 0.4, close enough 0); when
+`hold` is true, erases `WALK_TARGET`, sets `PATH_COOLDOWN` for 40 ticks and stops the navigation
+(CD-AI-02). `WorkLookTask`: sets `LOOK_TARGET` to a `BlockPosTracker` at `lookAt`, and while `hold` is true
+turns the body with `BrainBridge.face` (CD-AI-05, CD-AI-09). The look task is a task of its own, so the work
+activity's task list holds it. The body does not turn while the Pokémon walks: `PokemonMoveControl` moves
+the Pokémon along its `yRot`, so a forced yaw would push it off its path. A task that stops erases the
+`WALK_TARGET` or `LOOK_TARGET` that it set. The engine sets `hold = true` once the worker has arrived.
+
+Platform facts that shape the bridge (Minecraft 1.21.1, Cobblemon 1.8.4):
+
+- `Activity.equals` compares names, and vanilla's villagers have an activity named `work`. `WORK` is
+  `Activity("cobblemon_dynamics:work")`, so it never equals vanilla's.
+- `Brain.setActiveActivityIfPossible` falls back to `useDefaultActivity()` when the Brain lacks the
+  activity. `write` calls `enterWork` only when the Brain holds the work order, and the same behaviour file
+  adds the memory and the activity.
+- A Brain does not stop the running tasks of the activity that it leaves. Cobblemon's idle look task
+  (`LookAtTargetSink`, 80 to 160 ticks) would keep running inside the work activity, so `enterWork` calls
+  `brain.stopAll(...)`. Core tasks and ours start again on their own memories.
+- The Brain ticks inside the entity tick, before `LevelTickEvent.Post`, and GameTest callbacks run after
+  every level has ticked. With only the core task, a rebuilt Brain would get the work activity back one
+  tick late, so `write` calls `enterWork` itself when WORK is not active (CD-AI-04).
+- Cobblemon builds a Brain with only the memories that its task configs declare, so `WorkTaskConfig`
+  declares `WORK_ORDER`, `WALK_TARGET`, `LOOK_TARGET` and `PATH_COOLDOWN`.
 
 - [ ] **Step 1: Write the failing unit test**
 
@@ -665,28 +694,41 @@ class LookMathTest {
 @GameTestHolder(MOD_ID) @PrefixGameTestTemplate(false)
 class BrainTests {
     // cdAi01BrainListsWorkActivity: a newly pastured Charmander in a Work Mode pasture; after entity.remakeBrain()
-    //   the brain's available activities contain DynamicsActivities.WORK (Brain#isActive after a work order, or reflect
-    //   on activityRequirements keys). Also assert the jar resource
-    //   "data/cobblemon_dynamics/behaviours/pokemon/auto/work.json" exists on the class path.
+    //   the brain's available activities contain DynamicsActivities.WORK (TestKit.activitiesOf reflects on the private
+    //   activityRequirements keys). Also assert that the mod file holds
+    //   "data/cobblemon_dynamics/behaviours/pokemon/auto/work.json" (IModFile.findResource) and that Cobblemon loaded
+    //   it as an auto behaviour (CobblemonBehaviours.behaviours[cobblemon_dynamics:work] in autoPokemonBehaviours).
     // cdAi02WorkingWorkerHoldsItsSpot: once Working, record the spot; for 600 ticks the entity stays within 0.5 blocks.
-    // cdAi03ReleaseRestoresActivitiesWithin20Ticks: release a Working worker's claim; 20 ticks later WORK is not active.
-    // cdAi04RemakeBrainRestoresWorkNextTick: call entity.remakeBrain() on a Working worker; 1 tick later WORK is active.
-    // cdAi05FacesTheTarget: for 600 ticks while Working or Standby, |wrapDegrees(yBodyRot - yawTowards(target))| <= 15.
-    // cdAi06NonWorkersKeepCobblemonActivities: a wild Charmander and one in a pasture that is off, 1,200 ticks; WORK never active.
-    // cdAi09LookTaskRunsInsideWork: while WORK is active, Cobblemon's idle activity is not active, and cdAi05's check holds.
+    // cdAi03ReleaseRestoresActivitiesWithin20Ticks: release a Working worker's claim with TestKit.release, which keeps the
+    //   next scan off the furnace for 200 ticks; 20 ticks later WORK is not active and Cobblemon's IDLE is.
+    // cdAi04RemakeBrainRestoresWorkNextTick: call entity.remakeBrain() on a Working worker (the new brain must not have WORK);
+    //   1 tick later WORK is active.
+    // cdAi05FacesTheTarget: for 600 ticks while Working or Standby, |wrapDegrees(yBodyRot - yawTowards(target))| <= 15. The
+    //   worker walks toward the furnace, so on the first Working tick the test turns it 180 degrees and the bridge must
+    //   turn it back by the next tick.
+    // cdAi06NonWorkersKeepCobblemonActivities: a wild Charmander and one in a pasture that is off, 1,200 ticks; WORK never active,
+    //   although both brains list it.
+    // cdAi09LookTaskRunsInsideWork: while WORK is active, Cobblemon's idle activity is not active, the work activity's task list
+    //   holds a WorkLookTask, no LookAtTargetSink runs (TestKit.runningTasks), the look task runs from the tick after WORK
+    //   starts, and cdAi05's check holds, with the same turn.
 }
 ```
 
-Write each in full. Timeouts: the row's tick count plus 200.
+Write each in full. Timeouts: the row's tick count plus 200, and 200 more where the worker first travels to its
+spot (cdAi02, cdAi05 and cdAi09: 1,000).
 
 - [ ] **Step 3: Write the Brain bridge, register it, and wire the engine**
 
 Register `DynamicsActivities` and `DynamicsMemories` DeferredRegisters on the mod bus. Call
-`BrainBridge.registerTaskTypes()` from `FMLCommonSetupEvent` with `event.enqueueWork { }`, before any
-Pokémon brain is built. In `WorkEngine` step 6, call `BrainBridge.write` for every worker with a claim,
-with `hold = arrived`, and `BrainBridge.clear` on release. If `entity.brain` does not hold the
-`WORK_ORDER` memory after a write (a species with `baseAI`), log one warning per species and release the
-claim.
+`BrainBridge.registerTaskTypes()` from `FMLCommonSetupEvent` with `event.enqueueWork(Runnable { })`, before any
+Pokémon brain is built. In `WorkEngine` step 6, call `BrainBridge.write` for every worker with a work claim,
+with `hold = arrived`, and `BrainBridge.clear` on release (the release path's `clear`, a changed entity at
+the poll, and `resetRuntimeForTest`, because a real restart loses the memory too). If `entity.brain` does
+not hold the `WORK_ORDER` memory after a write (a species with `baseAI`), log one warning per species, skip
+the target for `retryWaitTicks` and release the claim. Scans and the assigner also skip a worker whose
+Brain cannot hold the memory (`canHoldOrder`). On arrival, Traveling to Working or to Standby, the engine
+snaps the worker to the spot center, zeroes its motion and faces it to the target, so the first tick at the
+spot already faces the target. The look task holds it from the next Brain tick.
 
 - [ ] **Step 4: Run the tests and see them pass**
 
@@ -698,7 +740,7 @@ work activity instead of the interim `WALK_TARGET` write of Task 8's step 5. Rem
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main src/test src/gametest
+git add -- <each new and changed file under src/main, src/test and src/gametest> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md
 git commit -m "Drive workers through a Brain work activity added by an auto behaviour"
 ```
 
