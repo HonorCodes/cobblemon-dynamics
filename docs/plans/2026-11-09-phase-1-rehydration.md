@@ -52,7 +52,7 @@ design of every task. This note holds what the plan does not.
 docker run --rm -e RUN_LOCAL=true -e DEFAULT_BRANCH=main -e VALIDATE_ALL_CODEBASE=true -e VALIDATE_KOTLIN=true -e VALIDATE_GITHUB_ACTIONS=true -e VALIDATE_YAML=true -e VALIDATE_JSON=true -e VALIDATE_PYTHON_RUFF=true -e "FILTER_REGEX_EXCLUDE=(^|/)(build|run|\.gradle|\.kotlin|\.idea)/" -e LOG_LEVEL=NOTICE -v "C:\Users\admin\src\cobblemon-dynamics:/tmp/lint" ghcr.io/super-linter/super-linter:slim-v9
 ```
 
-- Test pack: `py scripts/testpack/testpack.py smoke` (`SMOKE PASS`), `deps` (`DEPS PASS`, six cases),
+- Test pack: `py scripts/testpack/testpack.py smoke` (`SMOKE PASS`), `deps` (`DEPS PASS`, seven cases),
   `client` (assembles `run/testpack/client/mods/` for the play-test). Add later scenarios as
   `scenario_<name>` functions.
 - Cobblemon 1.8.4 sources (read-only reference): `C:\Users\admin\.claude\jobs\257dc33d\tmp\cobblemon-src\x\`.
