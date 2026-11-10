@@ -156,12 +156,15 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 ## Next steps, in order
 
-1. `git pull` on `main`. If the M1 pull request is still open, finish it: CI green, threads resolved,
+Phase 1 has reached its gate. The work is stopped for the operator's play-test (M5 Task 9 Step 5).
+
+1. `git pull` on `main`. If the M5 pull request is still open, finish it: CI green, threads resolved,
    merge with a merge commit.
-2. Branch `m2-stamina-beds-healers` from `main` and run M2 in two parts (Tasks 1 to 3, then 4 to 6) with
-   the brief template and the carry-over items. Then M3, M4 and M5 the same way, one pull request each.
-   Update the plan text whenever reality differs, and keep `check_plan_coverage.py` at `missing: 0`.
-3. Before each pull request: build, GameTests twice, ktlint, ruff, super-linter and coverage, all on the
-   branch tip.
-4. At M5 Task 9, run the end-of-phase pass for the deferred rows, write the gate report, assemble the
-   play-test client with `testpack.py client`, and stop for the operator.
+2. Wait for the operator's play-test note. Record it in the play-test section of
+   `docs/testing/phase-1-gate.md`. CD-REL-13 completes then.
+3. Fix what the play-test finds, test first, in a follow-up pull request before any M6 work merges.
+4. Ask the operator before the CD-REL-12 demo, which pushes `v1.0.0-alpha.1` and then `v1.0.0-beta.1`.
+   Each tag creates a public GitHub pre-release.
+5. Phase 2 (M6 to M8: Telekinesis, Magnet, Fan, Tailwind and the final art) needs its own plan, written
+   with `superpowers:writing-plans` from the spec rows in the TLK, MAG, FAN, TLW and ART areas. Start it
+   with the known issues in the gate report, first the work spot reachability check.
