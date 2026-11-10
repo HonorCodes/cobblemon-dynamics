@@ -1,6 +1,6 @@
 package codes.honor.cobblemondynamics.fx
 
-import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.net.WorkSoundPayload
 import codes.honor.cobblemondynamics.registry.DynamicsEntities
@@ -27,7 +27,7 @@ import net.neoforged.neoforge.network.PacketDistributor
 
 /** Loops each role's move effect with Cobblemon's own packets, aimed at a focus entity on the target (ADR-0007). */
 object EffectPlayer {
-    private val particles = CheckedParticles(JarParticleCatalog) { CobblemonDynamics.LOGGER.warn(it) }
+    private val particles = CheckedParticles(JarParticleCatalog, OnceLogger())
 
     /** Cobblemon's move timelines emit actor particles from `special`, else `target`. Every model has `root`. */
     private val actorLocators = listOf("special", "target", "root")

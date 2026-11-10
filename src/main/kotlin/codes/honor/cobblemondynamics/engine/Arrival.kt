@@ -14,8 +14,11 @@ object Arrival {
     private const val MIN_REACH = 0.75
     private const val MAX_DY = 1.5
 
+    /** How far from the spot's lowest corner, on x and z, navigation stops a mob [bbWidth] blocks wide. */
+    fun stopOffset(bbWidth: Double): Double = (bbWidth + 1.0).toInt() * 0.5
+
     fun isAt(x: Double, y: Double, z: Double, bbWidth: Double, spot: BlockPos): Boolean {
-        val stop = (bbWidth + 1.0).toInt() * 0.5
+        val stop = stopOffset(bbWidth)
         val reach = max(MIN_REACH, bbWidth / 2.0)
         return abs(x - (spot.x + stop)) <= reach && abs(z - (spot.z + stop)) <= reach && abs(y - spot.y) < MAX_DY
     }

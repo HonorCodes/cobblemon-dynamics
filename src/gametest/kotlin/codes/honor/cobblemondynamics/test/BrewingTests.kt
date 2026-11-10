@@ -92,6 +92,43 @@ class BrewingTests {
     }
 
     /**
+     * The row's literal case. A stand with three water bottles, a nether wart and fuel 0 is worked by a Brew Stoker, which gives it fuel
+     * 1 on its first Working tick. The test releases the claim on that tick, before the stand's next tick can start the brew: the stand
+     * reads fuel 0 at once and on the next tick, and no brew starts (CD-BRF-05).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdBrf05ReleaseBeforeABrewLeavesFuel0(helper: GameTestHelper) {
+        val (owner, pasture) = pasture(helper)
+        val stand = stand(helper, standRel, ItemStack(Items.NETHER_WART), fuel = 0)
+        val charmander = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        var releasedAt = -1L
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, charmander) ?: return@onEachTick
+            if (releasedAt < 0) {
+                if (worker.status != WorkerStatus.WORKING) {
+                    helper.assertTrue(stand.fuel == 0 && stand.brewTime == 0, "the stand has fuel ${stand.fuel} before any work")
+                    return@onEachTick
+                }
+                helper.assertTrue(roleOf(helper, charmander) == id("brew_stoker"), "the role is ${roleOf(helper, charmander)}")
+                helper.assertTrue(
+                    stand.fuel >= 1 && stand.brewTime == 0,
+                    "the first Working tick left fuel ${stand.fuel}, brew ${stand.brewTime}",
+                )
+                TestKit.release(helper, charmander, stand.blockPos)
+                helper.assertTrue(stand.fuel == 0, "CD-BRF-05: the released Brew Stoker left fuel ${stand.fuel}")
+                releasedAt = helper.tick
+                return@onEachTick
+            }
+            helper.assertTrue(
+                stand.fuel == 0,
+                "CD-BRF-05: ${helper.tick - releasedAt} ticks after the release the stand has fuel ${stand.fuel}",
+            )
+            helper.assertTrue(stand.brewTime == 0, "a brew started after the release: brew time ${stand.brewTime}")
+            if (helper.tick - releasedAt >= 2) helper.succeed()
+        }
+    }
+
+    /**
      * Vanilla turns a blaze powder into 20 fuel whenever the stand's fuel is 0, so the powder goes in once the Brew Stoker Works. The
      * test mod's brew of water and a stick gives water, so the stand can brew again after each brew and the worker never stops: with
      * vanilla brews, the stand has nothing to brew between two brews, and a Brew Stoker in Standby gives the stand its own fuel back

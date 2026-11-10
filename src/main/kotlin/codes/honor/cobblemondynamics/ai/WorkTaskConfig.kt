@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.ai
 
+import codes.honor.cobblemondynamics.engine.EngineTiming
 import com.cobblemon.mod.common.CobblemonMemories
 import com.cobblemon.mod.common.api.ai.BehaviourConfigurationContext
 import com.cobblemon.mod.common.api.ai.config.task.TaskConfig
@@ -43,14 +44,14 @@ class WorkTaskConfig : TaskConfig {
 abstract class WorkOrderTask :
     Behavior<LivingEntity>(mapOf<MemoryModuleType<*>, MemoryStatus>(DynamicsMemories.WORK_ORDER.get() to MemoryStatus.VALUE_PRESENT)) {
     override fun canStillUse(level: ServerLevel, entity: LivingEntity, gameTime: Long): Boolean =
-        entity.brain.hasMemoryValue(DynamicsMemories.WORK_ORDER.get())
+        EngineTiming.time { entity.brain.hasMemoryValue(DynamicsMemories.WORK_ORDER.get()) }
 
     override fun timedOut(gameTime: Long): Boolean = false
 
     override fun start(level: ServerLevel, entity: LivingEntity, gameTime: Long) = tick(level, entity, gameTime)
 
     override fun tick(level: ServerLevel, entity: LivingEntity, gameTime: Long) {
-        entity.brain.getMemory(DynamicsMemories.WORK_ORDER.get()).ifPresent { follow(entity, it) }
+        EngineTiming.time { entity.brain.getMemory(DynamicsMemories.WORK_ORDER.get()).ifPresent { follow(entity, it) } }
     }
 
     protected abstract fun follow(entity: LivingEntity, order: WorkOrder)
@@ -83,8 +84,8 @@ class WorkMoveTask : WorkOrderTask() {
         }
     }
 
-    override fun stop(level: ServerLevel, entity: LivingEntity, gameTime: Long) {
-        val spot = walkingTo ?: return
+    override fun stop(level: ServerLevel, entity: LivingEntity, gameTime: Long) = EngineTiming.time {
+        val spot = walkingTo ?: return@time
         walkingTo = null
         val brain = entity.brain
         if (brain.getMemory(MemoryModuleType.WALK_TARGET).map { it.target.currentBlockPosition() == spot }.orElse(false)) {
@@ -110,8 +111,8 @@ class WorkLookTask : WorkOrderTask() {
         if (order.hold) BrainBridge.face(entity, target)
     }
 
-    override fun stop(level: ServerLevel, entity: LivingEntity, gameTime: Long) {
-        val target = lookingAt ?: return
+    override fun stop(level: ServerLevel, entity: LivingEntity, gameTime: Long) = EngineTiming.time {
+        val target = lookingAt ?: return@time
         lookingAt = null
         val brain = entity.brain
         if (brain.getMemory(MemoryModuleType.LOOK_TARGET).map { it.currentPosition() == target }.orElse(false)) {

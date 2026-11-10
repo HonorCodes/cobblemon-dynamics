@@ -1,7 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
-import codes.honor.cobblemondynamics.CobblemonDynamics
 import codes.honor.cobblemondynamics.Feedback
+import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.ai.WorkOrder
 import codes.honor.cobblemondynamics.bed.BedBlock
@@ -12,6 +12,7 @@ import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.ClaimRegistry
 import codes.honor.cobblemondynamics.claim.ClaimResult
 import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.compat.WorkerEvents
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.fx.EffectPlayer
@@ -69,8 +70,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private val pastures = LinkedHashMap<PastureKey, PastureRuntime>()
     private val slots = HashMap<UUID, PastureRuntime.Slot>()
 
-    /** The species already warned about, because their Brains cannot hold a work order. */
-    private val unbridged = HashSet<ResourceLocation>()
+    /** One warning for each species whose Brain cannot hold a work order. */
+    private val unbridged = OnceLogger()
 
     fun worker(pokemonId: UUID): Worker? = slots[pokemonId]?.worker
 
@@ -83,6 +84,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /** The role of a worker's work claim, while it holds one. */
     fun roleOf(pokemonId: UUID): ActiveRole? = slots[pokemonId]?.role
+
+    /**
+     * True while [entity] is the entity of a worker that the engine directs: any state but Idle, in which the worker walks to or holds
+     * a place that the engine gave it. Two such workers do not push each other (`WorkerPush`).
+     */
+    fun isDirected(entity: PokemonEntity): Boolean {
+        val slot = slots[entity.pokemon.uuid] ?: return false
+        return slot.entity === entity && slot.worker.status != WorkerStatus.IDLE
+    }
 
     /** One engine tick of [level], after the level ticked its block entities and entities. */
     fun tickLevel(level: ServerLevel) {
@@ -247,6 +257,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             slot.worker.leashed = slot.binding != null
             slot.rule = RecoveryRule.of(hasFairyType(slot.pokemon), slot.binding != null)
             claimBound(t, runtime, slot, taken)
+            // CD-CMP-01: the Cobbleworkers shim marks each worker within one poll of Work Mode turning on.
+            WorkerEvents.polled(slot.pokemon)
         }
     }
 
@@ -430,7 +442,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val worker = slot.worker
         val key = TargetKey.block(t.dimension, target)
         val own = worker.spot?.asLong()
-        val grid = LevelSpotGrid(t.level, role.handler, target, if (own == null) taken else taken - own)
+        val entity = slot.entity
+        val others = if (own == null) taken else taken - own
+        val grid = LevelSpotGrid(t.level, role.handler, target, others, entity.bbWidth.toDouble(), entity.bbHeight.toDouble())
         val center = role.handler.targetCenter(target)
         val spot = guarded(role.handler, null) {
             WorkSpots.find(grid, area(t, runtime), center, role.definition.range, slot.entity.position())
@@ -678,9 +692,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), center, hold = isArrived(entity, spot)))
         if (!BrainBridge.holdsOrder(entity)) {
             val species = slot.pokemon.species.resourceIdentifier
-            if (unbridged.add(species)) {
-                CobblemonDynamics.LOGGER.warn("{} has a baseAI that skips Cobblemon's auto behaviours, so it cannot work", species)
-            }
+            unbridged.warn(species) { "$species has a baseAI that skips Cobblemon's auto behaviours, so it cannot work" }
             worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
             release(t, slot)
             return
@@ -739,6 +751,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun drop(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
         release(t, slot)
         flush(slot, t.now)
+        WorkerEvents.left(slot.pokemon)
         val entity = slot.entity
         if (!entity.isRemoved && entity.hasData(DynamicsAttachments.STAMINA_VIEW)) entity.removeData(DynamicsAttachments.STAMINA_VIEW)
         runtime.slots.remove(slot.worker.pokemonId)

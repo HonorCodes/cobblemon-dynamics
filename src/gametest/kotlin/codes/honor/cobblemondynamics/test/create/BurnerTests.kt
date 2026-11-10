@@ -8,6 +8,8 @@ import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.api.pokemon.experience.SidemodExperienceSource
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
+import com.simibubi.create.AllBlocks
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlock
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import net.minecraft.core.BlockPos
@@ -15,6 +17,7 @@ import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.level.block.Blocks
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
@@ -128,6 +131,144 @@ class BurnerTests {
                 helper.succeed()
             }
         }
+    }
+
+    /**
+     * An empty Blaze Burner with a basin above, and a Charmander beside it for 400 ticks: no claim, and the Work Leash finds no role for
+     * it (CD-BRN-02). Then the burner is filled, and the Charmander claims it, which shows that the empty one was in its reach.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 700)
+    fun cdBrn02EmptyBurnerIsNeverClaimed(helper: GameTestHelper) {
+        val scene = scene(helper)
+        helper.setBlock(burnerRel, AllBlocks.BLAZE_BURNER.defaultState.setValue(BlazeBurnerBlock.HEAT_LEVEL, HeatLevel.NONE))
+        CreateKit.basin(helper, aboveRel)
+        val burner = helper.absolutePos(burnerRel)
+        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        TestKit.moveTo(helper, fire, BlockPos(7, 2, 7))
+        val binding = TestKit.bind(helper, scene.owner, fire, burnerRel)
+        val reply = TestKit.lastMessage(scene.owner)
+        helper.assertTrue(binding == null, "CD-BRN-02: the leash bound the Charmander to the empty burner: $binding")
+        helper.assertTrue(reply == "No role fits", "CD-BRN-02: the click on the empty burner answered '$reply'")
+        var filled = false
+        helper.onEachTick {
+            val claim = TestKit.claimOf(helper, fire)
+            if (!filled) {
+                helper.assertFalse(claim?.key == TestKit.keyOf(helper, burner), "CD-BRN-02: the Charmander claimed the empty burner")
+                if (helper.tick < 400) return@onEachTick
+                CreateKit.filledBurner(helper, burnerRel)
+                filled = true
+                return@onEachTick
+            }
+            if (claim?.key == TestKit.keyOf(helper, burner)) helper.succeed()
+        }
+    }
+
+    /** The basin above a worked burner is removed, and its worker is in Standby within 20 ticks (CD-BRN-03). */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun cdBrn03NoBasinMeansStandby(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val burner = CreateKit.filledBurner(helper, burnerRel)
+        CreateKit.basin(helper, aboveRel)
+        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        var removedAt = -1L
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, fire) ?: return@onEachTick
+            if (removedAt < 0) {
+                val worked = workedTicks(helper, fire, burner) ?: return@onEachTick
+                if (worked < 1) return@onEachTick
+                helper.setBlock(aboveRel, Blocks.AIR)
+                removedAt = helper.tick
+            } else if (worker.status == WorkerStatus.STANDBY) {
+                helper.assertTrue(
+                    TestKit.claimOf(helper, fire)?.key == TestKit.keyOf(helper, burner.blockPos),
+                    "the worker left its burner",
+                )
+                helper.succeed()
+            } else {
+                val waited = helper.tick - removedAt
+                helper.assertTrue(waited < 20, "CD-BRN-03: $waited ticks after the basin went the worker is ${worker.status}")
+            }
+        }
+    }
+
+    /**
+     * Two burners, each with 1,000 ticks of its own normal fuel and a basin above. A Charmander bound to the first heats it for 400
+     * ticks, and the two remaining burn times are equal: the worker neither burns nor adds fuel (CD-BRN-04).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000)
+    fun cdBrn04FuelBurnsDownAsNormal(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val otherRel = BlockPos(11, 2, 5)
+        val worked = fueledBurner(helper, burnerRel)
+        val unworked = fueledBurner(helper, otherRel)
+        CreateKit.basin(helper, aboveRel)
+        CreateKit.basin(helper, otherRel.above())
+        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        val binding = TestKit.bind(helper, scene.owner, fire, burnerRel)
+        helper.assertTrue(binding?.target == worked.blockPos, "the Charmander did not bind to the first burner: $binding")
+        helper.onEachTick {
+            helper.assertTrue(
+                TestKit.claimOf(helper, fire)?.key != TestKit.keyOf(helper, unworked.blockPos),
+                "the worker took the second burner",
+            )
+            val ticks = workedTicks(helper, fire, worked) ?: return@onEachTick
+            val left = worked.getRemainingBurnTime()
+            val other = unworked.getRemainingBurnTime()
+            helper.assertTrue(left == other, "CD-BRN-04: the burn times read $left and $other")
+            if (ticks >= 400) {
+                helper.assertTrue(left > 0, "the burners ran out of fuel before 400 ticks of work")
+                helper.succeed()
+            }
+        }
+    }
+
+    /**
+     * A creative Blaze Burner holds its heat whatever heats it, so a worker gains nothing there. A Charmander claims it, but on its spot
+     * it waits in Standby and never Works, and its Work Stamina never drops (carry-over from M3).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun creativeBlazeBurnerHasNoDemand(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val burner = CreateKit.filledBurner(helper, burnerRel)
+        val registries = helper.level.registryAccess()
+        val saved = burner.saveWithFullMetadata(registries)
+        saved.putBoolean("isCreative", true)
+        burner.loadWithComponents(saved, registries)
+        helper.assertTrue(burner.isCreative(), "the burner did not load as a creative burner")
+        CreateKit.basin(helper, aboveRel)
+        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        var standbySince = -1L
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, fire) ?: return@onEachTick
+            helper.assertTrue(worker.status != WorkerStatus.WORKING, "the Charmander works a creative burner")
+            helper.assertTrue(worker.stamina.fraction == 1.0, "Work Stamina dropped at a creative burner: ${worker.stamina}")
+            if (worker.status != WorkerStatus.STANDBY) return@onEachTick
+            helper.assertTrue(
+                TestKit.claimOf(helper, fire)?.key == TestKit.keyOf(helper, burner.blockPos),
+                "the Charmander waits elsewhere",
+            )
+            if (standbySince < 0) standbySince = helper.tick
+            if (helper.tick - standbySince >= 100) helper.succeed()
+        }
+    }
+
+    /** A filled burner at [rel] with 1,000 ticks of normal fuel, as Create saves one that burns coal. */
+    private fun fueledBurner(helper: GameTestHelper, rel: BlockPos): BlazeBurnerBlockEntity {
+        val burner = CreateKit.filledBurner(helper, rel)
+        val registries = helper.level.registryAccess()
+        val saved = burner.saveWithFullMetadata(registries)
+        saved.putInt("fuelLevel", BlazeBurnerBlockEntity.FuelType.NORMAL.ordinal)
+        saved.putInt("burnTimeRemaining", FUEL_TICKS)
+        burner.loadWithComponents(saved, registries)
+        val fuel = burner.getActiveFuel()
+        helper.assertTrue(fuel == BlazeBurnerBlockEntity.FuelType.NORMAL, "the burner at $rel holds $fuel")
+        val left = burner.getRemainingBurnTime()
+        helper.assertTrue(left == FUEL_TICKS, "the burner at $rel holds $left ticks of fuel")
+        return burner
+    }
+
+    private companion object {
+        const val FUEL_TICKS = 1_000
     }
 
     private fun assertBoiler(helper: GameTestHelper, expected: HeatLevel, heat: Int) {

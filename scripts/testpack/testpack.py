@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Clean NeoForge 1.21.1 test servers with only the mods a scenario needs. Never the COHO pack.
 
-Usage: py scripts/testpack/testpack.py {resolve,deps,client,<scenario>}   (python3 on Linux)
+Usage: py scripts/testpack/testpack.py {resolve,deps,compat,client,<scenario>}   (python3 on Linux)
 Everything is built under run/testpack/. Downloads are verified against mods.json and cached in
 run/testpack/cache/. Each scenario_<name> function below is a command. `smoke` is the first one.
 """
@@ -47,6 +47,29 @@ OUR_MOD_LOADING = r"Cobblemon Dynamics .* loading"
 RECIPES_LOADED = r"Loaded \d+ recipes"
 SKIPPED_ROLE = r"Skipping role file"
 CLAIMS_EMPTY = "No claims and no leash bindings"
+# CD-CFG-08: a world data pack replaces the Stoker's role file with one that names a handler nobody registers. The role
+# registry logs one line for that role after the next /reload.
+STOKER_FILE = ROOT / "src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/stoker.json"
+PROBE_PACK = "cd_reload_probe"
+PROBE_HANDLER = "cobblemon_dynamics:reload_probe"
+PROBE_APPLIED = rf"Role cobblemon_dynamics:stoker is disabled: handler {re.escape(PROBE_HANDLER)} is not registered"
+DATA_PACK_FORMAT = 48  # Minecraft 1.21.1
+# CD-CFG-01: the server config file and the keys of the CD-CFG-01 test in ConfigTest, which checks that both lists match.
+SERVER_CONFIG = pathlib.Path("config", f"{MOD_ID}-server.toml")
+SERVER_CONFIG_KEYS = (
+    "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
+    "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
+    "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
+    "leash.pendingSelectionTicks", "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1",
+    "stamina.healerRecoveryMinutesAtLevel100", "stamina.flushIntervalTicks", "beds.speedFactors",
+    "heal.cost", "heal.lowStaminaThreshold", "roles.disabled", "compat.cobbleworkers", "compat.cobblebase",
+)
+# CD-WHL-07, CD-CRK-08: Create's water wheel and hand crank carry our drive behaviour, which saves the turn direction with
+# the block entity under this key. Both blocks sit in the force-loaded chunk 0, 0, in the air above the flat floor.
+DRIVE_DIRECTION = "cd_direction"
+DRIVES = {"create:water_wheel": (2, -50, 2), "create:hand_crank": (6, -50, 2)}
+BLOCK_DATA = r"has the following block data: (-?\d+)"
+DRIVE_TIMEOUT = 30
 # FML ModSorter headers for a required dependency, and for an installed optional one, outside the range.
 # Lines of the form "Mod ID: '<id>', Requested by: '<mod>', Expected range: '<range>'" follow them.
 REJECTED = r"Missing or unsupported mandatory dependencies:|Unsupported installed optional dependencies:"
@@ -184,7 +207,7 @@ def resolve_neoforge(pin: dict) -> str:
 def resolve() -> None:
     """Fill the file name, URL and SHA-512 of every pin in mods.json and write the file back."""
     versions: dict[str, list[dict]] = {}
-    for pin in [PINS["neoforge"], *PINS["mods"].values(), *PINS["demo_versions"].values()]:
+    for pin in [PINS["neoforge"], *PINS["mods"].values(), *PINS["demo_versions"].values(), *PINS["compat"].values()]:
         if "project" not in pin:
             say(resolve_neoforge(pin))
             continue
@@ -401,12 +424,13 @@ class Server:
             self.process.kill()
             self.process.wait()
 
-    def start(self) -> None:
+    def start(self, jvm_args: list[str] | None = None) -> None:
         """Start the server headless. Its stdout and stderr go to console.log in the profile folder."""
         args = sorted(self.folder.glob(f"libraries/net/neoforged/neoforge/*/{ARGS_FILE}"))
         if len(args) != 1:
             raise TestpackError(f"expected one NeoForge {ARGS_FILE} in {rel(self.folder)}, found {len(args)}")
-        command = [java(), "-Xmx3G", "@user_jvm_args.txt", "@" + args[0].relative_to(self.folder).as_posix(), "nogui"]
+        command = [java(), "-Xmx3G", *(jvm_args or []), "@user_jvm_args.txt",
+                   "@" + args[0].relative_to(self.folder).as_posix(), "nogui"]
         with self.console.open("wb") as console:
             self.process = subprocess.Popen(command, cwd=self.folder, stdin=subprocess.DEVNULL, stdout=console,
                                             stderr=subprocess.STDOUT)
@@ -483,6 +507,22 @@ class Server:
                 pass  # the server can close RCON while it stops, before the reply arrives
         return self.wait_exit(STOP_TIMEOUT)
 
+    def restart(self) -> None:
+        """Stop the server and start it again in the same folder, as an owner does.
+
+        The first run's logs/latest.log and console.log become before-restart.log beside them, so the log
+        methods read only the new run, from its first line.
+        """
+        code = self.stop()
+        if code != 0:
+            raise TestpackError(f"the server exited with code {code} at the restart. See {rel(self.log)}.")
+        for path in (self.log, self.console):
+            if path.is_file():
+                os.replace(path, path.with_name("before-restart.log"))
+        self.lines = []
+        self._read_bytes = 0
+        self.start()
+
 
 # Scenarios: each scenario_<name>(server) is the command <name>. It runs on a fresh profile with the
 # pinned mod set, after start() and before stop().
@@ -498,19 +538,122 @@ def scenario_smoke(server: Server) -> None:
         raise TestpackError(f"unexpected reply to list: {reply!r}")
 
 
-def scenario_reload(server: Server) -> None:
-    """The claims command answers on the console, and /reload loads every role file again (CD-UI-14, CD-CFG-08)."""
-    server.wait_log(DONE, BOOT_TIMEOUT)
-    reply = server.rcon("cobblemondynamics claims")
-    if CLAIMS_EMPTY not in reply:
-        raise TestpackError(f"unexpected reply to cobblemondynamics claims: {reply!r}")
+def reload_data(server: Server) -> None:
+    """Run /reload and wait until it ends."""
     loads = server.count_log(RECIPES_LOADED)
     server.rcon("reload")
     # The data pack reload ends on the server thread after the command has replied, so its own log line marks the end.
     server.wait_log(RECIPES_LOADED, RELOAD_TIMEOUT, count=loads + 1)
+
+
+def write_probe_pack(folder: pathlib.Path) -> pathlib.Path:
+    """A world data pack whose Stoker file is the built-in one with PROBE_HANDLER. /reload enables a new world pack."""
+    pack = folder / "world" / "datapacks" / PROBE_PACK
+    role = json.loads(STOKER_FILE.read_text(encoding="utf-8"))
+    role["handler"] = PROBE_HANDLER
+    roles = pack / "data" / "cobblemon_dynamics" / "cobblemon_dynamics" / "roles"
+    roles.mkdir(parents=True)
+    meta = {"pack": {"pack_format": DATA_PACK_FORMAT, "description": "Cobblemon Dynamics reload probe"}}
+    (pack / "pack.mcmeta").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8", newline="\n")
+    (roles / "stoker.json").write_text(json.dumps(role, indent=2) + "\n", encoding="utf-8", newline="\n")
+    return pack
+
+
+def scenario_reload(server: Server) -> None:
+    """The claims command answers on the console (CD-UI-14), and /reload applies a changed role file (CD-CFG-08)."""
+    server.wait_log(DONE, BOOT_TIMEOUT)
+    reply = server.rcon("cobblemondynamics claims")
+    if CLAIMS_EMPTY not in reply:
+        raise TestpackError(f"unexpected reply to cobblemondynamics claims: {reply!r}")
+    reload_data(server)
+    if server.find_log(PROBE_APPLIED) is not None:
+        raise TestpackError(f"the Stoker names {PROBE_HANDLER} before the probe pack exists")
+    pack = write_probe_pack(server.folder)
+    reload_data(server)
     skipped = server.find_log(SKIPPED_ROLE)
     if skipped is not None:
         raise TestpackError(f"a role file did not load: {skipped.strip()}")
+    if server.find_log(PROBE_APPLIED) is None:
+        raise TestpackError(f"CD-CFG-08: after /reload the role registry still uses the old Stoker file, not {rel(pack)}")
+    say(f"CD-CFG-08: /reload applied the Stoker file of {rel(pack)}")
+
+
+def has_key(table: dict, dotted: str) -> bool:
+    for part in dotted.split("."):
+        if not isinstance(table, dict) or part not in table:
+            return False
+        table = table[part]
+    return True
+
+
+def check_server_config(folder: pathlib.Path) -> None:
+    """CD-CFG-01: after the first start, the server's config folder holds the server config with every key."""
+    # Here, not at the top: super-linter's ruff sorts tomllib as third-party and newer ruff as standard library.
+    import tomllib
+
+    path = folder / SERVER_CONFIG
+    if not path.is_file():
+        raise TestpackError(f"CD-CFG-01: no {rel(path)} after the first start")
+    try:
+        config = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as error:
+        raise TestpackError(f"CD-CFG-01: {rel(path)} is not TOML: {error}")
+    missing = [key for key in SERVER_CONFIG_KEYS if not has_key(config, key)]
+    if missing:
+        raise TestpackError(f"CD-CFG-01: {rel(path)} lacks {', '.join(missing)}")
+    say(f"CD-CFG-01: {rel(path)} holds all {len(SERVER_CONFIG_KEYS)} keys")
+
+
+def coordinates(pos: tuple[int, int, int]) -> str:
+    return " ".join(str(c) for c in pos)
+
+
+def drive_direction(server: Server, pos: tuple[int, int, int]) -> int | None:
+    """The saved turn direction of the block entity at pos, or None while it has none, as before its first tick."""
+    match = re.search(BLOCK_DATA, server.rcon(f"data get block {coordinates(pos)} {DRIVE_DIRECTION}"))
+    return int(match.group(1)) if match else None
+
+
+def wait_drive(server: Server, block: str, pos: tuple[int, int, int], expected: int) -> None:
+    """Wait until the block entity at pos reads the direction expected. Create attaches behaviours on the first tick."""
+    deadline = time.monotonic() + DRIVE_TIMEOUT
+    while (value := drive_direction(server, pos)) != expected:
+        if time.monotonic() > deadline:
+            raise TestpackError(f"the {block} at {coordinates(pos)} reads direction {value}, not {expected}")
+        time.sleep(0.5)
+
+
+def scenario_restart(server: Server) -> None:
+    """A real restart: the server config file (CD-CFG-01), the turn direction that a wheel and a crank save with their block
+    entities (CD-WHL-07, CD-CRK-08), and an empty claim registry after the restart (CD-CLM-07).
+
+    Pasturing needs a player, which the test pack has not got, so the restart checks that need a worker (the claims, bindings,
+    flips, beds and Work Stamina of CD-CLM-07, CD-LSH-07, CD-WHL-07, CD-CRK-08, CD-BED-14 and CD-STA-04) stay in the GameTests.
+    """
+    server.wait_log(DONE, BOOT_TIMEOUT)
+    check_server_config(server.folder)  # before the first restart, so the file is the one that the first start wrote
+    server.rcon("forceload add 0 0")
+    for block, pos in DRIVES.items():
+        reply = server.rcon(f"setblock {coordinates(pos)} {block}")
+        if "Changed the block" not in reply:
+            raise TestpackError(f"setblock {block} failed: {reply!r}")
+    for block, pos in DRIVES.items():
+        wait_drive(server, block, pos, 1)  # a new target turns forward
+        server.rcon(f"data merge block {coordinates(pos)} {{{DRIVE_DIRECTION}:-1}}")
+        wait_drive(server, block, pos, -1)
+    server.restart()
+    server.wait_log(DONE, BOOT_TIMEOUT)
+    for block, pos in DRIVES.items():
+        value = drive_direction(server, pos)
+        if value != -1:
+            raise TestpackError(f"CD-WHL-07, CD-CRK-08: the {block} turns {value} after the restart, -1 before it")
+    say("CD-WHL-07, CD-CRK-08: the wheel and the crank kept direction -1 through the restart")
+    reply = server.rcon("cobblemondynamics claims")
+    if CLAIMS_EMPTY not in reply:
+        raise TestpackError(f"CD-CLM-07: the registry is not empty after the restart: {reply!r}")
+    error = server.find_log(r"/(ERROR|FATAL)\].*(cobblemon_?dynamics|codes\.honor)")
+    if error is not None:
+        raise TestpackError(f"the restarted server logged an error of ours: {error.strip()}")
 
 
 def scenarios() -> dict[str, Callable[[Server], None]]:
@@ -604,6 +747,104 @@ def deps_demo() -> bool:
     return bool(ran) and all(status == "PASS" for status in ran)
 
 
+# Compatibility with Cobbleworkers and Cobblebase
+
+
+class CompatCase(NamedTuple):
+    """One neighbour mod beside the pinned set.
+
+    mods holds the keys under "compat" in mods.json to install: the neighbour first, then the libraries
+    it needs. The server logs every class it loads: present names a class of ours that must load, which
+    shows that the log sees our classes, and absent holds the class name prefixes of the other mod's
+    compat code, which must never load (CD-CMP-06, CD-CMP-07).
+    """
+
+    name: str
+    mods: tuple[str, ...]
+    present: str
+    absent: tuple[str, ...]
+
+
+OUR_PACKAGE = "codes.honor.cobblemondynamics."
+COMPAT_CASES = [
+    # Cobblebase 2.0.1 needs Cloth Config at run time, although its neoforge.mods.toml does not list it.
+    CompatCase("compat_cobblebase", ("cobblebase", "cloth_config"), OUR_PACKAGE + "compat.CobblebaseHooks",
+               (OUR_PACKAGE + "compat.Cobbleworkers",)),
+    CompatCase("compat_cobbleworkers", ("cobbleworkers",), OUR_PACKAGE + "compat.CobbleworkersCompat",
+               (OUR_PACKAGE + "compat.Cobblebase", OUR_PACKAGE + "mixin.compat.cobblebase.")),
+]
+CLASS_LOG = "classload.log"
+# CobblebaseHooks logs this once when a Cobblebase hook did not apply (CD-CMP-05).
+HOOKS_MISSING = r"Cobblebase hooks .* did not apply"
+MIXIN_FAILURE = r"Mixin apply failed|InvalidInjectionException|InjectionError|cobblemon_dynamics\.mixins\.json.*(ERROR|failed)"
+
+
+def loaded_classes(log: pathlib.Path) -> set[str]:
+    """The class names in a -Xlog:class+load log: '[0.123s][info][class,load] a.b.C source: ...'."""
+    if not log.is_file():
+        raise TestpackError(f"no class load log at {rel(log)}")
+    names = set()
+    with log.open(encoding="utf-8", errors="replace") as f:
+        for line in f:
+            match = re.search(r"\[class,load\] (\S+)", line)
+            if match:
+                names.add(match.group(1))
+    return names
+
+
+def run_compat_case(case: CompatCase) -> tuple[str, str]:
+    pins = {mod: PINS["compat"][mod] for mod in case.mods}
+    pin = pins[case.mods[0]]
+    for extra in pins.values():
+        if not extra.get("url"):
+            return "SKIPPED", f"{pin_name(extra)} has no NeoForge {PINS['minecraft']} release"
+    folder = install(case.name, pins)
+    problems = []
+    with Server(folder) as server:
+        server.start([f"-Xlog:class+load=info:file={CLASS_LOG}"])
+        server.wait_log(DONE, BOOT_TIMEOUT)
+        if server.find_log(OUR_MOD_LOADING) is None:
+            problems.append(f"no {OUR_MOD_LOADING!r} line")
+        for prefix in case.absent:
+            error = server.find_log(rf"/(ERROR|FATAL)\].*{re.escape(prefix)}")
+            if error is not None:
+                problems.append(f"an error names {prefix}: {error.strip()}")
+        for pattern in (HOOKS_MISSING, MIXIN_FAILURE):
+            line = server.find_log(pattern)
+            if line is not None:
+                problems.append(line.strip())
+        code = server.stop()
+    if code != 0:
+        problems.append(f"the server exited with code {code} after stop")
+    classes = loaded_classes(folder / CLASS_LOG)
+    if case.present not in classes:
+        problems.append(f"{case.present} never loaded")
+    for prefix in case.absent:
+        loaded = sorted(name for name in classes if name.startswith(prefix))
+        if loaded:
+            problems.append(f"loaded {', '.join(loaded)}")
+    if problems:
+        return "FAIL", "; ".join(problems)
+    return "PASS", f"{pin_name(pin)}: started and stopped, {case.present} loaded, none of {', '.join(case.absent)} loaded"
+
+
+def compat_demo() -> bool:
+    """Run each compat case, print one CASE line each, and return True when none failed."""
+    results = []
+    for case in COMPAT_CASES:
+        say(f"compat case {case.name}")
+        try:
+            status, detail = run_compat_case(case)
+        except (TestpackError, OSError) as error:
+            status, detail = "FAIL", str(error)
+        say(f"  -> {status}")
+        results.append((case.name, status, detail))
+    for name, status, detail in results:
+        say(f"CASE {name}: {status} {detail}")
+    ran = [status for _, status, _ in results if status != "SKIPPED"]
+    return bool(ran) and all(status == "PASS" for status in ran)
+
+
 # Client mods folder
 
 
@@ -622,7 +863,7 @@ def client() -> pathlib.Path:
 def main() -> int:
     sys.stdout.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["resolve", "deps", "client", *scenarios()])
+    parser.add_argument("command", choices=["resolve", "deps", "compat", "client", *scenarios()])
     command = parser.parse_args().command
     try:
         if command == "resolve":
@@ -636,6 +877,10 @@ def main() -> int:
         if command == "deps":
             passed = deps_demo()
             say("DEPS PASS" if passed else "DEPS FAIL")
+            return 0 if passed else 1
+        if command == "compat":
+            passed = compat_demo()
+            say("COMPAT PASS" if passed else "COMPAT FAIL")
             return 0 if passed else 1
         run_scenario(command)
     except (TestpackError, OSError) as error:

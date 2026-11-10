@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.ai
 
+import codes.honor.cobblemondynamics.engine.EngineTiming
 import com.cobblemon.mod.common.api.ai.BehaviourConfigurationContext
 import com.cobblemon.mod.common.api.ai.config.task.SingleTaskConfig
 import com.cobblemon.mod.common.api.npc.configuration.MoLangConfigVariable
@@ -24,11 +25,11 @@ class SwitchToWorkTaskConfig : SingleTaskConfig {
 }
 
 class SwitchToWorkTask : OneShot<LivingEntity>() {
-    override fun trigger(level: ServerLevel, entity: LivingEntity, gameTime: Long): Boolean {
+    override fun trigger(level: ServerLevel, entity: LivingEntity, gameTime: Long): Boolean = EngineTiming.time {
         val brain = entity.brain
         val work = DynamicsActivities.WORK.get()
-        if (!brain.hasMemoryValue(DynamicsMemories.WORK_ORDER.get()) || brain.isActive(work)) return false
+        if (!brain.hasMemoryValue(DynamicsMemories.WORK_ORDER.get()) || brain.isActive(work)) return@time false
         if (entity is PokemonEntity) BrainBridge.enterWork(entity) else brain.setActiveActivityIfPossible(work)
-        return true
+        true
     }
 }

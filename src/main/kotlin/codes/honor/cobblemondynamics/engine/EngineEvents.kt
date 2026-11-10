@@ -15,6 +15,7 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import net.neoforged.neoforge.event.server.ServerStoppingEvent
 import net.neoforged.neoforge.event.tick.LevelTickEvent
+import net.neoforged.neoforge.event.tick.ServerTickEvent
 
 /** The game events that drive the work engine. */
 object EngineEvents {
@@ -32,13 +33,19 @@ object EngineEvents {
             WorkEngine.stop()
             WorkModeService.reset()
             PanelViewers.reset()
+            EngineTiming.stopRecording()
         }
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { event ->
             (event.entity as? ServerPlayer)?.let(PanelViewers::forget)
         }
         NeoForge.EVENT_BUS.addListener<LevelTickEvent.Post> { event ->
             val level = event.level as? ServerLevel ?: return@addListener
-            WorkEngine.get()?.tickLevel(level)
+            EngineTiming.time { WorkEngine.get()?.tickLevel(level) }
+        }
+        // The last Dynamics code of a server tick, so the tick's Dynamics time ends here (CD-PERF-01).
+        NeoForge.EVENT_BUS.addListener<ServerTickEvent.Post> {
+            EngineTiming.time { PanelViewers.tick(it.server.tickCount.toLong()) }
+            EngineTiming.endTick()
         }
         NeoForge.EVENT_BUS.addListener<ChunkEvent.Unload> { event ->
             val level = event.level as? ServerLevel ?: return@addListener

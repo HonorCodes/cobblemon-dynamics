@@ -85,5 +85,31 @@
       "url": "https://cdn.modrinth.com/data/XxWD5pD3/versions/eLhFW15k/appliedenergistics2-19.1.3-beta.jar",
       "sha512": "4e29602df985ab8a006c48d395c9884b63e1db46d9aa90ef65d6534c8e947fd57db75f618e0f34377d19353a9ab4acbccd6317679f19d8c2e1789d8fd07c4da7"
     }
+  },
+  "compat": {
+    "cobbleworkers": {
+      "project": "cobbleworkers",
+      "version": "2.0.7",
+      "version_number": "2.0.7+1.8.3",
+      "filename": "cobbleworkers-neoforge-2.0.7+1.8.3.jar",
+      "url": "https://cdn.modrinth.com/data/i3XVG2gn/versions/mokG6AbI/cobbleworkers-neoforge-2.0.7%2B1.8.3.jar",
+      "sha512": "97540f0498aa93616a08ab7b3df66235ae4a9a7b925f4e3967ae4fa75451804202298793c439e501672a603f46147eb2e208030934d9932d4376fadbfefba4fe"
+    },
+    "cobblebase": {
+      "project": "cobblebase",
+      "version": "2.0.1",
+      "version_number": "2.0.1+1.8.0",
+      "filename": "cobblebase-neoforge-2.0.1+1.8.0.jar",
+      "url": "https://cdn.modrinth.com/data/kPojQdms/versions/pFYNQ6W2/cobblebase-neoforge-2.0.1%2B1.8.0.jar",
+      "sha512": "e7ea95a4b6df6f71ad0c3b6c45038d69267799cfe8a1b3a3b3501077755e2a2e5d16bc7d3d28fdca698aa06f0e33255ee156773f356cbaf73a3e428f86b3806b"
+    },
+    "cloth_config": {
+      "project": "cloth-config",
+      "version": "15.0.140",
+      "version_number": "15.0.140+neoforge",
+      "filename": "cloth-config-15.0.140-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/9s6osm5g/versions/izKINKFg/cloth-config-15.0.140-neoforge.jar",
+      "sha512": "aaf9b010955b8cd294e5a92f069985b18729fd5e2cf22d351f1dff9680f15488688803ec41e77e941cbde130ceb535014ca4c868047d80ab69c2d508e216654d"
+    }
   }
 }

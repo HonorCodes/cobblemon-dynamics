@@ -21,7 +21,7 @@ design of every task. This note holds what the plan does not.
   push per review round; no AI attribution or `Co-Authored-By` anywhere; stage explicit paths only; a
   commit with a `.md` file needs a ` [rag:N]` subject suffix (hook-enforced).
 
-## State at the time of writing (M1 complete)
+## State at the time of writing (M5 Task 9 Steps 1 to 3 done)
 
 | Item | State |
 | --- | --- |
@@ -31,8 +31,8 @@ design of every task. This note holds what the plan does not.
 | M2 | Merged: PR #7, merge commit `000cbd4`. |
 | Dependabot | Merged: tomlj 2.2.0 (#4), JUnit 6.1.3 (#5), and Gradle 9.9.0 with Kotlin 2.2.21 (#8). `dependabot.yml` keeps Kotlin on 2.2.x and the platform dependencies at their floors. To re-test a Dependabot pull request against a newer `main`, close and reopen it. |
 | M3 | Merged: PR #9, merge commit `e001192`. |
-| M4 | All five tasks are committed on `m4-vanilla-fe-roles`, plus the server-stop fix (`stopWorkingHandlers`): 276 unit tests, 95 of 95 GameTests, 3 of 3 in the core run, `DEPS PASS` and `SMOKE PASS`. Its pull request is open (`gh pr list`); merge it with a merge commit when CI is green. |
-| M5 | Not started. |
+| M4 | Merged: PR #10, merge commit `f6adcec`. |
+| M5 | Branch `m5-ui-compat-gate`, rebased onto `main` (`f6adcec`). Tasks 1 to 8 and the end-of-phase pass for the deferred rows are committed. Task 9 Steps 1 to 3 are done. `scripts/gate_report.py` wrote the gate report `docs/testing/phase-1-gate.md` for the run on commit `0cddb71`: 356 unit tests, 162, 3 and 1 GameTests, and `SMOKE`, `DEPS`, `COMPAT`, `RELOAD` and `RESTART PASS`. In it, all 269 rows with automated tests pass, 35 rows have a play-test part, and 3 rows stay open after Phase 1. `testpack.py client` assembled the play-test client in `run/testpack/client/mods/`. Next: the M5 pull request (Task 9 Step 4), then the stop for the approver's play-test (Step 5). M5 is one pull request. |
 
 ## Environment
 
@@ -124,15 +124,26 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 - CD-LSH-16 to CD-LSH-20 and CD-SEC-11 use the test-only role `cobblemon_dynamics:test_transfer` from the
   test mod, because Telekinesis ships in Phase 2.
 - GameTests simulate restarts (`WorkEngine.resetRuntimeForTest()` plus NBT round trips) and chunk unloads.
-  The test pack repeats them for real in M5 Task 6.
+  The test pack's `restart` and `reload` scenarios (M5 Task 6) repeat for real the checks that need no pastured
+  worker, because a dedicated test server has no player.
 - Keep the Task 9 GameTests cdAi01 and cdAi06, although rule 6 would not have asked for them.
 
 ## Carry-over items
 
-- End-of-phase pass (M5): a work spot is one cell, so a wide worker's body can overlap the blocks beside it
-  (CD-ASG-09). Check it in the play-test and widen the spot check if it shows.
-- End-of-phase pass (M5): a Burner Keeper works a creative Blaze Burner, which gains nothing from it. Make
-  `hasDemand` false for a creative burner.
+- Done in the end-of-phase pass (M5): a work spot was one cell, so a wide worker's body could overlap the blocks
+  beside it (CD-ASG-09). A Camerupt on real blocks got a spot in a gap one block wide. The spot check now needs
+  room for the worker's body on the spot's center and where navigation stops it
+  (`WideWorkerTests.cdAsg09WideWorkerGetsASpotItsBodyFits`). The play-test still checks it (manual checklist 14).
+- Done in the end-of-phase pass (M5): a Burner Keeper worked a creative Blaze Burner, which gains nothing
+  from it. `hasDemand` is now false for a creative burner (`BurnerTests.creativeBlazeBurnerHasNoDemand`).
+- Done in the end-of-phase pass (M5): two Pokémon that walk toward each other on the same row of cell centres
+  push each other straight back, because Minecraft pushes along the line between their centres. Navigation
+  follows cell centres and the engine snaps a Working worker to its spot's centre, so a walk that pushed a
+  Working worker off its spot stalled until the travel timeout (600 ticks), and CD-ASG-14 then skipped the
+  target for 6,000 ticks. The perf world (M5 Task 6) showed it in 5 of 13 runs. The approver's delegate ruled
+  that Work Mode workers must not deadlock this way. `WorkerPushMixin` now skips the push between two workers
+  that the engine directs (any state but Idle); players and every other entity still push workers
+  (`WorkerPushTests`). The play-test still checks a crowded pasture (manual checklist 15).
 - Role files: target particles now go out at the work focus and actor particles from the worker (M1, ADR-0007
   amendment). Put each particle of a new role file in the list that matches where Cobblemon emits it, as
   the Wheel Driver's `watergun_spray` (actor) shows.
@@ -145,12 +156,15 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 ## Next steps, in order
 
-1. `git pull` on `main`. If the M1 pull request is still open, finish it: CI green, threads resolved,
+Phase 1 has reached its gate. The work is stopped for the operator's play-test (M5 Task 9 Step 5).
+
+1. `git pull` on `main`. If the M5 pull request is still open, finish it: CI green, threads resolved,
    merge with a merge commit.
-2. Branch `m2-stamina-beds-healers` from `main` and run M2 in two parts (Tasks 1 to 3, then 4 to 6) with
-   the brief template and the carry-over items. Then M3, M4 and M5 the same way, one pull request each.
-   Update the plan text whenever reality differs, and keep `check_plan_coverage.py` at `missing: 0`.
-3. Before each pull request: build, GameTests twice, ktlint, ruff, super-linter and coverage, all on the
-   branch tip.
-4. At M5 Task 9, run the end-of-phase pass for the deferred rows, write the gate report, assemble the
-   play-test client with `testpack.py client`, and stop for the operator.
+2. Wait for the operator's play-test note. Record it in the play-test section of
+   `docs/testing/phase-1-gate.md`. CD-REL-13 completes then.
+3. Fix what the play-test finds, test first, in a follow-up pull request before any M6 work merges.
+4. Ask the operator before the CD-REL-12 demo, which pushes `v1.0.0-alpha.1` and then `v1.0.0-beta.1`.
+   Each tag creates a public GitHub pre-release.
+5. Phase 2 (M6 to M8: Telekinesis, Magnet, Fan, Tailwind and the final art) needs its own plan, written
+   with `superpowers:writing-plans` from the spec rows in the TLK, MAG, FAN, TLW and ART areas. Start it
+   with the known issues in the gate report, first the work spot reachability check.

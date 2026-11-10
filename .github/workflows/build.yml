@@ -51,6 +51,8 @@ jobs:
         run: ./gradlew runGameTestServer --stacktrace
       - name: GameTests without Create and AE2
         run: ./gradlew runGameTestServerCore --stacktrace
+      - name: Server time and logging of 64 Working workers
+        run: ./gradlew runGameTestServerPerf --stacktrace
       - name: Upload test reports and GameTest logs
         if: always()
         uses: actions/upload-artifact@v7
@@ -60,5 +62,6 @@ jobs:
             build/reports/tests/
             run/gametest/logs/
             run/gametest-core/logs/
+            run/gametest-perf/logs/
           if-no-files-found: ignore
           retention-days: 14

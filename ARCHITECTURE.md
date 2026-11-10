@@ -77,9 +77,10 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
                          ItemUseOverridesMixin, EncasedFanBlockEntityMixin,
                          NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
   vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
-                         other code load)
-  cobblemon/client/      PastureWidgetMixin (stamina bars)
-  compat/cobblebase/     @Pseudo mixins
+                         other code load), WorkerPushMixin (no push between two directed workers)
+  cobblemon/client/      PastureWidgetMixin (stamina bars), PasturePokemonScrollListMixin (list height)
+  compat/cobblebase/     AmbientBehaviorMixin, NavigationHelperMixin, BaseManagerMixin, PassiveXpMixin
+                         (@Pseudo hooks in Cobblebase's helpers)
 src/main/resources/
   META-INF/neoforge.mods.toml
   META-INF/accesstransformer.cfg
@@ -295,6 +296,14 @@ Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that 
 7. Entering the work activity ends Cobblemon's own night sleep, as its wake-up task does: it clears the
    battle SLEEP status and the `pokemon_sleeping` memory, which only that task clears otherwise.
 
+Two workers that the engine directs, in any state but Idle, do not push each other: `WorkerPushMixin`
+skips `LivingEntity.push` between them, on the server. Minecraft pushes two entities apart along the
+line between their centres, and navigation follows cell centres. So two workers that met in one row
+pushed each other straight back, and a walker pushed a Working worker off its spot, which then walked
+back into it, until the trip timed out and CD-ASG-14 kept the worker off its target for 6,000 ticks.
+Players, wild Pokémon, other mobs and Idle Pokémon still push workers and are pushed by them. When the
+mixin does not inject, the mod logs one warning and workers push each other as before.
+
 `TargetHandler` contract (Kotlin sketch):
 
 ```kotlin
@@ -368,7 +377,8 @@ references. This section lists what the code uses.
 - **Pasture panel.** `ScreenEvent.Init.Post` fires for `PCGUI`. When `screen.configuration` is a
   `PasturePCGUIConfiguration`, the client adds the Work Mode button. The panel's top-left corner is
   ((w − 349) / 2 + 267, (h − 205) / 2 + 8), and the panel is 82 × 169. Cobblemon's Recall button
-  sits at panel offset (6, 153). The stamina bars use a mixin at the tail of
+  sits at panel offset (6, 153), and the Work Mode button, 70 × 12, sits 2 pixels above it. A mixin shortens
+  Cobblemon's list to end 2 pixels above the button. The stamina bars use a mixin at the tail of
   `PastureWidget.renderWidget`. The mixin draws each bar beside its row, at the row positions of the
   widget's own scroll list.
 - **Brain.** Register task types in `TaskConfig.types` and the activity in the vanilla activity
@@ -444,7 +454,8 @@ references. This section lists what the code uses.
   ends one tick after release. The handler renews the heat of a burner on every tick that its worker
   Works, and the heat lapses one tick after the last renewal, so a release that never came leaves no
   burner hot. Empty burners (`HeatLevel.NONE`, no block entity) are never targets, because heating
-  one would duplicate a blaze.
+  one would duplicate a blaze. A creative burner has no demand: its tick returns before it reads the
+  heat level, so a worker's heat would never reach it.
 - **Boilers.** Create's `BoilerHeater` registry reads the burner block state. `KINDLED` gives 1 heat
   and `SEETHING` gives 2. Boilers need no extra code.
 - **Drive direction.** `BlockEntityBehaviourEvent.forType(...)` for `AllBlockEntityTypes.WATER_WHEEL`,
@@ -503,6 +514,19 @@ references. This section lists what the code uses.
   through a LOWEST-priority adapter. Telekinesis queries the cable part from the face it sits on,
   because a `null` side reaches the cable. Items land in the interface's 9-slot buffer. AE2 sends
   them to the network on its grid tick, when the interface has a channel and power.
+
+### Cobbleworkers 2.0.7 and Cobblebase 2.0.1
+
+Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-with-pasture-job-mods.md)).
+
+- **Cobbleworkers.** It gives no job to a Pokémon whose `persistentData` holds `cobbleworkers.resting = true`.
+  At each poll the engine sets that flag on every worker of a Work Mode pasture and marks it as ours; when the
+  worker leaves, it clears only a flag that it marked. No Cobbleworkers class is used.
+- **Cobblebase.** Its pasture loop runs inside its own mixin handler at the tail of Cobblemon's pasture ticker,
+  which another mixin cannot target. Four `@Pseudo` mixins hook the helper methods that the loop calls instead:
+  for a Work Mode pasture or one of its workers, Cobblebase finds no water to move a Water-type into, starts no
+  idle behaviour, sleep lock, wander, unstick or job, and gives no passive experience. At start, the mod logs one
+  warning that names each hook that did not apply.
 
 ### NeoForge 21.1 and vanilla 1.21.1
 
@@ -726,6 +750,14 @@ Rules:
   `@GameTestGenerator`. Run `gradlew runGameTestServer` with
   `neoforge.enabledGameTestNamespaces=cobblemon_dynamics`. The exit code is the number of failed
   required tests. Cobblemon, Create and AE2 join the run as `localRuntime` dependencies.
+- **Performance run.** `gradlew runGameTestServerPerf` runs `PerfTests` alone, in the namespace
+  `cobblemon_dynamics_perf`: 8 pastures with 64 Working Stokers for 6,000 ticks. While a recording runs,
+  `EngineTiming` adds up, per server tick, the time of every per-tick entry point of Dynamics: the engine's
+  level ticks, the leash index check, the panel sends and the work Brain tasks. The test checks the mean and
+  p95 budgets (CD-PERF-01, CD-PERF-02) and that Dynamics logs only once-per-cause warnings (CD-PERF-05).
+- **Isolated test pack.** `scripts/testpack/testpack.py` starts clean dedicated servers with pinned mods for
+  the dependency ranges, the compatibility cases, a real `/reload` and a real restart. Its servers have no
+  player, so the checks that need a pastured worker stay in the GameTests.
 - **Manual checklist.** `docs/testing/manual-checklist.md` (written in milestone M5) covers what tests
   cannot see: animations, the pasture panel button and bars, head bars, sleep visuals, leash messages,
   fan particles on the client, and coexistence with Cobbleworkers and Cobblebase. The spec sheet's

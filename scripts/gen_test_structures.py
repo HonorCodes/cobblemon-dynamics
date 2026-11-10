@@ -2,7 +2,9 @@
 """Writes empty GameTest structure templates with a stone floor at y = 0.
 
 Usage: py scripts/gen_test_structures.py
-Output: src/gametest/resources-shared/data/cobblemon_dynamics/structure/floor_<x>x<y>x<z>.nbt (both GameTest runs)
+Output: src/gametest/resources-shared/data/cobblemon_dynamics/structure/floor_<x>x<y>x<z>.nbt (both GameTest runs), and
+src/gametest/resources/data/cobblemon_dynamics_perf/structure/ for the perf run. NeoForge takes a test's namespace as the
+namespace of its template too, so the perf tests, which have their own namespace, need their own copy.
 """
 import gzip
 import pathlib
@@ -12,6 +14,8 @@ DATA_VERSION = 3955  # Minecraft 1.21.1
 SIZES = [(9, 5, 9), (15, 6, 15), (23, 10, 23), (23, 17, 23), (41, 8, 41)]
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "src/gametest/resources-shared/data/cobblemon_dynamics/structure"
+PERF_SIZES = [(41, 8, 41)]
+PERF_OUT = ROOT / "src/gametest/resources/data/cobblemon_dynamics_perf/structure"
 
 
 def name(tag_type: int, key: str) -> bytes:
@@ -44,11 +48,12 @@ def structure(x: int, y: int, z: int) -> bytes:
 
 
 def main() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
-    for x, y, z in SIZES:
-        path = OUT / f"floor_{x}x{y}x{z}.nbt"
-        path.write_bytes(gzip.compress(structure(x, y, z), mtime=0))
-        print(path.relative_to(ROOT).as_posix())
+    for out, sizes in ((OUT, SIZES), (PERF_OUT, PERF_SIZES)):
+        out.mkdir(parents=True, exist_ok=True)
+        for x, y, z in sizes:
+            path = out / f"floor_{x}x{y}x{z}.nbt"
+            path.write_bytes(gzip.compress(structure(x, y, z), mtime=0))
+            print(path.relative_to(ROOT).as_posix())
 
 
 if __name__ == "__main__":

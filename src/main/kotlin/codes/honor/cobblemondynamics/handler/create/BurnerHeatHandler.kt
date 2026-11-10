@@ -26,10 +26,13 @@ object BurnerHeatHandler : TargetHandler {
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = burnerAt(level, canonical) != null
 
-    /** CD-BRN-03: Create's own test for a basin or a fluid tank directly above, the blocks that use the heat. */
+    /**
+     * CD-BRN-03: Create's own test for a basin or a fluid tank directly above, the blocks that use the heat. A creative burner's tick
+     * returns before it reads the heat level, so a worker's heat never reaches its block state, and it has no demand.
+     */
     override fun hasDemand(ctx: WorkContext): Boolean {
         val burner = burnerAt(ctx.level, ctx.target) ?: return false
-        return burner.isValidBlockAbove && heatOf(ctx) != null
+        return !burner.isCreative() && burner.isValidBlockAbove && heatOf(ctx) != null
     }
 
     override fun onStart(ctx: WorkContext) = applyWork(ctx)

@@ -1018,6 +1018,7 @@ data class WorkArea(val center: BlockPos, val horizontal: Int, val vertical: Int
 interface SpotGrid {
     fun isStandable(x: Int, y: Int, z: Int): Boolean   // a floor below, room for the body at y and y + 1
     fun blocksSight(x: Int, y: Int, z: Int): Boolean   // the caller excludes the target's own blocks
+    fun fitsBody(x: Int, y: Int, z: Int): Boolean = true   // added in the end-of-phase pass: room for a wide or tall body
 }
 
 object WorkSpots {
@@ -1031,6 +1032,15 @@ A spot's center is `(x + 0.5, y + 0.5, z + 0.5)`. `find` checks every position w
 the target center that is inside the area, standable, in range and has line of sight from its center to
 the target center. It returns the one nearest to `from` (the worker), then the one nearest to the
 target, then the lowest `BlockPos.asLong()`.
+
+As built after the end-of-phase pass (M5): a spot is standable for a worker only when its whole body fits
+there. The engine snaps a worker to the spot's center, and navigation stops a mob 1 block wide or wider at
+`spot + (int)(bbWidth + 1) / 2` (`Arrival.stopOffset`), so `WorkerBody.boxes` gives the body's box at both
+places, and `LevelSpotGrid.fitsBody` needs both free of block collisions. A body that stays inside the
+spot's two cells (at most 1 block wide and 2 high) needs no more than `isStandable`. `find` asks `fitsBody`
+only of a spot that would be the best so far. The pass found the gap: with one cell checked, a Camerupt 2.3
+blocks wide got a spot in a gap one block wide, where its body overlapped the walls and its path could not
+go (`WideWorkerTests.cdAsg09WideWorkerGetsASpotItsBodyFits`, `WorkSpotsTest`, `WorkerBodyTest`).
 
 - [ ] **Step 1: Write the failing tests**
 

@@ -4,8 +4,8 @@ import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
-import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.pasture.WorkModePolicy
+import codes.honor.cobblemondynamics.stamina.PanelCadence
 import codes.honor.cobblemondynamics.stamina.Stamina
 import codes.honor.cobblemondynamics.stamina.StaminaStore
 import codes.honor.cobblemondynamics.stamina.StaminaView
@@ -20,24 +20,42 @@ import java.util.UUID
 object PanelViewers {
     private const val PERMISSION_OPERATOR = 2
 
-    private val viewers = HashMap<PastureKey, LinkedHashSet<ServerPlayer>>()
+    private class View(val player: ServerPlayer, val level: ServerLevel, val pos: BlockPos, val openedAt: Long)
+
+    /** By player, in the order the panels opened. */
+    private val views = LinkedHashMap<UUID, View>()
     private val lastSent = HashMap<UUID, PasturePanelStatePayload>()
 
     /** [player] opened the panel of the pasture at [pos]: it views that pasture alone and gets its state now. */
     fun open(player: ServerPlayer, level: ServerLevel, pos: BlockPos) {
         close(player)
-        viewers.getOrPut(keyOf(level, pos), ::LinkedHashSet) += player
+        views[player.uuid] = View(player, level, pos.immutable(), player.server.tickCount.toLong())
         send(player, level, pos)
     }
 
     fun close(player: ServerPlayer) {
-        viewers.values.forEach { it.remove(player) }
-        viewers.values.removeIf { it.isEmpty() }
+        views.remove(player.uuid)
     }
 
     /** CD-SEC-06: after every Work Mode change, in arrival order, each viewer gets the state that the change left. */
     fun broadcast(level: ServerLevel, pos: BlockPos) {
-        viewers[keyOf(level, pos)]?.toList()?.forEach { send(it, level, pos) }
+        views.values.filter { it.level == level && it.pos == pos }.forEach { send(it.player, level, pos) }
+    }
+
+    /**
+     * CD-UI-05: every 20 ticks after its panel opened, a viewer gets its pasture's state again. A viewer whose Cobblemon pasture link
+     * now points elsewhere, or who left the level, has closed the panel.
+     */
+    fun tick(now: Long) {
+        for (view in views.values.toList()) {
+            if (now == view.openedAt || !PanelCadence.shouldSend(view.openedAt, now)) continue
+            val player = view.player
+            if (player.isRemoved || player.serverLevel() != view.level || PastureAdapter.linkedPasture(player) != view.pos) {
+                views.remove(player.uuid)
+                continue
+            }
+            send(player, view.level, view.pos)
+        }
     }
 
     /** Sends [player] the state of the pasture at [pos], for example to correct a panel after a refused request. */
@@ -57,7 +75,7 @@ object PanelViewers {
     }
 
     fun reset() {
-        viewers.clear()
+        views.clear()
         lastSent.clear()
     }
 
@@ -77,6 +95,4 @@ object PanelViewers {
         val pokemon = PastureAdapter.tetheredPokemon(be, pokemonId)?.pokemon ?: return Stamina()
         return StaminaStore.load(pokemon, level.gameTime, WorkEngineSettings.current)
     }
-
-    private fun keyOf(level: ServerLevel, pos: BlockPos) = PastureKey(level.dimension().location(), pos.asLong())
 }

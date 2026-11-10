@@ -5,13 +5,21 @@
   "plugin": "codes.honor.cobblemondynamics.mixin.MixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "compat.cobblebase.AmbientBehaviorMixin",
+    "compat.cobblebase.BaseManagerMixin",
+    "compat.cobblebase.NavigationHelperMixin",
+    "compat.cobblebase.PassiveXpMixin",
     "create.BlazeBurnerBlockEntityMixin",
     "create.ItemUseOverridesMixin",
     "create.WaterWheelBlockEntityMixin",
     "vanilla.EnchantmentMenuAccess",
-    "vanilla.EnchantmentMenuMixin"
+    "vanilla.EnchantmentMenuMixin",
+    "vanilla.WorkerPushMixin"
   ],
-  "client": [],
+  "client": [
+    "cobblemon.client.PasturePokemonScrollListMixin",
+    "cobblemon.client.PastureWidgetMixin"
+  ],
   "injectors": {
     "defaultRequire": 0
   }

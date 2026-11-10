@@ -7,9 +7,12 @@ import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
+import codes.honor.cobblemondynamics.stamina.Stamina
 import codes.honor.cobblemondynamics.stamina.StaminaMath
+import codes.honor.cobblemondynamics.stamina.StaminaStore
 import com.cobblemon.mod.common.CobblemonMemories
 import com.cobblemon.mod.common.api.pokemon.status.Statuses
 import com.cobblemon.mod.common.entity.PoseType
@@ -25,6 +28,8 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -249,7 +254,8 @@ class RestTests {
      * Carry-over from M1. Cobblemon's night sleep gives a pastured Pokémon the battle SLEEP status and its sleeping memory, and only its
      * own wake-up task, in the sleeping activity, clears them. A work order replaces that activity, so the Brain bridge wakes the
      * Pokémon when it starts work: no battle status, no sleeping memory and no sleep pose while it works (CD-AI-07). The batch runs at
-     * night, and the test keeps the Charmander drowsy so that Cobblemon's own go_to_sleep task puts it to sleep soon.
+     * night, and the test keeps the Charmander drowsy so that Cobblemon's own go_to_sleep task puts it to sleep soon. The furnace comes
+     * only while the Charmander sleeps, so its claim wakes a sleeper.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 2_400, batch = NIGHT_BATCH)
     fun cdAi07NightSleepEndsWhenWorkStarts(helper: GameTestHelper) {
@@ -259,10 +265,15 @@ class RestTests {
         val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
         val engine = TestKit.engine(helper)
         val id = fire.pokemon.uuid
+        val furnacePos = BlockPos(7, 1, 3)
+        var furnace: AbstractFurnaceBlockEntity? = null
         var claimedAt = -1L
         var asleep = false
+        var earlyWakes = 0
         helper.runAtTickTime(2_399) {
-            helper.fail("asleep $asleep, status ${fire.pokemon.status?.status?.name}, worker ${engine.worker(id)?.status}")
+            helper.fail(
+                "asleep $asleep, status ${fire.pokemon.status?.status?.name}, worker ${engine.worker(id)?.status}, early wakes $earlyWakes",
+            )
         }
         helper.onEachTick {
             val brain = fire.brain
@@ -272,12 +283,21 @@ class RestTests {
             if (!asleep) {
                 if (hasBattleSleep(fire) && brain.isMemoryValue(CobblemonMemories.POKEMON_SLEEPING, true)) {
                     asleep = true
-                    TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
+                    furnace = TestKit.furnace(helper, furnacePos, ItemStack(Items.RAW_IRON, 8))
                 }
                 return@onEachTick
             }
             if (claim == null) {
-                helper.assertTrue(hasBattleSleep(fire), "Cobblemon woke the Charmander before it got a claim")
+                if (!hasBattleSleep(fire)) {
+                    // The drowsy sensor also clears the memory by chance (its rouse chance, 1 in 240 for each run, once a second).
+                    // Cobblemon's wake-up task then wakes the Charmander in the same Brain tick, before this handler sets the memory
+                    // again. Take the furnace away and wait for the next sleep, so that the claim still comes while the Charmander sleeps.
+                    earlyWakes++
+                    asleep = false
+                    furnace?.clearContent()
+                    furnace = null
+                    helper.setBlock(furnacePos, Blocks.AIR)
+                }
                 return@onEachTick
             }
             if (claimedAt < 0) claimedAt = helper.tick
@@ -288,6 +308,344 @@ class RestTests {
                 helper.assertFalse(fire.entityData.get(PokemonEntity.POSE_TYPE) == PoseType.SLEEP, "the worker works in the sleep pose")
             }
             if (engine.worker(id)?.status == WorkerStatus.WORKING) helper.succeed()
+        }
+    }
+
+    /**
+     * Two Lv10 Charmanders and one furnace. The one that works it is left one tick of Work Stamina: on the tick that it is Tired its
+     * work claim is gone (CD-STA-13), and the other Charmander, which waited Idle, claims the furnace at the pasture's next scan, at
+     * most `scanIntervalTicks` later.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun cdSta13TiredAutoWorkerFreesItsMachineForTheNextScan(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        val furnace = TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8)).blockPos
+        val pair = List(2) { TestKit.tether(helper, pasture, owner, "charmander level=10") }
+        val engine = TestKit.engine(helper)
+        val key = TestKit.keyOf(helper, furnace)
+        val capacity = StaminaMath.capacityTicks(10, WorkEngineSettings.current)
+        var first: PokemonEntity? = null
+        var tiredAt = -1L
+        helper.onEachTick {
+            val holder = engine.claims.holderOf(key)
+            val tired = first
+            if (tired == null) {
+                val working = pair.firstOrNull { TestKit.workerOf(helper, it)?.status == WorkerStatus.WORKING } ?: return@onEachTick
+                TestKit.workerOf(helper, working)!!.stamina.fraction = 1.0 / capacity
+                first = working
+                return@onEachTick
+            }
+            val worker = TestKit.workerOf(helper, tired) ?: throw GameTestAssertException("the first Charmander left the engine")
+            if (tiredAt < 0) {
+                if (!worker.tired) return@onEachTick
+                tiredAt = helper.tick
+                helper.assertTrue(
+                    TestKit.claimOf(helper, tired) == null,
+                    "CD-STA-13: the Tired worker still holds ${TestKit.claimOf(helper, tired)}",
+                )
+                helper.assertTrue(holder == null, "CD-STA-13: the furnace is still claimed by $holder on the tick its worker got Tired")
+                return@onEachTick
+            }
+            val second = pair.single { it !== tired }
+            if (holder == null) {
+                val waited = helper.tick - tiredAt
+                helper.assertTrue(
+                    waited <= WorkEngineSettings.current.scanIntervalTicks,
+                    "CD-STA-13: no claim on the free furnace after $waited ticks",
+                )
+                return@onEachTick
+            }
+            helper.assertTrue(
+                holder.worker == second.pokemon.uuid,
+                "CD-STA-13: the free furnace went to ${holder.worker}, not the waiting worker",
+            )
+            helper.succeed()
+        }
+    }
+
+    /**
+     * A Lv10 Charmander is Tired at 300 ticks short of 100% and rests in place, and the owner binds it to a furnace with input. It
+     * neither claims nor works the furnace before it reaches 100%, and it keeps the binding (CD-LSH-12). At 100% it travels to the
+     * furnace and works it.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_200)
+    fun cdLsh12BindingMadeWhileTiredWaitsUntilFull(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        TestKit.standBeside(owner, pasture)
+        val furnaceRel = BlockPos(7, 1, 3)
+        val furnace = TestKit.furnace(helper, furnaceRel, ItemStack(Items.RAW_IRON, 8)).blockPos
+        val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        val engine = TestKit.engine(helper)
+        val id = fire.pokemon.uuid
+        val capacity = StaminaMath.capacityTicks(10, WorkEngineSettings.current)
+        var bound: Binding? = null
+        var spent = false
+        var rested = false
+        helper.onEachTick {
+            val worker = engine.worker(id) ?: return@onEachTick
+            if (!spent) {
+                worker.stamina.fraction = 1.0 - REST_LEFT_TICKS / capacity
+                worker.tired = true
+                spent = true
+                return@onEachTick
+            }
+            if (bound == null) {
+                if (worker.status != WorkerStatus.RESTING_IN_PLACE) return@onEachTick
+                bound =
+                    TestKit.bind(helper, owner, fire, furnaceRel)
+                        ?: throw GameTestAssertException("the leash did not bind the Tired worker")
+                helper.assertTrue(bound?.target == furnace, "the Tired worker is bound to ${bound?.target}")
+                return@onEachTick
+            }
+            helper.assertTrue(BindingStore.read(fire.pokemon) == bound, "CD-LSH-12: the binding is ${BindingStore.read(fire.pokemon)}")
+            val claim = engine.claims.claimOf(id)
+            if (worker.tired) {
+                helper.assertTrue(claim == null, "CD-LSH-12: the Tired worker took $claim at ${worker.stamina}")
+                helper.assertTrue(worker.status == WorkerStatus.RESTING_IN_PLACE, "CD-LSH-12: the Tired worker is ${worker.status}")
+                return@onEachTick
+            }
+            if (!rested) {
+                helper.assertTrue(worker.stamina.fraction == 1.0, "CD-LSH-12: the worker stopped resting at ${worker.stamina}")
+                rested = true
+            }
+            if (worker.status == WorkerStatus.WORKING) {
+                helper.assertTrue(claim?.key == TestKit.keyOf(helper, furnace), "the rested worker works ${claim?.key}")
+                helper.succeed()
+            }
+        }
+    }
+
+    /**
+     * A pasture at the center of the 23 × 23 floor and one Lv10 Charmander. With the only bed at horizontal offset 9, outside the
+     * work area, the Tired worker rests in place and claims no bed. It is woken, the bed moves to offset 8, inside the work area, and
+     * the next time it is Tired it claims that bed (CD-BED-07).
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 600)
+    fun cdBed07OnlyABedInsideTheWorkAreaIsClaimed(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 11), owner)
+        TestKit.workMode(pasture, true)
+        val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        val engine = TestKit.engine(helper)
+        val id = fire.pokemon.uuid
+        val outsideRel = BlockPos(2, 2, 11)
+        val insideRel = BlockPos(3, 2, 11)
+        val hay = DynamicsBlocks.BEDS.getValue(BedTier.HAY).get()
+        helper.setBlock(outsideRel, hay)
+        val outsideKey = TestKit.keyOf(helper, helper.absolutePos(outsideRel))
+        val insideKey = TestKit.keyOf(helper, helper.absolutePos(insideRel))
+        var step = "outside"
+        var since = -1L
+        helper.onEachTick {
+            val worker = engine.worker(id) ?: return@onEachTick
+            val claim = engine.claims.claimOf(id)
+            helper.assertFalse(claim?.key == outsideKey, "CD-BED-07: the worker claimed the bed at offset 9")
+            when (step) {
+                "outside" -> {
+                    worker.stamina.fraction = 0.0
+                    worker.tired = true
+                    since = helper.tick
+                    step = "resting"
+                }
+
+                "resting" -> {
+                    helper.assertTrue(
+                        worker.status == WorkerStatus.RESTING_IN_PLACE,
+                        "CD-BED-07: with the bed at offset 9 it is ${worker.status}",
+                    )
+                    helper.assertTrue(claim == null, "CD-BED-07: with the bed at offset 9 it holds $claim")
+                    if (helper.tick - since < 100) return@onEachTick
+                    worker.stamina.fraction = 1.0
+                    worker.tired = false
+                    step = "woken"
+                }
+
+                "woken" -> if (worker.status == WorkerStatus.IDLE) {
+                    helper.setBlock(outsideRel, Blocks.AIR)
+                    helper.setBlock(insideRel, hay)
+                    worker.stamina.fraction = 0.0
+                    worker.tired = true
+                    step = "inside"
+                }
+
+                "inside" -> {
+                    helper.assertTrue(claim?.kind == ClaimKind.BED && claim.key == insideKey, "CD-BED-07: the bed at offset 8 gave $claim")
+                    val toBed = worker.status == WorkerStatus.TO_BED || worker.status == WorkerStatus.SLEEPING
+                    helper.assertTrue(toBed, "CD-BED-07: with the bed at offset 8 it is ${worker.status}")
+                    helper.succeed()
+                }
+            }
+        }
+    }
+
+    /**
+     * A Tired Lv10 Charmander sleeps on a Hay Bed and recovers at twice the base rate. The bed is broken under it, and on the next tick
+     * it rests in place, holds no bed claim and recovers at the base rate (CD-BED-11).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun cdBed11BrokenBedMeansRestInPlace(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        val bedRel = BlockPos(7, 2, 3)
+        helper.setBlock(bedRel, DynamicsBlocks.BEDS.getValue(BedTier.HAY).get())
+        val engine = TestKit.engine(helper)
+        val id = fire.pokemon.uuid
+        val settings = WorkEngineSettings.current
+        val base = 1.0 / StaminaMath.capacityTicks(10, settings)
+        val onHay = base * StaminaMath.bedFactor(BedTier.HAY.tier, settings)
+        var spent = false
+        var sleptAt = -1L
+        var brokenAt = -1L
+        var last = -1.0
+        helper.onEachTick {
+            val worker = engine.worker(id) ?: return@onEachTick
+            val claim = engine.claims.claimOf(id)
+            val fraction = worker.stamina.fraction
+            val step = fraction - last
+            last = fraction
+            if (!spent) {
+                TestKit.moveTo(helper, fire, BlockPos(7, 2, 5))
+                worker.stamina.fraction = 0.0
+                worker.tired = true
+                spent = true
+                return@onEachTick
+            }
+            if (brokenAt < 0) {
+                if (worker.status != WorkerStatus.SLEEPING) return@onEachTick
+                if (sleptAt < 0) sleptAt = helper.tick
+                // Measured over a tick that starts and ends asleep, so the walk's base rate is not in it.
+                if (helper.tick - sleptAt < 2) return@onEachTick
+                helper.assertTrue(abs(step - onHay) < 1e-12, "the sleeper gains $step per tick on the Hay Bed, not $onHay")
+                helper.level.destroyBlock(helper.absolutePos(bedRel), false)
+                brokenAt = helper.tick
+                return@onEachTick
+            }
+            helper.assertTrue(worker.status == WorkerStatus.RESTING_IN_PLACE, "CD-BED-11: 1 tick after the break it is ${worker.status}")
+            helper.assertTrue(claim == null, "CD-BED-11: 1 tick after the break it holds $claim")
+            helper.assertTrue(abs(step - base) < 1e-12, "CD-BED-11: 1 tick after the break it gains $step per tick, not the base $base")
+            helper.succeed()
+        }
+    }
+
+    /**
+     * Beside a free Hay Bed for 1,200 ticks: a Work Mode worker at 50%, a wild Charmander, and a Charmander of a pasture with Work
+     * Mode off whose saved Work Stamina says Tired. None of them claims the bed or lies down on it (CD-BED-13). Then the worker is
+     * Tired, and it claims the bed, which shows that the bed was free to take.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_400)
+    fun cdBed13OnlyTiredWorkersOfWorkModePasturesGoToBed(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(4, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        val offPasture = TestKit.placePasture(helper, BlockPos(10, 1, 7), owner)
+        val bedRel = BlockPos(7, 2, 7)
+        helper.setBlock(bedRel, DynamicsBlocks.BEDS.getValue(BedTier.HAY).get())
+        val bedKey = TestKit.keyOf(helper, helper.absolutePos(bedRel))
+        val worker = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        val wild = TestKit.wild(helper, BlockPos(7, 2, 8), "charmander level=10")
+        val off = TestKit.tether(helper, offPasture, owner, "charmander level=10")
+        StaminaStore.write(off.pokemon.persistentData, Stamina(0.0, tired = true), helper.level.gameTime)
+        val engine = TestKit.engine(helper)
+        val id = worker.pokemon.uuid
+        var halfAt = -1L
+        helper.onEachTick {
+            for ((what, entity) in listOf(
+                "the 50% worker" to worker,
+                "the wild Charmander" to wild,
+                "the Work Mode off Charmander" to off,
+            )) {
+                if (halfAt >= 0 && helper.tick - halfAt >= QUIET_TICKS && entity === worker) continue
+                helper.assertFalse(isSleepPose(entity), "CD-BED-13: $what lies down")
+                helper.assertTrue(engine.claims.claimOf(entity.pokemon.uuid) == null, "CD-BED-13: $what holds a claim")
+            }
+            helper.assertTrue(
+                engine.claims.holderOf(bedKey)?.worker.let {
+                    it == null || it == id
+                },
+                "CD-BED-13: another Pokémon holds the bed",
+            )
+            helper.assertTrue(engine.worker(off.pokemon.uuid) == null, "the Charmander of the Work Mode off pasture is a worker")
+            helper.assertTrue(engine.worker(wild.pokemon.uuid) == null, "the wild Charmander is a worker")
+            val live = engine.worker(id) ?: return@onEachTick
+            if (halfAt < 0) {
+                live.stamina.fraction = 0.5
+                halfAt = helper.tick
+                return@onEachTick
+            }
+            val waited = helper.tick - halfAt
+            if (waited < QUIET_TICKS) {
+                helper.assertFalse(live.status.isResting, "CD-BED-13: the worker at ${live.stamina} is ${live.status}")
+                return@onEachTick
+            }
+            if (waited == QUIET_TICKS.toLong()) {
+                live.stamina.fraction = 0.0
+                live.tired = true
+                return@onEachTick
+            }
+            val claim = engine.claims.claimOf(id)
+            helper.assertTrue(claim?.kind == ClaimKind.BED && claim.key == bedKey, "the Tired worker did not claim the free bed: $claim")
+            helper.succeed()
+        }
+    }
+
+    /**
+     * A Tired Lv10 Charmander sleeps on a Hay Bed, and the server restarts: every claim is gone. When the worker joins again, it lies
+     * on a free bed in the sleep pose within 40 ticks (CD-BED-14). The restart drops the whole engine, so the test has its own batch.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000, batch = "restart_bed14")
+    fun cdBed14SleeperClaimsABedAfterRestart(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        val bedRel = BlockPos(7, 2, 3)
+        helper.setBlock(bedRel, DynamicsBlocks.BEDS.getValue(BedTier.HAY).get())
+        val bed = helper.absolutePos(bedRel)
+        val engine = TestKit.engine(helper)
+        val id = fire.pokemon.uuid
+        var spent = false
+        var sleptAt = -1L
+        var restartedAt = -1L
+        var loadedAt = -1L
+        helper.onEachTick {
+            if (restartedAt < 0) {
+                val worker = engine.worker(id) ?: return@onEachTick
+                if (!spent) {
+                    worker.stamina.fraction = 0.0
+                    worker.tired = true
+                    spent = true
+                    return@onEachTick
+                }
+                if (worker.status != WorkerStatus.SLEEPING) return@onEachTick
+                if (sleptAt < 0) sleptAt = helper.tick
+                if (helper.tick - sleptAt < 60) return@onEachTick
+                TestKit.simulateRestart(helper)
+                helper.assertTrue(engine.claims.all().isEmpty(), "the registry holds a claim after the restart")
+                restartedAt = helper.tick
+                return@onEachTick
+            }
+            val worker = engine.worker(id) ?: return@onEachTick
+            if (loadedAt < 0) {
+                loadedAt = helper.tick
+                helper.assertTrue(worker.tired, "the worker joined after the restart at ${worker.stamina}, not Tired")
+            }
+            val claim = engine.claims.claimOf(id)
+            val onBed = worker.status == WorkerStatus.SLEEPING &&
+                claim?.kind == ClaimKind.BED &&
+                claim.key == TestKit.keyOf(helper, bed) &&
+                fire.position().distanceTo(BedCandidate.sleepPoint(bed)) <= 0.25
+            if (onBed && isSleepPose(fire)) {
+                helper.succeed()
+                return@onEachTick
+            }
+            val waited = helper.tick - loadedAt
+            helper.assertTrue(waited < 40, "CD-BED-14: $waited ticks after it joined the worker is ${worker.status} with $claim")
         }
     }
 
@@ -321,6 +679,8 @@ class RestTests {
         const val NIGHT_BATCH = "night_sleep"
         private const val NIGHT = 18_000L
         private const val DAY = 6_000L
+        private const val REST_LEFT_TICKS = 300.0
+        private const val QUIET_TICKS = 1_200
 
         /** The settings before the fast batch. Batches run one after another, so one slot is enough. */
         private var saved: EngineSettings? = null

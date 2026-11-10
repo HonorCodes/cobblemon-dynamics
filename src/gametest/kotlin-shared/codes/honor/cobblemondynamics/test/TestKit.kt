@@ -1,12 +1,15 @@
 package codes.honor.cobblemondynamics.test
 
+import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.claim.Claim
+import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.Worker
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.pasture.WorkModeService
+import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.registry.DynamicsItems
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.CobblemonBlocks
@@ -138,6 +141,16 @@ object TestKit {
         clickBlock(helper, player, rel)
         return BindingStore.read(entity.pokemon)
     }
+
+    /** Every message that the mod sent [player], action bar and chat, in order, as text. Fake players drop the messages themselves. */
+    fun messages(player: ServerPlayer): List<String> = Feedback.recorded[player.uuid].orEmpty().map { it.string }
+
+    /** The last message that the mod sent [player], such as the action bar reply to a leash click. */
+    fun lastMessage(player: ServerPlayer): String? = messages(player).lastOrNull()
+
+    /** The leash binding that reserves the block target at [pos], as the level's leash index holds it. */
+    fun reservationAt(helper: GameTestHelper, pos: BlockPos): LeashIndex.Ref? =
+        helper.level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.get(pos)
 
     /** Puts [player] 2 blocks east of the pasture block, in reach of its Work Mode button. */
     fun standBeside(player: ServerPlayer, pasture: PokemonPastureBlockEntity) {

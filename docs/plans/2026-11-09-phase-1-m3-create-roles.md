@@ -444,7 +444,10 @@ on the burner's first tick after Working starts and ends on its first tick after
 `BurnerHeatHandler` (`id = cobblemon_dynamics:burner_heat`), as built: `matches` when the block entity is a
 `BlazeBurnerBlockEntity` and the block state's heat level is not `NONE` (CD-BRN-02). `hasDemand` uses Create's own public
 `isValidBlockAbove()` (a `BasinBlockEntity` above, or a `FluidTankBlock`; checked with `javap`) (CD-BRN-03), and needs a heat:
-a role whose params give no heat at the worker's level has no demand. The heat comes from the role params:
+a role whose params give no heat at the worker's level has no demand. A creative burner (`isCreative()`) has no demand either:
+its `tick()` returns before it reads the heat level, so a worker's heat never reaches its block state. The end-of-phase pass
+found that a Burner Keeper Worked a creative burner for nothing, and added this check (`creativeBlazeBurnerHasNoDemand`). The
+heat comes from the role params:
 `HeatGate.heatFor(params, level)` returns `params.heat` when `level >= params.min_level` (default 0) and
 `params.below_min_level_heat` otherwise, as Create's serialized heat name (`kindled`, `seething`), which the handler maps to
 `HeatLevel` by `getSerializedName()`. `HeatGate` names no Create type, so it has unit tests.
