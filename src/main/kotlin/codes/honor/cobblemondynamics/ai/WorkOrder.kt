@@ -2,5 +2,8 @@ package codes.honor.cobblemondynamics.ai
 
 import net.minecraft.world.phys.Vec3
 
-/** What the engine asks of a worker's Brain on this tick. [hold] is true once the worker has reached [spot]. */
+/**
+ * What the engine asks of a worker's Brain on this tick. [hold] is true once the worker has reached [spot]. With [sleep], the worker
+ * lies at [spot] in the sleep pose: on its bed, or where it rests in place.
+ */
 data class WorkOrder(val spot: Vec3, val lookAt: Vec3?, val hold: Boolean, val sleep: Boolean = false)

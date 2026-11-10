@@ -8,6 +8,19 @@ updates:
     groups:
       gradle-minor-patch:
         update-types: [minor, patch]
+    # The mod compiles against its declared floors (CD-PLAT-01 to CD-PLAT-05).
+    # Kotlin stays on 2.2.x, the stdlib that KotlinForForge 5.10 bundles.
+    ignore:
+      - dependency-name: 'org.jetbrains.kotlin*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'thedarkcolour:kotlinforforge-neoforge'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'com.cobblemon:neoforge'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'com.simibubi.create:create-1.21.1'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'org.appliedenergistics:appliedenergistics2'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:

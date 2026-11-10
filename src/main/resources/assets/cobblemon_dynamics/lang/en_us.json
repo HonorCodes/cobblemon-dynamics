@@ -1,5 +1,9 @@
 {
   "item.cobblemon_dynamics.work_leash": "Work Leash",
+  "block.cobblemon_dynamics.hay_bed": "Hay Bed",
+  "block.cobblemon_dynamics.wool_bed": "Wool Bed",
+  "block.cobblemon_dynamics.plush_bed": "Plush Bed",
+  "block.cobblemon_dynamics.starlit_bed": "Starlit Bed",
   "entity.cobblemon_dynamics.work_focus": "Work Focus",
   "cobblemon_dynamics.leash.outside_area": "Outside its pasture's work area",
   "cobblemon_dynamics.leash.no_role": "No role fits",
@@ -25,5 +29,18 @@
   "cobblemon_dynamics.command.claims.none": "No claims and no leash bindings",
   "cobblemon_dynamics.command.claims.kind.work": "work",
   "cobblemon_dynamics.command.claims.kind.bed": "bed",
-  "cobblemon_dynamics.command.claims.kind.heal": "heal"
+  "cobblemon_dynamics.command.claims.kind.heal": "heal",
+  "cobblemon_dynamics.command.stamina": "%s: %s%% Work Stamina, %s, %s",
+  "cobblemon_dynamics.command.stamina.not_pokemon": "%s is not a Pokémon",
+  "cobblemon_dynamics.state.idle": "Idle",
+  "cobblemon_dynamics.state.traveling": "Traveling",
+  "cobblemon_dynamics.state.working": "Working",
+  "cobblemon_dynamics.state.standby": "Standby",
+  "cobblemon_dynamics.state.to_bed": "To Bed",
+  "cobblemon_dynamics.state.sleeping": "Sleeping",
+  "cobblemon_dynamics.state.resting_in_place": "Resting in Place",
+  "cobblemon_dynamics.state.healing": "Healing",
+  "cobblemon_dynamics.state.none": "not in Work Mode",
+  "cobblemon_dynamics.rule.worker": "worker rule",
+  "cobblemon_dynamics.rule.healer": "healer rule"
 }

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "cobblemon_dynamics:plush_bed" },
+    { "item": "minecraft:nether_star" },
+    { "item": "cobblemon:rare_candy" },
+    { "item": "cobblemon:rare_candy" },
+    { "item": "cobblemon:rare_candy" },
+    { "item": "cobblemon:rare_candy" }
+  ],
+  "result": { "id": "cobblemon_dynamics:starlit_bed", "count": 1 }
+}

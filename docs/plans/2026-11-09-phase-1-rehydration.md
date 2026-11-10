@@ -27,8 +27,10 @@ design of every task. This note holds what the plan does not.
 | --- | --- |
 | Plan | On `main`. Index plus files `m0`, `m1` (two parts), `m2`, `m3`, `m4`, `m5`. `py scripts/check_plan_coverage.py` prints `missing: 0`. |
 | M0 | Merged: PR #1, merge commit `0c6f06f`. |
-| M1 | All 13 tasks are committed on `m1-engine-leash-stoker`, and its pull request is open (`gh pr list`). On the branch tip, `./gradlew build` passes 108 unit tests, `runGameTestServer` passes 50 of 50, and the test pack prints `SMOKE PASS` and `RELOAD PASS`. ktlint, ruff and super-linter pass. Merge it with a merge commit when CI is green. The new `Dependency graph` job in `security.yml` first runs on this pull request. |
-| M2 to M5 | Not started. |
+| M1 | Merged: PR #6, merge commit `21f227b`. The `Dependency graph` job reports the compile and runtime classpaths. It gives runtime scope only to `jarJar` libraries, because Minecraft, NeoForge and the required mods supply the rest. |
+| M2 | All six tasks are committed on `m2-stamina-beds-healers`: 196 unit tests, 57 of 57 GameTests, `DEPS PASS` (7 cases, including the new `neoforge-floor` case) and `SMOKE PASS`. Its pull request is open (`gh pr list`); merge it with a merge commit when CI is green. |
+| Dependabot | PR #3 (Gradle 9.9.0; Dependabot was told to skip Kotlin 2.3 and 2.4), #4 (tomlj 2.2.0, test only) and #5 (JUnit 6.1.3, test only). Merge each when it is rebased on `main` and green. The `dependabot.yml` ignore rules on the M2 branch keep Kotlin on 2.2.x and the platform dependencies at their floors. |
+| M3 to M5 | Not started. |
 
 ## Environment
 
@@ -50,7 +52,7 @@ design of every task. This note holds what the plan does not.
 docker run --rm -e RUN_LOCAL=true -e DEFAULT_BRANCH=main -e VALIDATE_ALL_CODEBASE=true -e VALIDATE_KOTLIN=true -e VALIDATE_GITHUB_ACTIONS=true -e VALIDATE_YAML=true -e VALIDATE_JSON=true -e VALIDATE_PYTHON_RUFF=true -e "FILTER_REGEX_EXCLUDE=(^|/)(build|run|\.gradle|\.kotlin|\.idea)/" -e LOG_LEVEL=NOTICE -v "C:\Users\admin\src\cobblemon-dynamics:/tmp/lint" ghcr.io/super-linter/super-linter:slim-v9
 ```
 
-- Test pack: `py scripts/testpack/testpack.py smoke` (`SMOKE PASS`), `deps` (`DEPS PASS`, six cases),
+- Test pack: `py scripts/testpack/testpack.py smoke` (`SMOKE PASS`), `deps` (`DEPS PASS`, seven cases),
   `client` (assembles `run/testpack/client/mods/` for the play-test). Add later scenarios as
   `scenario_<name>` functions.
 - Cobblemon 1.8.4 sources (read-only reference): `C:\Users\admin\.claude\jobs\257dc33d\tmp\cobblemon-src\x\`.

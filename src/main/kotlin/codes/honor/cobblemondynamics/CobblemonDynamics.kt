@@ -16,6 +16,7 @@ import codes.honor.cobblemondynamics.leash.LeashInteractions
 import codes.honor.cobblemondynamics.leash.LeashResets
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
+import codes.honor.cobblemondynamics.registry.DynamicsBlocks
 import codes.honor.cobblemondynamics.registry.DynamicsEntities
 import codes.honor.cobblemondynamics.registry.DynamicsItems
 import codes.honor.cobblemondynamics.role.RoleRegistry
@@ -43,6 +44,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         DynamicsEntities.REGISTER.register(modBus)
         LeashComponents.REGISTER.register(modBus)
         DynamicsItems.register(modBus)
+        DynamicsBlocks.register(modBus)
         DynamicsPayloads.register(modBus)
         if (FMLEnvironment.dist.isClient) ClientEffects.register(modBus)
         // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.

@@ -4,6 +4,10 @@ import codes.honor.cobblemondynamics.CobblemonDynamics
 import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.ai.WorkOrder
+import codes.honor.cobblemondynamics.bed.BedBlock
+import codes.honor.cobblemondynamics.bed.BedBlockEntity
+import codes.honor.cobblemondynamics.bed.BedCandidate
+import codes.honor.cobblemondynamics.bed.BedSelector
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.ClaimRegistry
 import codes.honor.cobblemondynamics.claim.ClaimResult
@@ -14,6 +18,9 @@ import codes.honor.cobblemondynamics.fx.EffectPlayer
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.heal.AllyView
+import codes.honor.cobblemondynamics.heal.HealTargets
+import codes.honor.cobblemondynamics.heal.HealTransaction
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
@@ -25,6 +32,11 @@ import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import codes.honor.cobblemondynamics.role.RoleSelection
 import codes.honor.cobblemondynamics.role.RoleSet
+import codes.honor.cobblemondynamics.stamina.FlushRule
+import codes.honor.cobblemondynamics.stamina.RecoveryRule
+import codes.honor.cobblemondynamics.stamina.StaminaStore
+import codes.honor.cobblemondynamics.stamina.StaminaView
+import codes.honor.cobblemondynamics.stamina.ViewSync
 import com.cobblemon.mod.common.api.types.ElementalTypes
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
@@ -67,6 +79,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     fun pokemonOf(pokemonId: UUID): Pokemon? = slots[pokemonId]?.pokemon
 
+    /** The recovery rule that the engine applies to a worker, from its types and its binding at the last poll. */
+    fun ruleOf(pokemonId: UUID): RecoveryRule? = slots[pokemonId]?.rule
+
     /** One engine tick of [level], after the level ticked its block entities and entities. */
     fun tickLevel(level: ServerLevel) {
         val dimension = level.dimension().location()
@@ -82,7 +97,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         for (runtime in runtimesOf(dimension)) if (level.isLoaded(runtime.pos) && runtime.isPollDue(t.now)) poll(t, runtime)
         validateClaims(t)
         for (runtime in runtimesOf(dimension)) if (level.isLoaded(runtime.pos)) scan(t, runtime)
-        for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) tickWorker(t, runtime, slot)
+        for (runtime in runtimesOf(dimension)) {
+            for (slot in runtime.slots.values.toList()) {
+                tickWorker(t, runtime, slot)
+                if (runtime.slots[slot.worker.pokemonId] === slot) tickStamina(t, runtime, slot)
+            }
+        }
         for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) direct(t, slot)
     }
 
@@ -137,10 +157,20 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
-     * The GameTest form of a restart. A restart also loses the Brain memories, because the work order has no codec, and the focus
-     * entities, because their type is never saved.
+     * Every worker's live Work Stamina goes to its Pokémon's saved data. The server stop calls it before Cobblemon saves its stores
+     * (ADR-0008).
+     */
+    fun flushAll() {
+        val now = server.overworld().gameTime
+        for (slot in slots.values) flush(slot, now)
+    }
+
+    /**
+     * The GameTest form of a restart. A real stop flushes Work Stamina first. A restart also loses the Brain memories, because the
+     * work order has no codec, and the focus entities, because their type is never saved.
      */
     fun resetRuntimeForTest() {
+        flushAll()
         for (slot in slots.values) {
             BrainBridge.clear(slot.entity)
             removeFocus(slot)
@@ -181,7 +211,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 slot.entity = entity
                 slot.pokemon = pokemon
             } else if (tethered.pokemonId !in slots) {
-                val joined = PastureRuntime.Slot(Worker(tethered.pokemonId, runtime.key), entity, pokemon)
+                val worker = Worker(tethered.pokemonId, runtime.key)
+                // CD-STA-05, CD-STA-11: a new worker starts at 100%, and a known one recovers for its time away.
+                worker.stamina = StaminaStore.load(pokemon, t.now, t.settings)
+                worker.staminaUntil = t.now
+                val joined = PastureRuntime.Slot(worker, entity, pokemon)
                 runtime.slots[tethered.pokemonId] = joined
                 slots[tethered.pokemonId] = joined
             }
@@ -192,6 +226,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             // A binding counts only for the pasture that it names. LeashResets clears one that names another.
             slot.binding = BindingStore.read(slot.pokemon)?.takeIf { it.dimension == t.dimension && it.pasture == runtime.pos }
             slot.worker.leashed = slot.binding != null
+            slot.rule = RecoveryRule.of(hasFairyType(slot.pokemon), slot.binding != null)
             claimBound(t, runtime, slot, taken)
         }
     }
@@ -232,16 +267,19 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             entity.level() === level &&
             tethered.ownerId == pokemon.getOwnerUUID()
 
-    /** Step 2: a work claim ends when its target is gone or invalid (CD-CLM-08), its role is gone, or no worker holds it. */
+    /**
+     * Step 2: a claim of any kind ends when no worker holds it. A work claim also ends when its target is gone or invalid
+     * (CD-CLM-08) or its role is gone. Each resting worker checks its own bed (CD-BED-11).
+     */
     private fun validateClaims(t: Tick) {
         for (claim in claims.all()) {
-            val key = claim.key as? TargetKey.Block ?: continue
-            if (claim.kind != ClaimKind.WORK || key.dimension != t.dimension) continue
             val slot = slots[claim.worker]
             if (slot == null) {
                 claims.release(claim.worker)
                 continue
             }
+            val key = claim.key as? TargetKey.Block ?: continue
+            if (claim.kind != ClaimKind.WORK || key.dimension != t.dimension) continue
             val role = slot.role?.let { t.roles.get(it.definition.id) }
             if (role == null || !mayKeep(slot, role.definition)) {
                 release(t, slot)
@@ -275,7 +313,36 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         runtime.scheduler.complete(t.now)
         runtime.scan = null
         assign(t, runtime, pass.found)
+        assignHeals(t, runtime)
     }
+
+    /**
+     * After each scan pass, every free healer of the pasture picks an ally of the same pasture and takes a heal claim on it
+     * (CD-HEAL-01). A healer is a Fairy-type with no machine binding, so it follows the healer rule (CD-HEAL-14).
+     */
+    private fun assignHeals(t: Tick, runtime: PastureRuntime) {
+        val allies = runtime.slots.values.filterNot { it.entity.isRemoved }.map(::allyView)
+        for (slot in runtime.slots.values) {
+            val worker = slot.worker
+            if (slot.rule != RecoveryRule.HEALER || worker.status != WorkerStatus.IDLE || claims.claimOf(worker.pokemonId) != null) continue
+            if (!HealTargets.canStart(worker.stamina.fraction, worker.tired, t.settings) || !BrainBridge.canHoldOrder(slot.entity)) continue
+            val isFree: (UUID) -> Boolean = {
+                val key = TargetKey.Entity(it)
+                claims.isFree(key, worker.pokemonId) && !worker.isSkipped(key, t.now)
+            }
+            val ally = HealTargets.pick(worker.pokemonId, slot.entity.position(), allies, isFree, t.settings) ?: continue
+            val granted = claims.tryClaim(worker.pokemonId, TargetKey.Entity(ally.id), ClaimKind.HEAL, runtime.key, t.now)
+            if (granted is ClaimResult.Granted) t.machine.onHeal(worker, t.now)
+        }
+    }
+
+    private fun allyView(slot: PastureRuntime.Slot): AllyView = AllyView(
+        slot.worker.pokemonId,
+        slot.entity.position(),
+        hasFairyType(slot.pokemon),
+        slot.worker.tired,
+        slot.worker.stamina.fraction,
+    )
 
     /** The auto-assign roles that a worker of the pasture can do. Leash-only roles need no scan. */
     private fun scanRoles(t: Tick, runtime: PastureRuntime): List<ActiveRole> {
@@ -373,6 +440,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             drop(t, runtime, slot)
             return
         }
+        if (worker.status.isResting) {
+            tickRest(t, slot)
+            return
+        }
+        if (worker.status == WorkerStatus.HEALING) {
+            tickHeal(t, runtime, slot)
+            return
+        }
         val claim = claims.claimOf(worker.pokemonId)
         if (claim == null) {
             // Another part of the mod released the claim, so the worker follows.
@@ -421,11 +496,155 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
+     * Work Stamina drains on each tick that the handler worked and recovers on every other tick, at the worker's rule (CD-STA-06,
+     * CD-STA-07, CD-HEAL-12, CD-HEAL-13), times the bed's factor only while the worker lies on it (CD-BED-04). A worker that this
+     * makes Tired stops in the same tick (CD-STA-13), and one that this fills gets up in the same tick (CD-BED-12). Then Work Stamina
+     * is flushed when due, and the view follows (CD-STA-15).
+     */
+    private fun tickStamina(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        val ticks = t.now + 1 - worker.staminaUntil
+        if (ticks > 0) {
+            val level = slot.pokemon.level
+            if (worker.status == WorkerStatus.WORKING) {
+                worker.stamina.work(ticks, level, t.settings)
+            } else {
+                val bedTier = if (worker.status == WorkerStatus.SLEEPING) worker.bed?.tier else null
+                worker.stamina.rest(ticks, level, slot.rule, bedTier, t.settings)
+            }
+            worker.staminaUntil = t.now + 1
+        }
+        // A worker that joins Tired, after a restart for example, takes a bed on its first tick too (CD-BED-14).
+        if (worker.tired && !worker.status.isResting) {
+            goToRest(t, runtime, slot)
+        } else if (!worker.tired && worker.status.isResting) {
+            wake(t, runtime, slot)
+        }
+        if (FlushRule.isDue(slot.flushedStatus, worker.status, slot.flushedAt, t.now, t.settings)) flush(slot, t.now)
+        syncView(slot)
+    }
+
+    /**
+     * The work claim ends at once, through the release path, and a leash binding stays (CD-STA-13, CD-CLM-09). The worker then
+     * claims the nearest free bed in its pasture's work area (CD-BED-05, CD-BED-07), or rests where it stands (CD-BED-08).
+     */
+    private fun goToRest(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        release(t, slot)
+        val bed = nearestFreeBed(t, runtime, slot)
+        val granted = bed != null && claims.tryClaim(worker.pokemonId, bed.key, ClaimKind.BED, runtime.key, t.now) is ClaimResult.Granted
+        t.machine.onTired(worker, t.now, bed.takeIf { granted })
+        worker.restSpot = if (granted) null else slot.entity.position()
+    }
+
+    /** Beds have block entities, so the chunks' block entity maps hold every bed of the work area. Any size of Pokémon fits (CD-BED-09). */
+    private fun nearestFreeBed(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot): BedCandidate? {
+        val beds = t.world.blockEntitiesIn(area(t, runtime)).mapNotNull { (pos, blockEntity) ->
+            val bed = blockEntity as? BedBlockEntity ?: return@mapNotNull null
+            BedCandidate(TargetKey.block(t.dimension, pos), BedCandidate.sleepPoint(pos), bed.tier.tier)
+        }.toList()
+        return BedSelector.pick(slot.entity.position(), beds) { claims.isFree(it, slot.worker.pokemonId) }
+    }
+
+    /** ToBed and Sleeping: the walk to the bed, and the bed under the sleeper, which may break (CD-BED-11). */
+    private fun tickRest(t: Tick, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        val bed = worker.bed
+        if (worker.status == WorkerStatus.RESTING_IN_PLACE || bed == null) return
+        val entity = slot.entity
+        val claim = claims.claimOf(worker.pokemonId)
+        val held = claim?.kind == ClaimKind.BED && claim.key == bed.key
+        val present = held && isBed(t.level, bed.key)
+        val atBed = present && BedSelector.isAt(entity.position(), entity.bbWidth.toDouble(), bed.center)
+        when (t.machine.onRestTick(worker, t.now, atBed, present)) {
+            MachineEvent.FellAsleep -> lieDown(entity, bed.center)
+
+            MachineEvent.LostBed -> {
+                if (held) claims.release(worker.pokemonId)
+                worker.restSpot = entity.position()
+            }
+
+            else -> {}
+        }
+    }
+
+    /**
+     * A healer walks to its ally and heals it once it is within 2 blocks of the ally's body (CD-HEAL-10): the healer pays 25
+     * points, Tired at 0%, and the ally is full (CD-HEAL-04, CD-HEAL-05). An ally that stops needing the heal, leaves the pasture or
+     * becomes a Fairy-type, and a healer that gets a binding, cancel the heal at no cost (CD-HEAL-11). The ally gets up, and a spent
+     * healer lies down, in their stamina steps (CD-BED-12, CD-HEAL-17).
+     */
+    private fun tickHeal(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        val claim = claims.claimOf(worker.pokemonId)?.takeIf { it.kind == ClaimKind.HEAL }
+        val allyId = (claim?.key as? TargetKey.Entity)?.uuid
+        val ally = allyId?.let { runtime.slots[it] }?.takeUnless { it.entity.isRemoved }
+        val qualifies = ally != null && slot.rule == RecoveryRule.HEALER && HealTargets.qualifies(allyView(ally), t.settings)
+        val here = slot.entity.position()
+        val body = ally?.entity?.boundingBox
+        val inRange = body != null && qualifies && HealTransaction.inRange(here, HealTransaction.nearestPoint(body, here))
+        val event = t.machine.onHealTick(worker, t.now, qualifies, inRange) ?: return
+        claims.release(worker.pokemonId)
+        clear(slot)
+        if (event == MachineEvent.Healed && ally != null) {
+            HealTransaction.complete(worker.stamina, ally.worker.stamina, t.settings)
+            EffectPlayer.playHeal(t.level, slot.entity, ally.entity)
+        } else if (event is MachineEvent.HealCancelled && event.timedOut && allyId != null) {
+            worker.skipUntil[TargetKey.Entity(allyId)] = t.now + t.settings.retryWaitTicks
+        }
+    }
+
+    /** At 100%: the bed claim ends in the same tick (CD-BED-12), and a leashed worker claims its bound target again (CD-STA-14). */
+    private fun wake(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
+        worker.restSpot = null
+        val event = t.machine.onRested(worker, t.now)
+        clear(slot)
+        if (event is MachineEvent.Rested && event.toBinding) claimBound(t, runtime, slot, takenSpots(t))
+    }
+
+    private fun isBed(level: ServerLevel, key: TargetKey): Boolean {
+        val pos = BlockPos.of((key as? TargetKey.Block ?: return false).pos)
+        return level.isLoaded(pos) && level.getBlockState(pos).block is BedBlock
+    }
+
+    /** To the instance that the last poll read from the PC, which is the PC's own until Cobblemon reloads the store. */
+    private fun flush(slot: PastureRuntime.Slot, now: Long) {
+        StaminaStore.save(slot.pokemon, slot.worker.stamina, slot.worker.staminaUntil)
+        slot.flushedStatus = slot.worker.status
+        slot.flushedAt = now
+    }
+
+    /** A new entity has no view yet, so it gets one at once. */
+    private fun syncView(slot: PastureRuntime.Slot) {
+        val entity = slot.entity
+        if (entity.isRemoved) return
+        val stamina = slot.worker.stamina
+        val status = slot.worker.status
+        if (slot.viewEntity === entity && !ViewSync.shouldSync(slot.viewPercent, stamina.percent, slot.viewStatus, status)) return
+        entity.setData(DynamicsAttachments.STAMINA_VIEW, StaminaView.of(stamina, status))
+        slot.viewEntity = entity
+        slot.viewPercent = stamina.percent
+        slot.viewStatus = status
+    }
+
+    /**
      * Step 6: the work order goes into the Brain on every tick, because Cobblemon rebuilds Brains (CD-AI-04). A Working worker
      * has its focus entity and its effect loop, and any other worker has no focus entity, from this tick on (CD-FX-07).
      */
     private fun direct(t: Tick, slot: PastureRuntime.Slot) {
         val worker = slot.worker
+        if (worker.status.isResting) {
+            removeFocus(slot)
+            directRest(t, slot)
+            return
+        }
+        if (worker.status == WorkerStatus.HEALING) {
+            removeFocus(slot)
+            directHeal(slot)
+            return
+        }
         val claim = claims.claimOf(worker.pokemonId)
         val role = slot.role
         val target = worker.target
@@ -454,6 +673,31 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         EffectPlayer.tickWorking(t.level, entity, focus, role.definition, worker.statusSince, t.now)
     }
 
+    /**
+     * A worker in ToBed walks to its bed. One that sleeps or rests in place holds its sleep point with the sleep pose and never
+     * Cobblemon's battle sleep status (CD-BED-10, CD-AI-07), and loops the sleep effect (CD-FX-10).
+     */
+    private fun directRest(t: Tick, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        val entity = slot.entity
+        if (entity.isRemoved) return
+        val order = when (worker.status) {
+            WorkerStatus.TO_BED -> worker.bed?.let { WorkOrder(it.center, null, hold = false) }
+            WorkerStatus.SLEEPING -> worker.bed?.let { WorkOrder(it.center, null, hold = true, sleep = true) }
+            else -> worker.restSpot?.let { WorkOrder(it, null, hold = true, sleep = true) }
+        } ?: return
+        BrainBridge.write(entity, order)
+        if (order.sleep) EffectPlayer.tickSleeping(t.level, entity, worker.statusSince, t.now)
+    }
+
+    /** A healer's order is an approach to its ally, which it looks at. */
+    private fun directHeal(slot: PastureRuntime.Slot) {
+        val entity = slot.entity
+        val allyId = (claims.claimOf(slot.worker.pokemonId)?.key as? TargetKey.Entity)?.uuid ?: return
+        val ally = slots[allyId]?.entity?.takeUnless { it.isRemoved } ?: return
+        if (!entity.isRemoved) BrainBridge.write(entity, WorkOrder(ally.position(), ally.boundingBox.center, hold = false))
+    }
+
     /** CD-PERF-04: a focus entity lives only while its worker is Working. */
     private fun removeFocus(slot: PastureRuntime.Slot) {
         slot.focus?.let(EffectPlayer::removeFocus)
@@ -471,8 +715,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
+    /** The worker leaves: its Work Stamina is saved, which covers entity unload, and a Pokémon that no longer works shows no bar. */
     private fun drop(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
         release(t, slot)
+        flush(slot, t.now)
+        val entity = slot.entity
+        if (!entity.isRemoved && entity.hasData(DynamicsAttachments.STAMINA_VIEW)) entity.removeData(DynamicsAttachments.STAMINA_VIEW)
         runtime.slots.remove(slot.worker.pokemonId)
         slots.remove(slot.worker.pokemonId)
     }
@@ -490,11 +738,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         clear(slot)
     }
 
+    /** The worker has no order any more, and a worker that lay down has its own pose back (CD-AI-08). */
     private fun clear(slot: PastureRuntime.Slot) {
         slot.worker.target = null
         slot.worker.spot = null
         slot.role = null
         BrainBridge.clear(slot.entity)
+        BrainBridge.wake(slot.entity)
         removeFocus(slot)
     }
 
@@ -547,6 +797,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             entity.teleportTo(spot.x + 0.5, spot.y.toDouble(), spot.z + 0.5)
             entity.deltaMovement = Vec3.ZERO
             BrainBridge.face(entity, lookAt)
+        }
+
+        /** On reaching a bed: the sleep point, at rest. The Brain's work activity holds it there from the next tick (CD-BED-10). */
+        private fun lieDown(entity: PokemonEntity, point: Vec3) {
+            entity.navigation.stop()
+            entity.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
+            entity.teleportTo(point.x, point.y, point.z)
+            entity.deltaMovement = Vec3.ZERO
         }
     }
 }

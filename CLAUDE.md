@@ -16,11 +16,25 @@ when your hands are on the code.
 - Tests in one GameTest batch run side by side and share the engine and the claim registry. A test that
   resets the engine or unloads a chunk needs its own batch, and a check reads only its own workers.
 - `runAtTickTime` callbacks for the same tick run in hash order, not insertion order.
+- `helper.absolutePos` counts from the structure block, which sits one block below the template, so relative y = 1
+  is the template's stone floor. `TestKit` puts pastures and furnaces at y = 1, into the floor; Pokémon stand at y = 2.
+- Vanilla 1.21.1's `GameTestHelper.relativePos` turns a position 180 degrees and gives (-x, y, -z). Use
+  `TestKit.relative`.
+- A global override (engine settings, day time, Cobblemon's action effects) leaks into the tests that run beside it.
+  Give it its own batch and set it in `@BeforeBatch` and `@AfterBatch` methods, one of each per batch name.
 - A furnace with both fuel and input burns the fuel on its first tick.
 - ktlint strips `->` from a zero-argument lambda, which makes `AttachmentType.builder` ambiguous. Write
   `Supplier { ... }`.
-- `Pokemon.entity` is null for pastured Pokémon (it reads `ActivePokemonState` only). Find a pastured
-  entity in the level by `entity.pokemon.uuid`.
+- `Pokemon.entity` is null for a newly pastured Pokémon until its entity has ticked. Find a pastured
+  entity in the level by `entity.pokemon.uuid` instead.
+- Removing a pastured Pokémon from its PC removes its pasture entity: `PCStore.remove` calls `recall()` on
+  the entity's `SentOutState`. `PokemonStore.set` over an occupied slot does the same.
+- NeoForge's `Entity.getPersistentData()` creates the tag on its first read, so the entity then saves an empty
+  `NeoForgeData`. Check a cheaper condition first on entities that are not ours.
+- Cobblemon saves the PC and the party only at `ServerStoppedEvent`. Write anything that must reach
+  `persistentData` at shutdown in `ServerStoppingEvent`.
+- A `BaseEntityBlock` renders as invisible unless it overrides `getRenderShape` to return `MODEL`. No
+  server-side test catches this.
 - Brain: `Activity` equality is by name (vanilla villagers already have `work`, so ours is
   `cobblemon_dynamics:work`). A Brain keeps running the old activity's tasks after a switch. Cobblemon
   registers only the memories that task configs declare.

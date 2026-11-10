@@ -37,6 +37,7 @@ After a rejection, the server exits with code 0. So the script checks the log, n
 
 | Case | Change to the pinned set | Expected result |
 |---|---|---|
+| `neoforge-floor` | NeoForge 21.1.219, the floor of `[21.1.219,)` | The server loads |
 | `neoforge-below-floor` | NeoForge 21.1.218 | FML rejects `neoforge` `[21.1.219,)` |
 | `cobblemon-below-floor` | Cobblemon 1.8.3 | FML rejects `cobblemon` `[1.8.4,1.9)` |
 | `create-below-floor` | Create 6.0.9 | FML rejects `create` `[6.0.10,6.1)` |

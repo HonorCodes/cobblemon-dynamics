@@ -545,6 +545,8 @@ class Case(NamedTuple):
 
 
 DEPS_CASES = [
+    # The floor loads the whole set: the stamina_view attachment uses NeoForge's attachment sync (CD-PLAT-01).
+    Case("neoforge-floor", {}, neoforge="neoforge_floor"),
     Case("neoforge-below-floor", {}, neoforge="neoforge_below_floor", reject=("neoforge", "[21.1.219,)")),
     Case("cobblemon-below-floor", {"cobblemon": "cobblemon_below_floor"}, reject=("cobblemon", "[1.8.4,1.9)")),
     Case("create-below-floor", {"create": "create_below_floor"}, reject=("create", "[6.0.10,6.1)")),

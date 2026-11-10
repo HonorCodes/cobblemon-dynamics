@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.bed.BedCandidate
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.EngineSettings
 
@@ -16,9 +17,30 @@ sealed interface MachineEvent {
 
     /** A leashed worker's wait after a missed arrival is over, and it travels again. */
     data object Retry : MachineEvent
+
+    /** A Tired worker walks to [bed], which the engine claimed for it. */
+    data class ToBed(val bed: BedCandidate) : MachineEvent
+
+    /** A Tired worker with no free bed rests where it stands. */
+    data object RestInPlace : MachineEvent
+
+    /** A worker in ToBed reached its bed. The engine lays it on the sleep point. */
+    data object FellAsleep : MachineEvent
+
+    /** The bed is gone, its claim is gone, or the worker did not reach it in time. The engine releases the bed claim. */
+    data object LostBed : MachineEvent
+
+    /** A Tired worker reached 100%. [toBinding] is true for a leashed worker, whose bound target the engine claims at once. */
+    data class Rested(val toBinding: Boolean) : MachineEvent
+
+    /** A healer reached its ally. The engine applies the heal and releases the heal claim. */
+    data object Healed : MachineEvent
+
+    /** The heal ends at no cost: the ally stopped needing it, or the healer did not reach it in time ([timedOut]). */
+    data class HealCancelled(val timedOut: Boolean) : MachineEvent
 }
 
-/** The work-claim states of one worker, on the tick that the caller passes in. */
+/** The states of one worker, on the tick that the caller passes in. */
 class WorkerMachine(private val settings: EngineSettings) {
     fun onClaim(w: Worker, now: Long) {
         set(w, WorkerStatus.TRAVELING, now)
@@ -54,10 +76,90 @@ class WorkerMachine(private val settings: EngineSettings) {
         w.claimTick = -1
         w.retryAt = -1
         w.missedArrival = false
+        w.bed = null
     }
 
     fun canMoveFromStandby(w: Worker, now: Long): Boolean =
         !w.leashed && w.status == WorkerStatus.STANDBY && !w.missedArrival && now - w.statusSince >= settings.standbyMoveTicks
+
+    /**
+     * A Tired worker, after the engine released its work claim (CD-STA-13), walks to [bed], on which the engine took a bed claim
+     * (CD-BED-05), or rests where it stands when no bed is free (CD-BED-08).
+     */
+    fun onTired(w: Worker, now: Long, bed: BedCandidate?): MachineEvent {
+        w.claimTick = if (bed == null) -1 else now
+        w.retryAt = -1
+        w.missedArrival = false
+        w.bed = bed
+        if (bed == null) {
+            set(w, WorkerStatus.RESTING_IN_PLACE, now)
+            return MachineEvent.RestInPlace
+        }
+        set(w, WorkerStatus.TO_BED, now)
+        return MachineEvent.ToBed(bed)
+    }
+
+    /**
+     * One tick of a Tired worker. [atBed] is true when it has reached its bed's sleep point, and [bedPresent] while the bed stands and
+     * the worker still holds its claim on it. A bed that is not reached `travelTimeoutTicks` after the claim, or that breaks, leaves
+     * the worker resting in place (CD-BED-11).
+     */
+    fun onRestTick(w: Worker, now: Long, atBed: Boolean, bedPresent: Boolean): MachineEvent? = when (w.status) {
+        WorkerStatus.TO_BED -> when {
+            !bedPresent -> loseBed(w, now)
+
+            atBed -> {
+                set(w, WorkerStatus.SLEEPING, now)
+                MachineEvent.FellAsleep
+            }
+
+            now - w.claimTick >= settings.travelTimeoutTicks -> loseBed(w, now)
+
+            else -> null
+        }
+
+        WorkerStatus.SLEEPING -> if (bedPresent) null else loseBed(w, now)
+
+        else -> null
+    }
+
+    /** At 100%, Tired clears: the worker leaves its bed and is Idle (CD-BED-12), and a leashed one returns to its binding (CD-STA-14). */
+    fun onRested(w: Worker, now: Long): MachineEvent {
+        onRelease(w, now)
+        return MachineEvent.Rested(toBinding = w.leashed)
+    }
+
+    /** A healer took a heal claim on an ally and walks to it (CD-HEAL-01). */
+    fun onHeal(w: Worker, now: Long) {
+        set(w, WorkerStatus.HEALING, now)
+        w.claimTick = now
+        w.retryAt = -1
+        w.missedArrival = false
+    }
+
+    /**
+     * One tick of a healer. [qualifies] is false once the ally stops needing the heal, or the healer stops being one, which cancels
+     * the heal at no cost (CD-HEAL-11). [inRange] completes it (CD-HEAL-10). An ally not reached `travelTimeoutTicks` after the claim
+     * cancels it too. Each end leaves the healer Idle.
+     */
+    fun onHealTick(w: Worker, now: Long, qualifies: Boolean, inRange: Boolean): MachineEvent? {
+        if (w.status != WorkerStatus.HEALING) return null
+        val event = when {
+            !qualifies -> MachineEvent.HealCancelled(timedOut = false)
+            inRange -> MachineEvent.Healed
+            now - w.claimTick >= settings.travelTimeoutTicks -> MachineEvent.HealCancelled(timedOut = true)
+            else -> return null
+        }
+        onRelease(w, now)
+        return event
+    }
+
+    private fun loseBed(w: Worker, now: Long): MachineEvent {
+        w.bed = null
+        w.claimTick = -1
+        set(w, WorkerStatus.RESTING_IN_PLACE, now)
+        return MachineEvent.LostBed
+    }
 
     private fun startWorking(w: Worker, now: Long): MachineEvent {
         set(w, WorkerStatus.WORKING, now)

@@ -14,10 +14,19 @@ TEXTURES = ROOT / "src/main/resources/assets/cobblemon_dynamics/textures"
 
 RED = (200, 40, 40)
 WHITE = (240, 240, 240)
+GOLD = (250, 210, 70)
 
-# (path under textures/, base color, 2 x 2 corner rows or None)
+# (path under textures/, base color, 2 x 2 corner rows or None). Every row is a placeholder, replaced in M8.
 PLACEHOLDERS = [
-    ("item/work_leash.png", (122, 84, 48), (RED, WHITE)),  # placeholder, replaced in M8
+    ("item/work_leash.png", (122, 84, 48), (RED, WHITE)),
+    ("block/hay_bed_top.png", (214, 178, 76), None),
+    ("block/hay_bed_side.png", (168, 132, 52), None),
+    ("block/wool_bed_top.png", (232, 232, 228), None),
+    ("block/wool_bed_side.png", (186, 186, 182), None),
+    ("block/plush_bed_top.png", (196, 92, 160), (GOLD, GOLD)),
+    ("block/plush_bed_side.png", (150, 64, 122), None),
+    ("block/starlit_bed_top.png", (44, 52, 128), (GOLD, WHITE)),
+    ("block/starlit_bed_side.png", (30, 34, 92), None),
 ]
 
 

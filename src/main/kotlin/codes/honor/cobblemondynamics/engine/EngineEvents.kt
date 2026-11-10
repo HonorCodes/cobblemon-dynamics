@@ -1,21 +1,27 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.net.PanelViewers
 import codes.honor.cobblemondynamics.pasture.WorkModeService
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.ChunkPos
 import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.event.server.ServerStartingEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
+import net.neoforged.neoforge.event.server.ServerStoppingEvent
 import net.neoforged.neoforge.event.tick.LevelTickEvent
 
 /** The game events that drive the work engine. */
 object EngineEvents {
     fun register() {
         NeoForge.EVENT_BUS.addListener<ServerStartingEvent> { WorkEngine.start(it.server) }
+        // Cobblemon saves its PC and party stores on ServerStoppedEvent, so Work Stamina is flushed before it.
+        NeoForge.EVENT_BUS.addListener<ServerStoppingEvent> { WorkEngine.get()?.flushAll() }
         NeoForge.EVENT_BUS.addListener<ServerStoppedEvent> {
             WorkEngine.stop()
             WorkModeService.reset()
@@ -31,6 +37,10 @@ object EngineEvents {
         NeoForge.EVENT_BUS.addListener<ChunkEvent.Unload> { event ->
             val level = event.level as? ServerLevel ?: return@addListener
             onChunkUnload(level, event.chunk.pos)
+        }
+        // A worker saved while it slept loads with its pose frozen. The engine poses it again if it still rests (CD-AI-08).
+        NeoForge.EVENT_BUS.addListener<EntityJoinLevelEvent> { event ->
+            if (!event.level.isClientSide) (event.entity as? PokemonEntity)?.let(BrainBridge::wake)
         }
     }
 

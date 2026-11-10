@@ -54,7 +54,10 @@ class StokerTests {
         )
         repeat(3) { TestKit.tether(helper, pasture, owner, "charmander level=10") }
         helper.succeedWhen {
-            val claimed = TestKit.engine(helper).claims.all().map { BlockPos.of((it.key as TargetKey.Block).pos) }.toSet()
+            // Tests in a batch share the claim registry, and heal claims from other tests target entities.
+            val claimed = TestKit.engine(helper).claims.all().mapNotNull {
+                (it.key as? TargetKey.Block)?.let { k -> BlockPos.of(k.pos) }
+            }.toSet()
             furnaces.forEach { helper.assertTrue(it.blockPos in claimed, "${it.blockState.block} is not claimed") }
         }
     }

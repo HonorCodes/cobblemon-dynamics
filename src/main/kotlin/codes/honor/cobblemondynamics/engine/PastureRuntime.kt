@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.fx.WorkFocusEntity
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.role.ActiveRole
+import codes.honor.cobblemondynamics.stamina.RecoveryRule
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
@@ -20,6 +21,18 @@ class PastureRuntime(val level: ServerLevel, val key: PastureKey, now: Long, sca
         var role: ActiveRole? = null
         var focus: WorkFocusEntity? = null
         var binding: Binding? = null
+
+        /** How the worker recovers, from its types and its binding at each poll (CD-HEAL-13). */
+        var rule: RecoveryRule = RecoveryRule.WORKER
+
+        /** The state and tick of the last flush of Work Stamina, null before the first one. */
+        var flushedStatus: WorkerStatus? = null
+        var flushedAt: Long = 0
+
+        /** The last `stamina_view` that the engine set, and the entity it set it on. A new entity has none yet. */
+        var viewEntity: PokemonEntity? = null
+        var viewPercent: Double = 0.0
+        var viewStatus: WorkerStatus = WorkerStatus.IDLE
     }
 
     val pos: BlockPos = BlockPos.of(key.pos)

@@ -31,8 +31,7 @@ class SwitchFromWorkTask : OneShot<LivingEntity>() {
         brain.updateActivityFromSchedule(level.dayTime, level.gameTime)
         // The schedule update runs at most once in 20 ticks. The default activity is Cobblemon's idle activity, at once (CD-AI-03).
         if (brain.isActive(DynamicsActivities.WORK.get())) brain.useDefaultActivity()
-        // Cobblemon saves this flag, so a worker that leaves work with it off would keep a frozen pose (CD-AI-08).
-        (entity as? PokemonEntity)?.enablePoseTypeRecalculation = true
+        (entity as? PokemonEntity)?.let(BrainBridge::wake)
         return true
     }
 }
