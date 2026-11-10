@@ -499,14 +499,35 @@ toward the target, and target `cobblemon:dragonbreath_target`, which it emits on
 **Rows:** CD-LSH-22, CD-LSH-23, CD-SEC-10 (wheel and crank).
 
 **Files:**
-- Modify: `leash/LeashResets.kt` (a removed Create target is a target loss)
+- No change to `leash/LeashResets.kt`, as built (see below)
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/CreateLeashTests.kt`
 
-- [ ] **Step 1: Failing GameTests** — `cdLsh22WrenchPickupClearsBinding` (sneak-use a Create wrench on a
-  bound crank through `player.gameMode.useItemOn` with `AllItems.WRENCH` in the main hand and the player
-  sneaking; 20 ticks later no binding), `cdLsh23ContraptionClearsBinding` (a mechanical piston pushes a block
-  that carries a bound furnace into a contraption when it extends; 20 ticks after assembly no binding),
-  `cdSec10StrangersAndIdleTargetsNeverFlip` (a second player clicks a worked wheel and a worked crank, and the
-  binder clicks a wheel that no worker drives: no direction changes; the fan part is M7).
-- [ ] **Step 2: Write the code, run everything, commit, push, open the pull request** —
-  `./gradlew build runGameTestServer runGameTestServerCore`; `/commit`; `pr-runner` with base `main`.
+As built, a removed Create target needs no code of its own. Checked with `javap`: a sneak-use of the wrench reaches
+`WrenchItem.useOn`, because Create's `ItemUseOverrides` returns at once for its wrench, and `IWrenchable.onSneakWrenched` posts a
+`BlockEvent.BreakEvent`, gives the drops to the player and calls `Level.destroyBlock`. A mechanical piston's
+`PistonContraption.assemble` takes the blocks in front of it, and `removeBlocksFromWorld` removes their block entities and sets
+the cells to air before the contraption entity moves them. Either way the target's block entity is gone, so the index check of
+`LeashResets` (every 10 ticks, M1, CD-LSH-08) finds `stillValid` false and clears the binding with the `target_gone` reason. A
+mutant that skips that check fails both GameTests below, and CD-LSH-08's.
+
+- [ ] **Step 1: GameTests** — they passed on their first run, because the M1 check above already covers them:
+
+```kotlin
+// cdLsh22WrenchPickupClearsBinding: a Machop bound to a crank; the owner sneak-uses AllItems.WRENCH on it through TestKit.clickBlock
+//   (player.gameMode.useItemOn): the crank is gone and back in the owner's inventory, and 20 ticks later the Machop has no binding
+//   and the crank's position no index entry.
+// cdLsh23ContraptionClearsBinding: a Charmander bound to a furnace; a mechanical piston faces west with one extension pole behind it
+//   and the furnace in front (Create refuses a piston with no pole), and a creative motor on its north side, shaft south, turns it at
+//   +16 RPM, which extends a west-facing piston (MechanicalPistonBlockEntity.getMovementSpeed, checked with javap). Once the furnace
+//   leaves its cell and a contraption entity holds it, 20 ticks later the Charmander has no binding and the cell no index entry.
+```
+
+  - CD-SEC-10 (`cdSec10StrangersAndIdleTargetsNeverFlip`: a second player clicks a worked wheel and a worked crank, and the
+    binder clicks a wheel that no worker drives: no direction changes; the fan part is M7): GameTest deferred (high
+    confidence): verified in the end-of-phase pass. The refusal is `LeashInteractions.mayFlip` and the handlers' driven
+    check, plain code that the binder's flip tests of Tasks 3 and 4 exercise. With Task 4's crank mixin, a stranger's
+    sneak-click reaches `onItemUseFirst`, which refuses the flip, and vanilla then skips the block use of a sneaking player
+    who holds an item, so Create does not turn the crank either.
+- [ ] **Step 2: Run everything, commit** — `./gradlew build runGameTestServer runGameTestServerCore`;
+  `git commit -m "Test that a Create wrench or contraption clears the binding of the target it takes"`. Then push and open the
+  pull request with `pr-runner`, base `main`.
