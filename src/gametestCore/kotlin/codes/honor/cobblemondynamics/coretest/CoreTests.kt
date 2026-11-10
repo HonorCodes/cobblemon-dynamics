@@ -1,18 +1,22 @@
 package codes.honor.cobblemondynamics.coretest
 
 import codes.honor.cobblemondynamics.MOD_ID
+import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.role.RoleRegistry
+import codes.honor.cobblemondynamics.test.TestKit
+import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.level.block.Blocks
 import net.neoforged.fml.ModList
 import net.neoforged.fml.loading.FMLPaths
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import java.nio.file.Files
 
-/** A server with Cobblemon and KotlinForForge only: the mod loads, and the roles that need Create are off. */
+/** A server with Cobblemon and KotlinForForge only: the mod loads, the roles that need Create are off, and the Crystal Tender works. */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
 class CoreTests {
@@ -36,6 +40,25 @@ class CoreTests {
             helper.assertTrue(lines == expected, "the log holds $lines lines that disable $role, expected $expected")
         }
         helper.succeed()
+    }
+
+    /** The Crystal Tender's tag comes from NeoForge, so the role needs no AE2 (CD-CRY-04). */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdCry04CrystalTenderWithoutAe2(helper: GameTestHelper) {
+        helper.assertFalse(ModList.get().isLoaded("ae2"), "AE2 is loaded in the core run")
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        val budding = BlockPos(7, 1, 3)
+        helper.setBlock(budding, Blocks.BUDDING_AMETHYST)
+        val tender = TestKit.tether(helper, pasture, owner, "rockruff level=20")
+        val key = TestKit.keyOf(helper, helper.absolutePos(budding))
+        helper.succeedWhen {
+            val role = RoleRegistry.current.get(id("crystal_tender"))
+            helper.assertTrue(role?.handler?.id == id("budding"), "the Crystal Tender role is not active: $role")
+            val claim = TestKit.claimOf(helper, tender)
+            helper.assertTrue(claim?.kind == ClaimKind.WORK && claim.key == key, "the Rockruff holds $claim, not the budding amethyst")
+        }
     }
 
     @GameTest(template = "floor_9x5x9")

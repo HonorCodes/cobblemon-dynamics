@@ -1,11 +1,14 @@
 package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.engine.WorkSpots
+import com.google.gson.JsonElement
+import com.google.gson.JsonParser
 import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class BuiltInRoleFilesTest {
     private data class Row(
@@ -23,7 +26,19 @@ class BuiltInRoleFilesTest {
         "cranker" to Row("cobblemon_dynamics:hand_crank", setOf("fighting", "normal"), true, 0, "pound"),
         "burner_keeper" to Row("cobblemon_dynamics:burner_heat", setOf("fire"), true, 0, "flamethrower"),
         "superheater" to Row("cobblemon_dynamics:burner_heat", setOf("dragon"), true, 10, "dragonbreath"),
+        "generator" to Row("cobblemon_dynamics:fe_push", setOf("electric"), true, 0, "thundershock"),
+        "crystal_tender" to Row("cobblemon_dynamics:budding", setOf("rock"), true, 0, "rockthrow"),
+        "brew_stoker" to Row("cobblemon_dynamics:brewing_fuel", setOf("fire"), true, 10, "ember"),
+        "brewer" to Row("cobblemon_dynamics:brewing_speed", setOf("poison"), true, 0, "poisongas"),
+        "pump" to Row("cobblemon_dynamics:fluid_fill", setOf("water"), false, 0, "watergun"),
+        "muse" to Row("cobblemon_dynamics:enchanting", setOf("fairy"), false, 0, "fairywind"),
     )
+
+    /** The `auto_assign` key as the file writes it, so that a missing key fails as well as `true`. */
+    private fun autoAssignKey(name: String): JsonElement? {
+        val json = JsonParser.parseString(File(BuiltInRoles.dir, "$name.json").readText())
+        return json.asJsonObject.get("auto_assign")
+    }
 
     /**
      * Cobblemon's `watergun` timeline emits the spray and the actor burst from the user, aimed at the target, and only the two
@@ -65,6 +80,93 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("cobblemon:dragonbreath_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:dragonbreath_target"), effect.targetParticles.map { it.toString() })
         assertEquals(listOf("dragonbreath", "spray", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /**
+     * Cobblemon's `thundershock` timeline emits its sparks, its bolts and the shock from the user, the shock aimed at the target, and
+     * three hits on the target only.
+     */
+    @Test
+    fun `CD-FX-04 the Generator's Thunder Shock sparks from the worker and strikes the target`() {
+        val effect = BuiltInRoles.parse("generator").effect
+        assertEquals(
+            listOf("cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"),
+            effect.actorParticles.map { it.toString() },
+        )
+        assertEquals(
+            listOf("cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"),
+            effect.targetParticles.map { it.toString() },
+        )
+        assertEquals(listOf("thundershock", "electric", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /**
+     * Cobblemon's `rockthrow` timeline emits one particle, from the user, aimed at the target. Its hit and its stars are events of
+     * that thrown rock, so the client plays them where the rock lands, and the role file names no target particle.
+     */
+    @Test
+    fun `CD-FX-04 the Crystal Tender's Rock Throw is thrown from the worker`() {
+        val effect = BuiltInRoles.parse("crystal_tender").effect
+        assertEquals(listOf("cobblemon:rockthrow_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(emptyList<String>(), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("rockthrow", "rock", "physical", "cry"), effect.animationsWithCry)
+    }
+
+    /** Cobblemon's `ember` timeline sends the ember from the user, aimed at the target, and only the hit lands on the target. */
+    @Test
+    fun `CD-FX-04 the Brew Stoker's Ember flies from the worker and burns at the stand`() {
+        val effect = BuiltInRoles.parse("brew_stoker").effect
+        assertEquals(listOf("cobblemon:ember_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:ember_target"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("ember", "fire", "spray", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /** Cobblemon's `poisongas` timeline sends the gas from the user, aimed at the target, and only the cloud forms on the target. */
+    @Test
+    fun `CD-FX-04 the Brewer's Poison Gas drifts from the worker and clouds the stand`() {
+        val effect = BuiltInRoles.parse("brewer").effect
+        assertEquals(listOf("cobblemon:poisongas_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:poisongas_target"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("poisongas", "spray", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /** The Pump casts the Wheel Driver's Water Gun: the spray and the actor burst from the worker, the splash on the target. */
+    @Test
+    fun `CD-FX-04 the Pump's Water Gun sprays from the worker and splashes at the target`() {
+        val effect = BuiltInRoles.parse("pump").effect
+        assertEquals(listOf("cobblemon:watergun_spray", "cobblemon:watergun_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:watergun_target", "cobblemon:watergun_targetfoam"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("watergun", "spray", "beam", "special", "cry"), effect.animationsWithCry)
+    }
+
+    @Test
+    fun `CD-PMP-02 the Pump role file sets auto_assign to false`() {
+        val key = autoAssignKey("pump")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "pump.json has auto_assign $key")
+        assertFalse(BuiltInRoles.parse("pump").autoAssign)
+    }
+
+    /** Cobblemon's `fairywind` timeline sends the wind from the user, aimed at the target, and its two hits land on the target only. */
+    @Test
+    fun `CD-FX-04 the Muse's Fairy Wind blows from the worker and sparkles at the table`() {
+        val effect = BuiltInRoles.parse("muse").effect
+        assertEquals(listOf("cobblemon:fairywind_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:fairywind_target", "cobblemon:fairywind_targethit"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("fairywind", "special", "cry"), effect.animationsWithCry)
+    }
+
+    @Test
+    fun `CD-MUS-02 the Muse role file sets auto_assign to false`() {
+        val key = autoAssignKey("muse")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "muse.json has auto_assign $key")
+        assertFalse(BuiltInRoles.parse("muse").autoAssign)
+    }
+
+    /** The Cranker is the only role whose move needs contact. */
+    @Test
+    fun `CD-ASG-10 every built-in ranged role works from 6 blocks`() {
+        val files = BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") && f.name != "cranker.json" }.orEmpty()
+        for (file in files) assertEquals(6.0, BuiltInRoles.parse(file).range, file.name)
     }
 
     @Test

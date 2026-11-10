@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:fluid_fill",
+  "types": ["water"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "mb_per_level": 5 },
+  "effect": {
+    "loop_ticks": 40,
+    "animations": ["watergun", "spray", "beam", "special", "cry"],
+    "actor_particles": ["cobblemon:watergun_spray", "cobblemon:watergun_actor"],
+    "target_particles": ["cobblemon:watergun_target", "cobblemon:watergun_targetfoam"]
+  }
+}

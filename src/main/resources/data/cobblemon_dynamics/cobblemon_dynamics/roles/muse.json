@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:enchanting",
+  "types": ["fairy"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "bookshelves_at_level_100": 15 },
+  "effect": {
+    "loop_ticks": 40,
+    "animations": ["fairywind", "special", "cry"],
+    "actor_particles": ["cobblemon:fairywind_actor"],
+    "target_particles": ["cobblemon:fairywind_target", "cobblemon:fairywind_targethit"]
+  }
+}

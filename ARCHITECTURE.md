@@ -76,7 +76,8 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
   create/                WaterWheelBlockEntityMixin, BlazeBurnerBlockEntityMixin,
                          ItemUseOverridesMixin, EncasedFanBlockEntityMixin,
                          NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
-  vanilla/               EnchantmentMenuMixin
+  vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
+                         other code load)
   cobblemon/client/      PastureWidgetMixin (stamina bars)
   compat/cobblebase/     @Pseudo mixins
 src/main/resources/
@@ -269,6 +270,8 @@ writes are safe in any order against block entity ticks (see section 8).
    engine updates its `stamina_view` attachment.
 10. On a state change, every 600 ticks, on entity unload and on server stop, the engine flushes Work
     Stamina to `persistentData` and calls `onChange()`. A flush every tick would be too costly.
+11. On server stop, before the levels save, the engine calls `onStop` for every Working worker, as a
+    release does. The saved world then keeps no fuel, heat or drive that a worker gave (CD-BRF-05).
 
 Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that tick:
 
@@ -309,7 +312,9 @@ interface TargetHandler {
 ```
 
 `WorkContext` carries the level, the canonical target, the worker entity, its `Pokemon`, the role, the
-role parameters and, for Telekinesis, the destination and both faces.
+role parameters and, for Telekinesis, the destination and both faces. It also carries the claim's memo: one
+value that the handler keeps for the length of the work claim, such as the Generator's capability cache. The
+engine gives each claim an empty memo and drops it when the claim ends.
 
 ## 7. Network
 
@@ -488,10 +493,12 @@ references. This section lists what the code uses.
 - **Crystal Tender.** The role targets `#c:budding_blocks`. That tag holds `minecraft:budding_amethyst`
   and the four AE2 budding certus blocks. One random tick every 10 ticks matches one AE2 Growth
   Accelerator. Extra ticks also speed up the decay of non-flawless budding certus, as AE2's own
-  accelerator does.
+  accelerator does. A target has demand while a face holds air, a water source, or a bud of `#c:buds`
+  that faces away from it, because vanilla and AE2 grow buds the same way.
 - **FE.** AE2 machines accept FE only on their power sides. The Generator handler tries the face toward
-  the worker first, then the other faces, until one face reports `canReceive()`. It caches the face
-  in a `BlockCapabilityCache`. AE2 converts 2 FE to 1 AE by default.
+  the worker first, then the other faces, nearest first, until one face reports `canReceive()`. It keeps
+  the face in a `BlockCapabilityCache` in the claim's memo while that face still receives. AE2 converts
+  2 FE to 1 AE by default.
 - **ME Interface (Phase 2).** The interface block and the interface cable part expose an item handler
   through a LOWEST-priority adapter. Telekinesis queries the cable part from the face it sits on,
   because a `null` side reaches the cable. Items land in the interface's 9-slot buffer. AE2 sends
@@ -522,11 +529,13 @@ references. This section lists what the code uses.
 - **Brewing stand.** Access transformer entries for `BrewingStandBlockEntity.fuel` and `brewTime`. The
   Brew Stoker keeps `fuel >= 1` while a brew can start. The Brewer lowers `brewTime` by one extra
   step per tick and never below 1, so vanilla finishes the brew.
-- **Enchanting table.** Mixin `EnchantmentMenuMixin` uses `@ModifyVariable` on
-  `EnchantmentMenu.lambda$slotsChanged$0` at the `RandomSource#setSeed(J)V` call. It adds the Muse's
-  bookshelf count to the power sum, so vanilla's random rolls stay the same. The total stays capped at
-  15 by vanilla. The fallback with no mixin is `EnchantmentLevelSetEvent`, with a fixed seed for our own
-  random source.
+- **Enchanting table.** Mixin `EnchantmentMenuMixin` uses `@ModifyArg` on the bookshelf count that
+  `EnchantmentMenu.lambda$slotsChanged$0` passes to `EnchantmentHelper.getEnchantmentCost` for each of the
+  three offers. It adds the Muse's count, and the total stays at 15 or less. The menu seeds its random
+  source before the first offer, and each call draws the same two values whatever the count, so the offers
+  equal those of a table with that many shelves. NeoForge's `EnchantmentLevelSetEvent` still gets the
+  table's own count. A menu that has no such call gets no injection, and `MixinGate` turns the Muse off
+  with one warning (CD-MUS-06).
 - **Cauldrons.** NeoForge's `CauldronWrapper` moves water in 1,000 mB steps only, so it cannot fill a
   cauldron at level 1 or 2. The Pump raises a cauldron one level per 333 mB delivered by setting the
   block state, as vanilla's `receiveStalactiteDrip` does. A cauldron has demand while it is empty or a
@@ -595,8 +604,8 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
   "effect": {
     "loop_ticks": 40,
     "animations": ["thundershock", "electric", "special", "cry"],
-    "actor_particles": ["cobblemon:thundershock_actor", "cobblemon:thundershock_actorbolts"],
-    "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetimpact"]
+    "actor_particles": ["cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"],
+    "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"]
   }
 }
 ```
@@ -604,7 +613,8 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
 The Generator computes FE/t = round(m × base × (max ÷ base)^((L − 1) ÷ 99)). The multiplier m is 2 for
 a Pokémon with a label in `rare_labels` and 1 otherwise, and the rounding comes last. With the
 defaults, that gives 10 FE/t at level 1, 217 at level 50 and 5,000 at level 100. A legendary gives 433
-at level 50 and 10,000 at level 100.
+at level 50 and 10,000 at level 100. A level above 100, under a raised level cap, gives the level-100
+rate.
 
 Other role parameters, as fragments of their role files:
 
@@ -732,7 +742,7 @@ Rules:
 | Cobblemon's behaviour system changes: `TaskConfig.types`, Brain rebuild timing, or the auto folder rules. A future species `baseAI` would skip our auto behaviour. | The engine owns all state and rewrites the memory each tick. One `ai` package holds the bridge. If task registration fails, workers stay Idle and the mod logs one error. | AI |
 | Move effects drift: particle ids get renamed, and few models have attack poses. | Each role lists animation names from specific to `cry`. The manual checklist covers every effect. No gameplay depends on an effect. | FX |
 | The roam box, Brain rebuilds and `onChange()` cost. | The work area is clamped to the roam box. Work Stamina flushes on a coarse schedule. | ASG, STA, PERF |
-| A Create or vanilla mixin fails after an update. The enchanting mixin targets a compiler-generated lambda name. | `MixinPlugin` and the per-mixin flags. The affected role disables itself instead of crashing. The Muse has an event fallback. | PLAT, CMP |
+| A Create or vanilla mixin fails after an update. The enchanting mixin targets a compiler-generated lambda name. | `MixinPlugin` and the per-mixin flags. The affected role disables itself instead of crashing. | PLAT, CMP |
 | The fan and windmill hooks need the client to agree with the server. | Every value that the client reads syncs through Create's behaviour packets or a synced attachment. GameTests and the checklist cover the client view. | FAN, TLW |
 | An ME Interface without a channel or power keeps items in its buffer. | Telekinesis sees no demand once the buffer is full. The checklist covers this case. | TLK |
 | Cobbleworkers and Cobblebase change their internals. The Cobbleworkers flag is undocumented, and Cobblebase hooks fragile names. | Compat toggles in the config. One warning when a hook fails. A manual check on each release of those mods. | CMP |

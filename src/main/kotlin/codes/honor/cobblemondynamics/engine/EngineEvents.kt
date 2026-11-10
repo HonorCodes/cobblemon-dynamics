@@ -20,8 +20,14 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent
 object EngineEvents {
     fun register() {
         NeoForge.EVENT_BUS.addListener<ServerStartingEvent> { WorkEngine.start(it.server) }
-        // Cobblemon saves its PC and party stores on ServerStoppedEvent, so Work Stamina is flushed before it.
-        NeoForge.EVENT_BUS.addListener<ServerStoppingEvent> { WorkEngine.get()?.flushAll() }
+        // The levels save after ServerStoppingEvent, so the handlers end their work first. Cobblemon saves its PC and party
+        // stores on ServerStoppedEvent, so Work Stamina is flushed before it.
+        NeoForge.EVENT_BUS.addListener<ServerStoppingEvent> {
+            WorkEngine.get()?.let { engine ->
+                engine.stopWorkingHandlers()
+                engine.flushAll()
+            }
+        }
         NeoForge.EVENT_BUS.addListener<ServerStoppedEvent> {
             WorkEngine.stop()
             WorkModeService.reset()

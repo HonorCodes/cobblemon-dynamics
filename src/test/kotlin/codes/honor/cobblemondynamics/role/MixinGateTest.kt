@@ -10,6 +10,7 @@ class MixinGateTest {
     private val keeper = role("burner_keeper", setOf("fire"), handler = "cobblemon_dynamics:burner_heat")
     private val superheater = role("superheater", setOf("dragon"), priority = 10, handler = "cobblemon_dynamics:burner_heat")
     private val stoker = role("stoker", setOf("fire"), handler = "cobblemon_dynamics:furnace")
+    private val muse = role("muse", setOf("fairy"), autoAssign = false, handler = "cobblemon_dynamics:enchanting")
 
     private fun set(vararg roles: RoleDefinition) = RoleSet(roles.associateBy { it.id }, { FakeHandler(it) }, emptySet()) { }
 
@@ -25,6 +26,27 @@ class MixinGateTest {
         assertEquals(2, warnings.size) // one per handler, not per role
         assertTrue(warnings.any { "cobblemon_dynamics:water_wheel" in it && MixinState.WATER_WHEEL in it }, warnings.toString())
         assertTrue(warnings.any { "cobblemon_dynamics:burner_heat" in it && MixinState.BLAZE_BURNER in it }, warnings.toString())
+    }
+
+    /** No mixin applies in a unit test, so the real flag of the enchanting-table mixin starts false. */
+    @Test
+    fun `CD-MUS-06 a missing enchanting-table mixin disables the Muse with one warning`() {
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(muse, stoker), MixinState::applied, warnings::add)
+        assertEquals(listOf(stoker.id), gated.active.map { it.definition.id })
+        assertEquals(1, warnings.size)
+        assertTrue(
+            "cobblemon_dynamics:enchanting" in warnings.single() && MixinState.ENCHANTMENT_MENU in warnings.single(),
+            warnings.toString(),
+        )
+    }
+
+    @Test
+    fun `CD-MUS-06 the Muse stays on while its mixin applied`() {
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(muse, stoker), applied = { it == MixinState.ENCHANTMENT_MENU }, warn = warnings::add)
+        assertEquals(listOf(muse.id, stoker.id), gated.active.map { it.definition.id })
+        assertTrue(warnings.isEmpty(), warnings.toString())
     }
 
     @Test
