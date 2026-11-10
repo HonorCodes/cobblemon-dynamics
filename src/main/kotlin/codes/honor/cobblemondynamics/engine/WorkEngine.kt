@@ -79,6 +79,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     fun pokemonOf(pokemonId: UUID): Pokemon? = slots[pokemonId]?.pokemon
 
+    /** The recovery rule that the engine applies to a worker, from its types and its binding at the last poll. */
+    fun ruleOf(pokemonId: UUID): RecoveryRule? = slots[pokemonId]?.rule
+
     /** One engine tick of [level], after the level ticked its block entities and entities. */
     fun tickLevel(level: ServerLevel) {
         val dimension = level.dimension().location()

@@ -602,16 +602,32 @@ and a Lv50 healer at 75%: three heals, one state per tick each, and the Tired fl
 **Rows:** CD-UI-15, CD-UI-14 (bed and heal claims), CD-SEC-09 (stamina command).
 
 **Files:**
-- Modify: `command/DynamicsCommands.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/CommandTests.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/command/StaminaReport.kt` (the line's parts and lang keys)
+- Modify: `command/DynamicsCommands.kt`, `engine/WorkEngine.kt` (`ruleOf`), `assets/cobblemon_dynamics/lang/en_us.json`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/command/StaminaReportTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/CommandTests.kt` (deferred, see Step 1)
 
 `/cobblemondynamics stamina <target>` takes an entity selector of one Pokémon and prints
-`<name>: <percent>% Work Stamina, <state>, <worker rule|healer rule>` from lang keys.
+`<name>: <percent>% Work Stamina, <state>, <worker rule|healer rule>` from lang keys
+(`cobblemon_dynamics.command.stamina`, `cobblemon_dynamics.state.<state>` and `cobblemon_dynamics.rule.<rule>`). The
+percent rounds down to one decimal, so a Tired Pokémon never reads 100.0. A worker shows the engine's live value,
+state and rule. Any other Pokémon shows its saved value plus the recovery of its time away, as the engine would
+load it, with the state `not in Work Mode` and the rule from its types and binding. A target that is not a
+Pokémon gets `cobblemon_dynamics.command.stamina.not_pokemon`. The subcommand sits under the root literal, which
+needs permission level 2 (CD-SEC-09).
 
-- [ ] **Step 1: Failing GameTests** — `cdUi15StaminaShowsValueStateAndRule` (a Lv50 healer at 40%: the output
-  holds `40`, its state, and `healer rule`); extend `cdUi14ClaimsListsEveryEntry` with a sleeper's bed claim
-  and a healer's heal claim; extend `cdSec09LevelZeroIsRefused` to the stamina command. M1 deferred both of
-  those GameTests to the end-of-phase pass, so `CommandTests.kt` may not exist yet: write the extensions as
-  their own tests, or defer them with the same marking. The claims command already lists every claim kind.
+The claims command from M1 Task 12 already lists every claim kind with its lang key. A heal claim's key holds
+the ally's Pokémon UUID, not an entity UUID, so the command now names the ally through the engine.
+
+- [ ] **Step 1: Failing unit tests** — `StaminaReportTest`: a healer at 40% gives `40.0`, its state key and the
+  healer rule key; a Pokémon that is not a worker gets the `none` state; the value rounds down to one decimal;
+  and every key of the command has its English text, with `healer rule` and `worker rule` (CD-UI-15).
+  - CD-UI-15 (`cdUi15StaminaShowsValueStateAndRule`: a Lv50 healer at 40%; the output holds `40`, its state,
+    and `healer rule`): GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-UI-14 (`cdUi14ClaimsListsEveryEntry` with a sleeper's bed claim and a healer's heal claim): GameTest
+    deferred (high confidence): verified in the end-of-phase pass. M1 deferred the command's GameTest too.
+  - CD-SEC-09 (`cdSec09LevelZeroIsRefused` for the stamina command): GameTest deferred (high confidence):
+    verified in the end-of-phase pass. The permission is on the root literal, as for the claims command.
 - [ ] **Step 2: Write the code, run, commit, push, open the pull request** — `/commit`, then `pr-runner`
   with base `main`. The body lists the rows of Tasks 1 to 6.
+  `git commit -m "Add the stamina command and name the heal targets in the claims command"`.
