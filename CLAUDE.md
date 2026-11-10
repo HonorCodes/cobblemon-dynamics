@@ -116,6 +116,19 @@ when your hands are on the code.
 - An empty-hand `TestKit.clickBlock` on a pasture creates Cobblemon's pasture link, which payload tests need.
 - Fake players never tick their inventory, so a test calls `inventoryTick` itself.
 - `ServerPlayer.getPermissionLevel()` is protected. Use `hasPermissions(n)`.
+- To record the packets a player gets, build a `ServerGamePacketListenerImpl` over
+  `Connection(PacketFlow.CLIENTBOUND)` and add the player to `ServerLevel.players` by reflection, in its own
+  batch (`FakePlayerNetHandler` is private).
+- AE2's `IEnergyService.getStoredPower()` is recomputed only every 90 ticks. Read the cell's `IAEPowerStorage`.
+- Create's valve handle takes a Work Leash click before the leash sees it.
+- A target at y = 1 sits in the floor, which blocks the line of sight from cells more than about 2 blocks away.
+  Put such a target at y = 2.
+- The Blaze Burner's fuel and creative fields are protected. Set them through its NBT with
+  `loadWithComponents`.
+- The stamina step recovers before it checks thresholds, so a test value equal to a threshold passes it in one
+  tick.
+- `/time` changes the day time of every level, so a test that uses it needs its own batch with an
+  `@AfterBatch` reset.
 - On Windows, Python's `write_text` writes CRLF unless you pass `newline="\n"`. Check for CR characters
   before staging.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
