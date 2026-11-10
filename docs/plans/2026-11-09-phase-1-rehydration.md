@@ -134,6 +134,12 @@ The repository's `CLAUDE.md` holds them; add new ones there.
   (CD-ASG-09). Check it in the play-test and widen the spot check if it shows.
 - End-of-phase pass (M5): a Burner Keeper works a creative Blaze Burner, which gains nothing from it. Make
   `hasDemand` false for a creative burner.
+- End-of-phase pass (M5): two Pokémon that walk toward each other on the same row of cell centres push each
+  other straight back, because Minecraft pushes along the line between their centres. Navigation follows cell
+  centres and the engine snaps a Working worker to its spot's centre, so a walk that pushes a Working worker off
+  its spot can stall until the travel timeout (600 ticks), and CD-ASG-14 then skips the target for 6,000 ticks.
+  The perf world (M5 Task 6) showed it in 5 of 13 runs until the test placed its workers on their spots. Check a crowded pasture in the play-test. A fix could keep a Working worker from being pushed, or snap
+  it a little off the centre.
 - Role files: target particles now go out at the work focus and actor particles from the worker (M1, ADR-0007
   amendment). Put each particle of a new role file in the list that matches where Cobblemon emits it, as
   the Wheel Driver's `watergun_spray` (actor) shows.

@@ -277,14 +277,23 @@ Design (as built):
   iron, so that every furnace has demand for the whole run. No furnace lies in two work areas. The test waits
   until all 64 workers are Working and then 200 ticks more, records 6,000 ticks, and asserts on every recorded
   tick that all 64 are still Working.
+- Until all 64 are Working, the test puts each Traveling worker on its work spot, because it measures work, not
+  walks. Without that, 5 of 13 runs left a worker Idle. The worker walked along a row of cell centres
+  into a Working worker that it had pushed off its spot, and the two pushed each other straight back, because
+  Minecraft pushes two entities apart along the line between their centres. The walk timed out after 600 ticks,
+  and CD-ASG-14 then kept the worker off its furnace for 6,000 ticks. A trace of the stuck worker showed a valid
+  path to its spot. The finding is a carry-over item for the end-of-phase pass (rehydration note). If a worker is
+  not Working at 2,400 ticks, the test fails and names each idle worker's state, position, target, spot and
+  skipped targets.
 - CD-PERF-05, runtime part: during the 6,000 ticks a log4j appender on the root logger of the mod's logger
   context collects the lines at INFO and above from the `codes.honor.cobblemondynamics.` loggers, without the
   test mod's. Each must be a WARN, and no message may repeat.
 - Fake players never join the level, so no work effect packet goes out during the measurement. The approver's
   spark run in the test pack, with a client beside the workers, covers that cost.
-- Measured on the development machine, 2026-11-10: mean 0.120 ms, p95 0.202 ms of Dynamics server time per
-  tick over 6,000 ticks with 64 Working workers, and no Dynamics log line after the warm-up. The gate report
-  and the M5 pull request quote these numbers.
+- Measured on the development machine, 2026-11-10, in Dynamics server time per tick over 6,000 ticks with 64
+  Working workers: mean 0.120 ms and p95 0.202 ms in the first run, and mean 0.129 to 0.150 ms and p95 0.218 to
+  0.242 ms over six runs of the final test. No run had a Dynamics log line after the warm-up. The gate report and
+  the M5 pull request quote these numbers.
 - CI runs `runGameTestServerPerf` in the build job and keeps its log. The run takes about a minute, and the
   budget leaves a margin of 5 to 10 times, so a slower runner does not fail it.
 

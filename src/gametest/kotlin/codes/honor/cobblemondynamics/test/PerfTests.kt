@@ -1,9 +1,11 @@
 package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.engine.EngineTiming
 import codes.honor.cobblemondynamics.engine.TickTimes
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.mojang.logging.LogUtils
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
@@ -50,7 +52,11 @@ class PerfTests {
         helper.onEachTick {
             val working = workers.count { TestKit.workerOf(helper, it)?.status == WorkerStatus.WORKING }
             if (!recording) {
+                placeOnSpots(helper, workers)
                 if (allWorkingAt < 0 && working == workers.size) allWorkingAt = helper.tick
+                if (allWorkingAt < 0 && helper.tick >= WORKING_DEADLINE_TICKS) {
+                    helper.fail("$working of ${workers.size} workers Working after ${helper.tick} ticks: ${notWorking(helper, workers)}")
+                }
                 if (allWorkingAt >= 0 && helper.tick - allWorkingAt >= WARM_UP_TICKS) {
                     tap.attach()
                     EngineTiming.startRecording(MEASURED_TICKS)
@@ -86,6 +92,34 @@ class PerfTests {
         LOGGER.info("CD-PERF-05 {} Dynamics log lines after the warm-up: {}", lines.size, lines)
         helper.succeed()
     }
+
+    /**
+     * Puts each Traveling worker on its work spot. The test measures work, not walks: two Pokémon that walk toward each other on
+     * the same row of cell centres push each other straight back, so a walk that meets a worker can time out (see the plan).
+     */
+    private fun placeOnSpots(helper: GameTestHelper, workers: List<PokemonEntity>) {
+        for (entity in workers) {
+            val worker = TestKit.workerOf(helper, entity) ?: continue
+            val spot = worker.spot ?: continue
+            if (worker.status == WorkerStatus.TRAVELING) TestKit.moveTo(helper, entity, TestKit.relative(helper, spot))
+        }
+    }
+
+    /** Each worker that is not Working, with its state, position, target and spot, relative to the test. */
+    private fun notWorking(helper: GameTestHelper, workers: List<PokemonEntity>): String = workers.mapNotNull { entity ->
+        val worker = TestKit.workerOf(helper, entity)
+        if (worker?.status == WorkerStatus.WORKING) return@mapNotNull null
+        val target = worker?.target?.let { TestKit.relative(helper, it) }
+        val spot = worker?.spot?.let { TestKit.relative(helper, it) }
+        val skips = worker?.skipUntil.orEmpty().map { (key, until) ->
+            val pos = (key as? TargetKey.Block)?.let { TestKit.relative(helper, BlockPos.of(it.pos)) }
+            "$pos until $until"
+        }
+        "${worker?.status} since ${worker?.statusSince} at ${TestKit.relative(helper, entity.blockPosition())}, target $target, " +
+            "spot $spot, skips $skips"
+    }.joinToString("; ") + "; unclaimed furnaces: " + FURNACES.filter { rel ->
+        TestKit.engine(helper).claims.holderOf(TestKit.keyOf(helper, helper.absolutePos(rel))) == null
+    } + "; now ${helper.level.gameTime}"
 
     private fun millis(value: Double): String = String.format(Locale.ROOT, "%.3f", value)
 
@@ -130,6 +164,9 @@ class PerfTests {
 
         const val WORKERS_PER_PASTURE = 8
         const val WARM_UP_TICKS = 200L
+
+        /** Past the engine's 600-tick travel timeout: a worker that has not started by now waits 6,000 ticks for its retry. */
+        const val WORKING_DEADLINE_TICKS = 2_400L
         const val MEASURED_TICKS = 6_000
         const val TIMEOUT_TICKS = 9_000
         const val PERCENTILE = 0.95
@@ -142,5 +179,7 @@ class PerfTests {
         /** A ring of 8 furnaces 3 blocks out from each pasture, in the floor, so the workers walk over them. */
         val FURNACE_OFFSETS: List<BlockPos> = listOf(-3, 0, 3).flatMap { dz -> listOf(-3, 0, 3).map { dx -> BlockPos(dx, 0, dz) } }
             .filter { it != BlockPos.ZERO }
+
+        val FURNACES: List<BlockPos> = PASTURES.flatMap { center -> FURNACE_OFFSETS.map(center::offset) }
     }
 }
