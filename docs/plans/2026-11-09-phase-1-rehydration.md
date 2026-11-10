@@ -21,7 +21,7 @@ design of every task. This note holds what the plan does not.
   push per review round; no AI attribution or `Co-Authored-By` anywhere; stage explicit paths only; a
   commit with a `.md` file needs a ` [rag:N]` subject suffix (hook-enforced).
 
-## State at the time of writing (M1 complete)
+## State at the time of writing (M5 Task 9 Steps 1 to 3 done)
 
 | Item | State |
 | --- | --- |
@@ -32,7 +32,7 @@ design of every task. This note holds what the plan does not.
 | Dependabot | Merged: tomlj 2.2.0 (#4), JUnit 6.1.3 (#5), and Gradle 9.9.0 with Kotlin 2.2.21 (#8). `dependabot.yml` keeps Kotlin on 2.2.x and the platform dependencies at their floors. To re-test a Dependabot pull request against a newer `main`, close and reopen it. |
 | M3 | Merged: PR #9, merge commit `e001192`. |
 | M4 | Merged: PR #10, merge commit `f6adcec`. |
-| M5 | Branch `m5-ui-compat-gate`, rebased onto `main` (`f6adcec`). Tasks 1 to 4 are committed: 317 unit tests, 96 of 96 GameTests, 3 of 3 in the core run, `COMPAT PASS`, `DEPS PASS`, `SMOKE PASS`. The client smoke check (`runClient` quick-playing `run/client/saves/smoke-flat`) reached the world with no errors. Next: Tasks 5 to 7, then Task 8, then the end-of-phase pass for the deferred rows and the gate (Task 9). M5 is one pull request, opened at Task 9. |
+| M5 | Branch `m5-ui-compat-gate`, rebased onto `main` (`f6adcec`). Tasks 1 to 8 and the end-of-phase pass for the deferred rows are committed. Task 9 Steps 1 to 3 are done. `scripts/gate_report.py` wrote the gate report `docs/testing/phase-1-gate.md` for the run on commit `0cddb71`: 356 unit tests, 162, 3 and 1 GameTests, and `SMOKE`, `DEPS`, `COMPAT`, `RELOAD` and `RESTART PASS`. In it, all 269 rows with automated tests pass, 35 rows have a play-test part, and 3 rows stay open after Phase 1. `testpack.py client` assembled the play-test client in `run/testpack/client/mods/`. Next: the M5 pull request (Task 9 Step 4), then the stop for the approver's play-test (Step 5). M5 is one pull request. |
 
 ## Environment
 

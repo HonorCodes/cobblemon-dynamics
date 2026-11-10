@@ -437,16 +437,47 @@ Design (as built):
 
 **Files:** `docs/testing/phase-1-gate.md`, `scripts/gate_report.py`.
 
-- [ ] **Step 1:** `gate_report.py` reads the spec sheet, the JUnit XML reports and the GameTest logs of every
+- [x] **Step 1:** `gate_report.py` reads the spec sheet, the JUnit XML reports and the GameTest logs of every
   run, and writes a table of each Phase 1 `MUST` and `MUST NOT` row with its test names, result and the
   commit hash. A row whose evidence is a Demo is marked `play-test`.
-- [ ] **Step 2:** run `./gradlew build runGameTestServer runGameTestServerCore runGameTestServerPerf` and every
+- [x] **Step 2:** run `./gradlew build runGameTestServer runGameTestServerCore runGameTestServerPerf` and every
   test pack scenario on one commit; generate the report; every automated row passes.
-- [ ] **Step 3:** assemble the approver's play-test instance with `py scripts/testpack/testpack.py client` and
+- [x] **Step 3:** assemble the approver's play-test instance with `py scripts/testpack/testpack.py client` and
   write its path and steps at the top of the gate report.
 - [ ] **Step 4:** commit the report, push, open the M5 pull request, resolve reviews and merge.
 - [ ] **Step 5: Stop.** Hand off to the approver for the play-test. CD-REL-13 completes when the approver's
   play-test note is recorded in the gate report, before any M6 work merges.
+
+Steps 1 to 3 as built:
+
+- `scripts/gate_report.py` uses the standard library only. It rewrites two marked blocks of
+  `docs/testing/phase-1-gate.md`, the run summary and the Rows section, and keeps the text around them. Besides the
+  inputs of Step 1, it reads the deferred list below, the manual checklist, the test pack's README, `testpack.py`,
+  `build.gradle`, and the saved output of the Gradle command (`--gradle-log`) and of each test pack command
+  (`--testpack-log`). It exits with 1 when a row has no passing test or two inputs disagree, and with 2 when an input is
+  missing. `--self-check` runs its parsers on samples.
+- The GameTest runs write no JUnit-style report. A run's log names only the failed tests and ends with
+  `All N required tests passed`, so the script takes the test names from the `@GameTest` methods of each run's namespace
+  and source folders and checks their number.
+- A GameTest cites a row through its name, its KDoc or an assertion message, also in a private helper that it calls.
+  With names alone, CD-AI-08, CD-BRF-01, CD-BRF-04, CD-BRW-01, CD-BRW-03, CD-BRW-04 and CD-MUS-01 had no test. The
+  Gradle tasks `verifyJar` and `verifyNoAe2` check CD-PLAT-04, CD-REL-07 and CD-CRY-05. The test pack README's tables
+  give the commands and cases of seven rows, and the scripted checklist checks give the cases of the PLAT rows. The
+  script marks CD-REL-04, CD-REL-14 and CD-REL-15 open after Phase 1, and CD-REL-13 play-test. It refuses to write when
+  tracked files differ from the commit, and it counts a log older than the commit as stale.
+- The first gate run, on `662e02c`, failed `RestTests.cdAi07NightSleepEndsWhenWorkStarts` once. Cobblemon's drowsy
+  sensor rouses a drowsy Pokémon by chance (1 in 240 for each run, once a second), and its wake-up task then wakes it in
+  the same Brain tick, before the test sets the memory again. A confirmation run then failed
+  `EffectPacketTests.cdFx10Heal15SleepAndHealEffectsReachANearbyPlayer` once, because the ally's sleep loop (CD-FX-10)
+  reached the player before the heal ended. Commit `0cddb71` fixed both tests: the first waits for the next sleep, and the
+  second leaves the sleep particles out of its heal check. Every row assertion stays, and two full runs passed.
+- The gate run on `0cddb71` passed: 356 unit tests, `verifyJar`, `verifyNoAe2`, 162, 3 and 1 GameTests, and the test
+  pack's `smoke`, `deps` (7 cases), `compat` (2 cases), `reload` and `restart`. The perf run gave a mean of 0.140 ms and
+  a p95 of 0.252 ms, with no Dynamics log line after the warm-up. All 269 rows with automated tests pass, 35 rows have a
+  play-test part (6 of them have no automated test), and CD-REL-04, CD-REL-14 and CD-REL-15 stay open.
+- `testpack.py client` filled `run/testpack/client/mods/` with the five pinned jars and the mod jar of that commit. The
+  gate report gives the launch steps for a new Modrinth App instance, the optional compatibility jars and the
+  approver's steps, and it lists the known issues and open decisions.
 
 CD-REL-14 (the Phase 2 gate before 1.0.0 publishes) and CD-REL-15 (1.0.0 joins the approver's pack) belong to
 M8 and M9. The gate report lists them as open, out of this plan's scope.
