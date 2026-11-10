@@ -436,8 +436,10 @@ references. This section lists what the code uses.
   It returns `KINDLED` for the Burner Keeper. It returns `SEETHING` for a Superheater at level 50 or
   higher, and `KINDLED` for a Superheater below level 50. It changes the result only when ours is
   hotter. The burner's own tick writes the block state every tick, so heat starts within one tick and
-  ends one tick after release. Empty burners (`HeatLevel.NONE`, no block entity) are never targets,
-  because heating one would duplicate a blaze.
+  ends one tick after release. The handler renews the heat of a burner on every tick that its worker
+  Works, and the heat lapses one tick after the last renewal, so a release that never came leaves no
+  burner hot. Empty burners (`HeatLevel.NONE`, no block entity) are never targets, because heating
+  one would duplicate a blaze.
 - **Boilers.** Create's `BoilerHeater` registry reads the burner block state. `KINDLED` gives 1 heat
   and `SEETHING` gives 2. Boilers need no extra code.
 - **Drive direction.** `BlockEntityBehaviourEvent.forType(...)` for `AllBlockEntityTypes.WATER_WHEEL`,

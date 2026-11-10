@@ -219,4 +219,4 @@ Deferred rows (the index's execution rule 6; append as milestones defer more):
   claims), CD-SEC-09 (stamina command).
 - M3 Tasks 1 to 3: CD-ASG-01, CD-ASG-04, CD-ASG-19, CD-LSH-03, CD-LSH-06, CD-LSH-11, CD-LSH-14 (each the water-wheel
   version of the row's final part).
-- M3 Tasks 4 to 6: CD-CRK-04, CD-CRK-07.
+- M3 Tasks 4 to 6: CD-CRK-04, CD-CRK-07, CD-BRN-02, CD-BRN-03, CD-BRN-04.

@@ -26,6 +26,7 @@ object CreateCompat {
         NeoForge.EVENT_BUS.addListener(BlockEntityBehaviourEvent::class.java, ::attachDrive)
         HandlerRegistry.register(WaterWheelHandler)
         HandlerRegistry.register(HandCrankHandler)
+        HandlerRegistry.register(BurnerHeatHandler)
     }
 
     /**

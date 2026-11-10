@@ -403,17 +403,19 @@ CD-SUP-04.
 **Files:**
 - Create: `src/main/java/codes/honor/cobblemondynamics/mixin/create/BlazeBurnerBlockEntityMixin.java`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/PokemonHeat.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/HeatGate.kt` (pure, no Create types)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/BurnerHeatHandler.kt`
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/burner_keeper.json`
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/superheater.json`
-- Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/HeatGateTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/BurnerTests.kt`
+- Modify: `src/main/resources/cobblemon_dynamics.mixins.json`, `handler/create/CreateCompat.kt` (registers the handler)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/HeatGateTest.kt`, `role/BuiltInRoleFilesTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/BurnerTests.kt`, `CreateKit` (burner, basin, tank, boiler heat)
 
-The mixin (research note):
+The mixin, as built:
 
 ```java
 @Mixin(BlazeBurnerBlockEntity.class)
-abstract class BlazeBurnerBlockEntityMixin {
+public abstract class BlazeBurnerBlockEntityMixin {
     @Inject(method = "getHeatLevel()Lcom/simibubi/create/content/processing/burner/BlazeBurnerBlock$HeatLevel;",
             at = @At("RETURN"), cancellable = true)
     private void cobblemon_dynamics$heat(CallbackInfoReturnable<BlazeBurnerBlock.HeatLevel> cir) {
@@ -423,33 +425,70 @@ abstract class BlazeBurnerBlockEntityMixin {
 }
 ```
 
-`PokemonHeat` keeps a map from `(level, pos)` to the heat that a Working worker supplies; the handler sets
-it in `onStart` and every tick in `applyWork`, and removes it in `onStop` (CD-BRN-06). The mixin only
-changes the returned value, so the burner's fuel and burn time stay untouched (CD-BRN-04), and Create's own
-tick writes the block state, which the boiler reads (CD-BRN-05, CD-SUP-03).
+Checked against the 6.0.10 jar with `javap`: `getHeatLevel()` is protected and gives `SEETHING` for `SPECIAL` fuel, `KINDLED` for
+`NORMAL` fuel (`FADING` below 125 ticks, `remainingBurnTime / 10000.0 < 0.0125`) and `SMOULDERING` for none; `isAtLeast`
+compares ordinals. The server `tick()` counts `remainingBurnTime` down and calls `updateBlockState()`, which is
+`setBlockHeat(getHeatLevel())`, on every tick while the fuel is `NONE` or `NORMAL`; `SPECIAL` fuel, which is `SEETHING`
+already, updates only when it runs out. `setBlockHeat` writes the block state with `setBlockAndUpdate` only on a change. A
+creative burner returns before any of this. An empty burner (`HEAT_LEVEL` `NONE`) has no block entity (`newBlockEntity`).
 
-`BurnerHeatHandler` (`id = cobblemon_dynamics:burner_heat`): `matches` when the block entity is a
-`BlazeBurnerBlockEntity` and the block state's heat level is not `NONE` (CD-BRN-02). `hasDemand` when the
-block entity directly above is a `BasinBlockEntity` or a `FluidTankBlockEntity` (CD-BRN-03). The heat comes
-from the role params: `HeatGate.heatFor(params, level)` returns `params.heat` when `level >= params.min_level`
-(default 0) and `params.below_min_level_heat` otherwise.
+`PokemonHeat`, as built, holds a grant per `BlazeBurnerBlockEntity` (a weak map, server thread only; `levelFor` returns null on
+a client) instead of a map from `(level, pos)`: the handler grants the heat in `onStart` and on every tick in `applyWork`, and
+withdraws it in `onStop` (CD-BRN-06). A grant made on tick `t` holds through tick `t + 1`, so heat whose `onStop` never came,
+after a handler error, `WorkEngine.resetRuntimeForTest()` or a server stop, still lapses within 2 ticks. A key of `(level, pos)`
+would have outlived a world: a singleplayer world that the player leaves and opens again, or another world, reuses the
+dimension and the position. The mixin only changes the returned value, so the burner's fuel and burn time stay untouched
+(CD-BRN-04), and Create's own tick writes the block state, which basins and boilers read (CD-BRN-05, CD-SUP-03). Heat starts
+on the burner's first tick after Working starts and ends on its first tick after release.
 
-`burner_keeper.json`: types `["fire"]`, priority 0, params `{ "heat": "kindled" }`, effect Flamethrower.
-`superheater.json`: types `["dragon"]` (CD-SUP-02), priority 10, params
-`{ "heat": "seething", "min_level": 50, "below_min_level_heat": "kindled" }`, effect Dragon Breath
-(`dragonbreath`, `spray`, `special`, `cry`; actor `cobblemon:dragonbreath_actor`, target
-`cobblemon:dragonbreath_target`).
+`BurnerHeatHandler` (`id = cobblemon_dynamics:burner_heat`), as built: `matches` when the block entity is a
+`BlazeBurnerBlockEntity` and the block state's heat level is not `NONE` (CD-BRN-02). `hasDemand` uses Create's own public
+`isValidBlockAbove()` (a `BasinBlockEntity` above, or a `FluidTankBlock`; checked with `javap`) (CD-BRN-03), and needs a heat:
+a role whose params give no heat at the worker's level has no demand. The heat comes from the role params:
+`HeatGate.heatFor(params, level)` returns `params.heat` when `level >= params.min_level` (default 0) and
+`params.below_min_level_heat` otherwise, as Create's serialized heat name (`kindled`, `seething`), which the handler maps to
+`HeatLevel` by `getSerializedName()`. `HeatGate` names no Create type, so it has unit tests.
+
+`burner_keeper.json`: types `["fire"]`, `auto_assign` true, priority 0, range 6.0, params `{ "heat": "kindled" }`, effect
+Flamethrower (the Stoker's: actor `cobblemon:flamethrower_actor`, target `cobblemon:flamethrower_target`,
+`cobblemon:flamethrower_targetburst`). `superheater.json`: types `["dragon"]` (CD-SUP-02), `auto_assign` true, priority 10,
+range 6.0, params `{ "heat": "seething", "min_level": 50, "below_min_level_heat": "kindled" }`, effect Dragon Breath
+(`dragonbreath`, `spray`, `special`, `cry`; actor `cobblemon:dragonbreath_actor`, which Cobblemon's timeline emits from the user
+toward the target, and target `cobblemon:dragonbreath_target`, which it emits on the target).
 
 - [ ] **Step 1: Failing tests** — `HeatGateTest`: Lv49 gives kindled and Lv50 gives seething (CD-SUP-01,
   CD-SUP-04); the Burner Keeper gives kindled at every level; a Fire-type Charmander is not eligible for the
-  Superheater and a Dratini is (CD-SUP-02). `BurnerTests`: `cdBrn01KindledOneTickAfterWorking` (filled burner,
-  no fuel, basin above), `cdBrn02EmptyBurnerIsNeverClaimed` (400 ticks), `cdBrn03NoBasinMeansStandby`,
-  `cdBrn04FuelBurnsDownAsNormal` (two burners with 1,000 ticks of coal, one worked for 400 ticks: equal
-  remaining burn time, read through an accessor or `saveWithoutMetadata` NBT), `cdBrn05BoilerCountsOneHeat`
-  and `cdSup03BoilerCountsTwoHeat` (read `BoilerHeater.REGISTRY` for the burner's block state, and the boiler's
-  `BoilerData` heat after `updateBoilerTemperature`), `cdBrn06ReleaseReturnsToSmouldering` (2 ticks),
-  `cdSup01Lv50Seething`, `cdSup04Lv49ThenLv50` (level the Dragonair up through Cobblemon and read the
-  heat and the boiler heat before and after).
+  Superheater and a Dratini is (CD-SUP-02); params with no `min_level`, and with no heat below it. `BuiltInRoleFilesTest`: the
+  Role table rows (CD-FX-02) and the particle splits of Flamethrower and Dragon Breath (CD-FX-04). `BurnerTests`, each burner
+  filled and with no fuel:
+
+```kotlin
+// cdBrn01Brn06KindledWhileWorkedSmoulderingAfterRelease: a basin above; 1 tick after a Charmander starts Working the burner reads KINDLED
+//   or hotter (CD-BRN-01); the test releases the claim, and 2 ticks later the burner reads SMOULDERING (CD-BRN-06).
+// cdBrn05BoilerCountsOneHeat: a fluid tank above; a Working Charmander: KINDLED, BoilerHeater.findHeat (the REGISTRY lookup) gives 1, and
+//   the tank's BoilerData.updateTemperature counts activeHeat 1. FluidTankBlockEntity.updateBoilerTemperature only flags a boiler that has
+//   an engine, so the test runs the boiler's own heat count directly.
+// cdSup01Lv50Seething: a basin above; 1 tick after a Lv50 Dragonair starts Working the burner reads SEETHING.
+// cdSup03Sup04Lv49ThenLv50: a fluid tank above; a Lv49 Dragonair holds KINDLED with heater heat 1 and boiler heat 1 for 20 ticks, then
+//   levels up through Cobblemon (Pokemon.levelUp with a SidemodExperienceSource); within 5 ticks the burner reads SEETHING with heater
+//   heat 2 and boiler heat 2.
+```
+
+  The Dragonair tests found an engine bug that this task fixes in a commit of its own: a Dragonair is 1.1 blocks wide, and
+  navigation steers a mob 1 to 2 blocks wide to its node's corner, not its center (`Path.getEntityPosAtNode`, checked with
+  `javap`, and Cobblemon's `OmniPathNavigation`). The engine's arrival rule measured from the spot's center, so on about 4
+  approaches in 10 the Dragonair stopped short of "arrived" until its travel timed out. `Arrival.isAt` now measures from
+  where navigation stops the mob (M1 part 2, step 5), with `ArrivalTest`.
+
+  - CD-BRN-02 (`cdBrn02EmptyBurnerIsNeverClaimed`: an empty burner with a basin above and a Fire-type beside it for 400 ticks:
+    no claim; an empty burner has no block entity, so the block entity scan never offers it): GameTest deferred (high
+    confidence): verified in the end-of-phase pass.
+  - CD-BRN-03 (`cdBrn03NoBasinMeansStandby`: remove the basin above a worked burner: Standby within 20 ticks; demand is Create's
+    `isValidBlockAbove()`, and a Working worker checks demand on every tick): GameTest deferred (high confidence): verified in
+    the end-of-phase pass.
+  - CD-BRN-04 (`cdBrn04FuelBurnsDownAsNormal`: two burners with 1,000 ticks of coal fuel each, one worked for 400 ticks: equal
+    `getRemainingBurnTime()`, which is public in 6.0.10; the mixin changes only a returned value, and the tick counts the burn
+    time down whatever the heat): GameTest deferred (high confidence): verified in the end-of-phase pass.
 - [ ] **Step 2: Write the code, run, commit** —
   `git commit -m "Kindle and superheat Blaze Burners with Fire- and Dragon-types"`.
 

@@ -1,11 +1,15 @@
 package codes.honor.cobblemondynamics.test.create
 
 import com.simibubi.create.AllBlocks
+import com.simibubi.create.api.boiler.BoilerHeater
+import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.content.kinetics.base.RotatedPillarKineticBlock
 import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlock
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTestHelper
@@ -41,6 +45,38 @@ object CreateKit {
         if (helper.getBlockState(support).isAir) helper.setBlock(support, Blocks.STONE)
         helper.setBlock(rel, AllBlocks.HAND_CRANK.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
         return helper.getBlockEntity(rel)
+    }
+
+    /** A filled Blaze Burner with no fuel at [rel]. Create's own tick holds it at `SMOULDERING`. */
+    fun filledBurner(helper: GameTestHelper, rel: BlockPos): BlazeBurnerBlockEntity {
+        val filled = AllBlocks.BLAZE_BURNER.defaultState.setValue(BlazeBurnerBlock.HEAT_LEVEL, BlazeBurnerBlock.HeatLevel.SMOULDERING)
+        helper.setBlock(rel, filled)
+        return helper.getBlockEntity(rel)
+    }
+
+    fun basin(helper: GameTestHelper, rel: BlockPos) = helper.setBlock(rel, AllBlocks.BASIN.defaultState)
+
+    /** A one-block fluid tank, which becomes its own controller on its first tick. With a heater below, it is a boiler. */
+    fun fluidTank(helper: GameTestHelper, rel: BlockPos) = helper.setBlock(rel, AllBlocks.FLUID_TANK.defaultState)
+
+    /** The heat level in the block state at [rel], which basins and boilers read. */
+    fun heatAt(helper: GameTestHelper, rel: BlockPos): BlazeBurnerBlock.HeatLevel =
+        BlazeBurnerBlock.getHeatLevelOf(helper.getBlockState(rel))
+
+    /** The heat that Create's boiler heater registry gives the block at [rel]: 1 for `KINDLED`, 2 for `SEETHING`. */
+    fun heaterHeat(helper: GameTestHelper, rel: BlockPos): Float {
+        val pos = helper.absolutePos(rel)
+        return BoilerHeater.findHeat(helper.level, pos, helper.level.getBlockState(pos))
+    }
+
+    /**
+     * The active heat that the boiler of the tank at [rel] counts from the blocks under it. `BoilerData.updateTemperature` is the
+     * boiler's own heat count; a boiler with no engine never runs it, because `updateBoilerTemperature` skips an inactive boiler.
+     */
+    fun boilerHeat(helper: GameTestHelper, rel: BlockPos): Int? {
+        val tank = helper.getBlockEntity<FluidTankBlockEntity>(rel).controllerBE ?: return null
+        tank.boiler.updateTemperature(tank)
+        return tank.boiler.activeHeat
     }
 
     /** The capacity that [be] adds at its current speed, as Create's goggles compute it. */

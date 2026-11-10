@@ -21,6 +21,8 @@ class BuiltInRoleFilesTest {
         "stoker" to Row("cobblemon_dynamics:furnace", setOf("fire"), true, 0, "flamethrower"),
         "wheel_driver" to Row("cobblemon_dynamics:water_wheel", setOf("water"), true, 0, "watergun"),
         "cranker" to Row("cobblemon_dynamics:hand_crank", setOf("fighting", "normal"), true, 0, "pound"),
+        "burner_keeper" to Row("cobblemon_dynamics:burner_heat", setOf("fire"), true, 0, "flamethrower"),
+        "superheater" to Row("cobblemon_dynamics:burner_heat", setOf("dragon"), true, 10, "dragonbreath"),
     )
 
     /**
@@ -42,6 +44,27 @@ class BuiltInRoleFilesTest {
         assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:pound_target", "cobblemon:pound_targetsparks"), effect.targetParticles.map { it.toString() })
         assertEquals(listOf("pound", "punch", "tail", "physical", "cry"), effect.animationsWithCry)
+    }
+
+    /** Cobblemon's `flamethrower` timeline sends the stream from the user, and the hit and the burst land on the target. */
+    @Test
+    fun `CD-FX-04 the Burner Keeper's Flamethrower streams from the worker and bursts on the burner`() {
+        val effect = BuiltInRoles.parse("burner_keeper").effect
+        assertEquals(listOf("cobblemon:flamethrower_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(
+            listOf("cobblemon:flamethrower_target", "cobblemon:flamethrower_targetburst"),
+            effect.targetParticles.map { it.toString() },
+        )
+        assertEquals(listOf("flamethrower", "fire", "spray", "special", "cry"), effect.animationsWithCry)
+    }
+
+    /** Cobblemon's `dragonbreath` timeline sends the breath from the user, and only the hit lands on the target. */
+    @Test
+    fun `CD-FX-04 the Superheater's Dragon Breath streams from the worker and hits the burner`() {
+        val effect = BuiltInRoles.parse("superheater").effect
+        assertEquals(listOf("cobblemon:dragonbreath_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:dragonbreath_target"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("dragonbreath", "spray", "special", "cry"), effect.animationsWithCry)
     }
 
     @Test
