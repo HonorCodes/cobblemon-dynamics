@@ -29,9 +29,10 @@ design of every task. This note holds what the plan does not.
 | M0 | Merged: PR #1, merge commit `0c6f06f`. |
 | M1 | Merged: PR #6, merge commit `21f227b`. The `Dependency graph` job reports the compile and runtime classpaths. It gives runtime scope only to `jarJar` libraries, because Minecraft, NeoForge and the required mods supply the rest. |
 | M2 | Merged: PR #7, merge commit `000cbd4`. |
-| Dependabot | Merged: tomlj 2.2.0 (#4) and JUnit 6.1.3 (#5). Dependabot closed #3, because `dependabot.yml` now keeps Kotlin on 2.2.x and the platform dependencies at their floors. The Gradle 9.9.0 wrapper update returns in a new Dependabot pull request. To re-test a Dependabot pull request against a newer `main`, close and reopen it. |
-| M3 | All six tasks are committed on `m3-create-roles`: 220 unit tests, 78 of 78 GameTests, 2 of 2 in the core run. Its pull request is open (`gh pr list`); merge it with a merge commit when CI is green. |
-| M4 and M5 | Not started. |
+| Dependabot | Merged: tomlj 2.2.0 (#4), JUnit 6.1.3 (#5), and Gradle 9.9.0 with Kotlin 2.2.21 (#8). `dependabot.yml` keeps Kotlin on 2.2.x and the platform dependencies at their floors. To re-test a Dependabot pull request against a newer `main`, close and reopen it. |
+| M3 | Merged: PR #9, merge commit `e001192`. |
+| M4 | Branch `m4-vanilla-fe-roles`, rebased onto `main` (`a5e1e29`). Tasks 1 and 2 are committed: 247 unit tests, 84 of 84 GameTests, 3 of 3 in the core run. Tasks 3 to 5 come next. |
+| M5 | Not started. |
 
 ## Environment
 

@@ -64,6 +64,14 @@ when your hands are on the code.
 - A mechanical piston does not assemble without an extension pole behind it, and does nothing if its speed
   points inward. A west-facing piston extends with positive speed.
 - A Create boiler counts heat only with an engine attached. GameTests call `boiler.updateTemperature(tank)`.
+- GameTest chunks get no natural random ticks, because `ServerChunkCache.tickChunks` needs a real player
+  nearby and fake players never join the level. Random-tick growth in a test comes from the code under test.
+- Kotlin sees the context type of NeoForge's `Capabilities.*.BLOCK` as `Direction?`, so type a cache field
+  `BlockCapabilityCache<T, Direction?>`.
+- A target that has blocks with collision on all six faces has no line of sight from any work spot, so it is
+  never claimed. A test that needs one adds the blockers after the claim.
+- The test battery block lives in the full test mod only. `TestKit.testBattery` is an extension in
+  `src/gametest/kotlin`, so shared test code must not name it.
 - On Windows, Python's `write_text` writes CRLF unless you pass `newline="\n"`. Check for CR characters
   before staging.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
