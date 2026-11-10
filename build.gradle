@@ -22,10 +22,19 @@ kotlin {
     jvmToolchain(21)
 }
 
+// Both GameTest source sets compile TestKit and TestWorld from kotlin-shared and load the structure templates from resources-shared.
 sourceSets {
     gametest {
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        resources.srcDir 'src/gametest/resources-shared'
+    }
+    gametestCore {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        resources.srcDir 'src/gametest/resources-shared'
     }
 }
 
@@ -36,6 +45,9 @@ configurations {
     gametestCompileOnly.extendsFrom compileOnly
     gametestRuntimeOnly.extendsFrom runtimeOnly
     gametestRuntimeClasspath.extendsFrom localRuntime
+    // CD-PLAT-05: Cobblemon and KotlinForForge only. Neither localRuntime nor compileOnly, so the core tests cannot name Create.
+    gametestCoreImplementation.extendsFrom implementation
+    gametestCoreRuntimeOnly.extendsFrom runtimeOnly
 }
 
 repositories {
@@ -78,6 +90,7 @@ neoForge {
 
     addModdingDependenciesTo sourceSets.test
     addModdingDependenciesTo sourceSets.gametest
+    addModdingDependenciesTo sourceSets.gametestCore
 
     mods {
         "${mod_id}" {
@@ -85,6 +98,9 @@ neoForge {
         }
         cobblemon_dynamics_test {
             sourceSet sourceSets.gametest
+        }
+        cobblemon_dynamics_coretest {
+            sourceSet sourceSets.gametestCore
         }
     }
 
@@ -105,6 +121,14 @@ neoForge {
             sourceSet = sourceSets.gametest
             gameDirectory = project.file('run/gametest')
             loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_test]
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        // CD-PLAT-05, CD-CFG-10: the same mod on a server without Create and AE2.
+        gameTestServerCore {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametestCore
+            gameDirectory = project.file('run/gametest-core')
+            loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_coretest]
             systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
         }
         configureEach {
@@ -191,7 +215,9 @@ tasks.register('verifyJar') {
                     }
                 }
                 if (e.name.startsWith('assets/cobblemon/')) problems << "${e.name}: copies a Cobblemon asset"
-                if (e.name.startsWith('codes/honor/cobblemondynamics/test/')) problems << "${e.name}: GameTest class in the jar"
+                if (e.name.startsWith('codes/honor/cobblemondynamics/test/') || e.name.startsWith('codes/honor/cobblemondynamics/coretest/')) {
+                    problems << "${e.name}: GameTest class in the jar"
+                }
             }
             def logo = zip.getEntry('logo.png')
             if (logo == null) {

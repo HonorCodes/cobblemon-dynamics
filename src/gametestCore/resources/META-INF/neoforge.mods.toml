@@ -1,0 +1,16 @@
+modLoader="kotlinforforge"
+loaderVersion="[5.10,)"
+license="MPL-2.0"
+
+[[mods]]
+modId="cobblemon_dynamics_coretest"
+version="0.0.0"
+displayName="Cobblemon Dynamics GameTests without Create and AE2"
+description='''GameTests for Cobblemon Dynamics on a server with Cobblemon and KotlinForForge only. Never shipped.'''
+
+[[dependencies.cobblemon_dynamics_coretest]]
+modId="cobblemon_dynamics"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"

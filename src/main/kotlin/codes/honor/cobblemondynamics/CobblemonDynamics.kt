@@ -10,6 +10,7 @@ import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.EngineEvents
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
+import codes.honor.cobblemondynamics.handler.create.CreateCompat
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
 import codes.honor.cobblemondynamics.leash.LeashComponents
 import codes.honor.cobblemondynamics.leash.LeashInteractions
@@ -23,6 +24,7 @@ import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.mojang.logging.LogUtils
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.ModContainer
+import net.neoforged.fml.ModList
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.config.ModConfigEvent
@@ -50,6 +52,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.
         modBus.addListener<FMLCommonSetupEvent> { it.enqueueWork(Runnable { BrainBridge.registerTaskTypes() }) }
         HandlerRegistry.register(FurnaceHandler)
+        // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
+        if (ModList.get().isLoaded("create")) CreateCompat.register()
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }

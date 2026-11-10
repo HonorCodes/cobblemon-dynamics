@@ -1,0 +1,18 @@
+package codes.honor.cobblemondynamics.handler.create
+
+import codes.honor.cobblemondynamics.CobblemonDynamics
+import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
+import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
+
+/**
+ * The Create integration. Every class that names a Create type sits in this package or in `mixin.create`, and only [register]
+ * is called from outside, behind `ModList.isLoaded("create")`, so no Create class loads without Create (CD-PLAT-05).
+ */
+object CreateCompat {
+    fun register() {
+        // A mixin applies when its target class loads. These class literals load each target of the `create.` mixins during mod
+        // construction, so MixinState holds its final answer before the first role build reads it (CD-WHL-10, CD-BRN-07).
+        val mixinTargets = listOf(WaterWheelBlockEntity::class.java, BlazeBurnerBlockEntity::class.java)
+        CobblemonDynamics.LOGGER.debug("Create integration on, mixin targets loaded: {}", mixinTargets.map { it.simpleName })
+    }
+}

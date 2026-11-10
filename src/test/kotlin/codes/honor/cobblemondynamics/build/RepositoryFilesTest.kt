@@ -29,6 +29,13 @@ class RepositoryFilesTest {
     }
 
     @Test
+    fun `CD-PLAT-05 build workflow also runs the GameTests without Create and AE2`() {
+        val text = File(root, ".github/workflows/build.yml").readText()
+        assertTrue(text.contains("./gradlew runGameTestServerCore"))
+        assertTrue(text.contains("run/gametest-core/logs/"))
+    }
+
+    @Test
     fun `CD-REL-02 security workflow runs CodeQL and dependency review`() {
         val text = File(root, ".github/workflows/security.yml").readText()
         assertTrue(text.contains("github/codeql-action/analyze"))

@@ -28,26 +28,33 @@ Every class that names a Create type lives in `handler/create/` or `mixin/create
 loads), CD-MUS-06 and CD-UI-13 reuse the same flag mechanism later.
 
 **Files:**
-- Create: `src/main/java/codes/honor/cobblemondynamics/mixin/MixinState.java`
+- Create: `src/main/java/codes/honor/cobblemondynamics/MixinState.java` (root package, not `mixin/`: see below)
 - Modify: `src/main/java/codes/honor/cobblemondynamics/mixin/MixinPlugin.java` (`postApply` records each applied handler)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CreateCompat.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/role/MixinGate.kt`
-- Modify: `build.gradle` (source set `gametestCore`, run `gameTestServerCore`, CI step)
+- Modify: `role/RoleSet.kt` (`withoutHandlers`), `role/RoleRegistry.kt` (`rebuild` applies `MixinGate`), `CobblemonDynamics.kt`
+- Modify: `build.gradle` (source set `gametestCore`, run `gameTestServerCore`), `.github/workflows/build.yml` (CI step)
+- Move: `TestKit` to `src/gametest/kotlin-shared/`, the game-rule code of `DynamicsTestMod` to `kotlin-shared/.../TestWorld.kt`,
+  the structure templates to `src/gametest/resources-shared/` (and `scripts/gen_test_structures.py` writes there)
 - Create: `src/gametestCore/resources/META-INF/neoforge.mods.toml` (mod id `cobblemon_dynamics_coretest`)
-- Create: `src/gametestCore/kotlin/codes/honor/cobblemondynamics/coretest/CoreTests.kt`
-- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/MixinGateTest.kt`
+- Create: `src/gametestCore/kotlin/codes/honor/cobblemondynamics/coretest/CoreTestMod.kt` and `CoreTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/MixinGateTest.kt`, `src/test/kotlin/codes/honor/cobblemondynamics/MixinStateTest.kt`,
+  `build/RepositoryFilesTest.kt` (the workflow runs the core GameTests)
 
 **Interfaces:**
 - Produces:
 
 ```java
+// codes.honor.cobblemondynamics.MixinState. Mixin throws IllegalClassLoadError ("... is in a defined mixin package ...
+// and cannot be referenced directly") for every class that loads from the config's package once the config is active
+// (MixinProcessor.applyMixins, checked with javap), so this class and the duck interfaces sit outside `mixin`.
 public final class MixinState {
     public static final String WATER_WHEEL = "create.WaterWheelBlockEntityMixin";
     public static final String BLAZE_BURNER = "create.BlazeBurnerBlockEntityMixin";
     public static final String ENCHANTMENT_MENU = "vanilla.EnchantmentMenuMixin";
     public static final String PASTURE_WIDGET = "cobblemon.client.PastureWidgetMixin";
     public static boolean applied(String key);
-    static void recordApplied(String mixinClassName, ClassNode target);  // true only if a call to a cobblemon_dynamics$ handler was injected
+    public static void recordApplied(String mixinClassName, ClassNode target);  // true only if a call to a cobblemon_dynamics$ handler was injected
     public static void setForTest(String key, boolean value);
 }
 ```
@@ -61,12 +68,17 @@ object MixinGate {
 }
 ```
 
-`MixinPlugin.postApply` walks the target `ClassNode`'s methods and records the mixin as applied when some
-`MethodInsnNode` calls a method whose name contains `cobblemon_dynamics$`. With `defaultRequire: 0` a
-missing injection point applies the mixin class but injects no call, so this check tells the two cases
-apart. A mixin whose target class never loads (Create absent) never records.
+`MixinPlugin.postApply` passes the target `ClassNode` to `MixinState.recordApplied`, which records the mixin
+(by its name relative to the mixin package) as applied when some `MethodInsnNode` calls a method whose name
+contains `cobblemon_dynamics$`. Mixin renames each injector handler (`modify$zza000$cobblemon_dynamics$virtualFlow`)
+but keeps its name inside the new one. With `defaultRequire: 0` a missing injection point applies the mixin
+class but injects no call, so this check tells the two cases apart. A mixin whose target class never loads
+(Create absent) never records. `CreateCompat.register()` names each `create.` mixin target class, which loads
+it during mod construction, so the flags are final before the first role build. `RoleRegistry.rebuild` builds
+the `RoleSet` as before and passes it through `MixinGate.apply`; each mixin warning logs once per run, because
+a mixin's state never changes while the game runs.
 
-- [ ] **Step 1: Failing unit test**
+- [ ] **Step 1: Failing unit tests**
 
 ```kotlin
 class MixinGateTest {
@@ -80,22 +92,31 @@ class MixinGateTest {
         assertTrue(gated.active.isEmpty())
         assertEquals(2, warnings.size)   // one per handler, not per role
     }
+    // An applied mixin keeps its roles, and a role that needs no mixin stays on.
 }
+// MixinStateTest: a ClassNode whose method calls `modify$zza000$cobblemon_dynamics$virtualFlow` records the mixin; one that
+// only holds the merged handler method does not; setForTest overrides the recorded state.
 ```
 
 - [ ] **Step 2: The core GameTest run**
 
 ```groovy
 sourceSets {
+    gametest {
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        resources.srcDir 'src/gametest/resources-shared'
+    }
     gametestCore {
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
-        resources.srcDir 'src/gametest/resources/data-shared'   // structure templates shared with gametest
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        resources.srcDir 'src/gametest/resources-shared'
     }
 }
 configurations {
-    gametestCoreImplementation.extendsFrom implementation    // Cobblemon and KotlinForForge only: no localRuntime
-    gametestCoreCompileOnly.extendsFrom compileOnly
+    // Cobblemon and KotlinForForge only: neither localRuntime nor compileOnly, so the core tests cannot name Create.
+    gametestCoreImplementation.extendsFrom implementation
+    gametestCoreRuntimeOnly.extendsFrom runtimeOnly
 }
 neoForge {
     addModdingDependenciesTo sourceSets.gametestCore
@@ -112,21 +133,25 @@ neoForge {
 }
 ```
 
-Move the structure templates to `src/gametest/resources/data-shared/data/cobblemon_dynamics/structure/`
-and add `resources.srcDir 'src/gametest/resources/data-shared'` to the `gametest` source set too, so both
-runs see one copy. Add a `TestKit` copy for the core run by moving `TestKit` and `DynamicsTestMod`'s
-game-rule code into `src/gametest/kotlin-shared/`, added as a `kotlin.srcDir` to both source sets.
+The structure templates move to `src/gametest/resources-shared/data/cobblemon_dynamics/structure/`, a resource
+root of both GameTest source sets, so both runs see one copy. A folder inside `src/gametest/resources/` would
+also sit in the `gametest` source set's own resource root and ship the templates twice. `TestKit` and the
+game-rule code of `DynamicsTestMod` (now `TestWorld.register()`, which `DynamicsTestMod` and `CoreTestMod`
+call) move to `src/gametest/kotlin-shared/`, a `kotlin.srcDir` of both source sets. `verifyJar` also rejects
+the `coretest` package.
 
 `CoreTests`:
 
 ```kotlin
 // cdCfg10CreateRolesOffWithoutCreate: RoleRegistry.current.get(wheel_driver), get(burner_keeper), get(superheater) and
-//   get(cranker) are null; the server log holds exactly one "is disabled: handler" line per Create role (read
-//   logs/latest.log from the run directory and count).
+//   get(cranker) are null; logs/latest.log of the run directory holds exactly one "Role <id> is disabled: handler" line for
+//   each Create role whose file is in the data (the server's resource manager has it), and none for the others, so the
+//   check counts each role file from the task that adds it.
 // cdPlat05LoadsWithoutCreateAndAe2: ModList has neither "create" nor "ae2", and the Stoker role is active.
 ```
 
-Add `./gradlew runGameTestServerCore` to `.github/workflows/build.yml` after the full GameTest step.
+Add `./gradlew runGameTestServerCore` to `.github/workflows/build.yml` after the full GameTest step, and its
+`run/gametest-core/logs/` to the uploaded artifact.
 
 - [ ] **Step 3: Run, write the code, run again, commit** —
   `./gradlew test runGameTestServer runGameTestServerCore`;

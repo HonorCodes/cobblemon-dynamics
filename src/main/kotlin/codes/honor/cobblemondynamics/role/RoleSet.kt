@@ -28,6 +28,13 @@ class RoleSet(
 
     fun forTypes(types: Collection<String>): List<ActiveRole> = active.filter { RoleSelection.isEligible(it.definition, types) }
 
+    /** This set without the roles of [handlers]. */
+    fun withoutHandlers(handlers: Set<ResourceLocation>): RoleSet {
+        val kept = active.filter { it.definition.handler !in handlers }
+        val byHandler = kept.associate { it.definition.handler to it.handler }
+        return RoleSet(kept.associate { it.definition.id to it.definition }, byHandler::get, emptySet()) { }
+    }
+
     companion object {
         val EMPTY = RoleSet(emptyMap(), { null }, emptySet()) { }
     }
