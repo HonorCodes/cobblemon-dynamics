@@ -17,7 +17,9 @@ fun furnace(helper: GameTestHelper, rel: BlockPos, input: ItemStack?, fuel: Item
 fun workerOf(helper: GameTestHelper, entity: PokemonEntity): Worker?
 fun claimOf(helper: GameTestHelper, entity: PokemonEntity): Claim?
 fun moveTo(helper: GameTestHelper, entity: PokemonEntity, rel: BlockPos)   // teleport inside the roam box
-fun operator(helper: GameTestHelper): ServerPlayer                      // mock player opped at level 2
+fun operator(helper: GameTestHelper): ServerPlayer                      // FakePlayer whose getPermissionLevel() is 2
+fun standBeside(player: ServerPlayer, pasture: PokemonPastureBlockEntity) // 2 blocks east of the pasture block
+fun place(player: ServerPlayer, x: Double, y: Double, z: Double)        // player.moveTo
 fun leash(player: ServerPlayer): ItemStack                              // puts a Work Leash in the main hand
 fun clickEntity(player: ServerPlayer, entity: Entity, sneak: Boolean = false): InteractionResult   // player.interactOn
 fun clickBlock(helper: GameTestHelper, player: ServerPlayer, rel: BlockPos, face: Direction = Direction.UP): InteractionResult
@@ -28,11 +30,16 @@ fun simulateRestart(helper: GameTestHelper)                              // Work
 `clickEntity` and `clickBlock` go through vanilla's interaction pipeline, so NeoForge's events, Cobblemon's
 handlers and `Item#onItemUseFirst` all run as they do for a real click.
 
+Every test player is a NeoForge `FakePlayer`. Two facts follow. The GameTest server returns 0 from
+`getOperatorUserPermissionLevel()`, so `PlayerList.op(profile)` gives level 0; `operator` is a `FakePlayer`
+subclass that overrides `getPermissionLevel()` to return 2. NeoForge's fake connection drops every teleport,
+so `ServerPlayer.teleportTo` does not move a fake player; move it with `TestKit.place` (`moveTo`).
+
 ---
 
 ### Task 7: Pasture adapter and Work Mode
 
-**Rows:** CD-WMD-01, CD-WMD-02, CD-WMD-03, CD-WMD-04, CD-WMD-05, CD-WMD-06, CD-SEC-01, CD-SEC-02,
+**Rows:** CD-WMD-01, CD-WMD-02, CD-WMD-03, CD-WMD-04, CD-WMD-05, CD-SEC-01, CD-SEC-02,
 CD-SEC-03, CD-SEC-04, CD-SEC-05, CD-SEC-06, CD-ASG-15, CD-BAL-06.
 
 **Files:**
@@ -78,8 +85,10 @@ object WorkModePolicy {
 }
 
 object WorkModeService {
-    fun request(player: ServerPlayer, pasturePos: BlockPos, enabled: Boolean): WorkModePolicy.Decision
+    // level is the pasture's level; a test names it to send a request from another dimension (CD-SEC-04)
+    fun request(player: ServerPlayer, pasturePos: BlockPos, enabled: Boolean, level: ServerLevel = player.serverLevel()): WorkModePolicy.Decision
     fun apply(level: ServerLevel, pasturePos: BlockPos, enabled: Boolean)   // no checks; tests and request() use it
+    fun reset()                                                             // ServerStoppedEvent: forget every lastAccepted
 }
 ```
 
@@ -89,11 +98,14 @@ CD-WMD-03, CD-WMD-04). Then distance: `!sameDimension || distance > 10.0` reject
 rate: `lastAccepted != null && now - lastAccepted < cooldownTicks` ignores (CD-SEC-03). Otherwise
 `Apply`. The requested state is applied as given, never flipped (CD-SEC-05). `request` measures the
 distance from the player's position to the pasture block center. It keeps `lastAccepted` per player in
-memory, applies decisions in arrival order (CD-SEC-06), and after an `Apply` sends the new
+memory, on the level's game time, and clears it on `ServerStoppedEvent`, because the next server runs on
+another clock. It applies decisions in arrival order (CD-SEC-06), and after an `Apply` sends the new
 `pasture_panel_state` to every player who has that pasture's panel open (Task 13 adds the sender).
+`sameDimension` is `player.level() === level`.
 
 `apply(level, pos, enabled)` sets the attachment with `be.setData(WORK_MODE, WorkModeData(enabled))`, adds
-or removes `pos` in the level's `WORK_PASTURES`, and calls `WorkEngine.onWorkModeChanged(level, pos, enabled)`.
+or removes `pos` in the level's `WORK_PASTURES`, and (from Task 8, when the engine exists) calls
+`WorkEngine.get()?.onWorkModeChanged(level, pos, enabled)`.
 When `enabled` is false, the engine releases every claim whose `pasture` is that pasture in the same call
 (CD-WMD-05) and stops writing Brain memory for its workers.
 
@@ -140,7 +152,7 @@ attachment.
 - [ ] **Step 2: Run it and see it fail**, then write `WorkModePolicy` and run it again to see it pass.
 
 Run: `./gradlew test --tests "codes.honor.cobblemondynamics.pasture.WorkModePolicyTest"`
-Expected: first FAIL (unresolved reference), then PASS (7 tests).
+Expected: first FAIL (unresolved reference), then PASS (6 tests).
 
 - [ ] **Step 3: Write the GameTests**
 
@@ -169,7 +181,7 @@ class WorkModeTests {
     fun cdWmd03PlacerTogglesWithinOneTick(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(4, 1, 4), owner)
-        owner.teleportTo(pasture.blockPos.x + 2.5, pasture.blockPos.y.toDouble(), pasture.blockPos.z + 0.5)
+        TestKit.standBeside(owner, pasture)
         WorkModeService.request(owner, pasture.blockPos, true)
         helper.runAfterDelay(1) { helper.assertTrue(PastureAdapter.isWorkMode(pasture), "on was not applied") }
         // The second request waits out the 10-tick cooldown of CD-SEC-03.
@@ -182,38 +194,29 @@ class WorkModeTests {
     // cdWmd04OperatorTogglesAnyPasture: an operator() who is not the placer requests on -> on.
     // cdSec01StrangerCannotToggle: a second owner() requests off on a pasture that is on -> stays on.
     // cdSec02OwnerlessPastureAcceptsOperatorsOnly: set pasture.ownerId = null; a regular player requests on -> off; an operator -> on.
-    // cdSec04DistanceAndDimension: players at 10.0 and 10.1 blocks (teleport), and one in the Nether
-    //   (owner.teleportTo(server.getLevel(Level.NETHER)...)); only the 10.0 request applies.
-    // cdSec05RepeatedOnStaysOn: two "on" requests 10 ticks apart -> on.
+    // cdSec04DistanceAndDimension: the owner at 10.1 blocks (TestKit.place), then a fake player made in the Nether with
+    //   the owner's profile (FakePlayerFactory.get(nether, owner.gameProfile)), whose request names the overworld pasture
+    //   (request(..., level = helper.level)), then the owner at 10.0 blocks; only the 10.0 request applies.
+    // cdSec05RepeatedOnStaysOn: two "on" requests 10 ticks apart; the second returns Apply -> on.
     // cdSec06TwoOperatorsSameTick: operator A requests on and operator B requests off in the same tick -> off.
 
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 300)
-    fun cdWmd06OffPastureGivesNoClaims(helper: GameTestHelper) {
-        val owner = TestKit.owner(helper)
-        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
-        TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
-        val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
-        helper.runAtTickTime(250) {
-            helper.assertTrue(TestKit.claimOf(helper, fire) == null, "a Pokémon in a pasture that is off got a claim")
-            helper.succeed()
-        }
-    }
-    // The row says 400 ticks. Use timeoutTicks = 450 and runAtTickTime(400) when writing it.
-
+    // maxPerPlayer = Int.MAX_VALUE, so only the pasture's own limit of 16 can refuse; the 16th is still accepted.
     @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
     fun cdBal06SeventeenthPokemonIsRefused(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
         WorkModeService.apply(helper.level, pasture.blockPos, true)
-        repeat(16) { TestKit.tether(helper, pasture, owner, "rattata level=5") }
-        helper.assertFalse(pasture.canAddPokemon(owner, TestKit.pokemon("rattata level=5"), 16), "Cobblemon accepted a 17th Pokémon")
+        repeat(15) { TestKit.tether(helper, pasture, owner, "rattata level=5") }
+        helper.assertTrue(pasture.canAddPokemon(owner, TestKit.pokemon("rattata level=5"), Int.MAX_VALUE), "Cobblemon refused a 16th Pokémon")
+        TestKit.tether(helper, pasture, owner, "rattata level=5")
+        helper.assertFalse(pasture.canAddPokemon(owner, TestKit.pokemon("rattata level=5"), Int.MAX_VALUE), "Cobblemon accepted a 17th Pokémon")
         helper.succeed()
     }
 }
 ```
 
-Write the six commented tests in full in the same style before Step 4. `CD-WMD-05` and `CD-ASG-15` need
-workers, so their GameTests live in Task 8.
+Write the six commented tests in full in the same style before Step 4. `CD-WMD-05`, `CD-WMD-06` and
+`CD-ASG-15` need workers and `TestKit.claimOf`, which reads the engine, so their GameTests live in Task 8.
 
 - [ ] **Step 4: Write the attachment, index, adapter and service**
 
@@ -230,9 +233,13 @@ object DynamicsAttachments {
 }
 ```
 
-Register `DynamicsAttachments.REGISTER.register(modBus)` in the mod constructor. `WorkPastureIndex.CODEC`
+Register `DynamicsAttachments.REGISTER.register(modBus)` in the mod constructor, and
+`NeoForge.EVENT_BUS.addListener<ServerStoppedEvent> { WorkModeService.reset() }`. `WorkPastureIndex.CODEC`
 is `Codec.LONG.listOf().xmap({ WorkPastureIndex(it.toHashSet()) }, { it.all().toList() })`. After every
-mutation of the index, call `level.setData(WORK_PASTURES, index)` again so the level saves it.
+mutation of the index, call `level.setData(WORK_PASTURES, index)` again so the level saves it. Write the
+suppliers as `Supplier { ... }`: ktlint drops the `->` of a zero-argument lambda, and `AttachmentType.builder`
+also takes a `Function<IAttachmentHolder, T>`. `WORK_MODE` serializes only when `enabled` is true, so the
+pastures that were never in Work Mode carry no attachment.
 
 - [ ] **Step 5: Run the GameTests**
 
@@ -242,7 +249,7 @@ Expected: exit 0; all `WorkModeTests` pass beside the M0 smoke tests.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/kotlin/codes/honor/cobblemondynamics/registry src/main/kotlin/codes/honor/cobblemondynamics/pasture src/test/kotlin/codes/honor/cobblemondynamics/pasture src/gametest
+git add src/main/kotlin/codes/honor/cobblemondynamics/registry src/main/kotlin/codes/honor/cobblemondynamics/pasture src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt src/test/kotlin/codes/honor/cobblemondynamics/pasture src/gametest
 git commit -m "Store Work Mode on the pasture and accept toggles from the placer and operators"
 ```
 
@@ -251,7 +258,7 @@ git commit -m "Store Work Mode on the pasture and accept toggles from the placer
 ### Task 8: Engine runtime and the Stoker
 
 **Rows:** CD-STK-01, CD-STK-02, CD-STK-03, CD-STK-04, CD-STK-05, CD-STK-06, CD-STK-07, CD-ASG-01 (furnace
-version), CD-ASG-03, CD-ASG-08, CD-ASG-11, CD-ASG-12, CD-ASG-13, CD-ASG-15, CD-WMD-05, CD-CLM-07,
+version), CD-ASG-03, CD-ASG-08, CD-ASG-11, CD-ASG-12, CD-ASG-13, CD-ASG-15, CD-WMD-05, CD-WMD-06, CD-CLM-07,
 CD-CLM-08, CD-CFG-05, CD-CFG-07, CD-CFG-08, CD-PERF-03.
 
 **Files:**
@@ -465,6 +472,20 @@ class RoleDataTests {
     //   gets no claim for 200 ticks; restore.
     // batch = "roles_cfg05": cdCfg05DisabledRoleGetsNoClaims: WorkEngineSettings.current = DEFAULT.copy(disabledRoles =
     //   setOf(stoker id)), RoleRegistry.rebuild(); a Charmander beside a furnace with input gets no claim for 400 ticks; restore.
+}
+```
+
+Add to `WorkModeTests` (moved from Task 7, because `TestKit.claimOf` reads the engine):
+
+```kotlin
+@GameTest(template = "floor_15x6x15", timeoutTicks = 450)
+fun cdWmd06OffPastureGivesNoClaims(helper: GameTestHelper) {
+    val owner = TestKit.owner(helper)
+    val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+    TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
+    val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+    helper.onEachTick { helper.assertTrue(TestKit.claimOf(helper, fire) == null, "a Pokémon in a pasture that is off got a claim") }
+    helper.runAtTickTime(400) { helper.succeed() }
 }
 ```
 

@@ -93,7 +93,7 @@ object ServerConfig {
             "toggleCooldownTicks",
             d.toggleCooldownTicks,
             ConfigRanges.TOGGLE_COOLDOWN,
-            "Ticks between two Work Mode toggles of one pasture.",
+            "Ticks after a player's accepted Work Mode request during which that player's next request is ignored.",
         )
         b.pop()
 

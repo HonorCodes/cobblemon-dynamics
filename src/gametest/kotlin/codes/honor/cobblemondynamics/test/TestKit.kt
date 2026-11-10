@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.test
 
+import codes.honor.cobblemondynamics.pasture.WorkModeService
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties
@@ -11,9 +12,11 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.phys.AABB
+import net.neoforged.neoforge.common.util.FakePlayer
 import net.neoforged.neoforge.common.util.FakePlayerFactory
 import java.util.UUID
 
@@ -29,6 +32,37 @@ object TestKit {
         val center = helper.absoluteVec(BlockPos(1, 1, 1).bottomCenter)
         player.moveTo(center.x, center.y, center.z)
         return player
+    }
+
+    /**
+     * A fake player with permission level 2. The GameTest server ops every player at level 0
+     * (`getOperatorUserPermissionLevel`), so `PlayerList.op` cannot make one.
+     */
+    fun operator(helper: GameTestHelper, name: String = "operator"): ServerPlayer {
+        val uuid = UUID.randomUUID()
+        val player = OperatorPlayer(helper.level, GameProfile(uuid, "${name}_${uuid.toString().take(6)}"))
+        val center = helper.absoluteVec(BlockPos(1, 1, 1).bottomCenter)
+        player.moveTo(center.x, center.y, center.z)
+        return player
+    }
+
+    private class OperatorPlayer(level: ServerLevel, profile: GameProfile) : FakePlayer(level, profile) {
+        override fun getPermissionLevel(): Int = 2
+    }
+
+    /** Puts [player] 2 blocks east of the pasture block, in reach of its Work Mode button. */
+    fun standBeside(player: ServerPlayer, pasture: PokemonPastureBlockEntity) {
+        place(player, pasture.blockPos.x + 2.5, pasture.blockPos.y.toDouble(), pasture.blockPos.z + 0.5)
+    }
+
+    /** Moves a fake player. Its `teleportTo` does nothing, because NeoForge's fake connection drops every teleport. */
+    fun place(player: ServerPlayer, x: Double, y: Double, z: Double) {
+        player.moveTo(x, y, z)
+    }
+
+    /** Sets Work Mode with no permission check. */
+    fun workMode(pasture: PokemonPastureBlockEntity, on: Boolean) {
+        WorkModeService.apply(pasture.level as ServerLevel, pasture.blockPos, on)
     }
 
     fun placePasture(helper: GameTestHelper, rel: BlockPos, owner: ServerPlayer?): PokemonPastureBlockEntity {
