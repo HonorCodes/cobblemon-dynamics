@@ -42,5 +42,8 @@
   "cobblemon_dynamics.state.healing": "Healing",
   "cobblemon_dynamics.state.none": "not in Work Mode",
   "cobblemon_dynamics.rule.worker": "worker rule",
-  "cobblemon_dynamics.rule.healer": "healer rule"
+  "cobblemon_dynamics.rule.healer": "healer rule",
+  "cobblemon_dynamics.ui.work_mode.on": "Work Mode: On",
+  "cobblemon_dynamics.ui.work_mode.off": "Work Mode: Off",
+  "cobblemon_dynamics.ui.work_mode.locked": "Only the pasture's owner can change Work Mode"
 }

@@ -78,7 +78,7 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
                          NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
   vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
                          other code load)
-  cobblemon/client/      PastureWidgetMixin (stamina bars)
+  cobblemon/client/      PastureWidgetMixin (stamina bars), PasturePokemonScrollListMixin (list height)
   compat/cobblebase/     @Pseudo mixins
 src/main/resources/
   META-INF/neoforge.mods.toml
@@ -368,7 +368,8 @@ references. This section lists what the code uses.
 - **Pasture panel.** `ScreenEvent.Init.Post` fires for `PCGUI`. When `screen.configuration` is a
   `PasturePCGUIConfiguration`, the client adds the Work Mode button. The panel's top-left corner is
   ((w − 349) / 2 + 267, (h − 205) / 2 + 8), and the panel is 82 × 169. Cobblemon's Recall button
-  sits at panel offset (6, 153). The stamina bars use a mixin at the tail of
+  sits at panel offset (6, 153), and the Work Mode button, 70 × 12, sits 2 pixels above it. A mixin shortens
+  Cobblemon's list to end 2 pixels above the button. The stamina bars use a mixin at the tail of
   `PastureWidget.renderWidget`. The mixin draws each bar beside its row, at the row positions of the
   widget's own scroll list.
 - **Brain.** Register task types in `TaskConfig.types` and the activity in the vanilla activity

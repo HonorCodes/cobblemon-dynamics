@@ -11,7 +11,9 @@
     "vanilla.EnchantmentMenuAccess",
     "vanilla.EnchantmentMenuMixin"
   ],
-  "client": [],
+  "client": [
+    "cobblemon.client.PasturePokemonScrollListMixin"
+  ],
   "injectors": {
     "defaultRequire": 0
   }

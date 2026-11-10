@@ -3,7 +3,7 @@ package codes.honor.cobblemondynamics
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.ai.DynamicsActivities
 import codes.honor.cobblemondynamics.ai.DynamicsMemories
-import codes.honor.cobblemondynamics.client.ClientEffects
+import codes.honor.cobblemondynamics.client.DynamicsClient
 import codes.honor.cobblemondynamics.command.DynamicsCommands
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
@@ -55,7 +55,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         DynamicsItems.register(modBus)
         DynamicsBlocks.register(modBus)
         DynamicsPayloads.register(modBus)
-        if (FMLEnvironment.dist.isClient) ClientEffects.register(modBus)
+        if (FMLEnvironment.dist.isClient) DynamicsClient.register(modBus)
         // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.
         modBus.addListener<FMLCommonSetupEvent> { it.enqueueWork(Runnable { BrainBridge.registerTaskTypes() }) }
         HandlerRegistry.register(FurnaceHandler)

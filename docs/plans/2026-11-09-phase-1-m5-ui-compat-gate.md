@@ -16,16 +16,38 @@ the Cobbleworkers 2.0.7 jar for the `cobbleworkers.resting` key.
 
 **Rows:** CD-UI-01, CD-UI-02, CD-UI-03.
 
-**Files:** `client/WorkModeButton.kt`, `client/PastureScreenHooks.kt` (`ScreenEvent.Init.Post` and `Closing`),
-`client/PanelLayout.kt` (pure geometry), lang keys `cobblemon_dynamics.ui.work_mode.on` = `Work Mode: On`,
-`.off` = `Work Mode: Off`, `.locked` = `Only the pasture's owner can change Work Mode`,
-`src/test/kotlin/.../client/PanelLayoutTest.kt`.
+**Files:** `client/WorkModeButton.kt`, `client/PastureScreenHooks.kt` (`ScreenEvent.Init.Post`, `Render.Pre`,
+`MouseButtonPressed.Pre` and `Closing`), `client/PanelLayout.kt` (pure geometry), `client/PanelMixinCheck.kt`,
+`client/ClientNet.kt`, `client/DynamicsClient.kt` (registers every client hook, on the client dist only),
+`mixin/cobblemon/client/PasturePokemonScrollListMixin.java` (client list), lang keys
+`cobblemon_dynamics.ui.work_mode.on` = `Work Mode: On`, `.off` = `Work Mode: Off`, `.locked` = `Only the pasture's
+owner can change Work Mode`, `src/test/kotlin/.../client/PanelLayoutTest.kt`.
 
 On `Init.Post` for a `PCGUI` whose `configuration is PasturePCGUIConfiguration`, add the button at panel
 offset `(6, 153 - buttonHeight - 2)`, directly above Recall (R35), and send `pasture_panel_open`. The label
 and the enabled state come from `ClientState.panel` when `pasture_panel_state` arrives (CD-UI-02); a viewer
 who is neither the placer nor an operator sees it disabled with the tooltip (CD-UI-03). A click sends
 `WorkModeTogglePayload(!current)`. `Closing` sends `pasture_panel_close`.
+
+Design (checked against the Cobblemon 1.8.4 jar):
+
+- The button is 70 × 12, as wide as Recall, at panel offset (6, 139). Its label scales down to fit, because
+  "Work Mode: Off" is 73 pixels wide in the vanilla font.
+- Cobblemon's list rectangle is (6, 27, 70 × 120) and reaches y = 147, under the button. A list row's move
+  button there would take the same click and unpasture its Pokémon. `PasturePokemonScrollListMixin` changes the
+  height that `PasturePokemonScrollList.correctSize()` passes to `setRectangle` to `PanelLayout.LIST_HEIGHT` = 110,
+  so the list ends 2 pixels above the button. If that mixin does not apply, the client logs one warning.
+- The button takes the clicks on its rectangle in `ScreenEvent.MouseButtonPressed.Pre` and cancels the event,
+  because `Screen` gives a click to the first child that takes it and the panel's widget comes first. A click on
+  the disabled button goes nowhere.
+- The button stays hidden until the first `pasture_panel_state` arrives, so it never shows a guessed label.
+  `Render.Pre` copies `ClientState.panel` into it on each frame.
+- A window resize runs `init` again on the same screen. The client sends `pasture_panel_open` only for a new screen
+  instance, and clears `ClientState.panel` on open and on close.
+- Cobblebase's own button sits outside the 349 × 205 PC base, at a corner that its config picks, so the two never
+  overlap.
+
+CD-UI-01, CD-UI-02 and CD-UI-03 are Demo rows. Demo: verified in the play-test (manual checklist, M5 Task 8).
 
 - [ ] **Steps:** `PanelLayoutTest` (for 1920 × 1080 and 854 × 480 scaled sizes, the button rectangle sits
   inside the 82 × 169 panel, ends 2 pixels above Recall at (6, 153), and overlaps no other control
