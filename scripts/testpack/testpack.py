@@ -20,7 +20,6 @@ import struct
 import subprocess
 import sys
 import time
-import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -589,6 +588,9 @@ def has_key(table: dict, dotted: str) -> bool:
 
 def check_server_config(folder: pathlib.Path) -> None:
     """CD-CFG-01: after the first start, the server's config folder holds the server config with every key."""
+    # Here, not at the top: super-linter's ruff sorts tomllib as third-party and newer ruff as standard library.
+    import tomllib
+
     path = folder / SERVER_CONFIG
     if not path.is_file():
         raise TestpackError(f"CD-CFG-01: no {rel(path)} after the first start")
