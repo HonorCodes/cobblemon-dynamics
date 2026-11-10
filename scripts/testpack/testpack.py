@@ -40,8 +40,13 @@ ARGS_FILE = "win_args.txt" if os.name == "nt" else "unix_args.txt"
 BOOT_TIMEOUT = 300
 STOP_TIMEOUT = 120
 INSTALL_TIMEOUT = 900
+RELOAD_TIMEOUT = 120
 DONE = r"Done \("
 OUR_MOD_LOADING = r"Cobblemon Dynamics .* loading"
+# Vanilla's recipe manager logs this on every data pack load: at start and after each /reload.
+RECIPES_LOADED = r"Loaded \d+ recipes"
+SKIPPED_ROLE = r"Skipping role file"
+CLAIMS_EMPTY = "No claims and no leash bindings"
 # FML ModSorter headers for a required dependency, and for an installed optional one, outside the range.
 # Lines of the form "Mod ID: '<id>', Requested by: '<mod>', Expected range: '<range>'" follow them.
 REJECTED = r"Missing or unsupported mandatory dependencies:|Unsupported installed optional dependencies:"
@@ -424,21 +429,29 @@ class Server:
         regex = re.compile(pattern)
         return next((line for line in self.lines if regex.search(line)), None)
 
+    def count_log(self, pattern: str) -> int:
+        """The number of lines of latest.log so far that match the regular expression pattern."""
+        self._read_log()
+        regex = re.compile(pattern)
+        return sum(1 for line in self.lines if regex.search(line))
+
     def first_error(self) -> str | None:
         line = self.find_log(r"/(ERROR|FATAL)\]")
         return line and line.strip()
 
-    def wait_log(self, pattern: str, timeout: float) -> str:
-        """Wait until a line of latest.log matches pattern and return the line.
+    def wait_log(self, pattern: str, timeout: float, count: int = 1) -> str:
+        """Wait until count lines of latest.log match pattern and return the last of them.
 
         Fails when timeout seconds pass or the server exits first.
         """
         deadline = time.monotonic() + timeout
+        regex = re.compile(pattern)
         while True:
             exited = self.process.poll() is not None  # checked before the read, so the last lines are seen
-            line = self.find_log(pattern)
-            if line is not None:
-                return line
+            self._read_log()
+            matches = [line for line in self.lines if regex.search(line)]
+            if len(matches) >= count:
+                return matches[count - 1]
             if exited:
                 raise TestpackError(f"the server exited with code {self.process.returncode} before {pattern!r} "
                                     f"appeared in {rel(self.log)}. First error: {self.first_error()}")
@@ -483,6 +496,21 @@ def scenario_smoke(server: Server) -> None:
     reply = server.rcon("list")
     if "players online" not in reply:
         raise TestpackError(f"unexpected reply to list: {reply!r}")
+
+
+def scenario_reload(server: Server) -> None:
+    """The claims command answers on the console, and /reload loads every role file again (CD-UI-14, CD-CFG-08)."""
+    server.wait_log(DONE, BOOT_TIMEOUT)
+    reply = server.rcon("cobblemondynamics claims")
+    if CLAIMS_EMPTY not in reply:
+        raise TestpackError(f"unexpected reply to cobblemondynamics claims: {reply!r}")
+    loads = server.count_log(RECIPES_LOADED)
+    server.rcon("reload")
+    # The data pack reload ends on the server thread after the command has replied, so its own log line marks the end.
+    server.wait_log(RECIPES_LOADED, RELOAD_TIMEOUT, count=loads + 1)
+    skipped = server.find_log(SKIPPED_ROLE)
+    if skipped is not None:
+        raise TestpackError(f"a role file did not load: {skipped.strip()}")
 
 
 def scenarios() -> dict[str, Callable[[Server], None]]:

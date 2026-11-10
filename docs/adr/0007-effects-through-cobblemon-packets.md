@@ -62,3 +62,11 @@ Cobblemon 1.8.4 facts:
 - **A client packet that builds `ParticleStorm` with a block target.** No extra entity, but
   `ParticleStorm` is Cobblemon client code marked `internal`.
 - **Position-only particles.** Simple, but the stream would not aim from the Pokémon to the target.
+
+## Amendment (2026-11-09, M1 Task 10 follow-up)
+
+The build changed one detail of the decision. Actor particles still go out as
+`SpawnSnowstormEntityParticlePacket`, aimed at the work focus entity. Target particles go out as
+`SpawnSnowstormParticlePacket` at the work focus entity's position. Cobblemon's client spawns an
+entity-sourced particle at a locator of its source entity and uses the targeted entity only for the aim,
+so a target particle sent that way burst on the worker instead of on the target.

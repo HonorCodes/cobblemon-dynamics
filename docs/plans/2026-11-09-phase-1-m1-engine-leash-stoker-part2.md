@@ -17,7 +17,9 @@ fun furnace(helper: GameTestHelper, rel: BlockPos, input: ItemStack?, fuel: Item
 fun workerOf(helper: GameTestHelper, entity: PokemonEntity): Worker?
 fun claimOf(helper: GameTestHelper, entity: PokemonEntity): Claim?
 fun moveTo(helper: GameTestHelper, entity: PokemonEntity, rel: BlockPos)   // teleport inside the roam box
-fun operator(helper: GameTestHelper): ServerPlayer                      // mock player opped at level 2
+fun operator(helper: GameTestHelper): ServerPlayer                      // FakePlayer whose getPermissionLevel() is 2
+fun standBeside(player: ServerPlayer, pasture: PokemonPastureBlockEntity) // 2 blocks east of the pasture block
+fun place(player: ServerPlayer, x: Double, y: Double, z: Double)        // player.moveTo
 fun leash(player: ServerPlayer): ItemStack                              // puts a Work Leash in the main hand
 fun clickEntity(player: ServerPlayer, entity: Entity, sneak: Boolean = false): InteractionResult   // player.interactOn
 fun clickBlock(helper: GameTestHelper, player: ServerPlayer, rel: BlockPos, face: Direction = Direction.UP): InteractionResult
@@ -28,11 +30,16 @@ fun simulateRestart(helper: GameTestHelper)                              // Work
 `clickEntity` and `clickBlock` go through vanilla's interaction pipeline, so NeoForge's events, Cobblemon's
 handlers and `Item#onItemUseFirst` all run as they do for a real click.
 
+Every test player is a NeoForge `FakePlayer`. Two facts follow. The GameTest server returns 0 from
+`getOperatorUserPermissionLevel()`, so `PlayerList.op(profile)` gives level 0; `operator` is a `FakePlayer`
+subclass that overrides `getPermissionLevel()` to return 2. NeoForge's fake connection drops every teleport,
+so `ServerPlayer.teleportTo` does not move a fake player; move it with `TestKit.place` (`moveTo`).
+
 ---
 
 ### Task 7: Pasture adapter and Work Mode
 
-**Rows:** CD-WMD-01, CD-WMD-02, CD-WMD-03, CD-WMD-04, CD-WMD-05, CD-WMD-06, CD-SEC-01, CD-SEC-02,
+**Rows:** CD-WMD-01, CD-WMD-02, CD-WMD-03, CD-WMD-04, CD-WMD-05, CD-SEC-01, CD-SEC-02,
 CD-SEC-03, CD-SEC-04, CD-SEC-05, CD-SEC-06, CD-ASG-15, CD-BAL-06.
 
 **Files:**
@@ -78,8 +85,10 @@ object WorkModePolicy {
 }
 
 object WorkModeService {
-    fun request(player: ServerPlayer, pasturePos: BlockPos, enabled: Boolean): WorkModePolicy.Decision
+    // level is the pasture's level; a test names it to send a request from another dimension (CD-SEC-04)
+    fun request(player: ServerPlayer, pasturePos: BlockPos, enabled: Boolean, level: ServerLevel = player.serverLevel()): WorkModePolicy.Decision
     fun apply(level: ServerLevel, pasturePos: BlockPos, enabled: Boolean)   // no checks; tests and request() use it
+    fun reset()                                                             // ServerStoppedEvent: forget every lastAccepted
 }
 ```
 
@@ -89,11 +98,14 @@ CD-WMD-03, CD-WMD-04). Then distance: `!sameDimension || distance > 10.0` reject
 rate: `lastAccepted != null && now - lastAccepted < cooldownTicks` ignores (CD-SEC-03). Otherwise
 `Apply`. The requested state is applied as given, never flipped (CD-SEC-05). `request` measures the
 distance from the player's position to the pasture block center. It keeps `lastAccepted` per player in
-memory, applies decisions in arrival order (CD-SEC-06), and after an `Apply` sends the new
+memory, on the level's game time, and clears it on `ServerStoppedEvent`, because the next server runs on
+another clock. It applies decisions in arrival order (CD-SEC-06), and after an `Apply` sends the new
 `pasture_panel_state` to every player who has that pasture's panel open (Task 13 adds the sender).
+`sameDimension` is `player.level() === level`.
 
 `apply(level, pos, enabled)` sets the attachment with `be.setData(WORK_MODE, WorkModeData(enabled))`, adds
-or removes `pos` in the level's `WORK_PASTURES`, and calls `WorkEngine.onWorkModeChanged(level, pos, enabled)`.
+or removes `pos` in the level's `WORK_PASTURES`, and (from Task 8, when the engine exists) calls
+`WorkEngine.get()?.onWorkModeChanged(level, pos, enabled)`.
 When `enabled` is false, the engine releases every claim whose `pasture` is that pasture in the same call
 (CD-WMD-05) and stops writing Brain memory for its workers.
 
@@ -140,7 +152,7 @@ attachment.
 - [ ] **Step 2: Run it and see it fail**, then write `WorkModePolicy` and run it again to see it pass.
 
 Run: `./gradlew test --tests "codes.honor.cobblemondynamics.pasture.WorkModePolicyTest"`
-Expected: first FAIL (unresolved reference), then PASS (7 tests).
+Expected: first FAIL (unresolved reference), then PASS (6 tests).
 
 - [ ] **Step 3: Write the GameTests**
 
@@ -169,7 +181,7 @@ class WorkModeTests {
     fun cdWmd03PlacerTogglesWithinOneTick(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(4, 1, 4), owner)
-        owner.teleportTo(pasture.blockPos.x + 2.5, pasture.blockPos.y.toDouble(), pasture.blockPos.z + 0.5)
+        TestKit.standBeside(owner, pasture)
         WorkModeService.request(owner, pasture.blockPos, true)
         helper.runAfterDelay(1) { helper.assertTrue(PastureAdapter.isWorkMode(pasture), "on was not applied") }
         // The second request waits out the 10-tick cooldown of CD-SEC-03.
@@ -182,38 +194,29 @@ class WorkModeTests {
     // cdWmd04OperatorTogglesAnyPasture: an operator() who is not the placer requests on -> on.
     // cdSec01StrangerCannotToggle: a second owner() requests off on a pasture that is on -> stays on.
     // cdSec02OwnerlessPastureAcceptsOperatorsOnly: set pasture.ownerId = null; a regular player requests on -> off; an operator -> on.
-    // cdSec04DistanceAndDimension: players at 10.0 and 10.1 blocks (teleport), and one in the Nether
-    //   (owner.teleportTo(server.getLevel(Level.NETHER)...)); only the 10.0 request applies.
-    // cdSec05RepeatedOnStaysOn: two "on" requests 10 ticks apart -> on.
+    // cdSec04DistanceAndDimension: the owner at 10.1 blocks (TestKit.place), then a fake player made in the Nether with
+    //   the owner's profile (FakePlayerFactory.get(nether, owner.gameProfile)), whose request names the overworld pasture
+    //   (request(..., level = helper.level)), then the owner at 10.0 blocks; only the 10.0 request applies.
+    // cdSec05RepeatedOnStaysOn: two "on" requests 10 ticks apart; the second returns Apply -> on.
     // cdSec06TwoOperatorsSameTick: operator A requests on and operator B requests off in the same tick -> off.
 
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 300)
-    fun cdWmd06OffPastureGivesNoClaims(helper: GameTestHelper) {
-        val owner = TestKit.owner(helper)
-        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
-        TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
-        val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
-        helper.runAtTickTime(250) {
-            helper.assertTrue(TestKit.claimOf(helper, fire) == null, "a Pokémon in a pasture that is off got a claim")
-            helper.succeed()
-        }
-    }
-    // The row says 400 ticks. Use timeoutTicks = 450 and runAtTickTime(400) when writing it.
-
+    // maxPerPlayer = Int.MAX_VALUE, so only the pasture's own limit of 16 can refuse; the 16th is still accepted.
     @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
     fun cdBal06SeventeenthPokemonIsRefused(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
         WorkModeService.apply(helper.level, pasture.blockPos, true)
-        repeat(16) { TestKit.tether(helper, pasture, owner, "rattata level=5") }
-        helper.assertFalse(pasture.canAddPokemon(owner, TestKit.pokemon("rattata level=5"), 16), "Cobblemon accepted a 17th Pokémon")
+        repeat(15) { TestKit.tether(helper, pasture, owner, "rattata level=5") }
+        helper.assertTrue(pasture.canAddPokemon(owner, TestKit.pokemon("rattata level=5"), Int.MAX_VALUE), "Cobblemon refused a 16th Pokémon")
+        TestKit.tether(helper, pasture, owner, "rattata level=5")
+        helper.assertFalse(pasture.canAddPokemon(owner, TestKit.pokemon("rattata level=5"), Int.MAX_VALUE), "Cobblemon accepted a 17th Pokémon")
         helper.succeed()
     }
 }
 ```
 
-Write the six commented tests in full in the same style before Step 4. `CD-WMD-05` and `CD-ASG-15` need
-workers, so their GameTests live in Task 8.
+Write the six commented tests in full in the same style before Step 4. `CD-WMD-05`, `CD-WMD-06` and
+`CD-ASG-15` need workers and `TestKit.claimOf`, which reads the engine, so their GameTests live in Task 8.
 
 - [ ] **Step 4: Write the attachment, index, adapter and service**
 
@@ -230,9 +233,13 @@ object DynamicsAttachments {
 }
 ```
 
-Register `DynamicsAttachments.REGISTER.register(modBus)` in the mod constructor. `WorkPastureIndex.CODEC`
+Register `DynamicsAttachments.REGISTER.register(modBus)` in the mod constructor, and
+`NeoForge.EVENT_BUS.addListener<ServerStoppedEvent> { WorkModeService.reset() }`. `WorkPastureIndex.CODEC`
 is `Codec.LONG.listOf().xmap({ WorkPastureIndex(it.toHashSet()) }, { it.all().toList() })`. After every
-mutation of the index, call `level.setData(WORK_PASTURES, index)` again so the level saves it.
+mutation of the index, call `level.setData(WORK_PASTURES, index)` again so the level saves it. Write the
+suppliers as `Supplier { ... }`: ktlint drops the `->` of a zero-argument lambda, and `AttachmentType.builder`
+also takes a `Function<IAttachmentHolder, T>`. `WORK_MODE` serializes only when `enabled` is true, so the
+pastures that were never in Work Mode carry no attachment.
 
 - [ ] **Step 5: Run the GameTests**
 
@@ -242,7 +249,7 @@ Expected: exit 0; all `WorkModeTests` pass beside the M0 smoke tests.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/kotlin/codes/honor/cobblemondynamics/registry src/main/kotlin/codes/honor/cobblemondynamics/pasture src/test/kotlin/codes/honor/cobblemondynamics/pasture src/gametest
+git add src/main/kotlin/codes/honor/cobblemondynamics/registry src/main/kotlin/codes/honor/cobblemondynamics/pasture src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt src/test/kotlin/codes/honor/cobblemondynamics/pasture src/gametest
 git commit -m "Store Work Mode on the pasture and accept toggles from the placer and operators"
 ```
 
@@ -251,7 +258,7 @@ git commit -m "Store Work Mode on the pasture and accept toggles from the placer
 ### Task 8: Engine runtime and the Stoker
 
 **Rows:** CD-STK-01, CD-STK-02, CD-STK-03, CD-STK-04, CD-STK-05, CD-STK-06, CD-STK-07, CD-ASG-01 (furnace
-version), CD-ASG-03, CD-ASG-08, CD-ASG-11, CD-ASG-12, CD-ASG-13, CD-ASG-15, CD-WMD-05, CD-CLM-07,
+version), CD-ASG-03, CD-ASG-08, CD-ASG-11, CD-ASG-12, CD-ASG-13, CD-ASG-15, CD-WMD-05, CD-WMD-06, CD-CLM-07,
 CD-CLM-08, CD-CFG-05, CD-CFG-07, CD-CFG-08, CD-PERF-03.
 
 **Files:**
@@ -262,10 +269,15 @@ CD-CLM-08, CD-CFG-05, CD-CFG-07, CD-CFG-08, CD-PERF-03.
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/engine/LevelSpotGrid.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/vanilla/FurnaceHandler.kt`
 - Modify: `src/main/resources/META-INF/accesstransformer.cfg`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/Worker.kt` (`target`, `spot`)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleRegistry.kt` (`applyForTest`)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/pasture/WorkModeService.kt` (calls the engine)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/engine/TargetScanTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/StokerTests.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/AssignmentTests.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/RoleDataTests.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/WorkModeTests.kt` (`cdWmd06`), `TestKit.kt`
 
 **Interfaces:**
 - Consumes: Tasks 1 to 7.
@@ -279,19 +291,26 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     fun tickLevel(level: ServerLevel)                                    // LevelTickEvent.Post
     fun onWorkModeChanged(level: ServerLevel, pasture: BlockPos, enabled: Boolean)
     fun onChunkUnload(level: ServerLevel, chunk: ChunkPos)
+    fun release(pokemonId: UUID)                                         // the release path: onStop if Working, then Idle
     fun resetRuntimeForTest()
     companion object {
         fun start(server: MinecraftServer)     // ServerStartingEvent
         fun stop()                             // ServerStoppedEvent
         fun get(): WorkEngine?
         fun require(server: MinecraftServer): WorkEngine
+        fun isArrived(entity: Entity, spot: BlockPos): Boolean   // the step 5 rule; GameTests use it too
     }
 }
+// Worker gains `var target: BlockPos?` (the canonical target) and `var spot: BlockPos?`, set while it holds a work claim.
+// PastureRuntime(level, key, now, scanIntervalTicks) holds one pasture's slots (Worker, entity, Pokemon, ActiveRole?),
+// its ScanScheduler and its running TargetScan.
 
 /** Pure part of a scan pass, so CD-PERF-03 is a unit test. */
 interface ScanWorld {
     fun blockEntitiesIn(area: WorkArea): Sequence<Pair<BlockPos, BlockEntity>>
     fun blockState(x: Int, y: Int, z: Int): BlockState
+    // TargetHandler.matches and canonical take a ServerLevel, so the world makes those calls for the scan.
+    fun match(handler: TargetHandler, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): BlockPos?
 }
 class TargetScan(area: WorkArea, roles: List<ActiveRole>, workersNeedBlockScan: Boolean, budget: Int) {
     fun startPass(world: ScanWorld)                 // block entities, in one tick
@@ -303,28 +322,44 @@ data class FoundTarget(val pos: BlockPos, val roles: List<ActiveRole>)
 
 Per `LevelTickEvent.Post` on a `ServerLevel`, `tickLevel` runs these steps for that level, in order:
 
-1. Pastures due for their 20-tick poll (staggered by `ScanScheduler.phaseFor(pos.asLong(), 20)`): read the
+0. Every position in the level's `WORK_PASTURES` gets a `PastureRuntime`, so a restart rebuilds them from the
+   saved index; a runtime whose position left the index is removed. Steps 1 and 3 skip a pasture whose chunk
+   is not loaded, and nothing in the engine loads a chunk.
+1. Pastures due for their 20-tick poll (staggered by `ScanScheduler.phaseFor(pos.asLong(), 20)`; a new
+   runtime polls on its first tick): read the
    tethered list through `PastureAdapter.tethered`, add new workers, and release and forget workers that
    left (CD-ASG-15). A worker counts only when its Pokémon is player-owned, not fainted, not a battle
    clone, its entity is in this level, and `tethering.playerId == pokemon.getOwnerUUID()` (CD-ASG-01).
-   A pasture whose block is gone leaves the index.
-2. Claimed targets: `handler.stillValid(level, pos)` for every claim in this level. An invalid target
-   releases its claim in the same tick (CD-CLM-08).
-3. Scans: each Work Mode pasture whose `ScanScheduler` is due starts a `TargetScan`. Only a pasture with a
-   worker eligible for a `ScanKind.BLOCK` role iterates block positions (CD-PERF-03).
+   A pasture whose block is gone, or whose attachment reads off, leaves the index.
+2. Claimed targets: `handler.stillValid(level, pos)` for every work claim in this level, after
+   `level.isLoaded(pos)`. An invalid target releases its claim in the same tick (CD-CLM-08). The same
+   step releases a work claim whose role is gone from `RoleRegistry.current` or no longer takes the worker
+   (a reload, a disabled role or handler), and a work claim that no worker of the engine holds.
+3. Scans: each Work Mode pasture whose `ScanScheduler` is due starts a `TargetScan`, with the auto-assign
+   roles that a worker of the pasture may take (not leashed, not Tired, no Fairy type). Only a pasture
+   with a worker eligible for a `ScanKind.BLOCK` role iterates block positions (CD-PERF-03). A scheduler's
+   first start is the pasture's stagger boundary, `phaseFor(pos.asLong(), interval)`.
 4. When a scan completes: every Idle worker gets `Assigner.pickForIdle`, and every auto worker in Standby
-   for `standbyMoveTicks` gets `Assigner.pickForStandbyMove`. A granted claim picks a work spot with
-   `WorkSpots.find` over `LevelSpotGrid`. With no spot, the claim is released and the target is skipped
-   for `retryWaitTicks`.
+   for `standbyMoveTicks` gets `Assigner.pickForStandbyMove`. The engine finds the work spot with
+   `WorkSpots.find` over `LevelSpotGrid` before it claims; with no spot it claims nothing and skips the
+   target for `retryWaitTicks`. A spot that another worker of the level holds is not standable, so two
+   workers never share a cell.
 5. Every worker with a claim: `arrived` is the entity's horizontal distance to the spot center at most
    `max(0.75, entity.bbWidth / 2)`, with `|dy| < 1.5`. Run `WorkerMachine.onTick`. On entering Working call
    `handler.onStart`, snap the entity to the spot center, and on leaving Working call `handler.onStop`.
-   While Working call `handler.applyWork` every tick.
+   While Working call `handler.applyWork` every tick. While Traveling, set the Brain's `WALK_TARGET` to the
+   spot's bottom center (speed 0.4, close enough 0) every tick; Cobblemon's core `follow_walk_target` task
+   walks the Pokémon there, and wandering pauses while a walk target exists. Task 9 replaces this interim
+   write with `BrainBridge.write`. A worker whose entity is removed loses its claim and its slot, and joins
+   again at the next poll. A worker whose claim another caller released goes to Idle in the same tick.
 6. Task 9 writes the Brain memory here, and Task 10 runs the effects here.
 
-`EngineEvents` subscribes `ServerStartingEvent`, `ServerStoppedEvent`, `LevelTickEvent.Post` and
-`ChunkEvent.Unload` on `NeoForge.EVENT_BUS`. `onChunkUnload` releases every claim whose target sits in that
-chunk (CD-CLM-08).
+A handler call that throws turns the handler off through `RoleRegistry.disableHandler` (one warning,
+CD-PERF-05), and the next tick releases the claims of its roles.
+
+`EngineEvents` subscribes `ServerStartingEvent`, `ServerStoppedEvent` (which also runs
+`WorkModeService.reset()`), `LevelTickEvent.Post` and `ChunkEvent.Unload` on `NeoForge.EVENT_BUS`.
+`onChunkUnload` releases every claim whose target sits in that chunk (CD-CLM-08).
 
 `FurnaceHandler` (`id = cobblemon_dynamics:furnace`, `scanKind = BLOCK_ENTITY`):
 
@@ -332,9 +367,11 @@ chunk (CD-CLM-08).
 - `hasDemand`: the input slot holds an item, `quickCheck` finds a recipe, and the result fits the output
   slot. This repeats vanilla's `canBurn` check in Kotlin, so no access transformer on the patched private
   `canBurn` is needed (CD-STK-05).
-- `applyWork`: while `hasDemand`, `litTime = max(litTime, 2)` and `litDuration = litTime`. If the block
+- `applyWork`: while `hasDemand`, when `litTime < 2`, set `litTime = 2` and `litDuration = 2`; a furnace that
+  burns its own fuel keeps its own values. If the block
   state has `LIT = false`, set it to true with flag 3 (CD-STK-04). Call `setChanged()`. No fuel item is
-  touched, because vanilla only burns fuel when the furnace is unlit (CD-STK-02, CD-STK-03).
+  touched, because vanilla only burns fuel when its tick brings `litTime` to 0, and the engine works after
+  the block entities tick (CD-STK-02, CD-STK-03).
 - `onStop`: nothing. `litTime` is at most 2, so the furnace goes out within 2 ticks and follows vanilla
   fuel rules after that (CD-STK-06).
 - `stillValid`: the block entity at the position is still an `AbstractFurnaceBlockEntity`.
@@ -361,6 +398,8 @@ class TargetScanTest {
         var stateReads = 0
         override fun blockEntitiesIn(area: WorkArea) = bes.asSequence()
         override fun blockState(x: Int, y: Int, z: Int): BlockState { stateReads++; error("not used in this test") }
+        override fun match(handler: TargetHandler, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): BlockPos? =
+            error("not used in this test")
     }
 
     @Test
@@ -415,21 +454,25 @@ class StokerTests {
         var workingSince = -1L
         helper.onEachTick {
             val w = TestKit.engine(helper).claims.holderOf(TargetKey.block(helper.level.dimension().location(), furnace.blockPos))
-            if (workingSince < 0 && w != null && TestKit.engine(helper).worker(w.worker)?.status == WorkerStatus.WORKING) workingSince = helper.tickTime
+            if (workingSince < 0 && w != null && TestKit.engine(helper).worker(w.worker)?.status == WorkerStatus.WORKING) workingSince = helper.tick
             if (furnace.getItem(2).count == 8) {
-                val took = helper.tickTime - workingSince
+                val took = helper.tick - workingSince
                 helper.assertTrue(took in 1_580..1_620, "8 smelts took $took ticks")
                 helper.succeed()
             }
         }
     }
     // cdStk02SmokerCooksEightBeefIn800Ticks: same with Blocks.SMOKER and 8 beef, 780..820 ticks.
-    // cdStk03CoalIsNeverConsumed: fuel = 1 coal; after 8 smelts the fuel slot still holds 1 coal.
+    // cdStk03CoalIsNeverConsumed: 1 coal goes into the fuel slot on the tick Working starts (vanilla burns a coal that sits
+    //   beside input in an unlit furnace before any Stoker arrives); after 8 smelts the fuel slot still holds 1 coal.
     // cdStk04LitIsSetOneTickAfterWorkingStarts: record the tick Working starts; on the next tick the block state's LIT is true.
     // cdStk05FullOutputGivesStandby: output slot set to 64 iron ingots; the worker is in STANDBY within 20 ticks of reaching the spot.
-    // cdStk06ReleaseReturnsVanillaRules: once Working, release the claim (TestKit.engine(helper).claims.release(...) through the
-    //   engine's release path); with no fuel LIT is false within 2 ticks; in a second furnace with 1 coal the coal is consumed.
-    // cdStk07GaugeIsNotEmptyWhileCooking: while Working and cooking, litTime > 0 and litDuration > 0 (dataAccess indices 0 and 1).
+    // cdStk06 is two tests. Once Working, set the worker's skipUntil for the furnace 200 ticks ahead, so that the next scan
+    //   cannot claim it again, and call TestKit.engine(helper).release(id). cdStk06ReleaseLetsAFurnaceWithNoFuelGoOut: LIT is
+    //   false within 2 ticks. cdStk06ReleaseLetsVanillaBurnTheCoal: 1 coal goes in at Working and is still there 40 ticks
+    //   later; after the release the coal is burned within 2 ticks, and the furnace stays lit.
+    // cdStk07GaugeIsNotEmptyWhileCooking: while Working, litTime > 0, litDuration > 0 and litTime / litDuration >= 0.5, the
+    //   ratio that the menu draws (the fields, through the access transformer; dataAccess is protected).
 }
 ```
 
@@ -439,34 +482,66 @@ class AssignmentTests {
     // cdAsg01OnlyOwnedHealthyPastured: a wild Charmander (TestKit.wild), a party Charmander sent out by the owner
     //   (pokemon.sendOut(level, pos, null)), a pastured Charmander with currentHealth = 0, and a healthy pastured
     //   Charmander, all 3 blocks from a furnace with input, for 400 ticks; only the healthy pastured one holds a claim.
-    // cdAsg03NearestFurnaceWins: furnaces with input 3 and 6 blocks from one Idle Charmander (moveTo before Work Mode on);
-    //   the claim is on the 3-block furnace.
-    // cdAsg08WorkAreaEdges (template floor_23x10x23 and floor_23x17x23): furnaces at horizontal offsets 8 and 9 from the
-    //   pasture, then at vertical offsets 6 and 7 (on pillars); the 8 and 6 furnaces get claimed, the 9 and 7 never do.
-    // cdAsg11WorkingWithinOneTickOfArrival: track the first tick the worker is within arrival distance; status is WORKING
+    // cdAsg03NearestFurnaceWins: furnaces with input 3 and 6 blocks from one Idle Charmander, on opposite sides; moveTo holds
+    //   the Charmander at its spot every tick until it claims, because it wanders between the poll and the scan; the claim
+    //   is on the 3-block furnace.
+    // cdAsg08 is two tests, each with two Charmanders, so a free worker exists for the outer furnace. Horizontal
+    //   (floor_23x10x23, pasture at (11,1,11)): furnaces at x offsets +8 and -9. Vertical (floor_23x17x23): furnaces at
+    //   y offsets 6 and 7, each on a stone pillar with a one-block stone ledge beside it as its only work spot. Over 300
+    //   ticks the 8 and 6 furnaces get claimed, and the 9 and 7 never do.
+    // cdAsg11WorkingWithinOneTickOfArrival: track the first tick WorkEngine.isArrived(entity, worker.spot); status is WORKING
     //   on that tick or the next.
     // cdAsg12StandbyKeepsClaimAndResumes: remove the input once Working; the claim stays; put input back; WORKING within 20 ticks.
-    // cdAsg13UnreachableTargetTimesOut: a furnace boxed in glass on all sides with no standable spot in range, but with a
-    //   spot found through a 1-block gap closed after the claim; the claim is held at claimTick + 599 and gone at + 601.
+    // cdAsg13UnreachableTargetTimesOut: moveTo holds the Charmander 9 blocks from the furnace, beyond the Stoker's range, until
+    //   it claims, so its work spot lies some blocks away; then glass walls the Charmander in, two blocks high, so it can
+    //   never arrive; the claim is held at claim.sinceTick + 599 and gone at + 601 (level game time). A glass box around the
+    //   furnace with a gap closed after the claim does not work: the spot found through the gap stays reachable outside the
+    //   box, and the worker arrives.
     // cdAsg15LeavingThePastureReleasesTheClaim: once Working, pasture.releasePokemon(uuid); no claim 20 ticks later.
     // cdWmd05WorkModeOffReleasesEveryClaim: two Working Stokers; inject a BED and a HEAL claim for two more workers of the
     //   same pasture with engine.claims.tryClaim; apply Work Mode off; 1 tick later the registry holds none of the four.
     //   M2 Task 4 replaces the injected claims with a real sleeper and a real healer.
-    // cdClm07ClaimsAreNotSaved: two Working Stokers; TestKit.simulateRestart(helper); the registry is empty before the next scan.
-    // cdClm08BrokenReplacedUnloaded: three Working Stokers; break furnace 1 (destroyBlock), replace furnace 2 with stone,
-    //   call EngineEvents.onChunkUnload for furnace 3's chunk; 1 tick later none of the three claims remains.
+    // cdClm07ClaimsAreNotSaved (batch "restart_clm07", because the reset drops the whole engine): two Working Stokers;
+    //   TestKit.simulateRestart(helper); the registry is empty, and for 20 ticks every claim is newer than the restart.
+    // cdClm08BrokenReplacedUnloaded (batch "unload_clm08", because one chunk can hold parts of two test structures): three
+    //   Working Stokers; break furnace 1 (destroyBlock), replace furnace 2 with stone, call EngineEvents.onChunkUnload for
+    //   furnace 3's chunk; 1 tick later none of the three claims remains (compare the Claim values, because a new scan
+    //   may claim furnace 3 again: its chunk stays loaded).
 }
 
 @GameTestHolder(MOD_ID) @PrefixGameTestTemplate(false)
 class RoleDataTests {
+    // Each test restores the state with TestKit.afterTest(helper) { ... }, a GameTestListener on helper.testInfo that runs
+    // when the test passes or fails; a finally block would run when the test method returns, before the test ticks.
     // batch = "roles_cfg07": cdCfg07DatapackLetsWaterTypesStoke: RoleRegistry.applyForTest(stoker with types fire + water);
-    //   a Squirtle claims a furnace with input; restore the parsed map in a finally block.
-    // batch = "roles_cfg08": cdCfg08ReloadAppliesChangedTypes: applyForTest(stoker with types water only); a Charmander
-    //   gets no claim for 200 ticks; restore.
-    // batch = "roles_cfg05": cdCfg05DisabledRoleGetsNoClaims: WorkEngineSettings.current = DEFAULT.copy(disabledRoles =
+    //   a Squirtle claims a furnace with input; restore the parsed map.
+    // batch = "roles_cfg08": cdCfg08ReloadAppliesChangedTypes: applyForTest(stoker with types water only); two furnaces; a
+    //   Charmander gets no claim for 200 ticks, and a Squirtle holds one at tick 200; restore.
+    // batch = "roles_cfg05": cdCfg05DisabledRoleGetsNoClaims: WorkEngineSettings.current = current.copy(disabledRoles =
     //   setOf(stoker id)), RoleRegistry.rebuild(); a Charmander beside a furnace with input gets no claim for 400 ticks; restore.
 }
 ```
+
+Every test reads only its own workers and targets: the registry and the engine are global, and the tests of one
+batch run side by side.
+
+Add to `WorkModeTests` (moved from Task 7, because `TestKit.claimOf` reads the engine):
+
+```kotlin
+@GameTest(template = "floor_15x6x15", timeoutTicks = 450)
+fun cdWmd06OffPastureGivesNoClaims(helper: GameTestHelper) {
+    val owner = TestKit.owner(helper)
+    val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+    TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
+    val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
+    TestKit.moveTo(helper, fire, BlockPos(7, 1, 5))
+    helper.onEachTick { helper.assertTrue(TestKit.claimOf(helper, fire) == null, "a Pokémon in a pasture that is off got a claim") }
+    helper.runAtTickTime(400) { helper.succeed() }
+}
+```
+
+`TestKit` gets `engine`, `furnace`, `workerOf`, `claimOf`, `keyOf(helper, pos)`, `moveTo`, `simulateRestart` and
+`afterTest`.
 
 Write every commented test in full before Step 3. `RoleRegistry.applyForTest(definitions)` replaces the
 parsed map and rebuilds `current`, exactly as `apply` does after a `/reload`, so CD-CFG-07 and CD-CFG-08
@@ -476,16 +551,20 @@ data pack and a real `/reload`.
 - [ ] **Step 3: Run them and see them fail**
 
 Run: `./gradlew runGameTestServer`
-Expected: the new tests fail (no engine, no handler), the M0 and Task 7 tests pass.
+Expected: the new tests fail (no engine, no handler), the M0 and Task 7 tests pass. The tests compile against
+a `WorkEngine` with the API above and empty bodies. The two MUST NOT tests, `cdWmd06` and `cdCfg05`, pass
+already, because nothing claims.
 
 - [ ] **Step 4: Write the engine, the scan, the spot grid and the handler**
 
-`LevelSpotGrid(level, handler, canonical)` implements `SpotGrid`: standable when the block below has a
-full top face (`isFaceSturdy(level, below, Direction.UP)`) and the cells at `y` and `y + 1` have empty
-collision shapes; a cell blocks sight when its collision shape is not empty and
-`handler.isPartOfTarget(level, canonical, pos)` is false.
+`LevelSpotGrid(level, handler, canonical, taken)` implements `SpotGrid`: standable when the block below has a
+full top face (`isFaceSturdy(level, below, Direction.UP)`), the cells at `y` and `y + 1` have empty
+collision shapes, and the cell is not in `taken` (the spots of other workers); a cell blocks sight when its
+collision shape is not empty and `handler.isPartOfTarget(level, canonical, pos)` is false. A cell in an
+unloaded chunk is neither standable nor in the way.
 
-Register `FurnaceHandler` in the mod constructor with `HandlerRegistry.register(FurnaceHandler)`.
+Register `FurnaceHandler` in the mod constructor with `HandlerRegistry.register(FurnaceHandler)`, and call
+`EngineEvents.register()` there. `WorkModeService.apply` calls `WorkEngine.get()?.onWorkModeChanged(...)`.
 
 - [ ] **Step 5: Run the tests and see them pass**
 
@@ -495,7 +574,7 @@ Expected: `BUILD SUCCESSFUL`; every GameTest passes.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main src/test src/gametest
+git add -- <each new and changed file under src/main, src/test and src/gametest> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md
 git commit -m "Run the work engine per level and keep furnaces lit with the Stoker role"
 ```
 
@@ -513,9 +592,14 @@ git commit -m "Run the work engine per level and keep furnaces lit with the Stok
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/WorkTaskConfig.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/SwitchFromWorkTaskConfig.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/BrainBridge.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/ai/LookMath.kt`
 - Create: `src/main/resources/data/cobblemon_dynamics/behaviours/pokemon/auto/work.json`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt` (step 6, the arrival snap, the release path)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/ai/LookMathTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/BrainTests.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/TestKit.kt` (`release`, `activitiesOf`, `tasksOf`,
+  `runningTasks`), `StokerTests.kt` (uses `TestKit.release`)
 
 **Interfaces:**
 - Produces:
@@ -526,9 +610,13 @@ object DynamicsMemories { val WORK_ORDER: DeferredHolder<MemoryModuleType<*>, Me
 data class WorkOrder(val spot: Vec3, val lookAt: Vec3?, val hold: Boolean, val sleep: Boolean = false)
 object BrainBridge {
     fun registerTaskTypes()                                   // adds the three ids to TaskConfig.types, in common setup
-    fun write(entity: PokemonEntity, order: WorkOrder)        // brain.setMemory, every tick (CD-AI-04)
+    fun write(entity: PokemonEntity, order: WorkOrder)        // brain.setMemory every tick (CD-AI-04); enterWork when WORK is not active
     fun clear(entity: PokemonEntity)                          // brain.eraseMemory
     fun isWorking(entity: PokemonEntity): Boolean             // brain.isActive(WORK)
+    fun holdsOrder(entity: PokemonEntity): Boolean            // the memory has a value
+    fun canHoldOrder(entity: PokemonEntity): Boolean          // the memory is registered; false for a species with baseAI
+    fun enterWork(entity: PokemonEntity)                      // setActiveActivityIfPossible(WORK), then brain.stopAll
+    fun face(entity: LivingEntity, target: Vec3)              // yRot = yBodyRot = yHeadRot = LookMath.yawTowards(position, target)
 }
 object LookMath { fun yawTowards(from: Vec3, to: Vec3): Float }   // degrees, Minecraft convention
 ```
@@ -558,14 +646,34 @@ sleep. Machines run at night.
 
 `SwitchToWorkTaskConfig` follows `SwitchToActionEffectTaskConfig`: it declares `WORK_ORDER` with
 `behaviourConfigurationContext.addMemories(...)`, and its trigger requires `present(WORK_ORDER)` and calls
-`brain.setActiveActivityIfPossible(WORK)` when WORK is not active. `SwitchFromWorkTaskConfig` follows
+`BrainBridge.enterWork` when WORK is not active. `SwitchFromWorkTaskConfig` follows
 `SwitchFromActionEffectTaskConfig`: `absent(WORK_ORDER)` triggers `updateActivityFromSchedule(dayTime,
-gameTime)` and sets `enablePoseTypeRecalculation = true` (CD-AI-03, and CD-AI-08 in M2). `WorkTaskConfig`
-builds one task that, while `present(WORK_ORDER)`: when `hold` is false, sets `WALK_TARGET` to the spot
-(speed 0.4, close enough 0); when `hold` is true, erases `WALK_TARGET`, sets `PATH_COOLDOWN` for 40 ticks
-and stops the navigation (CD-AI-02); and in both cases sets `LOOK_TARGET` to a `BlockPosTracker` at
-`lookAt` and turns the body: `yBodyRot = yHeadRot = yRot = LookMath.yawTowards(position, lookAt)`
-(CD-AI-05, CD-AI-09). The engine sets `hold = true` once the worker has arrived.
+gameTime)`, then `useDefaultActivity()` if WORK is still active, because the schedule update runs at most
+once in 20 ticks, and sets `enablePoseTypeRecalculation = true` (CD-AI-03, and CD-AI-08 in M2).
+`WorkTaskConfig` builds two tasks, which run while `present(WORK_ORDER)` and never time out.
+`WorkMoveTask`: when `hold` is false, sets `WALK_TARGET` to the spot (speed 0.4, close enough 0); when
+`hold` is true, erases `WALK_TARGET`, sets `PATH_COOLDOWN` for 40 ticks and stops the navigation
+(CD-AI-02). `WorkLookTask`: sets `LOOK_TARGET` to a `BlockPosTracker` at `lookAt`, and while `hold` is true
+turns the body with `BrainBridge.face` (CD-AI-05, CD-AI-09). The look task is a task of its own, so the work
+activity's task list holds it. The body does not turn while the Pokémon walks: `PokemonMoveControl` moves
+the Pokémon along its `yRot`, so a forced yaw would push it off its path. A task that stops erases the
+`WALK_TARGET` or `LOOK_TARGET` that it set. The engine sets `hold = true` once the worker has arrived.
+
+Platform facts that shape the bridge (Minecraft 1.21.1, Cobblemon 1.8.4):
+
+- `Activity.equals` compares names, and vanilla's villagers have an activity named `work`. `WORK` is
+  `Activity("cobblemon_dynamics:work")`, so it never equals vanilla's.
+- `Brain.setActiveActivityIfPossible` falls back to `useDefaultActivity()` when the Brain lacks the
+  activity. `write` calls `enterWork` only when the Brain holds the work order, and the same behaviour file
+  adds the memory and the activity.
+- A Brain does not stop the running tasks of the activity that it leaves. Cobblemon's idle look task
+  (`LookAtTargetSink`, 80 to 160 ticks) would keep running inside the work activity, so `enterWork` calls
+  `brain.stopAll(...)`. Core tasks and ours start again on their own memories.
+- The Brain ticks inside the entity tick, before `LevelTickEvent.Post`, and GameTest callbacks run after
+  every level has ticked. With only the core task, a rebuilt Brain would get the work activity back one
+  tick late, so `write` calls `enterWork` itself when WORK is not active (CD-AI-04).
+- Cobblemon builds a Brain with only the memories that its task configs declare, so `WorkTaskConfig`
+  declares `WORK_ORDER`, `WALK_TARGET`, `LOOK_TARGET` and `PATH_COOLDOWN`.
 
 - [ ] **Step 1: Write the failing unit test**
 
@@ -586,39 +694,53 @@ class LookMathTest {
 @GameTestHolder(MOD_ID) @PrefixGameTestTemplate(false)
 class BrainTests {
     // cdAi01BrainListsWorkActivity: a newly pastured Charmander in a Work Mode pasture; after entity.remakeBrain()
-    //   the brain's available activities contain DynamicsActivities.WORK (Brain#isActive after a work order, or reflect
-    //   on activityRequirements keys). Also assert the jar resource
-    //   "data/cobblemon_dynamics/behaviours/pokemon/auto/work.json" exists on the class path.
+    //   the brain's available activities contain DynamicsActivities.WORK (TestKit.activitiesOf reflects on the private
+    //   activityRequirements keys). Also assert that the mod file holds
+    //   "data/cobblemon_dynamics/behaviours/pokemon/auto/work.json" (IModFile.findResource) and that Cobblemon loaded
+    //   it as an auto behaviour (CobblemonBehaviours.behaviours[cobblemon_dynamics:work] in autoPokemonBehaviours).
     // cdAi02WorkingWorkerHoldsItsSpot: once Working, record the spot; for 600 ticks the entity stays within 0.5 blocks.
-    // cdAi03ReleaseRestoresActivitiesWithin20Ticks: release a Working worker's claim; 20 ticks later WORK is not active.
-    // cdAi04RemakeBrainRestoresWorkNextTick: call entity.remakeBrain() on a Working worker; 1 tick later WORK is active.
-    // cdAi05FacesTheTarget: for 600 ticks while Working or Standby, |wrapDegrees(yBodyRot - yawTowards(target))| <= 15.
-    // cdAi06NonWorkersKeepCobblemonActivities: a wild Charmander and one in a pasture that is off, 1,200 ticks; WORK never active.
-    // cdAi09LookTaskRunsInsideWork: while WORK is active, Cobblemon's idle activity is not active, and cdAi05's check holds.
+    // cdAi03ReleaseRestoresActivitiesWithin20Ticks: release a Working worker's claim with TestKit.release, which keeps the
+    //   next scan off the furnace for 200 ticks; 20 ticks later WORK is not active and Cobblemon's IDLE is.
+    // cdAi04RemakeBrainRestoresWorkNextTick: call entity.remakeBrain() on a Working worker (the new brain must not have WORK);
+    //   1 tick later WORK is active.
+    // cdAi05FacesTheTarget: for 600 ticks while Working or Standby, |wrapDegrees(yBodyRot - yawTowards(target))| <= 15. The
+    //   worker walks toward the furnace, so on the first Working tick the test turns it 180 degrees and the bridge must
+    //   turn it back by the next tick.
+    // cdAi06NonWorkersKeepCobblemonActivities: a wild Charmander and one in a pasture that is off, 1,200 ticks; WORK never active,
+    //   although both brains list it.
+    // cdAi09LookTaskRunsInsideWork: while WORK is active, Cobblemon's idle activity is not active, the work activity's task list
+    //   holds a WorkLookTask, no LookAtTargetSink runs (TestKit.runningTasks), the look task runs from the tick after WORK
+    //   starts, and cdAi05's check holds, with the same turn.
 }
 ```
 
-Write each in full. Timeouts: the row's tick count plus 200.
+Write each in full. Timeouts: the row's tick count plus 200, and 200 more where the worker first travels to its
+spot (cdAi02, cdAi05 and cdAi09: 1,000).
 
 - [ ] **Step 3: Write the Brain bridge, register it, and wire the engine**
 
 Register `DynamicsActivities` and `DynamicsMemories` DeferredRegisters on the mod bus. Call
-`BrainBridge.registerTaskTypes()` from `FMLCommonSetupEvent` with `event.enqueueWork { }`, before any
-Pokémon brain is built. In `WorkEngine` step 6, call `BrainBridge.write` for every worker with a claim,
-with `hold = arrived`, and `BrainBridge.clear` on release. If `entity.brain` does not hold the
-`WORK_ORDER` memory after a write (a species with `baseAI`), log one warning per species and release the
-claim.
+`BrainBridge.registerTaskTypes()` from `FMLCommonSetupEvent` with `event.enqueueWork(Runnable { })`, before any
+Pokémon brain is built. In `WorkEngine` step 6, call `BrainBridge.write` for every worker with a work claim,
+with `hold = arrived`, and `BrainBridge.clear` on release (the release path's `clear`, a changed entity at
+the poll, and `resetRuntimeForTest`, because a real restart loses the memory too). If `entity.brain` does
+not hold the `WORK_ORDER` memory after a write (a species with `baseAI`), log one warning per species, skip
+the target for `retryWaitTicks` and release the claim. Scans and the assigner also skip a worker whose
+Brain cannot hold the memory (`canHoldOrder`). On arrival, Traveling to Working or to Standby, the engine
+snaps the worker to the spot center, zeroes its motion and faces it to the target, so the first tick at the
+spot already faces the target. The look task holds it from the next Brain tick.
 
 - [ ] **Step 4: Run the tests and see them pass**
 
 Run: `./gradlew build runGameTestServer`
 Expected: `BUILD SUCCESSFUL`; every GameTest passes, including Task 8's tests, which now move through the
-Brain instead of teleporting.
+work activity instead of the interim `WALK_TARGET` write of Task 8's step 5. Remove that write when
+`BrainBridge.write` takes over.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main src/test src/gametest
+git add -- <each new and changed file under src/main, src/test and src/gametest> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md
 git commit -m "Drive workers through a Brain work activity added by an auto behaviour"
 ```
 
@@ -637,11 +759,15 @@ CD-FX-11, CD-PERF-04.
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/fx/WorkFocusEntity.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsEntities.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/WorkSoundPayload.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/DynamicsPayloads.kt` (registration; Task 13 adds its payloads here)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/client/ClientEffects.kt`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt`, `engine/PastureRuntime.kt` (`Slot.focus`),
+  `CobblemonDynamics.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/EffectClockTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/RecipientsTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/ParticleCatalogTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/FocusEntityTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/net/WorkSoundPayloadTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/EffectTests.kt`
 
 **Interfaces:**
 - Produces:
@@ -649,11 +775,11 @@ CD-FX-11, CD-PERF-04.
 ```kotlin
 object EffectClock { fun shouldPlay(startTick: Long, now: Long, loopTicks: Int): Boolean }   // start, start + 40, ...
 object Recipients { fun inRange(distanceSqr: Double, radius: Int): Boolean }                   // <= radius², CD-FX-08
-interface ParticleCatalog { fun contains(id: ResourceLocation): Boolean }
+fun interface ParticleCatalog { fun contains(id: ResourceLocation): Boolean }   // fun interface: the unit test passes a lambda
 class CheckedParticles(private val catalog: ParticleCatalog, private val warn: (String) -> Unit) {
     fun filter(ids: List<ResourceLocation>): List<ResourceLocation>      // drops missing ids, warns once per id
 }
-object JarParticleCatalog : ParticleCatalog   // reads "identifier" from Cobblemon's assets/cobblemon/bedrock/particles/**.json
+object JarParticleCatalog : ParticleCatalog   // "identifier" of each .particle.json under the Cobblemon jar's assets/cobblemon/bedrock/particles
 class WorkFocusEntity(type: EntityType<WorkFocusEntity>, level: Level) : Entity(type, level)
 object EffectPlayer {
     fun tickWorking(level: ServerLevel, entity: PokemonEntity, focus: WorkFocusEntity, role: RoleDefinition, workingSince: Long, now: Long)
@@ -666,11 +792,24 @@ data class WorkSoundPayload(val entityId: Int, val sound: ResourceLocation) : Cu
 On each effect tick, `EffectPlayer` sends to every player in the level with
 `Recipients.inRange(player.distanceToSqr(entity), effectBroadcastRadius)`:
 `PlayPosableAnimationPacket` with `role.effect.animationsWithCry`, one `SpawnSnowstormEntityParticlePacket`
-per actor particle (source = the worker), one per target particle (source = the worker, targeted entity =
-the focus entity), and, when the role names a sound, a `WorkSoundPayload`. The client plays that sound
-only when `ClientConfig.workSounds` is true (CD-FX-09). Check the constructor of
-`PlayPosableAnimationPacket` in the Cobblemon jar before writing the call, and check that each sound id in
-the role files exists in Cobblemon's `assets/cobblemon/sounds.json`.
+per actor particle (source = the worker, targeted entity = the focus entity), one
+`SpawnSnowstormParticlePacket(id, focus.position())` per target particle, and, when the role names a sound, a
+`WorkSoundPayload`. The client plays that sound only when `ClientConfig.workSounds` is true (CD-FX-09).
+The jar has `PlayPosableAnimationPacket(entityId: Int, animation: Set<String>, expressions: List<String>)`:
+the names go in as a `LinkedHashSet`, which keeps their order. The Stoker role names no sound, so no sound id
+needs checking yet.
+
+Platform facts that changed the plan: actor particles aim at the focus entity too, because Cobblemon's move
+timelines send them with `targetLocators` and `flamethrower_actor` sets its direction from
+`v.target_delta*`. Actor particles use the source locators `special`, `target`, `root`; the targeted locator is
+`middle`, and the client falls back to the focus entity's position because the focus entity has no model.
+Target particles go out as the position packet at the focus entity, because Cobblemon's client spawns an
+entity-sourced particle at a locator of its source entity and uses the targeted entity only as the aim
+(`SpawnSnowstormEntityParticleHandler`), so a target particle sent that way bursts on the worker.
+`ParticleShots` holds this routing, and `ParticleShotsTest` checks it. Cobblemon's client loads only
+`.particle.json` files, so the catalog reads only those. The catalog reads the jar through
+`IModFile.findResource`; if it cannot find the folder, it warns once and passes every id, because the client
+skips an unknown id with no error.
 
 `WorkFocusEntity`'s type is built with `EntityType.Builder.of(::WorkFocusEntity, MobCategory.MISC)
 .sized(0.1f, 0.1f).noSave().noSummon().fireImmune().clientTrackingRange(8)` (CD-FX-06). The entity sets
@@ -707,26 +846,43 @@ class ParticleCatalogTest {
 }
 ```
 
-- [ ] **Step 2: Write the failing GameTests**
+- [ ] **Step 2: Write the failing GameTest**
+
+The approver's ruling of 2026-11-09 limits GameTests to code that the plan cannot trust against the real
+platform. Integrated testing happens at the end of Phase 1. One GameTest stays, because it reads the real
+Cobblemon jar:
 
 ```kotlin
 @GameTestHolder(MOD_ID) @PrefixGameTestTemplate(false)
-class FocusEntityTests {
-    // cdFx04FocusSitsAtTargetCenter: while a Stoker is Working, exactly one WorkFocusEntity exists within 0.01 of the furnace center.
-    // cdFx05FocusIsInvisibleWithNoCollision: isInvisible, !isPickable, !canBeCollidedWith; a mock player moved through the
-    //   focus position with player.move(MoverType.SELF, ...) ends past it.
-    // cdFx06FocusIsNeverSaved: with five Working workers, entity.type.canSerialize() is false and entity.save(CompoundTag()) is false.
-    // cdFx07FocusLeavesWithWorking: one Stoker goes to Standby (fill its output), another's claim is released; 1 tick later
-    //   no focus entity remains for either.
-    // cdPerf04NoFocusLeak: create and release 10 claims 5 times (10 furnaces, 10 Charmanders, toggle Work Mode); on every
-    //   tick the focus entity count is at most the WORK claim count.
+class EffectTests {
+    // cdFx11CatalogReadsCobblemonParticles: every actor and target particle id of the Stoker role is in JarParticleCatalog,
+    //   and cobblemon:no_such_particle is not.
 }
 ```
 
+These GameTests are not written:
+
+- CD-FX-04 (`cdFx04FocusSitsAtTargetCenter`: one focus entity within 0.01 of the furnace center while a Stoker works):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-FX-05 (`cdFx05FocusIsInvisibleWithNoCollision`: the property checks, and a player moved with
+  `player.move(MoverType.SELF, ...)` through a focus entity in open air, because the target center lies inside the block):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-FX-06 (`cdFx06FocusIsNeverSaved`: with five Working workers, `type.canSerialize()` and `save(CompoundTag())` are false):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-FX-07 (`cdFx07FocusLeavesWithWorking`: one Stoker to Standby by a full output, another released with
+  `TestKit.release`; 1 tick later no focus entity remains): GameTest deferred (high confidence): verified in the
+  end-of-phase pass.
+- CD-PERF-04 (`cdPerf04NoFocusLeak`: 10 furnaces and 10 Charmanders, Work Mode on and off 5 times; on every tick the focus
+  entity count is at most the work claim count): GameTest deferred (high confidence): verified in the end-of-phase pass.
+
 - [ ] **Step 3: Write the effects code and wire it into engine step 6**
 
-Register the entity type, its renderer (client only, `EntityRenderersEvent.RegisterRenderers`), and
-`WorkSoundPayload` (Task 13 registers payloads; add this one there and use it here).
+Register the entity type, its renderer (client only, `EntityRenderersEvent.RegisterRenderers`, behind
+`FMLEnvironment.dist.isClient`), and `WorkSoundPayload` in `net/DynamicsPayloads.kt`, which Task 13 extends. The
+client handler calls `ClientEffects`, which loads only when a client runs the handler. In step 6 a worker with a
+work claim that is Working gets its focus entity (spawned once, again if it was removed) and
+`EffectPlayer.tickWorking` with `workingSince = worker.statusSince`; every other worker loses its focus entity in
+the same tick. The release path's `clear` and `resetRuntimeForTest` remove it too.
 
 - [ ] **Step 4: Run the tests and see them pass**
 
@@ -736,7 +892,7 @@ Expected: `BUILD SUCCESSFUL`; every GameTest passes.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main src/test src/gametest
+git add -- <each new and changed file under src/main, src/test and src/gametest> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md
 git commit -m "Loop each role's move effect at a hidden focus entity on the target"
 ```
 
@@ -769,8 +925,14 @@ CD-CLM-05, CD-CLM-06, CD-ASG-20 (GameTest).
   `scripts/placeholder_art.py`, CD-ART-11)
 - Create: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/TestTransferHandler.kt` and the test role
   `src/gametest/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/test_transfer.json`
+- Modify: `engine/WorkEngine.kt` (reservations, leashed claims, `onBound`, `onUnbound`), `engine/PastureRuntime.kt`
+  (`Slot.binding`, `requestPoll`), `pasture/PastureAdapter.kt`, `registry/DynamicsAttachments.kt` (`leash_index`),
+  `CobblemonDynamics.kt`, and in the test mod `DynamicsTestMod.kt` and `TestKit.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/BindRulesTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/PendingSourceTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/BindingTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/leash/WorkLeashRecipeTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/claim/LeashIndexTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/LeashTests.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/LeashResetTests.kt`
 
@@ -816,6 +978,7 @@ object BindRules {
 }
 object Feedback {                                       // every message goes through here; tests read `recorded`
     fun actionBar(player: ServerPlayer, message: Component)
+    fun actionBar(playerId: UUID, server: MinecraftServer, message: Component)   // an owner who may be offline (CD-LSH-21)
     fun chat(playerId: UUID, server: MinecraftServer, message: Component)
     val recorded: MutableMap<UUID, MutableList<Component>>     // filled only when `recording` is true (GameTests)
     var recording: Boolean
@@ -851,6 +1014,7 @@ the source (`"Outside its pasture's work area"`). A target bound to another Pok�
 | `cobblemon_dynamics.binding.reason.no_role` | `its new form cannot do the job` |
 | `cobblemon_dynamics.binding.reason.pasture_gone` | `its pasture block is gone` |
 | `item.cobblemon_dynamics.work_leash` | `Work Leash` |
+| `entity.cobblemon_dynamics.work_focus` | `Work Focus` |
 
 Interaction wiring:
 
@@ -874,18 +1038,46 @@ Interaction wiring:
   worker claims its bound target on its next scan or poll when it is not Tired (CD-STA-14 in M2).
 - A leashed worker that misses its arrival shows its owner `{Pokémon} cannot reach {target}` (CD-LSH-21).
 
+Platform facts and choices that changed the plan:
+
+- The server owner check reads the Pokémon's store (`pokemon.getOwnerUUID()`), because a new entity copies
+  its owner only on its first tick. The client reads the entity's synced `ownerUUID`. `Player.interactOn`
+  posts the event and returns at once when it is cancelled, before `Entity.interact` (compiled class).
+- `LeashSelection` stays `(pokemonId, name)`. At a block click the server finds the Pokémon in the player's
+  PC or party, and its pasture by the level's `work_pastures` index: a pasture in Work Mode whose tethered
+  list holds the Pokémon's current tethering. A refusal with `no_selection` removes the stale selection.
+- Both the selection and the pending source are data components on the stack, saved and synced (the spec
+  rows test the stack). ARCHITECTURE's in-memory `PendingSelections` is gone.
+- With a pending source, only `SOURCE_AND_DESTINATION` roles whose handler matches both the source and the
+  clicked block fit; the work-area and assignment checks are the source's. The first click refuses a source
+  outside the work area or bound to another Pokémon, so a refusal never waits for the second click.
+- The leash acts in the main hand only, for block clicks too. With no selection the item passes, so the
+  block opens as usual. The tooltip names the selected Pokémon, and the item is in the Tools tab.
+- A bind calls `WorkEngine.onBound`: another worker's work claim on the target ends in the same tick
+  (CD-CLM-05), and the pasture polls on the next engine tick. Each poll reads the binding into the slot and
+  sets `Worker.leashed`; a leashed worker with no claim then claims its bound target and no other. A scan
+  never assigns a leashed worker (CD-ASG-20). A leashed worker that finds no work spot gets the
+  `cannot_reach` message and waits `retryWaitTicks`.
+- `LeashIndex` is a saved level attachment, so a reservation holds after a restart, also while its pasture
+  is off (CD-CLM-06).
+- `ServerPlayerGameMode.useItemOn` returns the cancellation result of `RightClickBlock` before it calls
+  `onItemUseFirst` (compiled class), so CD-SEC-11 holds with no code of ours.
+
 `LeashResets` clears a binding, removes its index entry and, except for the owner's own sneak-click,
-sends the binder `"{Pokémon} lost its work binding: {reason}"` in chat (CD-LSH-13) when:
+sends the binder `"{Pokémon} lost its work binding: {reason}"` in chat (CD-LSH-13) when the causes below
+apply. Cobblemon has no pasture events, so one index check every 10 ticks covers every cause that the
+events do not. It reads each entry whose pasture or target chunk is loaded, also for a pasture in Work
+Mode off:
 
 | Cause | Detection | Row |
 | --- | --- | --- |
-| Target broken or replaced | every 10 ticks, `handler.stillValid` for index entries in loaded chunks | CD-LSH-08 |
-| Pokémon recalled to the PC or the party | the 20-tick pasture poll no longer sees it tethered | CD-LSH-08 |
-| Pokémon tethered to another pasture | the poll sees it under another pasture position | CD-LSH-24 |
+| Target broken or replaced | the index check: `handler.stillValid` false on a loaded target | CD-LSH-08 |
+| Pokémon recalled to the PC or the party | the index check: the loaded pasture's tethered list lacks it, and it is untethered | CD-LSH-08 |
+| Pokémon tethered to another pasture | the index check: the old pasture lacks it, and it is tethered | CD-LSH-24 |
 | Pokémon released | `CobblemonEvents.POKEMON_RELEASED_EVENT_POST` | CD-LSH-25 |
 | New owner | `CobblemonEvents.POKEMON_GAINED` with `playerId != binding.binder` | CD-LSH-26 |
-| Pasture block gone | the poll or index check finds no pasture at `binding.pasture` | CD-WMD-07, CD-LSH-27 |
-| Evolution leaves no fitting role | `CobblemonEvents.EVOLUTION_COMPLETE`, then the role check | CD-LSH-14 |
+| Pasture block gone | the index check finds no pasture at `binding.pasture` | CD-WMD-07, CD-LSH-27 |
+| Evolution leaves no fitting role | `CobblemonEvents.EVOLUTION_COMPLETE` and the index check: no role of the bound role's handler fits the new types | CD-LSH-14 |
 
 A target in an unloaded chunk keeps its binding (CD-LSH-09).
 
@@ -927,66 +1119,101 @@ class BindRulesTest {
 }
 ```
 
+`BindRulesTest` also checks the order of the checks, the priority pick, the first-click refusals of a source and
+`destination_same`. `BindingTest` and `LeashIndexTest` round-trip the codecs that save bindings and reservations
+(CD-LSH-07, CD-CLM-06). `WorkLeashRecipeTest` reads the recipe file (CD-LSH-15).
+
 - [ ] **Step 2: Write the failing GameTests**
 
-`LeashTests` (each test sets `Feedback.recording = true` and reads `Feedback.recorded[player.uuid]`):
+The approver's ruling of 2026-11-09 (the index's execution rule 6) keeps GameTests where the real platform could take
+the click: Cobblemon's own entity interaction, the block's screen, the bound worker's work, and the reset path against
+Cobblemon's real PC and party. `TestKit.clickEntity` and `TestKit.clickBlock` go through `Player.interactOn` and
+`ServerPlayerGameMode.useItemOn`. The test mod turns `Feedback.recording` on at server start, because tests run side by
+side, and the tests read `Feedback.recorded[player.uuid]`.
+
+`LeashTests`:
 
 ```kotlin
 // cdLsh01SelectsOwnedPasturedPokemon: owner clicks a pastured Vaporeon (Work Mode on); the stack's LeashSelection holds its UUID.
-// cdLsh02ClickIsCancelledBeforeCobblemon: plain and sneak clicks return SUCCESS from clickEntity and the Pokémon is not
-//   on the player's shoulder and no interaction GUI packet is recorded (Cobblemon opens its wheel from mobInteract, which
-//   never runs when the event is cancelled; assert mobInteract did not run with a test-only flag on the entity's
-//   persistentData set by a NeoForge EntityInteract listener at LOWEST priority).
-// cdLsh03BindsFurnace: select a Charmander, click a furnace in its work area; 1 tick later BindingStore.read is set.
-// cdLsh04FurnaceScreenStaysShut: after the bind click, owner.containerMenu is still owner.inventoryMenu.
-// cdLsh05RefusalsShowTheirMessage: a furnace at offset 9 (offset 8 binds), a stone block, a furnace bound to another
-//   Charmander (its display name appears in the message), and a selection whose Charmander left the pasture.
-// cdLsh06BoundMessage: the recorded action bar reads "Bound Charmander to Furnace".
-// cdLsh07BindingSurvivesRestartAndToggle: bind, simulateRestart, Work Mode off then on; the binding is present after each step.
-// cdLsh10SneakClickClears: sneak-click a bound Charmander; 1 tick later no binding.
-// cdLsh11RebindReplaces: bind to furnace A, then furnace B; A is no longer reserved and the binding names B.
-// cdLsh15RecipeCraftsOneLeash: CraftingInput of size 3x3 with a Lead and a cobblemon:poke_ball in two slots;
-//   level.recipeManager.getRecipeFor(RecipeType.CRAFTING, input, level) assembles one Work Leash.
-// cdLsh17PendingSourceOnChest: select an Alakazam (test_transfer role), click a chest's top face; the stack's PendingSource
-//   holds the chest position and UP, and no binding exists.
-// cdLsh18SecondClickBindsDestination: then click a barrel's north face; the binding holds source, destination and both faces.
-// cdLsh19AirClickClears: with a pending source, player.gameMode.useItem(...) on air clears it at once.
-// cdLsh20SelectDestinationMessage: the recorded action bar reads "Select a destination for Alakazam".
-// cdLsh21CannotReachMessage: a bound furnace boxed in glass; the owner's recorded action bar reads
-//   "Charmander cannot reach Furnace" within 601 ticks of the claim.
-// cdClm05BindTakesOverAutoClaim: auto worker A holds a furnace; bind worker B; 1 tick later A has no claim; 20 ticks later
-//   B holds the work claim.
-// cdClm06ReservedTargetStaysReserved: bound worker in Standby elsewhere (Work Mode off on its pasture), an Idle Charmander in a
-//   second Work Mode pasture 3 blocks from the target for 400 ticks; the target gets no claim.
-// cdAsg20LeashedWorkerStaysOnItsTarget: a leashed Stoker in Standby at an empty furnace, an unclaimed furnace with input 3
-//   blocks away, 400 ticks; it never claims the second furnace and keeps its binding.
-// cdSec07NotYourPokemon: player B clicks player A's pastured Pokémon and a wild Pokémon; neither is selected.
-// cdSec11CancelledClickNeverBinds: a test listener cancels RightClickBlock on a chest; click it with a selected Alakazam;
-//   no pending source and no binding.
+// cdLsh02ClickIsCancelledBeforeCobblemon: plain and sneak clicks with the leash return SUCCESS and never reach a test listener
+//   at LOWEST priority, which marks the entity's NeoForge data for every click that is not cancelled. Player.interactOn calls
+//   the entity, where Cobblemon's mobInteract opens its wheel or mounts the Pokémon, only after that. A first click with an
+//   empty hand is marked, which shows that the marker works. The Pokémon is on no shoulder.
+// cdLsh03BindsFurnaceAndWorksIt: select a Charmander, click a furnace with input in its work area; 1 tick later
+//   BindingStore.read names the furnace, and then the leashed Charmander holds the work claim and is Working there.
+// cdLsh04FurnaceScreenStaysShut: the owner is a fake player that counts opened menus, because NeoForge's FakePlayer drops
+//   every menu, so containerMenu never changes. An empty-hand click on the furnace opens one menu; the bind click opens none.
+// cdLsh07BindingSurvivesRestartAndToggle: bind, wait until the worker is Working, round-trip the Pokémon through its NBT
+//   codec, simulateRestart, Work Mode off, then on; the binding is unchanged on every tick, and the worker is Working at
+//   the furnace again.
 ```
 
 `LeashResetTests`:
 
 ```kotlin
 // cdLsh08RecallAndTargetLoss: four bound Charmanders: one unpastured to the PC (pasture.releasePokemon), one moved to the
-//   party (releasePokemon then party.add), one whose furnace is destroyed, one whose furnace is replaced with stone;
-//   20 ticks later none has a binding, and each binder has a recorded chat message with the name and the reason.
-// cdLsh09UnloadKeepsBinding: EngineEvents.onChunkUnload for the target's chunk; 100 ticks later the binding remains and the
-//   worker is Working again within 600 ticks.
-// cdLsh13LossMessages: covered by cdLsh08 and cdLsh14 assertions on the chat text.
-// cdLsh14EvolutionWithoutFittingRole: bind a Charmander, set pokemon.species to Squirtle's species (a form with no Fire
-//   type) and fire the role re-check; 20 ticks later no binding.
-// cdLsh24MovedToAnotherPasture: release from pasture A and tether to pasture B; 20 ticks later no binding and the old
-//   target is not reserved.
-// cdLsh25ReleasedPokemon: call Cobblemon's release path (party.remove plus the POKEMON_RELEASED_EVENT_POST post); 20 ticks
-//   later the old target is not reserved.
-// cdLsh26TradeClearsData: build a Pokémon whose persistentData holds a binding made by owner A; post POKEMON_GAINED for owner B;
-//   the binding data is gone. (Unit-level, inside a GameTest so Cobblemon's event bus is live.)
-// cdLsh27PastureBroken (also CD-WMD-07): bind three workers, destroy the pasture block; 20 ticks later no binding remains
-//   and no target is reserved.
+//   party (releasePokemon, then PC remove and party add), one whose furnace is destroyed, one whose furnace becomes stone;
+//   20 ticks later none has a binding, none of the furnaces is reserved, and the binder has two "it left its pasture" and
+//   two "its target was broken or replaced" chat messages, each naming the Charmander.
 ```
 
-Write every test in full.
+These GameTests are not written:
+
+- CD-LSH-05 (`cdLsh05RefusalsShowTheirMessage`: a furnace at offset 9 (offset 8 binds), a stone block, a furnace bound to
+  another Charmander, whose display name appears in the message, and a selection whose Charmander left the pasture):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-06 (`cdLsh06BoundMessage`: the recorded action bar reads "Bound Charmander to Furnace"): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-09 (`cdLsh09UnloadKeepsBinding`: `EngineEvents.onChunkUnload` for the target's chunk; 100 ticks later the binding
+  remains and the worker is Working again within 600 ticks): GameTest deferred (high confidence): verified in the
+  end-of-phase pass.
+- CD-LSH-10 (`cdLsh10SneakClickClears`: sneak-click a bound Charmander; 1 tick later no binding): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-11 (`cdLsh11RebindReplaces`: bind to furnace A, then furnace B; A is no longer reserved and the binding names B):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-13 (`cdLsh13LossMessages`: the evolution message, with cdLsh14; cdLsh08 checks the messages for recall and target
+  loss): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-14 (`cdLsh14EvolutionWithoutFittingRole`: bind a Charmander, set `pokemon.species` to Squirtle's species and call
+  `LeashResets.recheckRole`, which `EVOLUTION_COMPLETE` calls; 20 ticks later no binding): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-15 (`cdLsh15RecipeCraftsOneLeash`: a 3 × 3 `CraftingInput` with a Lead and a `cobblemon:poke_ball` in two slots;
+  `level.recipeManager.getRecipeFor(RecipeType.CRAFTING, input, level)` assembles one Work Leash): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-LSH-17 (`cdLsh17PendingSourceOnChest`: select an Alakazam (test_transfer role), click a chest's top face; the stack's
+  PendingSource holds the chest position and UP, and no binding exists): GameTest deferred (high confidence): verified in
+  the end-of-phase pass.
+- CD-LSH-18 (`cdLsh18SecondClickBindsDestination`: then click a barrel's north face; the binding holds source, destination
+  and both faces): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-19 (`cdLsh19AirClickClears`: with a pending source, `player.gameMode.useItem(...)` on air clears it at once):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-20 (`cdLsh20SelectDestinationMessage`: the recorded action bar reads "Select a destination for Alakazam"):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-21 (`cdLsh21CannotReachMessage`: a bound furnace boxed in glass; the owner's recorded action bar reads "Charmander
+  cannot reach Furnace" within 601 ticks of the claim): GameTest deferred (high confidence): verified in the end-of-phase
+  pass.
+- CD-LSH-24 (`cdLsh24MovedToAnotherPasture`: release from pasture A and tether to pasture B; 20 ticks later no binding and
+  the old target is not reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-25 (`cdLsh25ReleasedPokemon`: Cobblemon's release path, `pc.remove` plus the `POKEMON_RELEASED_EVENT_POST` post;
+  20 ticks later the old target is not reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-26 (`cdLsh26TradeClearsData`: a Pokémon whose persistentData holds a binding made by owner A; post `POKEMON_GAINED`
+  for owner B; the binding data is gone): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-LSH-27 and CD-WMD-07 (`cdLsh27PastureBroken`: bind three workers, destroy the pasture block; 20 ticks later no binding
+  remains and no target is reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-CLM-05 (`cdClm05BindTakesOverAutoClaim`: auto worker A holds a furnace; bind worker B; 1 tick later A has no claim; 20
+  ticks later B holds the work claim): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-CLM-06 (`cdClm06ReservedTargetStaysReserved`: bound worker in Standby elsewhere (Work Mode off on its pasture), an Idle
+  Charmander in a second Work Mode pasture 3 blocks from the target for 400 ticks; the target gets no claim): GameTest
+  deferred (high confidence): verified in the end-of-phase pass.
+- CD-ASG-20 (`cdAsg20LeashedWorkerStaysOnItsTarget`: a leashed Stoker in Standby at an empty furnace, an unclaimed furnace
+  with input 3 blocks away, 400 ticks; it never claims the second furnace and keeps its binding): GameTest deferred (high
+  confidence): verified in the end-of-phase pass.
+- CD-SEC-07 (`cdSec07NotYourPokemon`: player B clicks player A's pastured Pokémon and a wild Pokémon; neither is
+  selected): GameTest deferred (high confidence): verified in the end-of-phase pass.
+- CD-SEC-11 (`cdSec11CancelledClickNeverBinds`: a test listener cancels RightClickBlock on a chest; click it with a selected
+  Alakazam; no pending source and no binding): GameTest deferred (high confidence): verified in the end-of-phase pass.
+
+The test mod registers `TestTransferHandler` and holds the role file `test_transfer.json`, so the end-of-phase pass can
+write the source-and-destination tests.
 
 - [ ] **Step 3: Write the leash code, the recipe and the placeholder texture**
 
@@ -1016,7 +1243,8 @@ Expected: `BUILD SUCCESSFUL`; every GameTest passes.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main src/test src/gametest scripts/placeholder_art.py
+git add -- <each new and changed file under src/main, src/test and src/gametest> scripts/placeholder_art.py ARCHITECTURE.md \
+  docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md docs/plans/2026-11-09-phase-1-m5-ui-compat-gate.md
 git commit -m "Add the Work Leash: selection, bindings, refusals, resets and the recipe"
 ```
 
@@ -1028,33 +1256,43 @@ git commit -m "Add the Work Leash: selection, bindings, refusals, resets and the
 
 **Files:**
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/command/DynamicsCommands.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/CommandTests.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/command/ClaimsReport.kt` (the entries and their order, pure)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/command/ClaimsReportTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/CommandTests.kt` (deferred, see Step 1)
 
 **Interfaces:**
 - Produces: `/cobblemondynamics claims`, registered in `RegisterCommandsEvent`, with
   `.requires { it.hasPermission(2) }` on the root literal. Each output line is one entry:
   `claim <kind> <target> <worker name> (<worker uuid>)` or `binding <target> <worker name> (<uuid>)`, where
   `<target>` is `dimension x y z` for blocks and the ally's name for entities. The lines come from lang
-  keys `cobblemon_dynamics.command.claims.claim` and `cobblemon_dynamics.command.claims.binding`.
+  keys `cobblemon_dynamics.command.claims.claim` and `cobblemon_dynamics.command.claims.binding`; the kind
+  from `cobblemon_dynamics.command.claims.kind.<work|bed|heal>`. Claims come first, by kind and target, then
+  bindings, read from every level's `leash_index`. With no entry the command prints
+  `cobblemon_dynamics.command.claims.none`. It returns the entry count. It lists every claim kind, so M2 adds
+  no code for the bed and heal claim lines.
 
-- [ ] **Step 1: Write the failing GameTests**
+- [ ] **Step 1: Write the failing tests**
 
-```kotlin
-// cdUi14ClaimsListsEveryEntry: a Working Stoker (work claim) and a bound Charmander (binding); run the command through
-//   server.commands.performPrefixedCommand(operatorSource, "cobblemondynamics claims") with a CommandSource that records
-//   messages; the output holds one claim line and one binding line, each with the target and the worker name.
-//   M2 Task 6 adds the bed and heal claim lines.
-// cdSec09LevelZeroIsRefused: a level-0 mock player runs both "cobblemondynamics claims" and "cobblemondynamics stamina";
-//   both fail (performPrefixedCommand returns 0 and the recorded output holds no claim line).
-```
+`ClaimsReportTest` checks the block target text (`minecraft:the_nether 12 64 -3`) and that every claim and binding
+gives one line in that order (CD-UI-14). These GameTests are not written:
+
+- CD-UI-14 (`cdUi14ClaimsListsEveryEntry`: a Working Stoker (work claim) and a bound Charmander (binding); run the
+  command through `server.commands.performPrefixedCommand(operatorSource, "cobblemondynamics claims")` with a
+  CommandSource that records messages; the output holds one claim line and one binding line, each with the target and
+  the worker name): GameTest deferred (high confidence): verified in the end-of-phase pass. Task 13's test pack
+  `reload` scenario runs the command from the console of a real server.
+- CD-SEC-09 (`cdSec09LevelZeroIsRefused`: a level-0 mock player runs both "cobblemondynamics claims" and
+  "cobblemondynamics stamina"; both fail, `performPrefixedCommand` returns 0 and the recorded output holds no claim
+  line): GameTest deferred (high confidence): verified in the end-of-phase pass.
 
 - [ ] **Step 2: Write the command, run the tests, see them pass, and commit**
 
-Run: `./gradlew runGameTestServer`
-Expected: PASS.
+Run: `./gradlew build`
+Expected: `BUILD SUCCESSFUL`.
 
 ```bash
-git add src/main src/gametest
+git add -- <each new and changed file under src/main and src/test> docs/plans/2026-11-09-phase-1-m1-engine-leash-stoker-part2.md \
+  docs/plans/2026-11-09-phase-1-m2-stamina-beds-healers.md docs/plans/2026-11-09-phase-1-m5-ui-compat-gate.md
 git commit -m "Add the /cobblemondynamics claims operator command"
 ```
 
@@ -1065,37 +1303,55 @@ git commit -m "Add the /cobblemondynamics claims operator command"
 **Rows:** CD-SEC-05 and CD-SEC-06 (the payload path), CD-WMD-03 and CD-WMD-04 (the payload path).
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/DynamicsPayloads.kt` (registration)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/net/DynamicsPayloads.kt` (registration; Task 10 created it with `work_sound`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/WorkModeTogglePayload.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/PasturePanelPayloads.kt` (`open`, `close`, `state`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/LeashOverviewPayloads.kt` (`request`, `overview`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/net/PanelViewers.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/client/ClientState.kt`
+- Modify: `pasture/WorkModeService.kt` (`apply` sends the new state to the viewers), `pasture/WorkModePolicy.kt`
+  (`mayToggle`), `pasture/PastureAdapter.kt` (`tetheredIds`), `engine/EngineEvents.kt` (viewers leave on logout
+  and server stop), `scripts/testpack/testpack.py` and its `README.md` (the `reload` scenario)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/net/PayloadCodecTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/PayloadTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/pasture/WorkModePolicyTest.kt` (`mayToggle`)
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/PayloadTests.kt` (deferred, see Step 2)
 
 **Interfaces:**
 - Produces: payload ids from ARCHITECTURE section 7. `WorkModeTogglePayload(enabled: Boolean)`;
   `PasturePanelStatePayload(workMode: Boolean, canToggle: Boolean, entries: List<PanelEntry>)` with
   `PanelEntry(pokemonId: UUID, percent: Int, state: WorkerStatus)`; `LeashOverviewPayload(entries: List<Pair<Int, BlockPos>>)`.
-  `PanelViewers` maps a pasture key to the players with its panel open. The server handler of the toggle
-  resolves the pasture with `PastureAdapter.linkedPasture(player)` and calls `WorkModeService.request`.
-  Client handlers store the last state in `ClientState` (M5 draws it). Registration uses
-  `RegisterPayloadHandlersEvent` with `registrar.playToServer` and `registrar.playToClient`. Every payload
-  is required, so a client without the mod cannot join (CD-PLAT-06).
+  The payloads with no fields (`pasture_panel_open`, `pasture_panel_close`, `leash_overview_request`) are Kotlin
+  `data object`s with `StreamCodec.unit`. `PanelViewers` maps a pasture key to the players with its panel open and
+  keeps the last state sent to each player (`lastSent`), which the GameTests read because fake players drop packets.
+  The server handler of the toggle resolves the pasture with `PastureAdapter.linkedPasture(player)` and calls
+  `WorkModeService.request`. Cobblemon keeps that link only while the player is closer than 10.0 blocks
+  (`PastureLinkManager.kt:37`), while the service itself accepts exactly 10.0, so a toggle from exactly 10.0 blocks
+  finds no pasture. `WorkModeService.apply` sends the new state to every viewer of the pasture after each change,
+  in arrival order (CD-SEC-06), and a refused or ignored toggle sends the requester the current state. `canToggle`
+  is `WorkModePolicy.mayToggle`: the placer or an operator (CD-UI-03). Until M2 adds Work Stamina, every entry's
+  `percent` is 100 and its state is the engine's worker state, or Idle. The overview reply holds the requester's
+  own bindings in their level, with entity id -1 for a worker whose entity is not loaded. Client handlers store the
+  last state in `ClientState` (M5 draws it). Registration uses `RegisterPayloadHandlersEvent` with
+  `registrar.playToServer` and `registrar.playToClient`; handlers run on the main thread, NeoForge's default. Every
+  payload is required, so a client without the mod cannot join (CD-PLAT-06).
 
-- [ ] **Step 1: Write the codec round-trip unit test** for each payload with a
-  `RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY)`; for `PasturePanelStatePayload` use two
-  entries with different states. If `RegistryAccess.EMPTY` needs a bootstrap, use the payload's plain
-  `StreamCodec<ByteBuf, ...>` form, which every payload here can use because none carries registry data.
+- [ ] **Step 1: Write the codec round-trip unit test** for each payload with its plain `StreamCodec<ByteBuf, ...>`
+  form, which every payload here can use because none carries registry data; for `PasturePanelStatePayload` use two
+  entries with different states. The test also checks that the decode reads every byte.
 
 - [ ] **Step 2: Write the GameTests**
 
-```kotlin
-// cdSec05DuplicateOnPayloadStaysOn: handle WorkModeTogglePayload(true) twice, 10 ticks apart, for the linked placer -> on.
-// cdSec06LastPayloadWinsAndViewersSeeIt: two operators linked to the pasture send on, then off, in one tick; Work Mode is
-//   off and PanelViewers' recorded last state for each viewer says off.
-```
+These GameTests are not written:
+
+- CD-SEC-05 and CD-WMD-03, the payload path (`cdSec05DuplicateOnPayloadStaysOn`: handle `WorkModeTogglePayload(true)`
+  twice, 10 ticks apart, for the linked placer; Work Mode stays on): GameTest deferred (high confidence): verified in
+  the end-of-phase pass.
+- CD-SEC-06 and CD-WMD-04, the payload path (`cdSec06LastPayloadWinsAndViewersSeeIt`: two operators linked to the
+  pasture send on, then off, in one tick; Work Mode is off and `PanelViewers.lastSent` for each viewer says off):
+  GameTest deferred (high confidence): verified in the end-of-phase pass.
+
+The handlers call `WorkModeService.request`, whose rows Task 7's GameTests already check; the codec test checks that
+the payload carries the requested state.
 
 - [ ] **Step 3: Run everything**
 
@@ -1108,7 +1364,10 @@ Run: `./gradlew build && py scripts/testpack/testpack.py smoke` and add a `reloa
 start the server with the M1 jar, run `cobblemondynamics claims` from the console over RCON (it must answer),
 run `reload`, and check that the log holds no `Skipping role file` line.
 Expected: `SMOKE PASS`, `RELOAD PASS`. Pasturing a Pokémon needs a player, so worker scenarios stay in the
-GameTests; the approver's play-test covers them in a real client.
+GameTests; the approver's play-test covers them in a real client. The command must answer
+`No claims and no leash bindings`. The reload ends on the server thread after the command replies, so the scenario
+waits for vanilla's next `Loaded N recipes` line (`Server.count_log` and `wait_log(..., count=)`) before it reads the
+log.
 
 - [ ] **Step 5: Commit, open the pull request, resolve reviews, merge**
 

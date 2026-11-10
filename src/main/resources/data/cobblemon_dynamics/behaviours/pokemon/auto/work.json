@@ -1,0 +1,15 @@
+{
+  "visible": false,
+  "configurations": [
+    {
+      "type": "add_tasks_to_activity",
+      "activity": "minecraft:core",
+      "tasksByPriority": { "0": ["cobblemon_dynamics:switch_to_work"] }
+    },
+    {
+      "type": "add_tasks_to_activity",
+      "activity": "cobblemon_dynamics:work",
+      "tasksByPriority": { "0": ["cobblemon_dynamics:switch_from_work", "cobblemon_dynamics:work"] }
+    }
+  ]
+}

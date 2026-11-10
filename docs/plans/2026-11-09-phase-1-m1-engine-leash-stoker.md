@@ -116,6 +116,8 @@ object ConfigRanges {
     val HEALER_MINUTES = 1..10_000
     val FLUSH_INTERVAL = 20..12_000
     val BED_FACTOR = 1..64
+    val HEAL_COST = 0.01..1.0
+    val LOW_STAMINA_THRESHOLD = 0.0..1.0
     val HEAD_BAR_RANGE = 4..64
 }
 ```
@@ -161,7 +163,9 @@ data class EngineSettings(
 `ServerConfig` builds a `ModConfigSpec` with `defineInRange` from `ConfigRanges` for every key of the
 architecture's section 9 table, with the defaults of `EngineSettings.DEFAULT`, comments from that table,
 `beds.speedFactors` as `defineList` (4 entries, each in `BED_FACTOR`), and `roles.disabled` as a list of
-resource location strings. It exposes:
+resource location strings. NeoForge's list validator checks only the elements: it keeps a list of the
+wrong size and drops a bad element from it. So `snapshot()` falls back to the default factors when the
+list does not hold 4 valid entries. It exposes:
 
 ```kotlin
 object ServerConfig {
@@ -175,16 +179,21 @@ object ServerConfig {
 
 `ClientConfig` builds `effects.workSounds` (default `false`), `hud.headBarRange` (default 16, range
 `HEAD_BAR_RANGE`) and `hud.panelBars` (default `true`), with `hasKey(path)` and
-`const val defaultWorkSounds = false`.
+`val defaultWorkSounds: Boolean get() = workSoundsValue.default`, the default that the spec writes to a
+new file. A `const val` with a camel-case name fails ktlint's `property-naming` rule.
 
 Register both in the mod constructor:
 
 ```kotlin
-container.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC)   // writes serverconfig/cobblemon_dynamics-server.toml
+container.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC)   // writes config/cobblemon_dynamics-server.toml
 container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC)   // writes config/cobblemon_dynamics-client.toml
 modBus.addListener<ModConfigEvent.Loading> { if (it.config.spec === ServerConfig.SPEC) WorkEngineSettings.reload() }
 modBus.addListener<ModConfigEvent.Reloading> { if (it.config.spec === ServerConfig.SPEC) WorkEngineSettings.reload() }
 ```
+
+FML 4.0.45 (NeoForge 21.1) writes a server config to the global `config/` folder. A file with the same
+name in a world's `serverconfig/` folder overrides it for that world, and a new world's `serverconfig/`
+folder stays empty. Checked in `ConfigTracker.resolveBasePath` and in a `runGameTestServer` run.
 
 `WorkEngineSettings` is a holder (`@Volatile var current: EngineSettings = EngineSettings.DEFAULT`, and
 `fun reload() { current = ServerConfig.snapshot() }`) in the same package.
@@ -517,8 +526,13 @@ is skipped silently. `RoleRegistry` extends `SimpleJsonResourceReloadListener(Gs
 In `apply`, it parses each entry, logs `RoleCodec.describeError` at ERROR for each failure (one line per
 file), builds a `RoleSet` with `HandlerRegistry::get` and `WorkEngineSettings.current.disabledRoles`, and
 publishes it to `current`. Register it with `NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }`.
-A config reload (`ModConfigEvent.Reloading`) rebuilds `current` from the last parsed map, so
-`roles.disabled` applies without `/reload`.
+A server config load or reload (`ModConfigEvent.Loading` or `ModConfigEvent.Reloading`) calls
+`RoleRegistry.rebuild()`, which rebuilds `current` from the last parsed map, so `roles.disabled` applies
+without `/reload`. The load needs the rebuild as much as the reload does: a server reads its data packs
+before it loads the server config, so the `RoleSet` that `apply` builds at start sees the default
+settings. A rebuild logs each missing-handler line at most once per load of the role files, so a server
+start still logs one line per disabled role (CD-CFG-10). `disableHandler` logs one warning per handler
+id and rebuilds `current` without that handler.
 
 `stoker.json`:
 
@@ -1098,8 +1112,9 @@ class WorkSpotsTest {
         val walls = (0..3).flatMap { y -> (-2..2).map { z -> BlockPos(2, y, z) } }.toSet()
         val grid = GridFixture(walls, target)
         val from = Vec3(4.5, 1.0, 0.5)
-        val spot = assertNotNull(WorkSpots.find(grid, area, center, 6.0, from))!!
-        assertTrue(area.contains(spot))
+        val spot = WorkSpots.find(grid, area, center, 6.0, from)
+        assertNotNull(spot) // JUnit's assertNotNull returns Unit, not the value
+        assertTrue(area.contains(spot!!))
         assertTrue(grid.isStandable(spot.x, spot.y, spot.z))
         assertTrue(WorkSpots.hasLineOfSight(grid, Vec3.atCenterOf(spot), center))
         assertTrue(spot.x < 2, "spot $spot is behind the wall")
@@ -1266,6 +1281,9 @@ Rules that `onTick` applies, in this order:
    `STANDBY` with `missedArrival = true`, `retryAt = claimTick + travelTimeoutTicks + retryWaitTicks`, and
    returns `MissedArrival` (CD-ASG-17, CD-LSH-21).
 3. `STANDBY` with `missedArrival` and `now >= retryAt`: `TRAVELING`, `claimTick = now`, returns `Retry`.
+   The retry is a fresh claim, as `onClaim`: it clears `missedArrival` and `retryAt`. Without that, a
+   worker that arrives after the retry to no demand matches this rule again on the next tick and
+   bounces back to `TRAVELING`.
 4. `WORKING` and not `demand()`: `STANDBY` (checked every tick).
 5. `STANDBY` without `missedArrival`, and `(now - statusSince) % 20 == 0`: `WORKING` if `demand()`
    (CD-ASG-12, R45).
@@ -1337,6 +1355,16 @@ class WorkerMachineTest {
         for (t in 601L..6_599L) { machine.onTick(w, t, false, { true }, key); assertEquals(WorkerStatus.STANDBY, w.status, "tick $t") }
         assertEquals(MachineEvent.Retry, machine.onTick(w, 6_600, false, { true }, key))
         assertEquals(WorkerStatus.TRAVELING, w.status)
+    }
+
+    @Test
+    fun `CD-ASG-12 a leashed worker that arrives after its retry stays in Standby`() {
+        val w = worker(leashed = true); machine.onClaim(w, 0)
+        machine.onTick(w, 600, false, { true }, key)         // missed arrival
+        machine.onTick(w, 6_600, false, { true }, key)       // retry
+        machine.onTick(w, 6_700, true, { false }, key)       // arrives, and the target has no demand
+        assertEquals(null, machine.onTick(w, 6_701, true, { false }, key))
+        assertEquals(WorkerStatus.STANDBY, w.status)
     }
 
     @Test
@@ -1445,19 +1473,23 @@ Expected: FAIL, unresolved references.
 
 `Worker.isSkipped(key, now)` is `now < (skipUntil[key] ?: Long.MIN_VALUE)`. Every status change goes
 through one private `set(w, status, now)` that also sets `statusSince`. `WorkerMachine.onTick` implements
-the five rules above, in that order, and returns at most one event. `onRelease` sets `IDLE`,
-`claimTick = -1`, `retryAt = -1` and `missedArrival = false`.
+the five rules above, in that order, and returns at most one event: the first rule that matches the
+status applies, and the others wait for the next tick. Entering `WORKING` (rules 1 and 5) returns
+`StartedWorking`, and entering `STANDBY` through rule 1 or 4 returns `EnteredStandby`, so the engine
+knows when to call `handler.onStart` and `handler.onStop`. `onRelease` sets `IDLE`, `claimTick = -1`,
+`retryAt = -1` and `missedArrival = false`, and the auto timeout of rule 2 does the same reset.
 
 `Assigner.pickForIdle` returns `null` when the worker is tired or has a Fairy type. Otherwise it keeps
 the candidates that are free and not skipped, maps each to `RoleSelection.best` of its roles that are
 `autoAssign` and eligible for the worker's types, drops candidates with no role, and returns the
-candidate nearest to the worker (ties: lowest `BlockPos` long of the key, so the choice is stable).
+candidate nearest to the worker (ties: lowest `BlockPos` long of the key, so the choice is stable; block
+keys sort before entity keys, and entity keys sort by UUID).
 `pickForStandbyMove` applies the same filters, drops `current`, keeps only candidates whose
 `hasDemand()` is true, and returns the nearest.
 
 - [ ] **Step 4: Run them and see them pass**
 
-Run: same as Step 2. Expected: PASS, 14 tests.
+Run: same as Step 2. Expected: PASS, 15 tests.
 
 - [ ] **Step 5: Commit**
 

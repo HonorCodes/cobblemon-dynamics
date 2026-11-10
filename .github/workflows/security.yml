@@ -37,9 +37,41 @@ jobs:
         with:
           category: /language:java-kotlin
 
+  # The dependency graph sees Gradle dependencies only through this submission.
+  # Pull requests from forks and from Dependabot get a read-only token, so they skip it.
+  dependency-submission:
+    name: Dependency graph
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/dependency-submission@v6
+        with:
+          # Only the classpaths that the mod and its tests compile and run with, and the jar-in-jar libraries.
+          # Configurations that only build tools resolve stay out of the graph.
+          dependency-graph-include-configurations: >-
+            jarJar|compileClasspath|runtimeClasspath|testCompileClasspath|testRuntimeClasspath|gametestCompileClasspath|gametestRuntimeClasspath
+        env:
+          # Runtime scope is what the mod's jar ships: the jar-in-jar libraries. Minecraft, NeoForge and the
+          # required mods supply everything else on the classpath, so it gets development scope. Dependabot
+          # still alerts on those, but dependency review fails only on runtime scope.
+          DEPENDENCY_GRAPH_RUNTIME_INCLUDE_CONFIGURATIONS: '^jarJar$'
+
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'pull_request'
+    needs: dependency-submission
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -49,4 +81,6 @@ jobs:
       - uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
+          fail-on-scopes: runtime
           comment-summary-in-pr: on-failure
+          retry-on-snapshot-warnings: true

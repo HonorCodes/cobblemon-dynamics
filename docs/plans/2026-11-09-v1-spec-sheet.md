@@ -2,6 +2,9 @@
 
 Status: agreed (2026-11-09). Approver: Trevor Forbes (GitHub: HonorCodes). Rows prefix: CD.
 
+Corrections after agreement: 2026-11-09, CD-CFG-01 and the term "server config" name the `config/` folder,
+because NeoForge 21.1 writes server configs there (found in M1).
+
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
 capitals, as shown here.
@@ -35,7 +38,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 | pending source | The first container of a Telekinesis binding, which the Work Leash holds while it waits for the destination click. |
 | role | A job that a datapack role file defines: eligible types, an auto-assign flag, a priority, a range, a handler, handler parameters and an effect. |
 | role file | The datapack JSON file of one role. It holds the role-specific numbers: rates, formula constants, level gates, ranges, effect ids and the priority. It holds no species lists. |
-| server config | The NeoForge server config `cobblemon_dynamics-server.toml` in the world's `serverconfig/` folder. It holds the engine-wide numbers: work area, scan cadence and budget, stamina per level, bed factors, healer recovery and timeouts. |
+| server config | The NeoForge server config `cobblemon_dynamics-server.toml`. NeoForge 21.1 writes it to the instance's `config/` folder. A copy in a world's `serverconfig/` folder overrides it for that world. It holds the engine-wide numbers: work area, scan cadence and budget, stamina per level, bed factors, healer recovery and timeouts. |
 | handler | The code that finds, checks and works one family of targets. |
 | demand | The target can use work now, for example a furnace whose recipe can run. |
 | driven target | A wheel, a hand crank or a fan that a worker is Working on. |
@@ -671,7 +674,7 @@ and default priority. The default role files hold these values.
 
 | ID | Requirement | Level | Source | Rationale | Acceptance test | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| CD-CFG-01 | Dynamics MUST read its server settings from the NeoForge server config `cobblemon_dynamics-server.toml`. | MUST | R9 | Server owners tune balance without datapacks. | Inspect: a new world's `serverconfig` folder holds the file with every key in this section. Fails if: the file or a key is missing. | build | agreed |
+| CD-CFG-01 | Dynamics MUST read its server settings from the NeoForge server config `cobblemon_dynamics-server.toml`. | MUST | R9 | Server owners tune balance without datapacks. | Inspect: after the first start of a new server, its `config/` folder holds the file with every key in this section. Fails if: the file or a key is missing. | build | agreed |
 | CD-CFG-02 | The server config MUST accept a horizontal and a vertical work radius from 2 to 32 blocks each, with defaults of 8 and 6. | MUST | R24, REV1, limits sweep | 32 is Cobblemon's default roam limit. | Unit: for each radius, 2 and 32 are accepted, and 1 and 33 are rejected. The defaults read 8 and 6. Fails if: any result is wrong. | build | agreed |
 | CD-CFG-03 | The Generator role file MUST hold the FE rate at level 1 (default 10), the FE rate at level 100 (default 5,000), the rarity multiplier (default 2) and the rarity labels (default `legendary` and `mythical`). | MUST | R5, REV1, ADR 0006 | Role-specific numbers live in the role file, so packs tune power output with a datapack. | GameTest: a datapack sets the level-100 rate to 2,500, then `/reload`. Fails if: a Lv100 Generator does not give 2,500 FE/t. | role registry | agreed |
 | CD-CFG-04 | The server config MUST hold the work capacity per level (default 3,600 ticks), the four bed factors (defaults 2, 3, 4 and 8) and the healer recovery times at level 1 and level 100 (defaults 1,200 and 120 min). | MUST | R10, R11, R14 | Packs tune stamina balance. | Unit: set the capacity to 7,200 ticks per level. Fails if: a Lv1 worker is Tired before 7,200 ticks of work, or is not Tired after 7,201 ticks. | build | agreed |

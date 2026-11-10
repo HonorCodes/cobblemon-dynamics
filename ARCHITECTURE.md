@@ -121,9 +121,9 @@ files live under `assets/cobblemon_dynamics/`.
 | Work Mode flag | Data attachment `cobblemon_dynamics:work_mode` on Cobblemon's `PokemonPastureBlockEntity`. Field: `enabled` (default `false`). Ownership comes from Cobblemon's `ownerId` only. | Saved in the block entity NBT under `neoforge:attachments`. Call `setChanged()` after a change. | Not through the block entity, because Cobblemon's pasture sends no update tag. The `pasture_panel_state` payload carries it. |
 | Work Mode pasture index | Level attachment `cobblemon_dynamics:work_pastures` on each `ServerLevel`: the set of positions of pastures with Work Mode on. | Saved in the level's `neoforge_data_attachments` SavedData. | No |
 | Leash binding (per Pokémon) | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `binding`: role id, pasture position, target position and clicked face. A Telekinesis binding also holds the destination position and its clicked face. The dimension is the pasture's dimension. | Saved with the Pokémon in the PC and the party. Call `onChange()` after a change. | No |
-| Leash binding index | Level attachment `cobblemon_dynamics:leash_index`: target position to Pokémon UUID. For Telekinesis, the key is the source. Used to refuse a second binding on the same target. | Saved with the level. | No |
+| Leash binding index | Level attachment `cobblemon_dynamics:leash_index`: target position to the bound Pokémon's UUID, its owner, its pasture position and the role id. For Telekinesis, the key is the source. Used to refuse a second binding on the same target, to reserve the target in the claim registry, and by the 10-tick reset check. | Saved with the level. | No |
 | Work claims, bed claims, heal claims | `ClaimRegistry` in server memory. | Not saved. Scans rebuild them after a restart, so no claim goes stale. | No |
-| Pending leash selection | `PendingSelections` in server memory, keyed by player UUID: the selected Pokémon and, for Telekinesis, the chosen source. | Not saved. It expires after 600 ticks (30 s) or on a right-click on air. | No |
+| Leash selection and pending source | Data components on the Work Leash stack: `cobblemon_dynamics:leash_selection` (the selected Pokémon's UUID and name) and `cobblemon_dynamics:pending_source` (for Telekinesis, the source position, its clicked face and the click tick). The server binds only from its own copy of the stack. | Saved with the stack. The pending source expires after 600 ticks (30 s) or on a right-click on air. | Yes, as item data |
 | Worker runtime state | `WorkerState` in the work engine, keyed by Pokémon UUID: state, Tired flag, claim, work spot, timers, per-target skip list. | Not saved. | Through the stamina view below. |
 | Work Stamina | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `stamina`: `percent` (0.0 to 1.0), `tired` (boolean), `last_game_time` (long, overworld game time). | Saved with the Pokémon. The engine flushes it on each state change, every 600 ticks, on entity unload and on server stop. | Entity attachment `cobblemon_dynamics:stamina_view` (`percent` as 0 to 100, `state` as an enum ordinal), synced with NeoForge attachment sync. |
 | Fan worker mark | Entity attachment `cobblemon_dynamics:fan_worker`: the position of the fan that this Pokémon serves as a working catalyst, or none. | Not saved. The engine sets it while the Fan Catalyst works. | NeoForge attachment sync, so the client exempts the worker from the fan push. |
@@ -265,8 +265,9 @@ writes are safe in any order against block entity ticks (see section 8).
 
 Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that tick:
 
-1. The auto behaviour adds a task at idle priority 0. When the `work_order` memory exists, the task
-   switches the Brain to the `cobblemon_dynamics:work` activity.
+1. The auto behaviour adds a task at core priority 0. When the `work_order` memory exists, the task
+   switches the Brain to the `cobblemon_dynamics:work` activity. Core tasks run in every activity, so a
+   work order also wins over Cobblemon's night sleep.
 2. In the work activity, one task sets `WALK_TARGET` to the work spot. Cobblemon's core
    `follow_walk_target` then moves the Pokémon.
 3. Our own look task sets `LOOK_TARGET` to the target's center and turns the Pokémon toward it.
@@ -312,6 +313,7 @@ ownership and rate.
 | `cobblemon_dynamics:pasture_panel_state` | server to client | `workMode`, `canToggle`, entries of (`pokemonId`, `percent`, `state`) | On open, after a toggle, and every 20 ticks while the panel is open. |
 | `cobblemon_dynamics:leash_overview_request` | client to server | none | The player selects the Work Leash. |
 | `cobblemon_dynamics:leash_overview` | server to client | entries of (`entityId`, `targetPos`) | Reply to the request. The client outlines these targets. |
+| `cobblemon_dynamics:work_sound` | server to client | `entityId`, `sound` | Each effect loop of a role that names a sound, to players within the broadcast radius. The client plays it only with `effects.workSounds` on. |
 
 Built-in sync, with no payload of ours:
 
@@ -325,8 +327,8 @@ Cobblemon packets that the effect player sends, to players within 64 blocks:
 | Packet | Use |
 |---|---|
 | `PlayPosableAnimationPacket(entityId, names, expressions)` | The work pose. The client plays the first name that the model has, so the role lists names from most to least specific. |
-| `SpawnSnowstormEntityParticlePacket(effectId, sourceId, sourceLocators, targetedEntityId, targetLocators)` | Move particles from the worker to the work focus entity, or to the healed ally. Sleep particles on a sleeping worker. |
-| `SpawnSnowstormParticlePacket(effectId, position)` | Position-only particles, when a role needs them. |
+| `SpawnSnowstormEntityParticlePacket(effectId, sourceId, sourceLocators, targetedEntityId, targetLocators)` | A role's actor particles, from the worker toward the work focus entity, or to the healed ally. Sleep particles on a sleeping worker. |
+| `SpawnSnowstormParticlePacket(effectId, position)` | A role's target particles, at the work focus entity's position. The entity packet would spawn them on the worker. |
 
 ## 8. Integration points
 
@@ -365,8 +367,9 @@ references. This section lists what the code uses.
 - **Events.** `CobblemonEvents.POKEMON_FAINTED`, `EVOLUTION_COMPLETE`, `LEVEL_UP_EVENT` and
   `POKEMON_RELEASED_EVENT_POST`. Cobblemon has no pasture events.
 - **Interaction.** The Work Leash listens to NeoForge `PlayerInteractEvent.EntityInteract` at HIGH
-  priority. It acts only when `target.tethering?.playerId` equals the player's UUID. It cancels the
-  event on both sides with `setCancellationResult(InteractionResult.SUCCESS)`.
+  priority. It acts only on a Pokémon that the player owns: the server reads the owner from the
+  Pokémon's store, and the client from the entity's synced owner. It cancels the event on both sides with
+  `setCancellationResult(InteractionResult.SUCCESS)`, and `Player.interactOn` then never calls the entity.
 - **Effect ids.** Move timelines live in `data/cobblemon/action_effects/moves/`. Particles live in
   `assets/cobblemon/bedrock/particles/moves/<move>/`. The note lists the animation names and
   particle ids of every role move. Sleep uses `cobblemon:sleep_actor` and
@@ -506,8 +509,9 @@ references. This section lists what the code uses.
 
 ## 9. Configuration
 
-Server config `serverconfig/cobblemon_dynamics-server.toml`, in each world's folder. The CFG rows in
-the spec sheet are normative.
+Server config `config/cobblemon_dynamics-server.toml`. NeoForge 21.1 writes server configs to the
+instance's `config/` folder, and a copy in a world's `serverconfig/` folder overrides it for that world.
+The CFG rows in the spec sheet are normative.
 
 | Key | Default | Range |
 |---|---|---|

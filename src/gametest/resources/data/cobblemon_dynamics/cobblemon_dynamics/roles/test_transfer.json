@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:test_transfer",
+  "types": ["psychic"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {},
+  "effect": {
+    "loop_ticks": 40,
+    "animations": ["kinesis", "special", "cry"]
+  }
+}

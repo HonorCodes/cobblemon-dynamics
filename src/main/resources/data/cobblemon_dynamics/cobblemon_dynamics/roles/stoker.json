@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:furnace",
+  "types": ["fire"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 6.0,
+  "params": {},
+  "effect": {
+    "loop_ticks": 40,
+    "animations": ["flamethrower", "fire", "spray", "special", "cry"],
+    "actor_particles": ["cobblemon:flamethrower_actor"],
+    "target_particles": ["cobblemon:flamethrower_target", "cobblemon:flamethrower_targetburst"]
+  }
+}

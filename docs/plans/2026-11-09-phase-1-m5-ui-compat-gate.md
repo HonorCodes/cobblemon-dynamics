@@ -125,7 +125,12 @@ a bare `Stamina`; no `LOGGER.info`, `LOGGER.warn` or `LOGGER.error` call sits in
 ### Task 6: Performance measurement and real-restart scenarios
 
 **Rows:** CD-PERF-01, CD-PERF-02, CD-PERF-05 (runtime part), plus real-restart checks for CD-CLM-07,
-CD-LSH-07, CD-WHL-07, CD-CRK-08, CD-BED-14, CD-STA-04 and a real `/reload` for CD-CFG-08.
+CD-LSH-07, CD-WHL-07, CD-CRK-08, CD-BED-14, CD-STA-04, a real `/reload` for CD-CFG-08 and the file
+inspection for CD-CFG-01.
+
+Before its first restart, the `restart` scenario checks CD-CFG-01: the server's
+`config/cobblemon_dynamics-server.toml` exists and holds every key in the CD-CFG-01 list in
+`ConfigTest`. The scenario keeps the same key list.
 
 **Files:** `engine/EngineTiming.kt` (nanoTime around each `tickLevel`, a ring buffer of per-tick totals),
 `src/gametest/kotlin/.../test/PerfTests.kt` (namespace `cobblemon_dynamics_perf`), run
@@ -195,3 +200,15 @@ row id is missing from the checklist.
 
 CD-REL-14 (the Phase 2 gate before 1.0.0 publishes) and CD-REL-15 (1.0.0 joins the approver's pack) belong to
 M8 and M9. The gate report lists them as open, out of this plan's scope.
+
+**End-of-phase pass for deferred GameTests.** Before Step 2, give every row in the list below a test: a
+GameTest, a test pack scenario, or a manual checklist line from Task 8. Run them and fix what fails, then
+generate the report. The gate report states how each of these rows was checked.
+
+Deferred rows (the index's execution rule 6; append as milestones defer more):
+
+- M1 Task 10: CD-FX-04, CD-FX-05, CD-FX-06, CD-FX-07, CD-PERF-04.
+- M1 Tasks 11 to 13: CD-LSH-05, CD-LSH-06, CD-LSH-09, CD-LSH-10, CD-LSH-11, CD-LSH-13, CD-LSH-14, CD-LSH-15,
+  CD-LSH-17, CD-LSH-18, CD-LSH-19, CD-LSH-20, CD-LSH-21, CD-LSH-24, CD-LSH-25, CD-LSH-26, CD-LSH-27, CD-WMD-07,
+  CD-CLM-05, CD-CLM-06, CD-ASG-20, CD-SEC-07, CD-SEC-11, CD-UI-14, CD-SEC-09, and the payload path of CD-SEC-05,
+  CD-SEC-06, CD-WMD-03 and CD-WMD-04.

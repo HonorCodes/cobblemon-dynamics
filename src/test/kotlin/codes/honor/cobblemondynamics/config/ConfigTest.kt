@@ -1,0 +1,54 @@
+package codes.honor.cobblemondynamics.config
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+class ConfigTest {
+    @Test
+    fun `CD-CFG-02 work radii accept 2 to 32 and default to 8 and 6`() {
+        for (r in listOf(2, 32)) assertTrue(r in ConfigRanges.WORK_RADIUS)
+        for (r in listOf(1, 33)) assertFalse(r in ConfigRanges.WORK_RADIUS)
+        assertTrue(ServerConfig.isValid("workArea.horizontalRadius", 2))
+        assertFalse(ServerConfig.isValid("workArea.horizontalRadius", 33))
+        assertFalse(ServerConfig.isValid("workArea.verticalRadius", 1))
+        assertEquals(8, EngineSettings.DEFAULT.horizontalRadius)
+        assertEquals(6, EngineSettings.DEFAULT.verticalRadius)
+    }
+
+    @Test
+    fun `CD-CFG-11 CD-CFG-12 CD-CFG-15 engine timing defaults`() {
+        val s = EngineSettings.DEFAULT
+        assertEquals(40, s.scanIntervalTicks)
+        assertEquals(512, s.maxBlockChecksPerTick)
+        assertEquals(600, s.travelTimeoutTicks)
+        assertEquals(6000, s.retryWaitTicks)
+        assertEquals(200, s.standbyMoveTicks)
+    }
+
+    @Test
+    fun `CD-CFG-14 radii clamp to Cobblemon's pastureMaxWanderDistance`() {
+        assertEquals(20, EngineSettings.effectiveRadius(configured = 32, maxWander = 20))
+        assertEquals(19, EngineSettings.effectiveRadius(configured = 19, maxWander = 20))
+    }
+
+    @Test
+    fun `CD-CFG-01 every documented key exists`() {
+        val keys = listOf(
+            "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
+            "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
+            "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
+            "leash.pendingSelectionTicks", "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1",
+            "stamina.healerRecoveryMinutesAtLevel100", "stamina.flushIntervalTicks", "beds.speedFactors",
+            "heal.cost", "heal.lowStaminaThreshold", "roles.disabled", "compat.cobbleworkers", "compat.cobblebase",
+        )
+        for (k in keys) assertTrue(ServerConfig.hasKey(k), k)
+    }
+
+    @Test
+    fun `CD-CFG-06 client workSounds defaults to false`() {
+        assertTrue(ClientConfig.hasKey("effects.workSounds"))
+        assertFalse(ClientConfig.defaultWorkSounds)
+    }
+}
