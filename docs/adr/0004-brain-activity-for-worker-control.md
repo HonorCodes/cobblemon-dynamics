@@ -55,6 +55,17 @@ The operator chose the Brain approach.
   package isolates the bridge. If task registration fails, workers stay Idle and the mod logs one error.
 - Each custom task must declare its memories with `addMemories(...)` (inferred from vanilla Brain rules).
 
+## Amendment (2026-11-09, M1 Task 9)
+
+The build changed three details of the decision. The Brain approach stays.
+
+- The switch task runs at core priority (`minecraft:core`), not idle priority 0. An idle task does not
+  run after a Brain rebuild until the idle activity runs again, which breaks CD-AI-04.
+- `BrainBridge.write` also switches the Brain to the work activity itself. The Brain ticks before
+  `LevelTickEvent.Post`, so the task alone would restore a rebuilt Brain one tick late.
+- Entering the work activity calls `brain.stopAll`. A Brain keeps running the old activity's tasks after
+  a switch, so Cobblemon's idle look task would go on for 80 to 160 ticks.
+
 ## Alternatives considered
 
 - **Steer from a server tick** (Cobbleworkers). Simple, but the Pokémon jitters against the wander AI.

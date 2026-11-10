@@ -21,6 +21,11 @@ when your hands are on the code.
   `Supplier { ... }`.
 - `Pokemon.entity` is null for pastured Pokémon (it reads `ActivePokemonState` only). Find a pastured
   entity in the level by `entity.pokemon.uuid`.
+- Brain: `Activity` equality is by name (vanilla villagers already have `work`, so ours is
+  `cobblemon_dynamics:work`). A Brain keeps running the old activity's tasks after a switch. Cobblemon
+  registers only the memories that task configs declare.
+- Tick order: the level tick (Brains run here), then `LevelTickEvent.Post`, then the GameTest ticker.
+- Kotlin block comments nest. A `/**` inside a KDoc, for example in a path glob, breaks the file.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
   at the COHO modpack or another existing instance.
 - Line endings: `.gitattributes` forces LF (CRLF for `.bat`). `gradlew` breaks on Linux CI with CRLF.
