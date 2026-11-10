@@ -9,6 +9,8 @@ import codes.honor.cobblemondynamics.handler.create.DriveBehaviour
 import codes.honor.cobblemondynamics.test.TestKit
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
+import com.simibubi.create.AllBlocks
+import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -85,6 +87,56 @@ class CrankerTests {
                 val network = CreateKit.networkCapacity(crank)
                 helper.assertTrue(network == 256f, "the network of the $name crank has $network SU")
             }
+        }
+    }
+
+    /**
+     * A Machop stands beside a copper valve handle for 400 ticks and never claims it, and the Work Leash does not bind it there
+     * (CD-CRK-04). Then a hand crank is placed beside it, and the same Machop claims the crank, which shows that it is a Cranker.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 700)
+    fun cdCrk04ValveHandleIsNotATarget(helper: GameTestHelper) {
+        val scene = scene(helper)
+        helper.setBlock(crankRel, AllBlocks.COPPER_VALVE_HANDLE.defaultState.setValue(DirectionalKineticBlock.FACING, Direction.UP))
+        val valve = helper.absolutePos(crankRel)
+        val entity = machop(helper, scene)
+        TestKit.moveTo(helper, entity, BlockPos(7, 2, 7))
+        val binding = TestKit.bind(helper, scene.owner, entity, crankRel)
+        helper.assertTrue(binding == null, "CD-CRK-04: the leash bound the Machop to the valve handle: $binding")
+        val crankAt = BlockPos(10, 2, 5)
+        var crank: HandCrankBlockEntity? = null
+        helper.onEachTick {
+            val claim = TestKit.claimOf(helper, entity)
+            helper.assertFalse(claim?.key == TestKit.keyOf(helper, valve), "CD-CRK-04: the Machop claimed the valve handle")
+            if (helper.tick < 400) return@onEachTick
+            val placed = crank ?: CreateKit.handCrank(helper, crankAt, Direction.UP).also { crank = it }
+            if (claim?.key == TestKit.keyOf(helper, placed.blockPos)) helper.succeed()
+        }
+    }
+
+    /**
+     * A crank with no network behind it keeps its Machop Working for 400 ticks, and the Machop's Work Stamina drops on every one of
+     * them: a crank always has demand (CD-CRK-07).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000)
+    fun cdCrk07NoNetworkStillWorks(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val crank = CreateKit.handCrank(helper, crankRel, Direction.UP)
+        val entity = machop(helper, scene)
+        var since = -1L
+        var last = 0.0
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, entity) ?: return@onEachTick
+            if (since < 0) {
+                if (!isWorkingOn(helper, entity, crank)) return@onEachTick
+                since = helper.tick
+                last = worker.stamina.fraction
+                return@onEachTick
+            }
+            helper.assertTrue(worker.status == WorkerStatus.WORKING, "CD-CRK-07: the Machop is ${worker.status} at a crank with no network")
+            helper.assertTrue(worker.stamina.fraction < last, "CD-CRK-07: Work Stamina did not drop: ${worker.stamina}")
+            last = worker.stamina.fraction
+            if (helper.tick - since >= 400) helper.succeed()
         }
     }
 
