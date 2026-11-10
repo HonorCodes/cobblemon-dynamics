@@ -224,8 +224,10 @@ through to the normal leash rules (CD-SEC-10 in Task 6).
 
 `wheel_driver.json`: handler `cobblemon_dynamics:water_wheel`, types `["water"]`, `auto_assign` true,
 priority 0, range 6.0, effect Water Gun: animations `["watergun", "spray", "beam", "special", "cry"]`,
-actor `cobblemon:watergun_actor`, target `cobblemon:watergun_spray`, `cobblemon:watergun_target`,
-`cobblemon:watergun_targetfoam`.
+actor `cobblemon:watergun_spray`, `cobblemon:watergun_actor`, target `cobblemon:watergun_target`,
+`cobblemon:watergun_targetfoam`. Cobblemon's `watergun` timeline emits the spray from the user, aimed at the
+target, and only the two `target` particles on the target. Target particles play at the work focus entity
+(M1 Task 10), so a spray listed as a target particle would never travel from the worker (CD-FX-04).
 
 - [ ] **Step 1: Failing GameTests** (`WheelDriverTests`; each scene puts the wheel on a stone base with
   no water nearby):
