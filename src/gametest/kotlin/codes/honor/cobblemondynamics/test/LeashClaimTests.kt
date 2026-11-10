@@ -149,33 +149,41 @@ class LeashClaimTests {
     }
 
     /**
-     * A leashed Stoker waits in Standby at its empty furnace for 400 ticks, 3 blocks from an unclaimed furnace with input. It stays on
-     * its work spot, keeps its claim and its binding, and nobody claims the other furnace (CD-ASG-20).
+     * A leashed Stoker waits in Standby at its empty furnace while an auto Stoker of the same pasture works a third furnace, so the
+     * pasture's scans look for furnaces. Then the furnace 3 blocks from the empty one gets input. For 400 ticks the leashed Stoker stays
+     * on its work spot and keeps its claim and its binding, and the furnace with input stays unclaimed (CD-ASG-20), although an auto
+     * worker in Standby moves to such a furnace after `standbyMoveTicks` (200 ticks).
      */
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000)
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_200)
     fun cdAsg20LeashedWorkerStaysOnItsBoundTarget(helper: GameTestHelper) {
         val scene = pasture(helper)
         val emptyRel = BlockPos(5, 1, 3)
         val empty = TestKit.keyOf(helper, TestKit.furnace(helper, emptyRel, null).blockPos)
-        val loaded = TestKit.keyOf(helper, TestKit.furnace(helper, BlockPos(8, 1, 3), ItemStack(Items.RAW_IRON, 8)).blockPos)
+        val nearby = TestKit.furnace(helper, BlockPos(8, 1, 3), null)
+        val loaded = TestKit.keyOf(helper, nearby.blockPos)
+        val worked = TestKit.keyOf(helper, TestKit.furnace(helper, BlockPos(7, 1, 11), ItemStack(Items.RAW_IRON, 64)).blockPos)
         val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
         val binding = TestKit.bind(helper, scene.owner, fire, emptyRel) ?: throw GameTestAssertException("the leash did not bind")
+        val auto = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
         val engine = TestKit.engine(helper)
         var since = -1L
         var spot: Vec3? = null
         helper.onEachTick {
             helper.assertTrue(BindingStore.read(fire.pokemon) == binding, "CD-ASG-20: the binding is ${BindingStore.read(fire.pokemon)}")
-            helper.assertTrue(engine.claims.holderOf(loaded) == null, "CD-ASG-20: the furnace with input got a claim")
             val worker = TestKit.workerOf(helper, fire) ?: return@onEachTick
             val claim = TestKit.claimOf(helper, fire)
+            val autoWorks = TestKit.claimOf(helper, auto)?.key == worked && TestKit.workerOf(helper, auto)?.status == WorkerStatus.WORKING
             val held = spot
             if (held == null) {
-                if (worker.status != WorkerStatus.STANDBY) return@onEachTick
+                if (worker.status != WorkerStatus.STANDBY || !autoWorks) return@onEachTick
                 helper.assertTrue(claim?.key == empty, "the leashed Stoker waits at ${claim?.key}, not its furnace")
+                nearby.setItem(0, ItemStack(Items.RAW_IRON, 8))
                 since = helper.tick
                 spot = Vec3.atBottomCenterOf(worker.spot ?: throw GameTestAssertException("a worker in Standby with no spot"))
                 return@onEachTick
             }
+            helper.assertTrue(engine.claims.holderOf(loaded) == null, "CD-ASG-20: the furnace with input got a claim")
+            helper.assertTrue(autoWorks, "the auto Stoker stopped working its furnace, so the scans may have stopped")
             val waited = helper.tick - since
             val stays = worker.status == WorkerStatus.STANDBY && claim?.key == empty
             helper.assertTrue(stays, "CD-ASG-20: the leashed Stoker is ${worker.status} at ${claim?.key} after $waited ticks of Standby")
