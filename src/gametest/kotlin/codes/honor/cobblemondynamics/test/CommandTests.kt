@@ -74,6 +74,57 @@ class CommandTests {
     }
 
     /**
+     * The `EveryClaimScene`: two work claims, a binding, a sleeper's bed claim and a healer's heal claim. An operator's
+     * `/cobblemondynamics claims` lists all five entries, each with its kind, target and worker (CD-UI-14). A heal claim names the ally
+     * as its target.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000)
+    fun cdUi14ClaimsListsTheBedAndTheHealClaim(helper: GameTestHelper) {
+        val scene = EveryClaimScene(helper)
+        val operator = TestKit.operator(helper)
+        val dimension = helper.level.dimension().location()
+        fun at(pos: BlockPos) = "$dimension ${pos.x} ${pos.y} ${pos.z}"
+        val expected = listOf(
+            "claim work ${at(scene.furnace)} Charmander (${scene.stoker.pokemon.uuid})",
+            "claim work ${at(scene.boundFurnace)} Vulpix (${scene.vulpix.pokemon.uuid})",
+            "binding ${at(scene.boundFurnace)} Vulpix (${scene.vulpix.pokemon.uuid})",
+            "claim bed ${at(scene.bed)} Machop (${scene.sleeper.pokemon.uuid})",
+            "claim heal Machop Clefairy (${scene.healer.pokemon.uuid})",
+        )
+        helper.runAtTickTime(999) { helper.fail("the scene never held every claim: ${scene.describe()}") }
+        helper.onEachTick {
+            if (!scene.ready()) return@onEachTick
+            val result = run(operator, "cobblemondynamics claims")
+            helper.assertTrue(result.ran, "the operator's claims command did not run: ${result.lines}")
+            val missing = expected.filter { it !in result.lines }
+            helper.assertTrue(missing.isEmpty(), "CD-UI-14: the output lacks $missing: ${result.lines}")
+            helper.succeed()
+        }
+    }
+
+    /**
+     * A Lv50 Clefairy with no ally to heal, set to 40%. An operator's `/cobblemondynamics stamina` on it prints its value, its state and
+     * the healer rule (CD-UI-15).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
+    fun cdUi15StaminaShowsValueStateAndRule(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        val healer = TestKit.tether(helper, pasture, owner, "clefairy level=50")
+        val operator = TestKit.operator(helper)
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, healer) ?: return@onEachTick
+            worker.stamina.fraction = 0.40
+            val result = run(operator, "cobblemondynamics stamina ${healer.stringUUID}")
+            helper.assertTrue(result.ran, "the operator's stamina command did not run: ${result.lines}")
+            val line = "Clefairy: 40.0% Work Stamina, Idle, healer rule"
+            helper.assertTrue(result.lines == listOf(line), "CD-UI-15: the output is ${result.lines}, not '$line'")
+            helper.succeed()
+        }
+    }
+
+    /**
      * A player at permission level 0 runs both commands, and neither runs: the reply is Minecraft's unknown-command error, and it holds no
      * line of either command. An operator runs the same two commands, and both run (CD-SEC-09).
      */

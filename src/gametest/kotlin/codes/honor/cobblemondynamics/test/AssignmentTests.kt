@@ -3,12 +3,11 @@ package codes.honor.cobblemondynamics.test
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.claim.Claim
 import codes.honor.cobblemondynamics.claim.ClaimKind
-import codes.honor.cobblemondynamics.claim.ClaimResult
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.engine.EngineEvents
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.WorkerStatus
-import codes.honor.cobblemondynamics.pasture.PastureKey
+import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.pasture.WorkModeService
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
@@ -268,52 +267,65 @@ class AssignmentTests {
         }
     }
 
-    /** M2 Task 4 replaces the injected bed and heal claims with a real sleeper and a real healer. */
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    /**
+     * Two Working workers hold work claims, a Tired Machop sleeps on a Hay Bed with a bed claim, and a Clefairy on its way to heal the
+     * Machop holds a heal claim (`EveryClaimScene`). The owner turns Work Mode off, and 1 tick later none of the four claims remains;
+     * the leash binding stays (CD-WMD-05, CD-CLM-06).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000)
     fun cdWmd05WorkModeOffReleasesEveryClaim(helper: GameTestHelper) {
-        val scene = stokers(helper, 2)
-        val sleeper = TestKit.tether(helper, scene.pasture, scene.owner, "rattata level=5")
-        val healer = TestKit.tether(helper, scene.pasture, scene.owner, "rattata level=5")
-        val ids = (scene.stokers + sleeper + healer).map { it.pokemon.uuid }
+        val scene = EveryClaimScene(helper)
         var offAt = -1L
+        helper.runAtTickTime(999) { helper.fail("the scene never held every claim: ${scene.describe()}") }
         helper.onEachTick {
             val claims = TestKit.engine(helper).claims
             if (offAt < 0) {
-                if (!allWorking(helper, scene.stokers)) return@onEachTick
-                val dimension = helper.level.dimension().location()
-                val pasture = PastureKey(dimension, scene.pasture.blockPos.asLong())
-                val now = helper.level.gameTime
-                val bedKey = TestKit.keyOf(helper, helper.absolutePos(BlockPos(1, 1, 13)))
-                val bed = claims.tryClaim(sleeper.pokemon.uuid, bedKey, ClaimKind.BED, pasture, now)
-                val healKey = TargetKey.Entity(scene.stokers.first().uuid)
-                val heal = claims.tryClaim(healer.pokemon.uuid, healKey, ClaimKind.HEAL, pasture, now)
-                helper.assertTrue(bed is ClaimResult.Granted && heal is ClaimResult.Granted, "a claim was refused: $bed, $heal")
+                if (!scene.ready()) return@onEachTick
                 WorkModeService.apply(helper.level, scene.pasture.blockPos, false)
                 offAt = helper.tick
             } else if (helper.tick - offAt == 1L) {
-                ids.forEach { helper.assertTrue(claims.claimOf(it) == null, "a claim remains 1 tick after Work Mode turned off") }
+                for ((entity, id) in scene.workers.zip(scene.ids)) {
+                    val claim = claims.claimOf(id)
+                    helper.assertTrue(
+                        claim == null,
+                        "CD-WMD-05: the ${entity.pokemon.species.name} holds $claim 1 tick after Work Mode off",
+                    )
+                }
+                val left = claims.all().filter { it.pasture == scene.pastureKey }
+                helper.assertTrue(left.isEmpty(), "CD-WMD-05: the pasture's claims $left remain 1 tick after Work Mode off")
+                val binding = BindingStore.read(scene.vulpix.pokemon)
+                helper.assertTrue(binding == scene.binding, "the Vulpix's binding is $binding after Work Mode off")
                 helper.succeed()
             }
         }
     }
 
-    /** The restart drops the whole engine, so this test runs alone in its own batch. */
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 800, batch = "restart_clm07")
+    /**
+     * The `EveryClaimScene` holds two work claims, a bed claim and a heal claim, and the server restarts: before any scan the registry
+     * is empty, and no claim from before the restart comes back (CD-CLM-07). The restart drops the whole engine, so this test runs
+     * alone in its own batch.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000, batch = "restart_clm07")
     fun cdClm07ClaimsAreNotSaved(helper: GameTestHelper) {
-        val scene = stokers(helper, 2)
+        val scene = EveryClaimScene(helper)
         var restartedAt = -1L
+        helper.runAtTickTime(999) { helper.fail("the scene never held every claim: ${scene.describe()}") }
         helper.onEachTick {
             val claims = TestKit.engine(helper).claims
             if (restartedAt < 0) {
-                if (!allWorking(helper, scene.stokers)) return@onEachTick
-                helper.assertTrue(scene.stokers.all { TestKit.claimOf(helper, it) != null }, "the two Stokers do not hold two claims")
+                if (!scene.ready()) return@onEachTick
+                val kinds = claims.all().map { it.kind }.sorted()
+                helper.assertTrue(
+                    kinds == listOf(ClaimKind.WORK, ClaimKind.WORK, ClaimKind.BED, ClaimKind.HEAL),
+                    "the registry holds $kinds",
+                )
                 TestKit.simulateRestart(helper)
-                helper.assertTrue(claims.all().isEmpty(), "the registry holds a claim after the restart")
+                helper.assertTrue(claims.all().isEmpty(), "CD-CLM-07: the registry holds ${claims.all()} after the restart")
                 restartedAt = helper.level.gameTime
                 return@onEachTick
             }
-            // Only a new scan may claim again; a claim from before the restart would mean that it was restored.
-            helper.assertTrue(claims.all().all { it.sinceTick > restartedAt }, "a claim from before the restart came back")
+            // Only a new scan or poll may claim again; a claim from before the restart would mean that it was restored.
+            helper.assertTrue(claims.all().all { it.sinceTick > restartedAt }, "CD-CLM-07: a claim from before the restart came back")
             if (helper.level.gameTime - restartedAt >= 20) helper.succeed()
         }
     }
