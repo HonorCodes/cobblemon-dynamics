@@ -27,8 +27,10 @@ design of every task. This note holds what the plan does not.
 | --- | --- |
 | Plan | On `main`. Index plus files `m0`, `m1` (two parts), `m2`, `m3`, `m4`, `m5`. `py scripts/check_plan_coverage.py` prints `missing: 0`. |
 | M0 | Merged: PR #1, merge commit `0c6f06f`. |
-| M1 | All 13 tasks are committed on `m1-engine-leash-stoker`, and its pull request is open (`gh pr list`). On the branch tip, `./gradlew build` passes 108 unit tests, `runGameTestServer` passes 50 of 50, and the test pack prints `SMOKE PASS` and `RELOAD PASS`. ktlint, ruff and super-linter pass. Merge it with a merge commit when CI is green. The new `Dependency graph` job in `security.yml` first runs on this pull request. |
-| M2 to M5 | Not started. |
+| M1 | Merged: PR #6, merge commit `21f227b`. The `Dependency graph` job reports the compile and runtime classpaths. It gives runtime scope only to `jarJar` libraries, because Minecraft, NeoForge and the required mods supply the rest. |
+| M2 | Branch `m2-stamina-beds-healers` (stacked on the M1 tip, which is in `main`). Tasks 1 to 3 are committed: 158 unit tests, 51 of 51 GameTests. Tasks 4 to 6 come next. Before the M2 pull request, run `testpack.py deps`, because `stamina_view` is the first client-synced attachment and must load on the NeoForge 21.1.219 floor. |
+| Dependabot | PR #3 (Gradle 9.9.0; Dependabot was told to skip Kotlin 2.3 and 2.4), #4 (tomlj 2.2.0, test only) and #5 (JUnit 6.1.3, test only). Merge each when it is rebased on `main` and green. The `dependabot.yml` ignore rules on the M2 branch keep Kotlin on 2.2.x and the platform dependencies at their floors. |
+| M3 to M5 | Not started. |
 
 ## Environment
 
