@@ -165,6 +165,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.tomlj:tomlj:2.2.0'
+    testImplementation 'org.yaml:snakeyaml:2.7'
 }
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
@@ -195,6 +196,11 @@ tasks.named('test', Test) {
     dependsOn generateModMetadata
     systemProperty 'cd.modsToml', file('build/generated/sources/modMetadata/META-INF/neoforge.mods.toml').absolutePath
     systemProperty 'cd.projectDir', projectDir.absolutePath
+    // Unit tests read these files by path. As inputs, a change to one runs the tests again instead of reusing a cached pass.
+    inputs.files(fileTree(projectDir) {
+        include 'LICENSE', 'README.md', 'build.gradle', 'gradle.properties', '.github/**', 'scripts/**', 'src/main/**'
+        exclude '**/__pycache__/**'
+    }).withPropertyName('repositoryFiles').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 tasks.withType(JavaCompile).configureEach {

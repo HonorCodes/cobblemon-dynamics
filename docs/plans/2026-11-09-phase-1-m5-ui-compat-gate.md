@@ -320,6 +320,39 @@ On a `v*` tag: build with `-Prelease_version=${GITHUB_REF_NAME#v}`, attach the j
 the tag matches `^v\d+\.\d+\.\d+$` and the `MODRINTH_TOKEN` and `CURSEFORGE_TOKEN` secrets exist. The
 publish step uses `Kir-Antipov/mc-publish` at its current major, with version `X.Y.Z+mc1.21.1`.
 
+Design (as built):
+
+- Three jobs. `build` refuses a `v*` tag that does not match `RELEASE_TAG` (`vMAJOR.MINOR.PATCH`, with an
+  optional suffix such as `-alpha.1`). It writes the outputs `version` (the tag without its `v`) and `public`
+  (true only for a tag that matches `PUBLIC_TAG`, `^v[0-9]+\.[0-9]+\.[0-9]+$`), builds with
+  `-Prelease_version="$VERSION"`, checks that the jar's `neoforge.mods.toml` declares `<version>+mc1.21.1`
+  (CD-REL-05 on every release), and uploads the jar. `github-release` runs for every release tag: it creates the
+  release with the jar and `--prerelease=true` unless the tag is public, and when it runs again for a tag it
+  replaces the jar. `publish` runs after both, only when `public` is true.
+- GitHub expressions have no regular expressions, so both patterns sit in the workflow's `env`. Bash tests them
+  with `[[ $TAG =~ $PATTERN ]]`, and the publish job's `if:` reads the build job's `public` output.
+  `ReleaseWorkflowTest` evaluates the same two patterns on sample tags.
+- A job's `if:` cannot read secrets. The publish job is the only job that names the publishing secrets, so a
+  pre-release run never reads them. Its first step fails the job when `MODRINTH_TOKEN`, `CURSEFORGE_TOKEN` or
+  the repository variables `MODRINTH_PROJECT_ID` and `CURSEFORGE_PROJECT_ID` are missing. A public tag must
+  publish (CD-REL-04), so a skip would hide the failure. This replaces "only when the secrets exist". The two
+  projects do not exist yet, so their ids are repository variables.
+- `Kir-Antipov/mc-publish` moved to `Kira-NT/mc-publish`. The workflow names the new repository at `@v3` (3.3.2),
+  with version `X.Y.Z+mc1.21.1`, type `release`, loader `neoforge`, game version `1.21.1`, environment
+  `client | server` (CD-PLAT-06) and Java 21. Cobblemon and KotlinForForge are required dependencies, Create and
+  AE2 optional, with each site's slug.
+- `ReleaseWorkflowTest` reads the workflow with SnakeYAML 2.7, a new test dependency. The `test` task now lists
+  the files that unit tests read by path as inputs (`LICENSE`, `README.md`, `build.gradle`, `gradle.properties`,
+  `.github/`, `scripts/` and `src/main/`). Without them, Gradle and the build cache reused a passing result after
+  such a file changed, as a mutation run of this test showed.
+- Checked without a tag: the 7 cases of `ReleaseWorkflowTest`; a mutation run that removed the publish job's
+  `if:`, let a suffix tag be public, gave the GitHub release job a publishing secret and dropped
+  `-Prelease_version` failed the matching case each time; actionlint with shellcheck, from the super-linter
+  image, found nothing; `./gradlew jar -Prelease_version=1.0.0` wrote `cobblemon_dynamics-1.0.0+mc1.21.1.jar`,
+  whose `neoforge.mods.toml` declares `version="1.0.0+mc1.21.1"`.
+- The live demos need tags. CD-REL-12 (`v1.0.0-alpha.1`, then `v1.0.0-beta.1`) waits for the approver at the
+  gate; Task 9 holds its steps. CD-REL-04 is the `v1.0.0` push after the Phase 2 gate (CD-REL-14).
+
 - [ ] **Steps:** `ReleaseWorkflowTest` (the publish job's `if:` holds the no-suffix pattern; a suffix tag
   reaches only the GitHub release step) → write the workflow → commit
   `"Add the release workflow: suffix tags never publish"`. The live CD-REL-12 demo (pushing
@@ -363,6 +396,21 @@ row id is missing from the checklist.
 
 CD-REL-14 (the Phase 2 gate before 1.0.0 publishes) and CD-REL-15 (1.0.0 joins the approver's pack) belong to
 M8 and M9. The gate report lists them as open, out of this plan's scope.
+
+**CD-REL-12 demo.** Run it only after the approver's go-ahead, because each tag makes a public GitHub pre-release.
+Use the commit that the gate report names, after the M5 merge.
+
+1. `git tag -a v1.0.0-alpha.1 -m "Cobblemon Dynamics 1.0.0-alpha.1" <commit>`, then `git push origin v1.0.0-alpha.1`.
+2. Wait for the `release` run of the tag to end. `gh run list --workflow release.yml` gives its id, and
+   `gh run view <id> --json jobs --jq '.jobs[] | [.name, .conclusion]'` must show `Build the release jar` and
+   `GitHub release` as `success` and `Modrinth and CurseForge` as `skipped`.
+3. `gh release view v1.0.0-alpha.1 --json isPrerelease,assets` must show `isPrerelease: true` and the asset
+   `cobblemon_dynamics-1.0.0-alpha.1+mc1.21.1.jar`.
+4. Neither site may list the version: search the Modrinth and CurseForge project pages for `1.0.0-alpha.1`, if the
+   projects exist yet.
+5. Repeat steps 1 to 4 with `v1.0.0-beta.1`.
+6. Record both run URLs, the job conclusions and the site checks in the gate report. Fails if: a publish job runs
+   for either tag, or either version appears on either site.
 
 **End-of-phase pass for deferred GameTests.** Before Step 2, give every row in the list below a test: a
 GameTest, a test pack scenario, or a manual checklist line from Task 8. Run them and fix what fails, then

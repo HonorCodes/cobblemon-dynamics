@@ -1,0 +1,163 @@
+name: release
+
+# A v* tag builds the jar with the tag's version and attaches it to a GitHub release. Only a public tag,
+# vMAJOR.MINOR.PATCH with no suffix, also publishes to Modrinth and CurseForge (CD-REL-04, CD-REL-05,
+# CD-REL-12). ReleaseWorkflowTest checks these rules.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # A release tag. Anything after the patch number is a pre-release suffix, as in v1.0.0-alpha.1.
+  RELEASE_TAG: '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+  # A public tag has no suffix. Only a public tag publishes.
+  PUBLIC_TAG: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+
+jobs:
+  build:
+    name: Build the release jar
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      public: ${{ steps.tag.outputs.public }}
+    steps:
+      - name: Read the version from the tag
+        id: tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! $TAG =~ $RELEASE_TAG ]]; then
+            echo "::error::$TAG is not a release tag. Use vMAJOR.MINOR.PATCH, with a suffix such as -alpha.1 for a pre-release."
+            exit 1
+          fi
+          public=false
+          if [[ $TAG =~ $PUBLIC_TAG ]]; then
+            public=true
+          fi
+          {
+            echo "version=${TAG#v}"
+            echo "public=$public"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build, unit tests and jar checks
+        id: build
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: ./gradlew build -Prelease_version="$VERSION" --stacktrace
+      - name: Check the version in the jar
+        id: jar
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          jar="build/libs/cobblemon_dynamics-$VERSION+mc1.21.1.jar"
+          if ! unzip -p "$jar" META-INF/neoforge.mods.toml | grep -qFx "version=\"$VERSION+mc1.21.1\""; then
+            echo "::error::$jar is missing or does not declare version $VERSION+mc1.21.1"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-jar
+          path: build/libs/cobblemon_dynamics-${{ steps.tag.outputs.version }}+mc1.21.1.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  github-release:
+    name: GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-jar
+          path: release
+      # Run again for the same tag, this step replaces the jar instead of failing.
+      - name: Create or update the GitHub release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+          PUBLIC: ${{ needs.build.outputs.public }}
+        run: |
+          prerelease=true
+          if [[ $PUBLIC == true ]]; then
+            prerelease=false
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" release/*.jar --clobber
+            gh release edit "$TAG" --prerelease="$prerelease"
+          else
+            gh release create "$TAG" release/*.jar --verify-tag --generate-notes \
+              --title "Cobblemon Dynamics $VERSION" --prerelease="$prerelease"
+          fi
+
+  publish:
+    name: Modrinth and CurseForge
+    needs: [build, github-release]
+    # Only a public tag reaches this job, so a pre-release tag needs no publishing secret (CD-REL-12).
+    if: needs.build.outputs.public == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-jar
+          path: release
+      # A public tag must publish (CD-REL-04), so a missing token or project id fails the job instead of skipping it.
+      - name: Check the publishing settings
+        id: settings
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+          CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+        run: |
+          missing=""
+          for name in MODRINTH_TOKEN CURSEFORGE_TOKEN MODRINTH_PROJECT_ID CURSEFORGE_PROJECT_ID; do
+            if [[ -z ${!name} ]]; then
+              missing="$missing $name"
+            fi
+          done
+          if [[ -n $missing ]]; then
+            echo "::error::A public release publishes to Modrinth and CurseForge. Set these secrets and variables:$missing"
+            exit 1
+          fi
+      - name: Publish to Modrinth and CurseForge
+        id: publish
+        uses: Kira-NT/mc-publish@v3
+        with:
+          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: release/*.jar
+          name: Cobblemon Dynamics ${{ needs.build.outputs.version }}
+          version: ${{ needs.build.outputs.version }}+mc1.21.1
+          version-type: release
+          changelog: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+          loaders: neoforge
+          game-versions: 1.21.1
+          environment: client | server
+          java: 21
+          dependencies: |
+            cobblemon(required)
+            kotlinforforge(required){modrinth:kotlin-for-forge}{curseforge:kotlin-for-forge}
+            create(optional)
+            ae2(optional){curseforge:applied-energistics-2}
