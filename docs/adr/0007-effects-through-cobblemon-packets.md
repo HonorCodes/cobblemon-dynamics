@@ -76,3 +76,15 @@ so a target particle sent that way burst on the worker instead of on the target.
 The healer no longer shows `cobblemon:heal_sparkles` on the ally. Its particle file calls `math.random()`
 with no arguments, which Cobblemon 1.8.4's MoLang rejects, and the client crashed with "Ticking Particle"
 on the first heal. Only `cobblemon:heal_circles` plays on the ally.
+
+## Amendment (2026-11-10, play-test): each animation plays to its end
+
+A loop every 40 ticks started Cobblemon's attack animations again before they ended, and the approver found
+it glitchy. Most `special` and `physical` animations last 3 s, and the longest last 4 s. The server now reads
+the length of each animation from Cobblemon's client assets in its jar. The species' resolver picks the
+poser, the poser maps an animation name to a bedrock animation, and the animation file gives its
+`animation_length`. The effect player sends only the first name of the role's list that the worker's model
+has, so the client plays the animation whose length the server knows. The next effect starts when that
+animation has ended and the role's `idle_ticks` (default 40) have passed, so the model returns to its idle
+pose. The particles go out with each animation. A worker whose model has none of the names gets no
+animation, and its particles play every `loop_ticks` (default 40).

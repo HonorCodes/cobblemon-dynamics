@@ -9,7 +9,7 @@ class ParticleShotsTest {
     private val actor = ResourceLocation.parse("cobblemon:flamethrower_actor")
     private val target = ResourceLocation.parse("cobblemon:flamethrower_target")
     private val burst = ResourceLocation.parse("cobblemon:flamethrower_targetburst")
-    private val effect = EffectDefinition(40, listOf("flamethrower"), listOf(actor), listOf(target, burst), null)
+    private val effect = EffectDefinition(40, 40, listOf("flamethrower"), listOf(actor), listOf(target, burst), null)
 
     @Test
     fun `CD-FX-04 target particles play at the focus and actor particles stream from the worker`() {

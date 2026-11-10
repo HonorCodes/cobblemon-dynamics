@@ -29,6 +29,8 @@ import net.neoforged.neoforge.network.PacketDistributor
 object EffectPlayer {
     private val particles = CheckedParticles(JarParticleCatalog, OnceLogger())
 
+    private val animations: AnimationCatalog = JarAnimationCatalog
+
     /** Cobblemon's move timelines emit actor particles from `special`, else `target`. Every model has `root`. */
     private val actorLocators = listOf("special", "target", "root")
 
@@ -46,9 +48,16 @@ object EffectPlayer {
         workingSince: Long,
         now: Long,
     ) {
-        if (!EffectClock.shouldPlay(workingSince, now, role.effect.loopTicks)) return
+        val animation = animationOf(entity, role.effect.animationsWithCry)
+        if (!EffectClock.shouldPlay(workingSince, now, EffectClock.periodTicks(animation, role.effect))) return
         val players = recipients(level, entity)
-        if (players.isNotEmpty()) play(entity, focus, role.effect, players)
+        if (players.isNotEmpty()) play(entity, focus, role.effect, animation, players)
+    }
+
+    /** The first of [names] that the model of [entity] plays, from Cobblemon's own animation files (CD-FX-03). */
+    fun animationOf(entity: PokemonEntity, names: List<String>): WorkAnimation? {
+        val pokemon = entity.pokemon
+        return animations.first(pokemon.species.resourceIdentifier, pokemon.aspects, names)
     }
 
     /** CD-FX-10: Cobblemon's sleep particles on a worker that sleeps or rests in place, every 40 ticks, and no sound. */
@@ -108,9 +117,18 @@ object EffectPlayer {
         return level.players().filter { Recipients.inRange(it.distanceToSqr(entity), radius) }
     }
 
-    /** The animation goes out even when no particle id is known (CD-FX-11). */
-    fun play(entity: PokemonEntity, focus: WorkFocusEntity, effect: EffectDefinition, players: List<ServerPlayer>) {
-        PlayPosableAnimationPacket(entity.id, LinkedHashSet(effect.animationsWithCry), emptyList()).sendToPlayers(players)
+    /**
+     * The animation goes out even when no particle id is known (CD-FX-11). It names only the [animation] that the server picked, so the
+     * client plays the animation whose length sets the loop. A worker whose model has none of the role's animations gets no animation.
+     */
+    fun play(
+        entity: PokemonEntity,
+        focus: WorkFocusEntity,
+        effect: EffectDefinition,
+        animation: WorkAnimation?,
+        players: List<ServerPlayer>,
+    ) {
+        if (animation != null) PlayPosableAnimationPacket(entity.id, setOf(animation.name), emptyList()).sendToPlayers(players)
         for (shot in ParticleShots.of(effect, particles::filter)) {
             when (shot) {
                 is ParticleShot.FromWorker -> SpawnSnowstormEntityParticlePacket(shot.id, entity.id, actorLocators, focus.id, focusLocators)

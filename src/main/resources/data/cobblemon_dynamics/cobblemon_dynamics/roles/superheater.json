@@ -8,6 +8,7 @@
   "params": { "heat": "seething", "min_level": 50, "below_min_level_heat": "kindled" },
   "effect": {
     "loop_ticks": 40,
+    "idle_ticks": 40,
     "animations": ["dragonbreath", "spray", "special", "cry"],
     "actor_particles": ["cobblemon:dragonbreath_actor"],
     "target_particles": ["cobblemon:dragonbreath_target"]

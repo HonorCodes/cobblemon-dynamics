@@ -14,14 +14,20 @@ import java.util.Optional
 object RoleCodec {
     private const val SCHEMA = 1
 
+    /** The default of `loop_ticks` and of `idle_ticks`: 2 seconds. */
+    private const val DEFAULT_TICKS = 40
+
     private val EFFECT: Codec<EffectDefinition> = RecordCodecBuilder.create { i ->
         i.group(
-            Codec.INT.optionalFieldOf("loop_ticks", 40).forGetter { it.loopTicks },
+            ExtraCodecs.POSITIVE_INT.optionalFieldOf("loop_ticks", DEFAULT_TICKS).forGetter { it.loopTicks },
+            ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("idle_ticks", DEFAULT_TICKS).forGetter { it.idleTicks },
             Codec.STRING.listOf().fieldOf("animations").forGetter { it.animations },
             ResourceLocation.CODEC.listOf().optionalFieldOf("actor_particles", emptyList()).forGetter { it.actorParticles },
             ResourceLocation.CODEC.listOf().optionalFieldOf("target_particles", emptyList()).forGetter { it.targetParticles },
             ResourceLocation.CODEC.optionalFieldOf("sound").forGetter { Optional.ofNullable(it.sound) },
-        ).apply(i) { loop, animations, actor, target, sound -> EffectDefinition(loop, animations, actor, target, sound.orElse(null)) }
+        ).apply(i) { loop, idle, animations, actor, target, sound ->
+            EffectDefinition(loop, idle, animations, actor, target, sound.orElse(null))
+        }
     }
 
     private data class Body(

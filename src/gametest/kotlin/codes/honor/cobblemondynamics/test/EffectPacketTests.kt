@@ -23,6 +23,8 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.network.CommonListenerCookie
 import net.minecraft.server.network.ServerGamePacketListenerImpl
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.neoforged.neoforge.common.util.FakePlayer
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -143,6 +145,34 @@ class EffectPacketTests {
                     helper.succeed()
                 }
             }
+        }
+    }
+
+    /**
+     * A Charmander Works at a furnace. Its model plays `special`, which lasts 3 s in Cobblemon 1.8.4, so each effect names only that
+     * animation, and the next effect starts 100 ticks later: 60 ticks of animation, then 40 idle ticks (CD-FX-01, CD-FX-03; the
+     * approver's play-test ruling of 2026-11-10). The Ember particles leave the Charmander with each animation.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000, batch = LISTENER_BATCH)
+    fun cdFx01AnimationPlaysToItsEndAndTheWorkerIdlesBeforeTheNext(helper: GameTestHelper) {
+        val listener = listener(helper)
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        TestKit.furnace(helper, BlockPos(7, 2, 3), ItemStack(Items.RAW_IRON, 64))
+        val charmander = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        helper.onEachTick {
+            val plays = listener.sent.mapNotNull { (tick, payload) ->
+                (payload as? PlayPosableAnimationPacket)?.takeIf { it.entityId == charmander.id }?.let { tick to it.animation }
+            }
+            if (plays.size < 3) return@onEachTick
+            val names = plays.map { it.second }.toSet()
+            helper.assertTrue(names == setOf(setOf("special")), "CD-FX-03: the Charmander's animations were $names")
+            val ticks = plays.map { it.first }
+            helper.assertTrue(ticks.zipWithNext { a, b -> b - a }.all { it == 100L }, "CD-FX-01: the animations started at ticks $ticks")
+            val embers = particlesOn(listener, charmander).map { it.first }.toSet()
+            helper.assertTrue(embers.containsAll(ticks), "CD-FX-01: the particles left at ticks $embers, the animations at $ticks")
+            helper.succeed()
         }
     }
 

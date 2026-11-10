@@ -25,7 +25,8 @@ The operator chose type-based eligibility, not per-species lists.
   - A `handler` id and its `params`.
   - `auto_assign`, `priority` and `range`. When one worker fits two roles on the same target, the role
     with the higher `priority` wins. For example, the Superheater outranks the Burner Keeper.
-  - An `effect`: animation names, actor particles, target particles and the loop interval.
+  - An `effect`: animation names, actor particles, target particles, the idle ticks after each animation
+    and the loop interval of a worker whose model has none of the animations.
 - Handlers are Kotlin classes registered by id. Create handlers register only when Create is loaded.
   A role whose handler is missing does not load, and the mod logs one warning.
 - **Role-specific numbers live in the role file:**

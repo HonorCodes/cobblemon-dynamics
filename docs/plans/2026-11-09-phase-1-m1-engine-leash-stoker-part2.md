@@ -802,6 +802,13 @@ The jar has `PlayPosableAnimationPacket(entityId: Int, animation: Set<String>, e
 the names go in as a `LinkedHashSet`, which keeps their order. The Stoker role names no sound, so no sound id
 needs checking yet.
 
+Play-test change (2026-11-10): an effect no longer plays every 40 ticks. `BedrockAnimations` (through
+`JarAnimationCatalog`) reads Cobblemon's resolvers, posers and animation files from its jar and picks the
+first name of the role's list that the worker's model has, with its `animation_length`. The animation
+packet names only that animation. The next effect starts when the animation has ended and the role's
+`idle_ticks` (default 40) have passed (`EffectClock.periodTicks`). A model with none of the names gets the
+particles only, every `loop_ticks`.
+
 Platform facts that changed the plan: actor particles aim at the focus entity too, because Cobblemon's move
 timelines send them with `targetLocators` and `flamethrower_actor` sets its direction from
 `v.target_delta*`. Actor particles use the source locators `special`, `target`, `root`; the targeted locator is

@@ -264,7 +264,10 @@ writes are safe in any order against block entity ticks (see section 8).
      after the previous pass completes. Pasture start ticks are staggered by a position hash.
    - Leash-only roles need no scan. Their targets come from bindings.
 6. When a scan pass completes, the assigner runs. Idle workers take targets, and healers choose allies.
-7. Every 40 ticks per Working worker, staggered, the effect player sends the role's effect.
+7. The effect player sends the role's effect when a worker starts Working. It sends the next one when the
+   worker's animation has ended and the role's `idle_ticks` (40) have passed, so that the model returns to
+   its idle pose first. A worker whose model has none of the role's animations gets the particles every
+   `loop_ticks` (40).
 8. Every 20 ticks per Working Telekinesis or Magnet worker, the handler moves up to
    ceil(64 × L ÷ 100) items. That gives the rate in items per second.
 9. When a worker's displayed Work Stamina changes by 1 percentage point, or its state changes, the
@@ -352,7 +355,7 @@ Cobblemon packets that the effect player sends, to players within 64 blocks:
 
 | Packet | Use |
 |---|---|
-| `PlayPosableAnimationPacket(entityId, names, expressions)` | The work pose. The client plays the first name that the model has, so the role lists names from most to least specific. |
+| `PlayPosableAnimationPacket(entityId, names, expressions)` | The work animation. The server picks the first name of the role's list that the worker's model has, and sends that name alone, so the client plays the animation whose length the server knows. |
 | `SpawnSnowstormEntityParticlePacket(effectId, sourceId, sourceLocators, targetedEntityId, targetLocators)` | A role's actor particles, from the worker toward the work focus entity, or to the healed ally. Sleep particles on a sleeping worker. |
 | `SpawnSnowstormParticlePacket(effectId, position)` | A role's target particles, at the work focus entity's position. The entity packet would spawn them on the worker. |
 
@@ -408,6 +411,16 @@ references. This section lists what the code uses.
   `cobblemon:heal_sparkles`, because that file calls `math.random()` with no arguments. Cobblemon 1.8.4's
   MoLang rejects the call, and the client crashes while it ticks the particle. The Magnet uses
   `cobblemon:metal_sparks`.
+- **Animations.** A server has no client resources, so the effect player reads Cobblemon's client assets
+  from its jar, each file once and on first use. In `assets/cobblemon/bedrock/pokemon/`, `resolvers/` names
+  the poser of each species: the last variation whose aspects the Pokémon has. `posers/` maps each
+  animation name of a JSON poser to a group and an animation, as in
+  `q.bedrock_primary('charmander', 'special', ...)`. `animations/<group>.animation.json` gives the
+  `animation_length` of `animation.<group>.<animation>`. A poser with no JSON file is one of Cobblemon's
+  Kotlin models, which name their animations `animation.<poser>.<name>`. The server ignores the animation
+  names of single poses, which Cobblemon 1.8.4 uses for battle and water poses, and variations with a MoLang
+  condition, which only the client can run. A species whose assets come from another mod plays no work
+  animation.
 - **Floral Healing exception.** When Cobblemon's server data holds the action effect
   `cobblemon:floralhealing`, the healer runs that timeline with a custom context: the healer is the
   user and the ally entity is the target. The context defines the battle-only queries, as
@@ -629,12 +642,18 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
   },
   "effect": {
     "loop_ticks": 40,
+    "idle_ticks": 40,
     "animations": ["thundershock", "electric", "special", "cry"],
     "actor_particles": ["cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"],
     "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"]
   }
 }
 ```
+
+The effect plays the first of its `animations` that the worker's model has, to its end. The worker then
+stays idle for `idle_ticks` before the next play. A worker whose model has none of them shows the particles
+every `loop_ticks`. Actor particles leave the worker toward the target, and target particles burst at the
+target.
 
 The Generator computes FE/t = round(m × base × (max ÷ base)^((L − 1) ÷ 99)). The multiplier m is 2 for
 a Pokémon with a label in `rare_labels` and 1 otherwise, and the rounding comes last. With the

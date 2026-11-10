@@ -13,6 +13,7 @@
   },
   "effect": {
     "loop_ticks": 40,
+    "idle_ticks": 40,
     "animations": ["thundershock", "electric", "special", "cry"],
     "actor_particles": ["cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"],
     "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"]

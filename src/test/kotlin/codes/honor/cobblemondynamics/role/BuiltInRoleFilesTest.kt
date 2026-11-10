@@ -163,6 +163,16 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("watergun", "spray", "beam", "special", "cry"), effect.animationsWithCry)
     }
 
+    /** The built-in files are the examples for pack makers, so each one writes both keys of its loop. */
+    @Test
+    fun `CD-FX-01 every built-in role file idles 40 ticks after its animation, and loops every 40 ticks with none`() {
+        for (file in BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()) {
+            val effect = JsonParser.parseString(file.readText()).asJsonObject.getAsJsonObject("effect")
+            assertEquals(40, effect.get("idle_ticks")?.asInt, "${file.name} idle_ticks")
+            assertEquals(40, effect.get("loop_ticks")?.asInt, "${file.name} loop_ticks")
+        }
+    }
+
     @Test
     fun `CD-PMP-02 the Pump role file sets auto_assign to false`() {
         val key = autoAssignKey("pump")

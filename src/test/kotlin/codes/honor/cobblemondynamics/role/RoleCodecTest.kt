@@ -43,6 +43,19 @@ class RoleCodecTest {
     }
 
     @Test
+    fun `CD-FX-01 idle_ticks defaults to 40, and a file can set it`() {
+        assertEquals(40, parse(waterGun).getOrThrow().effect.idleTicks)
+        val idle = waterGun.replace("\"loop_ticks\": 40,", "\"loop_ticks\": 40, \"idle_ticks\": 10,")
+        assertEquals(10, parse(idle).getOrThrow().effect.idleTicks)
+    }
+
+    @Test
+    fun `CD-FX-01 a negative idle_ticks and a loop_ticks under 1 are errors`() {
+        assertTrue(parse(waterGun.replace("\"loop_ticks\": 40,", "\"loop_ticks\": 40, \"idle_ticks\": -1,")).error().isPresent)
+        assertTrue(parse(waterGun.replace("\"loop_ticks\": 40,", "\"loop_ticks\": 0,")).error().isPresent)
+    }
+
+    @Test
     fun `CD-CFG-09 a malformed file is an error that names the file`() {
         val result = parse("""{ "schema": 1, "types": "water" }""")
         assertTrue(result.error().isPresent)

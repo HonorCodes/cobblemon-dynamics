@@ -270,3 +270,11 @@ world.
 42. **CD-REL-04** (at the public release, M9). Setup: the Phase 2 gate has passed (CD-REL-14). Action: push the
     tag `v1.0.0`. Expected: after the `release` run ends, Modrinth and CurseForge both list the version
     `1.0.0+mc1.21.1`. This check is not part of the Phase 1 play-test.
+
+## Play-test fixes (2026-11-10)
+
+These checks repeat the findings of the approver's first play-test after their fixes.
+
+43. **CD-FX-01.** Setup: a Charmander Working at a furnace with 64 raw iron. Action: watch the Charmander for
+    20 seconds. Expected: it plays its whole special animation, then stands in its idle pose for about 2
+    seconds before the next one. No animation starts again before it ends.
