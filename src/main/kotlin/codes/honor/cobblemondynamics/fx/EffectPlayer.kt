@@ -6,6 +6,16 @@ import codes.honor.cobblemondynamics.net.WorkSoundPayload
 import codes.honor.cobblemondynamics.registry.DynamicsEntities
 import codes.honor.cobblemondynamics.role.EffectDefinition
 import codes.honor.cobblemondynamics.role.RoleDefinition
+import com.bedrockk.molang.runtime.MoLangRuntime
+import com.bedrockk.molang.runtime.value.DoubleValue
+import com.bedrockk.molang.runtime.value.StringValue
+import com.cobblemon.mod.common.api.molang.MoLangFunctions.asMostSpecificMoLangValue
+import com.cobblemon.mod.common.api.molang.MoLangFunctions.setup
+import com.cobblemon.mod.common.api.moves.animations.ActionEffectContext
+import com.cobblemon.mod.common.api.moves.animations.ActionEffectTimeline
+import com.cobblemon.mod.common.api.moves.animations.ActionEffects
+import com.cobblemon.mod.common.api.moves.animations.TargetsProvider
+import com.cobblemon.mod.common.api.moves.animations.UsersProvider
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.net.messages.client.animation.PlayPosableAnimationPacket
 import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormEntityParticlePacket
@@ -24,6 +34,9 @@ object EffectPlayer {
 
     /** The focus entity has no model, so the client aims at its position. */
     private val focusLocators = listOf("middle")
+
+    /** The queries that `MoveInstruction` adds for a move timeline in battle. */
+    private val battleQueries = listOf("missed", "failed", "hurt", "target_fainted")
 
     fun tickWorking(
         level: ServerLevel,
@@ -46,6 +59,48 @@ object EffectPlayer {
         for (id in particles.filter(SleepEffect.PARTICLES)) {
             SpawnSnowstormEntityParticlePacket(id, entity.id, SleepEffect.LOCATORS).sendToPlayers(players)
         }
+    }
+
+    /**
+     * A completed heal. When Cobblemon's server data has the Floral Healing timeline, it runs with the healer as its user and the
+     * ally as its target (CD-HEAL-16). Otherwise the healer plays its `special` animation, else its cry, and Cobblemon's heal
+     * particles show on the ally (CD-HEAL-15).
+     */
+    fun playHeal(level: ServerLevel, healer: PokemonEntity, ally: PokemonEntity) {
+        when (val choice = HealEffect.choose { ActionEffects.actionEffects[it] }) {
+            is HealEffect.Choice.FloralHealing -> {
+                val timeline = choice.effect as? ActionEffectTimeline ?: return
+                timeline.run(floralHealingContext(timeline, healer, ally))
+            }
+
+            HealEffect.Choice.Fallback -> {
+                val players = recipients(level, healer)
+                if (players.isEmpty()) return
+                PlayPosableAnimationPacket(healer.id, LinkedHashSet(HealEffect.FALLBACK_ANIMATIONS), emptyList()).sendToPlayers(players)
+                for (id in particles.filter(HealEffect.FALLBACK_PARTICLES)) {
+                    SpawnSnowstormEntityParticlePacket(id, ally.id, HealEffect.ALLY_LOCATORS).sendToPlayers(players)
+                }
+            }
+        }
+    }
+
+    /**
+     * The context of a move timeline outside a battle: the healer is the user and the ally the target, as a move instruction sets
+     * them. The battle-only queries that move timelines read answer that nothing missed, failed, fainted or was hurt.
+     */
+    fun floralHealingContext(timeline: ActionEffectTimeline, healer: PokemonEntity, ally: PokemonEntity): ActionEffectContext {
+        val runtime = MoLangRuntime().setup()
+        val query = runtime.environment.query
+        query.addFunction("user") { healer.asMostSpecificMoLangValue() }
+        query.addFunction("target") { ally.asMostSpecificMoLangValue() }
+        for (name in battleQueries) query.addFunction(name) { DoubleValue.ZERO }
+        query.addFunction("instruction_id") { StringValue("cobblemon:move") }
+        return ActionEffectContext(
+            actionEffect = timeline,
+            providers = mutableListOf(UsersProvider(healer), TargetsProvider(ally)),
+            runtime = runtime,
+            level = healer.level(),
+        )
     }
 
     private fun recipients(level: ServerLevel, entity: PokemonEntity): List<ServerPlayer> {

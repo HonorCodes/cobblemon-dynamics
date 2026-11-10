@@ -30,6 +30,21 @@ class Stamina(var fraction: Double = 1.0, var tired: Boolean = false) {
         }
     }
 
+    /** [share] of capacity at once, for a heal (CD-HEAL-04). At 0%, the Pokémon is Tired. */
+    fun spend(share: Double) {
+        fraction -= share
+        if (fraction <= EPSILON) {
+            fraction = 0.0
+            tired = true
+        }
+    }
+
+    /** 100% at once, for a heal, whatever the level (CD-HEAL-05). Tired clears. */
+    fun fill() {
+        fraction = 1.0
+        tired = false
+    }
+
     override fun toString(): String = "Stamina($percent%, tired=$tired)"
 
     private companion object {

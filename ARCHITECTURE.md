@@ -233,7 +233,8 @@ Transition rules:
 - **Healers.** A healer must have at least 25% Work Stamina and no machine claim. It picks a Tired ally
   first (nearest first), else the ally with the lowest Work Stamina under 25%. Allies are in the
   same pasture and have no Fairy type. A healer never heals itself. One healer acts on one ally at a
-  time, through a heal claim on the ally's UUID.
+  time, through a heal claim on the ally's UUID. Healers choose after each scan pass. The heal completes
+  within 2 blocks of the ally's body, because a healer stops at the body of a wide ally.
 
 ## 6. Per-tick flow
 

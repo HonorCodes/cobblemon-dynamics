@@ -18,6 +18,9 @@ import codes.honor.cobblemondynamics.fx.EffectPlayer
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.heal.AllyView
+import codes.honor.cobblemondynamics.heal.HealTargets
+import codes.honor.cobblemondynamics.heal.HealTransaction
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
@@ -307,7 +310,36 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         runtime.scheduler.complete(t.now)
         runtime.scan = null
         assign(t, runtime, pass.found)
+        assignHeals(t, runtime)
     }
+
+    /**
+     * After each scan pass, every free healer of the pasture picks an ally of the same pasture and takes a heal claim on it
+     * (CD-HEAL-01). A healer is a Fairy-type with no machine binding, so it follows the healer rule (CD-HEAL-14).
+     */
+    private fun assignHeals(t: Tick, runtime: PastureRuntime) {
+        val allies = runtime.slots.values.filterNot { it.entity.isRemoved }.map(::allyView)
+        for (slot in runtime.slots.values) {
+            val worker = slot.worker
+            if (slot.rule != RecoveryRule.HEALER || worker.status != WorkerStatus.IDLE || claims.claimOf(worker.pokemonId) != null) continue
+            if (!HealTargets.canStart(worker.stamina.fraction, worker.tired, t.settings) || !BrainBridge.canHoldOrder(slot.entity)) continue
+            val isFree: (UUID) -> Boolean = {
+                val key = TargetKey.Entity(it)
+                claims.isFree(key, worker.pokemonId) && !worker.isSkipped(key, t.now)
+            }
+            val ally = HealTargets.pick(worker.pokemonId, slot.entity.position(), allies, isFree, t.settings) ?: continue
+            val granted = claims.tryClaim(worker.pokemonId, TargetKey.Entity(ally.id), ClaimKind.HEAL, runtime.key, t.now)
+            if (granted is ClaimResult.Granted) t.machine.onHeal(worker, t.now)
+        }
+    }
+
+    private fun allyView(slot: PastureRuntime.Slot): AllyView = AllyView(
+        slot.worker.pokemonId,
+        slot.entity.position(),
+        hasFairyType(slot.pokemon),
+        slot.worker.tired,
+        slot.worker.stamina.fraction,
+    )
 
     /** The auto-assign roles that a worker of the pasture can do. Leash-only roles need no scan. */
     private fun scanRoles(t: Tick, runtime: PastureRuntime): List<ActiveRole> {
@@ -407,6 +439,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
         if (worker.status.isResting) {
             tickRest(t, slot)
+            return
+        }
+        if (worker.status == WorkerStatus.HEALING) {
+            tickHeal(t, runtime, slot)
             return
         }
         val claim = claims.claimOf(worker.pokemonId)
@@ -529,6 +565,32 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
+    /**
+     * A healer walks to its ally and heals it once it is within 2 blocks of the ally's body (CD-HEAL-10): the healer pays 25
+     * points, Tired at 0%, and the ally is full (CD-HEAL-04, CD-HEAL-05). An ally that stops needing the heal, leaves the pasture or
+     * becomes a Fairy-type, and a healer that gets a binding, cancel the heal at no cost (CD-HEAL-11). The ally gets up, and a spent
+     * healer lies down, in their stamina steps (CD-BED-12, CD-HEAL-17).
+     */
+    private fun tickHeal(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+        val worker = slot.worker
+        val claim = claims.claimOf(worker.pokemonId)?.takeIf { it.kind == ClaimKind.HEAL }
+        val allyId = (claim?.key as? TargetKey.Entity)?.uuid
+        val ally = allyId?.let { runtime.slots[it] }?.takeUnless { it.entity.isRemoved }
+        val qualifies = ally != null && slot.rule == RecoveryRule.HEALER && HealTargets.qualifies(allyView(ally), t.settings)
+        val here = slot.entity.position()
+        val body = ally?.entity?.boundingBox
+        val inRange = body != null && qualifies && HealTransaction.inRange(here, HealTransaction.nearestPoint(body, here))
+        val event = t.machine.onHealTick(worker, t.now, qualifies, inRange) ?: return
+        claims.release(worker.pokemonId)
+        clear(slot)
+        if (event == MachineEvent.Healed && ally != null) {
+            HealTransaction.complete(worker.stamina, ally.worker.stamina, t.settings)
+            EffectPlayer.playHeal(t.level, slot.entity, ally.entity)
+        } else if (event is MachineEvent.HealCancelled && event.timedOut && allyId != null) {
+            worker.skipUntil[TargetKey.Entity(allyId)] = t.now + t.settings.retryWaitTicks
+        }
+    }
+
     /** At 100%: the bed claim ends in the same tick (CD-BED-12), and a leashed worker claims its bound target again (CD-STA-14). */
     private fun wake(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
         val worker = slot.worker
@@ -575,6 +637,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             directRest(t, slot)
             return
         }
+        if (worker.status == WorkerStatus.HEALING) {
+            removeFocus(slot)
+            directHeal(slot)
+            return
+        }
         val claim = claims.claimOf(worker.pokemonId)
         val role = slot.role
         val target = worker.target
@@ -618,6 +685,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         } ?: return
         BrainBridge.write(entity, order)
         if (order.sleep) EffectPlayer.tickSleeping(t.level, entity, worker.statusSince, t.now)
+    }
+
+    /** A healer's order is an approach to its ally, which it looks at. */
+    private fun directHeal(slot: PastureRuntime.Slot) {
+        val entity = slot.entity
+        val allyId = (claims.claimOf(slot.worker.pokemonId)?.key as? TargetKey.Entity)?.uuid ?: return
+        val ally = slots[allyId]?.entity?.takeUnless { it.isRemoved } ?: return
+        if (!entity.isRemoved) BrainBridge.write(entity, WorkOrder(ally.position(), ally.boundingBox.center, hold = false))
     }
 
     /** CD-PERF-04: a focus entity lives only while its worker is Working. */

@@ -3,6 +3,8 @@ package codes.honor.cobblemondynamics.engine
 import codes.honor.cobblemondynamics.bed.BedCandidate
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.EngineSettings
+import codes.honor.cobblemondynamics.heal.HealTargets
+import codes.honor.cobblemondynamics.heal.HealTransaction
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.role.role
 import codes.honor.cobblemondynamics.stamina.RecoveryRule
@@ -178,5 +180,102 @@ class RestMachineTest {
         )
         assertTrue(seen.containsAll(phases), "states seen: $seen")
         assertTrue(rests >= 3, "only $rests rests in a day")
+    }
+
+    @Test
+    fun `CD-HEAL-10 a healer completes its heal on the tick that it reaches its ally`() {
+        val healer = worker()
+        machine.onHeal(healer, 0)
+        assertEquals(WorkerStatus.HEALING, healer.status)
+        assertNull(machine.onHealTick(healer, 10, qualifies = true, inRange = false))
+        assertEquals(MachineEvent.Healed, machine.onHealTick(healer, 11, qualifies = true, inRange = true))
+        assertEquals(WorkerStatus.IDLE, healer.status)
+    }
+
+    @Test
+    fun `CD-HEAL-11 a target that stops qualifying cancels the heal, and so does an ally not reached in 600 ticks`() {
+        val healer = worker()
+        machine.onHeal(healer, 0)
+        assertEquals(MachineEvent.HealCancelled(timedOut = false), machine.onHealTick(healer, 5, qualifies = false, inRange = true))
+        assertEquals(WorkerStatus.IDLE, healer.status)
+        val slow = worker()
+        machine.onHeal(slow, 0)
+        assertNull(machine.onHealTick(slow, 599, qualifies = true, inRange = false))
+        assertEquals(MachineEvent.HealCancelled(timedOut = true), machine.onHealTick(slow, 600, qualifies = true, inRange = false))
+        assertEquals(WorkerStatus.IDLE, slow.status)
+    }
+
+    @Test
+    fun `CD-HEAL-17 a heal that spends the healer's last 25 percent sends it to a free bed, or to rest in place`() {
+        for (bed in listOf(hayBed, null)) {
+            val healer = worker()
+            healer.stamina = Stamina(0.25)
+            machine.onHeal(healer, 0)
+            assertEquals(MachineEvent.Healed, machine.onHealTick(healer, 10, qualifies = true, inRange = true))
+            HealTransaction.complete(healer.stamina, Stamina(0.0, tired = true), s)
+            assertTrue(healer.tired)
+            machine.onTired(healer, 10, bed)
+            assertEquals(if (bed == null) WorkerStatus.RESTING_IN_PLACE else WorkerStatus.TO_BED, healer.status)
+        }
+    }
+
+    /**
+     * CD-ASG-18 with a healer: a Lv1 worker works until Tired and rests in place, as no bed is free. A Lv50 healer at 75% takes a heal
+     * claim on the next tick, walks 20 ticks and heals it: the healer pays 25 points, and the worker gets up at once. The healer
+     * recovers at the healer rule in between, so after its third heal it stays just above 0% and can heal no more that day. Both
+     * keep one state on every tick, and the Tired flag only in the rest states.
+     */
+    @Test
+    fun `CD-ASG-18 a scripted day of a worker and a healer keeps one state each and the Tired flag in step`() {
+        val w = worker()
+        val h = worker()
+        h.stamina = Stamina(0.75)
+        val seen = EnumSet.noneOf(WorkerStatus::class.java)
+        var heals = 0
+        var arriveAt = 50L
+        var idleSince = 0L
+        var reachAt = -1L
+        machine.onClaim(w, 0)
+        for (t in 0L until 24_000L) {
+            when (w.status) {
+                WorkerStatus.TRAVELING, WorkerStatus.WORKING, WorkerStatus.STANDBY ->
+                    machine.onTick(w, t, arrived = t >= arriveAt, demand = { true }, key = furnace)
+
+                WorkerStatus.IDLE -> if (t - idleSince >= 40) {
+                    machine.onClaim(w, t)
+                    arriveAt = t + 50
+                }
+
+                else -> {}
+            }
+            if (h.status == WorkerStatus.IDLE && w.tired && HealTargets.canStart(h.stamina.fraction, h.tired, s)) {
+                machine.onHeal(h, t)
+                reachAt = t + 20
+            } else if (machine.onHealTick(h, t, qualifies = w.tired, inRange = t >= reachAt) == MachineEvent.Healed) {
+                HealTransaction.complete(h.stamina, w.stamina, s)
+                heals++
+            }
+            for ((x, rule, level) in listOf(Triple(w, RecoveryRule.WORKER, 1), Triple(h, RecoveryRule.HEALER, 50))) {
+                if (x.status == WorkerStatus.WORKING) x.stamina.work(1, level, s) else x.stamina.rest(1, level, rule, null, s)
+                if (x.tired && !x.status.isResting) {
+                    machine.onTired(x, t, null)
+                } else if (!x.tired && x.status.isResting) {
+                    machine.onRested(x, t)
+                    if (x === w) idleSince = t
+                }
+                seen += x.status
+                assertEquals(x.tired, x.status.isResting, "tick $t: Tired ${x.tired} in ${x.status}")
+            }
+        }
+        assertEquals(3, heals)
+        val phases = listOf(
+            WorkerStatus.IDLE,
+            WorkerStatus.TRAVELING,
+            WorkerStatus.WORKING,
+            WorkerStatus.RESTING_IN_PLACE,
+            WorkerStatus.HEALING,
+        )
+        assertTrue(seen.containsAll(phases), "states seen: $seen")
+        assertFalse(HealTargets.canStart(h.stamina.fraction, h.tired, s), "the healer could still heal at ${h.stamina.percent}%")
     }
 }

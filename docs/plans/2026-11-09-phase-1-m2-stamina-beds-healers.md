@@ -456,13 +456,15 @@ CD-HEAL-09 (GameTest), CD-HEAL-10, CD-HEAL-11, CD-HEAL-15, CD-HEAL-16, CD-HEAL-1
 Fairy machine role, so its GameTest is in M4 Task 5 (the Muse).
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/heal/HealTargets.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/heal/HealTargets.kt` (also `AllyView`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/heal/HealTransaction.kt`
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/fx/HealEffect.kt`
-- Modify: `engine/WorkEngine.kt`, `engine/WorkerMachine.kt` (HEALING)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/fx/HealEffect.kt` (also `ActionEffectLookup`)
+- Modify: `engine/WorkEngine.kt`, `engine/WorkerMachine.kt` (HEALING), `stamina/Stamina.kt` (`spend`, `fill`),
+  `fx/EffectPlayer.kt` (`playHeal`, the Floral Healing context)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/heal/HealTargetsTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/heal/HealTransactionTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/HealEffectTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/engine/RestMachineTest.kt` (the healer's transitions and day)
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/HealerTests.kt`
 
 **Interfaces:**
@@ -471,30 +473,47 @@ Fairy machine role, so its GameTest is in M4 Task 5 (the Muse).
 ```kotlin
 data class AllyView(val id: UUID, val pos: Vec3, val hasFairyType: Boolean, val tired: Boolean, val fraction: Double)
 object HealTargets {
-    fun canStart(healerFraction: Double, healerTired: Boolean, s: EngineSettings): Boolean   // >= 0.25 and not Tired
+    fun canStart(healerFraction: Double, healerTired: Boolean, s: EngineSettings): Boolean   // >= healCost (0.25) and not Tired
+    fun qualifies(ally: AllyView?, s: EngineSettings): Boolean   // in the pasture, no Fairy type, Tired or under lowStaminaThreshold
     fun pick(healerId: UUID, healerPos: Vec3, allies: List<AllyView>, isFree: (UUID) -> Boolean, s: EngineSettings): AllyView?
 }
 object HealTransaction {
     const val RANGE = 2.0
     fun inRange(healerPos: Vec3, allyPos: Vec3): Boolean          // <= 2.0
+    fun nearestPoint(allyBox: AABB, from: Vec3): Vec3             // the point of the ally's body nearest to the healer
     fun complete(healer: Stamina, ally: Stamina, s: EngineSettings) // healer -25 points (Tired at 0), ally 100%
 }
-interface ActionEffectLookup { fun find(id: ResourceLocation): Any? }
+fun interface ActionEffectLookup { fun find(id: ResourceLocation): Any? }
 object HealEffect { fun choose(lookup: ActionEffectLookup): Choice }   // FloralHealing(effect) or Fallback
+// WorkerMachine additions, with MachineEvent.Healed and HealCancelled(timedOut)
+fun onHeal(w: Worker, now: Long)                                                          // HEALING
+fun onHealTick(w: Worker, now: Long, qualifies: Boolean, inRange: Boolean): MachineEvent? // Healed or HealCancelled; IDLE
 ```
 
-`pick` drops the healer itself and Fairy-type allies (CD-HEAL-06), takes the nearest Tired ally
+Rules, as built: after each scan pass, every Idle healer of the pasture (a Fairy-type with no machine
+binding, so its slot follows the healer rule) with `canStart` picks an ally from the Pokémon of its own
+pasture. `pick` drops the healer itself and Fairy-type allies (CD-HEAL-06), takes the nearest Tired ally
 (CD-HEAL-07), else the ally with the lowest fraction under `lowStaminaThreshold` (CD-HEAL-08), and skips an
 ally that another healer claimed (CD-HEAL-09). The heal claim is a `ClaimKind.HEAL` claim on
-`TargetKey.Entity(ally)`. The work order of a healer is an approach order toward the ally. A heal completes
-only within 2.0 blocks (CD-HEAL-10). A target that stops qualifying (100%, left the pasture, Fairy form)
-cancels the heal at no cost (CD-HEAL-11). A heal that drops the healer to 0% sends it to `TO_BED` or
-`RESTING_IN_PLACE` (CD-HEAL-17).
+`TargetKey.Entity(ally's Pokémon UUID)`. The work order of a healer is an approach order to the ally's
+position, looking at the ally. Each tick the heal checks `qualifies` again: an ally at 100%, gone from the
+pasture or now a Fairy-type, and a healer that got a binding, cancel the heal at no cost (CD-HEAL-11). A
+heal completes within 2.0 blocks of the ally's body (`nearestPoint` of its bounding box), because a healer
+stops at the body of a wide ally, whose center can lie far beyond 2 blocks (CD-HEAL-10). An ally not reached
+`travelTimeoutTicks` after the claim cancels the heal too, and the healer skips that ally for
+`retryWaitTicks`. The completed heal leaves the healer Idle; its stamina step then sends a healer at 0% to
+`TO_BED` or `RESTING_IN_PLACE` in the same tick (CD-HEAL-17), and the ally's stamina step gets the ally up
+(CD-BED-12).
 
-Effects: if Cobblemon's action-effect registry has `cobblemon:floralhealing`, run it with a context whose
-user is the healer and whose target is the ally (CD-HEAL-16); otherwise play the healer's `special`
-animation (then `cry`) and spawn `cobblemon:heal_circles` and `cobblemon:heal_sparkles` on the ally
-(CD-HEAL-15).
+A healer recovers between heals, so one that starts a heal some ticks after it reached 25% keeps that
+recovery and is not Tired after the heal. CD-HEAL-17 happens when a heal starts at exactly 25%.
+
+Effects: if Cobblemon's action-effect registry (`ActionEffects.actionEffects`) has `cobblemon:floralhealing`,
+run it with a context whose user is the healer and whose target is the ally, as `UsersProvider` and
+`TargetsProvider` and as the `user` and `target` queries; the context answers the battle-only queries
+`missed`, `failed`, `hurt` and `target_fainted` with 0 (CD-HEAL-16). Otherwise play the healer's `special`
+animation (then `cry`) and spawn `cobblemon:heal_circles` and `cobblemon:heal_sparkles` on the ally's
+`middle` locator (CD-HEAL-15).
 
 - [ ] **Step 1: Failing unit tests**
 
@@ -547,19 +566,32 @@ class HealEffectTest {
 }
 ```
 
-`HealEffect.Choice.FloralHealing` carries the effect, and the GameTest below checks that the context's
-user is the healer and its target the ally.
+The test files also hold: a configured `lowStaminaThreshold`, a claimed ally skipped for the next one
+(CD-HEAL-09), the `qualifies` cases (CD-HEAL-11), a wide ally reached at its body (CD-HEAL-10), the fallback's
+animations and particles (CD-HEAL-15), and in `RestMachineTest` the heal on arrival, the cancel when the target
+stops qualifying and after 600 ticks, CD-HEAL-17 with and without a free bed, and the CD-ASG-18 day of a worker
+and a Lv50 healer at 75%: three heals, one state per tick each, and the Tired flag only in the rest states.
 
-- [ ] **Step 2: Failing GameTests** — `HealerTests`: CD-HEAL-01 (an unleashed Clefairy heals a Tired Machop
-  within 600 ticks), CD-HEAL-06 (a Tired Azumarill in the same pasture and a Tired Machop in a second
-  pasture 3 blocks away get no heal), CD-HEAL-07 (allies at 3 and 6 blocks Tired and one at 10% at 1 block:
-  the 3-block ally), CD-HEAL-09 (two healers, one Tired ally: one heal, one cost), CD-HEAL-11 (the ally
-  leaves the pasture while the healer walks: no cost, no heal), CD-HEAL-15 (Cobblemon 1.8.4 has no Floral
-  Healing timeline, so the fallback runs: record the packets that `EffectPlayer` sends through a test
-  sink and assert the `special` animation and both heal particles), CD-HEAL-16 (a stub registry with the
-  id: the recorded context has user = healer entity and target = ally entity), CD-HEAL-17 (a healer at 25%
-  heals once with one free bed and goes `TO_BED`; another with no bed goes `RESTING_IN_PLACE`, each 1 tick
-  after its heal).
+- [ ] **Step 2: GameTests** — `HealerTests`, for the Brain and Cobblemon's action effects:
+  - `cdHeal01HealerHealsASleepingAlly`: an unleashed Lv50 Clefairy and a Lv10 Machop that is Tired and sleeps on
+    a Hay Bed 7 blocks away. The Clefairy takes a heal claim on the Machop, walks to it and heals it within
+    600 ticks, within 2 blocks of its body (CD-HEAL-01, CD-HEAL-10); it reads 75% and the Machop 100%
+    (CD-HEAL-04, CD-HEAL-05), and 1 tick later the Machop is Idle with no bed claim (CD-BED-12).
+  - `cdHeal16FloralHealingRunsWithTheHealerAsUser` (batch `floral_healing`, whose `@BeforeBatch` puts a
+    recording `cobblemon:floralhealing` timeline in `ActionEffects.actionEffects`, because Cobblemon 1.8.4 has
+    none, and whose `@AfterBatch` removes it): the heal runs the timeline once, with the Clefairy as the
+    only user and the Machop as the only target (CD-HEAL-16).
+
+  The other planned GameTests, each: GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-HEAL-06 (a Tired Azumarill in the same pasture and a Tired Machop in a second pasture 3 blocks away),
+    CD-HEAL-07 (allies at 3 and 6 blocks and one at 10% at 1 block) and CD-HEAL-09 (two healers, one Tired
+    ally): `pick` and the claim registry have unit tests, and the engine passes them the pasture's own slots.
+  - CD-HEAL-11 (the ally leaves the pasture while the healer walks): `qualifies` and `onHealTick` have unit
+    tests.
+  - CD-HEAL-15: a demo row. Fake players receive no packets, so the play-test checks the healer's pose and the
+    sparkles; the fallback's animations and particles have a unit test.
+  - CD-HEAL-17 (healers at 25% with and without a free bed): the stamina step's rest path is the one that
+    `cdBed05` and `cdBed08` run, and the transition has a unit test.
 - [ ] **Step 3: Write the code, run everything, commit** —
   `git commit -m "Let unleashed Fairy-types heal Tired allies for 25% of their Work Stamina"`.
 

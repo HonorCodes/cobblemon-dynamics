@@ -1,0 +1,31 @@
+package codes.honor.cobblemondynamics.fx
+
+import net.minecraft.resources.ResourceLocation
+
+/** Cobblemon's action effects as the heal effect sees them: the timeline of an id, or null. */
+fun interface ActionEffectLookup {
+    fun find(id: ResourceLocation): Any?
+}
+
+/** What a completed heal shows. No Cobblemon heal move has a move effect in 1.8.4, so the fallback is what plays today (CD-HEAL-15). */
+object HealEffect {
+    val FLORAL_HEALING: ResourceLocation = ResourceLocation.parse("cobblemon:floralhealing")
+
+    /** The healer's animations, in order: its `special` animation, or its cry when its model has no `special`. */
+    val FALLBACK_ANIMATIONS: List<String> = listOf("special", "cry")
+
+    /** On the ally. */
+    val FALLBACK_PARTICLES: List<ResourceLocation> =
+        listOf(ResourceLocation.parse("cobblemon:heal_circles"), ResourceLocation.parse("cobblemon:heal_sparkles"))
+
+    val ALLY_LOCATORS: List<String> = listOf("middle")
+
+    sealed interface Choice {
+        /** Cobblemon's server data holds the Floral Healing timeline [effect] (CD-HEAL-16). */
+        data class FloralHealing(val effect: Any) : Choice
+
+        data object Fallback : Choice
+    }
+
+    fun choose(lookup: ActionEffectLookup): Choice = lookup.find(FLORAL_HEALING)?.let { Choice.FloralHealing(it) } ?: Choice.Fallback
+}

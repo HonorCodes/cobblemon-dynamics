@@ -32,6 +32,12 @@ sealed interface MachineEvent {
 
     /** A Tired worker reached 100%. [toBinding] is true for a leashed worker, whose bound target the engine claims at once. */
     data class Rested(val toBinding: Boolean) : MachineEvent
+
+    /** A healer reached its ally. The engine applies the heal and releases the heal claim. */
+    data object Healed : MachineEvent
+
+    /** The heal ends at no cost: the ally stopped needing it, or the healer did not reach it in time ([timedOut]). */
+    data class HealCancelled(val timedOut: Boolean) : MachineEvent
 }
 
 /** The states of one worker, on the tick that the caller passes in. */
@@ -121,6 +127,31 @@ class WorkerMachine(private val settings: EngineSettings) {
     fun onRested(w: Worker, now: Long): MachineEvent {
         onRelease(w, now)
         return MachineEvent.Rested(toBinding = w.leashed)
+    }
+
+    /** A healer took a heal claim on an ally and walks to it (CD-HEAL-01). */
+    fun onHeal(w: Worker, now: Long) {
+        set(w, WorkerStatus.HEALING, now)
+        w.claimTick = now
+        w.retryAt = -1
+        w.missedArrival = false
+    }
+
+    /**
+     * One tick of a healer. [qualifies] is false once the ally stops needing the heal, or the healer stops being one, which cancels
+     * the heal at no cost (CD-HEAL-11). [inRange] completes it (CD-HEAL-10). An ally not reached `travelTimeoutTicks` after the claim
+     * cancels it too. Each end leaves the healer Idle.
+     */
+    fun onHealTick(w: Worker, now: Long, qualifies: Boolean, inRange: Boolean): MachineEvent? {
+        if (w.status != WorkerStatus.HEALING) return null
+        val event = when {
+            !qualifies -> MachineEvent.HealCancelled(timedOut = false)
+            inRange -> MachineEvent.Healed
+            now - w.claimTick >= settings.travelTimeoutTicks -> MachineEvent.HealCancelled(timedOut = true)
+            else -> return null
+        }
+        onRelease(w, now)
+        return event
     }
 
     private fun loseBed(w: Worker, now: Long): MachineEvent {
