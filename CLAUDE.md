@@ -29,6 +29,8 @@ when your hands are on the code.
   entity in the level by `entity.pokemon.uuid` instead.
 - Removing a pastured Pokémon from its PC removes its pasture entity: `PCStore.remove` calls `recall()` on
   the entity's `SentOutState`. `PokemonStore.set` over an occupied slot does the same.
+- NeoForge's `Entity.getPersistentData()` creates the tag on its first read, so the entity then saves an empty
+  `NeoForgeData`. Check a cheaper condition first on entities that are not ours.
 - Cobblemon saves the PC and the party only at `ServerStoppedEvent`. Write anything that must reach
   `persistentData` at shutdown in `ServerStoppingEvent`.
 - A `BaseEntityBlock` renders as invisible unless it overrides `getRenderShape` to return `MODEL`. No
