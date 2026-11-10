@@ -31,6 +31,7 @@ class BuiltInRoleFilesTest {
         "brew_stoker" to Row("cobblemon_dynamics:brewing_fuel", setOf("fire"), true, 10, "ember"),
         "brewer" to Row("cobblemon_dynamics:brewing_speed", setOf("poison"), true, 0, "poisongas"),
         "pump" to Row("cobblemon_dynamics:fluid_fill", setOf("water"), false, 0, "watergun"),
+        "muse" to Row("cobblemon_dynamics:enchanting", setOf("fairy"), false, 0, "fairywind"),
     )
 
     /** The `auto_assign` key as the file writes it, so that a missing key fails as well as `true`. */
@@ -143,6 +144,22 @@ class BuiltInRoleFilesTest {
         val key = autoAssignKey("pump")
         assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "pump.json has auto_assign $key")
         assertFalse(BuiltInRoles.parse("pump").autoAssign)
+    }
+
+    /** Cobblemon's `fairywind` timeline sends the wind from the user, aimed at the target, and its two hits land on the target only. */
+    @Test
+    fun `CD-FX-04 the Muse's Fairy Wind blows from the worker and sparkles at the table`() {
+        val effect = BuiltInRoles.parse("muse").effect
+        assertEquals(listOf("cobblemon:fairywind_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:fairywind_target", "cobblemon:fairywind_targethit"), effect.targetParticles.map { it.toString() })
+        assertEquals(listOf("fairywind", "special", "cry"), effect.animationsWithCry)
+    }
+
+    @Test
+    fun `CD-MUS-02 the Muse role file sets auto_assign to false`() {
+        val key = autoAssignKey("muse")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "muse.json has auto_assign $key")
+        assertFalse(BuiltInRoles.parse("muse").autoAssign)
     }
 
     /** The Cranker is the only role whose move needs contact. */

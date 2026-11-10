@@ -7,7 +7,9 @@
   "mixins": [
     "create.BlazeBurnerBlockEntityMixin",
     "create.ItemUseOverridesMixin",
-    "create.WaterWheelBlockEntityMixin"
+    "create.WaterWheelBlockEntityMixin",
+    "vanilla.EnchantmentMenuAccess",
+    "vanilla.EnchantmentMenuMixin"
   ],
   "client": [],
   "injectors": {

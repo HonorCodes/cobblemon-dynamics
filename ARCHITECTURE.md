@@ -76,7 +76,8 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
   create/                WaterWheelBlockEntityMixin, BlazeBurnerBlockEntityMixin,
                          ItemUseOverridesMixin, EncasedFanBlockEntityMixin,
                          NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
-  vanilla/               EnchantmentMenuMixin
+  vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
+                         other code load)
   cobblemon/client/      PastureWidgetMixin (stamina bars)
   compat/cobblebase/     @Pseudo mixins
 src/main/resources/
@@ -526,11 +527,13 @@ references. This section lists what the code uses.
 - **Brewing stand.** Access transformer entries for `BrewingStandBlockEntity.fuel` and `brewTime`. The
   Brew Stoker keeps `fuel >= 1` while a brew can start. The Brewer lowers `brewTime` by one extra
   step per tick and never below 1, so vanilla finishes the brew.
-- **Enchanting table.** Mixin `EnchantmentMenuMixin` uses `@ModifyVariable` on
-  `EnchantmentMenu.lambda$slotsChanged$0` at the `RandomSource#setSeed(J)V` call. It adds the Muse's
-  bookshelf count to the power sum, so vanilla's random rolls stay the same. The total stays capped at
-  15 by vanilla. The fallback with no mixin is `EnchantmentLevelSetEvent`, with a fixed seed for our own
-  random source.
+- **Enchanting table.** Mixin `EnchantmentMenuMixin` uses `@ModifyArg` on the bookshelf count that
+  `EnchantmentMenu.lambda$slotsChanged$0` passes to `EnchantmentHelper.getEnchantmentCost` for each of the
+  three offers. It adds the Muse's count, and the total stays at 15 or less. The menu seeds its random
+  source before the first offer, and each call draws the same two values whatever the count, so the offers
+  equal those of a table with that many shelves. NeoForge's `EnchantmentLevelSetEvent` still gets the
+  table's own count. A menu that has no such call gets no injection, and `MixinGate` turns the Muse off
+  with one warning (CD-MUS-06).
 - **Cauldrons.** NeoForge's `CauldronWrapper` moves water in 1,000 mB steps only, so it cannot fill a
   cauldron at level 1 or 2. The Pump raises a cauldron one level per 333 mB delivered by setting the
   block state, as vanilla's `receiveStalactiteDrip` does. A cauldron has demand while it is empty or a
@@ -737,7 +740,7 @@ Rules:
 | Cobblemon's behaviour system changes: `TaskConfig.types`, Brain rebuild timing, or the auto folder rules. A future species `baseAI` would skip our auto behaviour. | The engine owns all state and rewrites the memory each tick. One `ai` package holds the bridge. If task registration fails, workers stay Idle and the mod logs one error. | AI |
 | Move effects drift: particle ids get renamed, and few models have attack poses. | Each role lists animation names from specific to `cry`. The manual checklist covers every effect. No gameplay depends on an effect. | FX |
 | The roam box, Brain rebuilds and `onChange()` cost. | The work area is clamped to the roam box. Work Stamina flushes on a coarse schedule. | ASG, STA, PERF |
-| A Create or vanilla mixin fails after an update. The enchanting mixin targets a compiler-generated lambda name. | `MixinPlugin` and the per-mixin flags. The affected role disables itself instead of crashing. The Muse has an event fallback. | PLAT, CMP |
+| A Create or vanilla mixin fails after an update. The enchanting mixin targets a compiler-generated lambda name. | `MixinPlugin` and the per-mixin flags. The affected role disables itself instead of crashing. | PLAT, CMP |
 | The fan and windmill hooks need the client to agree with the server. | Every value that the client reads syncs through Create's behaviour packets or a synced attachment. GameTests and the checklist cover the client view. | FAN, TLW |
 | An ME Interface without a channel or power keeps items in its buffer. | Telekinesis sees no demand once the buffer is full. The checklist covers this case. | TLK |
 | Cobbleworkers and Cobblebase change their internals. The Cobbleworkers flag is undocumented, and Cobblebase hooks fragile names. | Compat toggles in the config. One warning when a hook fails. A manual check on each release of those mods. | CMP |

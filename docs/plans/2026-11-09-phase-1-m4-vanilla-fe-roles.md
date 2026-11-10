@@ -461,7 +461,8 @@ Design decisions (the plan gave steps only):
 `["fairy"]`, `auto_assign` false, effect Fairy Wind), `src/test/kotlin/.../handler/vanilla/MuseBonusTest.kt`,
 `src/gametest/kotlin/.../test/MuseTests.kt`.
 
-The mixin adds `MuseBonus.of(level, tablePos)` to the power before vanilla seeds its random source:
+The mixin adds the Muse's bookshelves to the count that the menu's offers use. As planned, a `@ModifyVariable` on the
+power before vanilla seeds its random source:
 
 ```java
 @ModifyVariable(method = "lambda$slotsChanged$0", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/RandomSource;setSeed(J)V"))
@@ -470,15 +471,105 @@ private float cobblemon_dynamics$shelves(float power, @Local(argsOnly = true) Le
 }
 ```
 
+That hook crashed the game at startup: Mixin's local analysis finds no `float` local at the `setSeed` call ("Found 0
+candidate variables but exactly 1 is required"), and a `@ModifyVariable` with an implicit local throws an
+`InvalidInjectionException` whatever `defaultRequire` says. The lambda's local variable table holds `j` (slot 5) up to
+the method's end, so the analysis most likely drops it at the `chop` frame after the bookshelf loop, whose iterator
+has no table entry. As built, a `@ModifyArg` on the count that the lambda passes to `getEnchantmentCost` for each of the
+three offers, with the table read from the menu's own `access` field:
+
+```java
+@Shadow @Final private ContainerLevelAccess access;
+
+@ModifyArg(method = "lambda$slotsChanged$0(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/enchantment/EnchantmentHelper;getEnchantmentCost(Lnet/minecraft/util/RandomSource;IILnet/minecraft/world/item/ItemStack;)I"),
+        index = 2)
+private int cobblemon_dynamics$shelves(int bookshelves) {
+    return MuseBonus.capped(bookshelves, access.evaluate(MuseBonus::of, 0));
+}
+```
+
 `MuseBonus.forLevel(L) = ceil(15 × L ÷ 100)` (CD-MUS-03), `capped(real, bonus) = min(15, real + bonus)`
 (CD-MUS-04). The handler has demand only while some player's open `EnchantmentMenu` belongs to that table
 (CD-MUS-05; track menus with `PlayerContainerEvent.Open` and `Close`). A missing mixin disables the role
 through `MixinGate` (CD-MUS-06).
+
+As built (`EnchantingHandler` is `cobblemon_dynamics:enchanting`, `scanKind = NONE`; also `handler/vanilla/EnchantingMenus.kt`,
+the two mixins in `cobblemon_dynamics.mixins.json`, `MixinGate.REQUIRED`, the registrations in `CobblemonDynamics.kt`, and
+the Muse's Role table row, particles and flag in `BuiltInRoleFilesTest.kt`):
+
+```kotlin
+object MuseBonus {
+    const val MAX_BOOKSHELVES = 15
+    fun forLevel(level: Int, atLevel100: Double): Int          // CD-MUS-03: ceil(atLevel100 × L ÷ 100), at most 15
+    fun atLevel100(params: JsonObject): Double                 // the role file's bookshelves_at_level_100, default 15
+    @JvmStatic fun capped(real: Int, bonus: Int): Int          // CD-MUS-04
+    @JvmStatic fun of(level: Level, table: BlockPos): Int      // the Working Muse's bookshelves at the table, else 0
+}
+object EnchantingMenus {                                       // CD-MUS-05: open enchanting menus by table
+    fun menusAt(level: ServerLevel, table: BlockPos): List<EnchantmentMenu>
+    fun isOpenAt(level: ServerLevel, table: BlockPos): Boolean
+    fun refresh(level: ServerLevel, table: BlockPos)           // the open menus compute their offers again
+}
+```
+
+Design decisions (the plan gave steps only):
+
+- **The count, not the power before the seed.** Vanilla seeds the menu's random source with the player's enchantment
+  seed before the first offer, and `getEnchantmentCost` draws `nextInt(8)` and `nextInt(count + 1)` whatever the count,
+  so the offers equal those of a table with that many shelves, as the plan wanted. The `@ModifyArg` names the lambda
+  with its full descriptor, so a lambda of another shape is no target, and `defaultRequire: 0` then injects nothing:
+  `MixinState` sees no call to the handler and `MixinGate` turns the Muse off with one warning (CD-MUS-06). Mixin's own
+  `@ModifyArg` cannot capture the target's arguments (checked with `javap` on Mixin 0.16.4), so the handler reads the
+  table through `@Shadow access`, with no MixinExtras `@Local`. NeoForge's `EnchantmentLevelSetEvent` still gets the
+  table's own count.
+- **The cap.** `capped` adds the Muse's count only up to 15, never lowers a count that other mods' shelves raised above
+  15, and returns the count unchanged when no Muse Works at the table. `forLevel` stops at 15 too. The formula's number
+  is the role file's `bookshelves_at_level_100` (ARCHITECTURE section 9), 15 by default, with no level clamp.
+- **Which Muse.** `MuseBonus.of` finds the work claim on the table in the claim registry, and counts it only while its
+  worker is Working with a role of `EnchantingHandler`. It runs inside `guarded`, so a failure turns the handler off with
+  one warning (CD-PERF-05) and the menu keeps vanilla's count.
+- **Open menus (CD-MUS-05).** `EnchantingMenus` keeps one entry per player from `PlayerContainerEvent.Open`, with the
+  table from the menu's `access` (the accessor mixin `EnchantmentMenuAccess`; Mixin lets other code load an accessor). An
+  entry ends on `Close`, on logout and at server stop, and an entry whose player is removed, or whose `containerMenu` is
+  another menu, ends when the next demand check sees it. `ServerPlayer.openMenu` sets `containerMenu` before it posts
+  `Open`.
+- **Offers follow the Muse.** The handler's `onStart` and `onStop` make the table's open menus compute their offers again
+  (`slotsChanged` on the enchanting slots), so a pickaxe that the player put in before the Muse began gets the Muse's
+  offers. The engine sets Working before `onStart`, and releases the claim or leaves Working before `onStop`, so the
+  first sees the Muse and the second does not. The seed stays, so only the count changes the offers. `applyWork` does
+  nothing: the stamina drain while Working is the Muse's cost.
+- **Leash only.** `scanKind = NONE`: `auto_assign` is false, and a Fairy-type never auto-assigns anyway (CD-ASG-04).
+  `matches` and `stillValid` take `minecraft:enchanting_table` only.
+- **CD-HEAL-14.** The engine already gives a bound Fairy-type the worker rule (`RecoveryRule.of`, M2), and `assignHeals`
+  skips any worker that does not follow the healer rule. The GameTest checks it with a real Muse binding.
+- **Effect.** Cobblemon's `fairywind` timeline sends `fairywind_actor` from the user to the target, and plays
+  `fairywind_target` and `fairywind_targethit` on the target only. The animations are `fairywind`, `special` and `cry`,
+  and the range is 6.0.
 
 - [ ] **Step 1: Failing tests** — `MuseBonusTest` (Lv1 1, Lv7 2, Lv50 8, Lv100 15; with a Lv50 Muse, 12, 7 and
   6 real shelves count 15, 15 and 14); `MixinGateTest` extended for the Muse. GameTests: bind a Clefairy to a
   table (CD-MUS-01); no menu 600 ticks then a menu open 600 ticks: stamina drains only while open (CD-MUS-05);
   a leashed Clefairy Muse and a Tired ally share a pasture for 1,200 ticks: no heal (CD-HEAL-14).
   `BuiltInRoleFilesTest` checks `"auto_assign": false` (CD-MUS-02).
+
+  As built, `MuseBonusTest` also checks that no Muse leaves the count as it is, that a Muse never lowers a count above
+  15, and the role file's formula. `MixinGateTest` starts from the real flag, which is false in a unit test because no
+  mixin applies there (CD-MUS-06), and keeps the Muse when its flag is set. Three GameTests, each with a Lv50 Clefairy
+  bound by the Work Leash, which checks CD-MUS-01 each time. A test opens a menu as `ServerPlayer.openMenu` does, because
+  a fake player drops every menu:
+
+```kotlin
+// cdMus03Lv50MuseGivesATableTheOffersOfEightShelves: a pickaxe goes into the menu of the Muse's table, which has no shelves,
+//   while the Muse waits; the Muse Works within 20 ticks (CD-MUS-05), and the menu's costs and clues then equal, for the same
+//   player, those of a table with 8 real bookshelves (CD-MUS-03 on a real table).
+// cdMus05StaminaDrainsOnlyWhileTheMenuIsOpen: Standby and no drop of Work Stamina for 600 ticks with no menu; then a menu stays
+//   open for 600 ticks: Working within 20 ticks, and Work Stamina drops on every tick after that (CD-MUS-05).
+// cdHeal14LeashedMuseNeverHealsATiredAlly: a Tired Lv10 Machop shares the pasture for 1,200 ticks; the Muse follows the worker
+//   rule, never takes a heal claim and is never Healing, and the Machop stays Tired (CD-HEAL-14).
+```
+
+  No GameTest of this task is deferred.
 - [ ] **Step 2: Write the code, run all runs, commit, push, open the pull request** —
-  `./gradlew build runGameTestServer runGameTestServerCore`; `/commit`; `pr-runner` with base `main`.
+  `./gradlew build runGameTestServer runGameTestServerCore`; `/commit`; `pr-runner` with base `main`. As built, the
+  commit message is "Add bookshelf power to enchanting tables with leashed Fairy-types".

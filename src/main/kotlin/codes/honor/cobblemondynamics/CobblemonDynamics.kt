@@ -16,6 +16,8 @@ import codes.honor.cobblemondynamics.handler.create.CreateCompat
 import codes.honor.cobblemondynamics.handler.vanilla.BrewingFuelHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BrewingSpeedHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BuddingHandler
+import codes.honor.cobblemondynamics.handler.vanilla.EnchantingHandler
+import codes.honor.cobblemondynamics.handler.vanilla.EnchantingMenus
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
 import codes.honor.cobblemondynamics.leash.LeashComponents
 import codes.honor.cobblemondynamics.leash.LeashInteractions
@@ -62,6 +64,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(BrewingFuelHandler)
         HandlerRegistry.register(BrewingSpeedHandler)
         HandlerRegistry.register(FluidFillHandler)
+        HandlerRegistry.register(EnchantingHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
         if (ModList.get().isLoaded("create")) CreateCompat.register()
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
@@ -70,6 +73,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         EngineEvents.register()
         LeashInteractions.register()
         LeashResets.register()
+        EnchantingMenus.register()
         DynamicsCommands.register()
     }
 
