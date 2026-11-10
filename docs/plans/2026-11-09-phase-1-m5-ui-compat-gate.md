@@ -468,13 +468,52 @@ Use the commit that the gate report names, after the M5 merge.
 GameTest, a test pack scenario, or a manual checklist line from Task 8. Run them and fix what fails, then
 generate the report. The gate report states how each of these rows was checked.
 
-Deferred rows (the index's execution rule 6; append as milestones defer more):
+Deferred rows (the index's execution rule 6; append as milestones defer more). A row with a check after its id has
+its end-of-phase test. Test names are `Class.method` in `src/gametest/kotlin/`, and checklist numbers are checks of
+`docs/testing/manual-checklist.md`.
 
-- M1 Task 10: CD-FX-04, CD-FX-05, CD-FX-06, CD-FX-07, CD-PERF-04.
-- M1 Tasks 11 to 13: CD-LSH-05, CD-LSH-06, CD-LSH-09, CD-LSH-10, CD-LSH-11, CD-LSH-13, CD-LSH-14, CD-LSH-15,
-  CD-LSH-17, CD-LSH-18, CD-LSH-19, CD-LSH-20, CD-LSH-21, CD-LSH-24, CD-LSH-25, CD-LSH-26, CD-LSH-27, CD-WMD-07,
-  CD-CLM-05, CD-CLM-06, CD-ASG-20, CD-SEC-07, CD-SEC-11, CD-UI-14, CD-SEC-09, and the payload path of CD-SEC-05,
-  CD-SEC-06, CD-WMD-03 and CD-WMD-04.
+- M1 Task 10:
+  - CD-FX-04: `EffectTests.cdFx04Fx05FocusSitsAtTheTargetCenterAndIsUntouchable`; manual checklist 30 (the spray).
+  - CD-FX-05: `EffectTests.cdFx04Fx05FocusSitsAtTheTargetCenterAndIsUntouchable`; manual checklist 31 (no render).
+  - CD-FX-06: `EffectTests.cdFx06FocusIsNeverSaved`.
+  - CD-FX-07: `EffectTests.cdFx07FocusLeavesWithWorking`.
+  - CD-PERF-04: `EffectTests.cdPerf04NoFocusOutlivesItsClaim`.
+- M1 Tasks 11 to 13:
+  - CD-LSH-05: `LeashTests.cdLsh05Lsh06RefusalsAndTheBoundMessage`; `GeneratorTests.cdLsh05PikachuOnBattery` (M4).
+  - CD-LSH-06: `LeashTests.cdLsh05Lsh06RefusalsAndTheBoundMessage` (furnace); manual checklist 18 (water wheel).
+  - CD-LSH-09: `LeashClaimTests.cdLsh09UnloadKeepsTheBinding`, with the unload of the Test architecture
+    (`EngineEvents.onChunkUnload`). GameTest chunks are force-loaded, so no GameTest can unload a target within 8
+    blocks of its pasture.
+  - CD-LSH-10: `LeashTests.cdLsh10SneakClickClearsTheBinding`.
+  - CD-LSH-11: `LeashTests.cdLsh11RebindReplacesTheBinding` (furnaces).
+  - CD-LSH-13: the binder's message in each `LeashResetTests` test (`cdLsh08RecallAndTargetLoss`,
+    `cdLsh13Lsh14EvolutionWithNoFittingRoleClearsTheBinding`, `cdLsh24MovingToAnotherPastureClearsTheBinding`,
+    `cdLsh25ReleaseClearsTheBinding`, `cdLsh26TradeClearsTheBindingData`,
+    `cdLsh27Wmd07BreakingThePastureClearsEveryBinding`); no message after the owner's own action
+    (`LeashTests.cdLsh10SneakClickClearsTheBinding`, `LeashTests.cdLsh11RebindReplacesTheBinding`); manual checklist 19.
+  - CD-LSH-14: `LeashResetTests.cdLsh13Lsh14EvolutionWithNoFittingRoleClearsTheBinding` (Cobblemon's evolution of a
+    Kirlia bound as a Muse into Gallade).
+  - CD-LSH-15: `LeashTests.cdLsh15RecipeCraftsOneLeash`.
+  - CD-LSH-17: `LeashTests.cdLsh17Lsh18Lsh20SourceThenDestination`.
+  - CD-LSH-18: `LeashTests.cdLsh17Lsh18Lsh20SourceThenDestination`.
+  - CD-LSH-19: `PendingSourceTest` (599 and 600 ticks); `LeashTests.cdLsh19AirClickAndTimeoutClearThePendingSource`.
+  - CD-LSH-20: `LeashTests.cdLsh17Lsh18Lsh20SourceThenDestination` (test role); manual checklist 20 (blocked until M6).
+  - CD-LSH-21: `LeashClaimTests.cdLsh21CannotReachMessage`; manual checklist 21.
+  - CD-LSH-24: `LeashResetTests.cdLsh24MovingToAnotherPastureClearsTheBinding`.
+  - CD-LSH-25: `LeashResetTests.cdLsh25ReleaseClearsTheBinding` (Cobblemon's PC release handler).
+  - CD-LSH-26: `LeashResetTests.cdLsh26TradeClearsTheBindingData` (Cobblemon's trade, for the row's unit case).
+  - CD-LSH-27: `LeashResetTests.cdLsh27Wmd07BreakingThePastureClearsEveryBinding`.
+  - CD-WMD-07: `LeashResetTests.cdLsh27Wmd07BreakingThePastureClearsEveryBinding`.
+  - CD-CLM-05: `LeashClaimTests.cdClm05BindTakesTheTargetFromAnAutoWorker`.
+  - CD-CLM-06: `LeashClaimTests.cdClm06ReservedTargetWaitsForItsWorker` (the row's whole scene: the bound worker
+    asleep, then its pasture's Work Mode off with a worker of a second pasture).
+  - CD-ASG-20: `LeashClaimTests.cdAsg20LeashedWorkerStaysOnItsBoundTarget`.
+  - CD-SEC-07: `LeashTests.cdSec07OnlyTheOwnerSelects`.
+  - CD-SEC-11: `LeashTests.cdSec11CancelledClickNeverBinds`.
+  - CD-UI-14: `CommandTests.cdUi14ClaimsListsTheWorkClaimAndTheBinding` (work claims and bindings).
+  - CD-SEC-09: `CommandTests.cdSec09LevelZeroPlayerIsRefused` (the claims and the stamina command).
+  - CD-SEC-05 and CD-WMD-03, the payload path: `PayloadTests.cdSec05Wmd03PlacerPayloadsSetTheRequestedState`.
+  - CD-SEC-06 and CD-WMD-04, the payload path: `PayloadTests.cdSec06Wmd04TwoOperatorsInOneTick`.
 - M2 Tasks 1 to 3: CD-STA-11, CD-STA-12, CD-BED-01, CD-BED-02.
 - M2 Tasks 4 to 6: CD-STA-13 (the second worker at the next scan), CD-LSH-12 (a binding made while Tired), CD-BED-07,
   CD-BED-11, CD-BED-13, CD-BED-14, CD-CLM-06 (the Work Mode off and second pasture parts), CD-WMD-05, CD-FX-10 (demo),
