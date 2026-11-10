@@ -57,6 +57,14 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/dependency-submission@v6
+        with:
+          # Only the classpaths that the mod and its tests compile and run with.
+          # Configurations that only build tools resolve stay out of the graph.
+          dependency-graph-include-configurations: >-
+            compileClasspath|runtimeClasspath|testCompileClasspath|testRuntimeClasspath|gametestCompileClasspath|gametestRuntimeClasspath
+        env:
+          # The mod's runtime classpath has runtime scope. The test classpaths have development scope.
+          DEPENDENCY_GRAPH_RUNTIME_INCLUDE_CONFIGURATIONS: '^runtimeClasspath$'
 
   dependency-review:
     name: Dependency review
@@ -71,5 +79,6 @@ jobs:
       - uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
+          fail-on-scopes: runtime
           comment-summary-in-pr: on-failure
           retry-on-snapshot-warnings: true
