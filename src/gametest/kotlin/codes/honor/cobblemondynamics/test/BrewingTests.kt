@@ -206,6 +206,23 @@ class BrewingTests {
         }
     }
 
+    /**
+     * A server stop ends the Brew Stoker's work as a release does, before the levels save, so the saved stand keeps no fuel that the
+     * worker gave (CD-BRF-05). The stop reaches every worker in the engine, so the test has its own batch.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_200, batch = "server_stop")
+    fun cdBrf05ServerStopLeavesNoFuel(helper: GameTestHelper) {
+        val (owner, pasture) = pasture(helper)
+        val stand = stand(helper, standRel, ItemStack(Items.NETHER_WART), fuel = 0)
+        val charmander = TestKit.tether(helper, pasture, owner, "charmander level=10")
+        helper.succeedWhen {
+            val status = TestKit.workerOf(helper, charmander)?.status
+            helper.assertTrue(status == WorkerStatus.WORKING && stand.fuel >= 1, "the Brew Stoker is $status at fuel ${stand.fuel}")
+            TestKit.engine(helper).stopWorkingHandlers()
+            helper.assertTrue(stand.fuel == 0, "CD-BRF-05: the server stop left ${stand.fuel} fuel")
+        }
+    }
+
     private companion object {
         const val BOTTLE_SLOTS = 3
         const val INGREDIENT_SLOT = 3

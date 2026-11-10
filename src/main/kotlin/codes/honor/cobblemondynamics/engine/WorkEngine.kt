@@ -168,6 +168,23 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
+     * Ends the work of every Working worker through its handler, as a release does, so the saved world keeps no fuel, heat or drive
+     * that a worker gave (CD-BRF-05). The server stop calls it before the levels save. Claims are never saved, so the slots stay as
+     * they are.
+     */
+    fun stopWorkingHandlers() {
+        for (slot in slots.values) {
+            val worker = slot.worker
+            val role = slot.role ?: continue
+            val target = worker.target ?: continue
+            val level = slot.entity.level() as? ServerLevel ?: continue
+            if (worker.status != WorkerStatus.WORKING) continue
+            val t = tick(level)
+            guarded(role.handler, Unit) { role.handler.onStop(context(t, slot, target, role, slot.memo)) }
+        }
+    }
+
+    /**
      * The GameTest form of a restart. A real stop flushes Work Stamina first. A restart also loses the Brain memories, because the
      * work order has no codec, and the focus entities, because their type is never saved.
      */

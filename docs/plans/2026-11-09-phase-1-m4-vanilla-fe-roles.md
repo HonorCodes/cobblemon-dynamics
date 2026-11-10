@@ -350,6 +350,10 @@ Design decisions (the plan gave steps only):
   - CD-BRF-05 (the row's literal case: a stand at fuel 0 is worked, then released before a brew starts): GameTest
     deferred (high confidence): verified in the end-of-phase pass. The release path calls the same `onStop` with
     the claim's memo as Standby does, which `cdBrf02` and `cdBrf03` check.
+  - CD-BRF-05 at a server stop: before the levels save, `WorkEngine.stopWorkingHandlers()` calls `onStop` for every
+    Working worker. Without it, each stop during work saved the stand with one unit of the worker's fuel, which is one
+    free brew. `cdBrf05ServerStopLeavesNoFuel` (own batch `server_stop`, because the call reaches every worker) checks
+    it. The fix came after review, in its own commit.
 - [ ] **Step 2: Write the code, run, commit** — `git commit -m "Fuel and speed up brewing stands with Fire- and Poison-types"`.
 
 ---

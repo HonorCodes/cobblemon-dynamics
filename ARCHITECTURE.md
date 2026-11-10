@@ -270,6 +270,8 @@ writes are safe in any order against block entity ticks (see section 8).
    engine updates its `stamina_view` attachment.
 10. On a state change, every 600 ticks, on entity unload and on server stop, the engine flushes Work
     Stamina to `persistentData` and calls `onChange()`. A flush every tick would be too costly.
+11. On server stop, before the levels save, the engine calls `onStop` for every Working worker, as a
+    release does. The saved world then keeps no fuel, heat or drive that a worker gave (CD-BRF-05).
 
 Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that tick:
 
