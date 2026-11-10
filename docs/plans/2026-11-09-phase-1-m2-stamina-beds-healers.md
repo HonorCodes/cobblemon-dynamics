@@ -517,6 +517,7 @@ animation (then `cry`) and spawn `cobblemon:heal_circles` and `cobblemon:heal_sp
 
 Play-test change (2026-11-10): the fallback spawns only `cobblemon:heal_circles`. The file of
 `cobblemon:heal_sparkles` calls `math.random()` with no arguments, and the Cobblemon 1.8.4 client crashes on it.
+The healer plays only its `special` animation, when its model has one with no sound, never its cry (CD-FX-09).
 
 - [ ] **Step 1: Failing unit tests**
 

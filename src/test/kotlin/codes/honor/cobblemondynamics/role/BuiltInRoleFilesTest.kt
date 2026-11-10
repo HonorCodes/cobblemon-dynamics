@@ -49,7 +49,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("wheel_driver").effect
         assertEquals(listOf("cobblemon:watergun_spray", "cobblemon:watergun_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:watergun_target", "cobblemon:watergun_targetfoam"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("watergun", "spray", "beam", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("watergun", "spray", "beam", "special"), effect.animations)
     }
 
     /** Cobblemon's `pound` timeline emits both of its particles on the target only. */
@@ -58,7 +58,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("cranker").effect
         assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:pound_target", "cobblemon:pound_targetsparks"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("pound", "punch", "tail", "physical", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("pound", "punch", "tail", "physical"), effect.animations)
     }
 
     /**
@@ -71,7 +71,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("stoker").effect
         assertEquals(listOf("cobblemon:ember_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:ember_target"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("ember", "fire", "spray", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("ember", "fire", "spray", "special"), effect.animations)
     }
 
     @Test
@@ -79,7 +79,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("burner_keeper").effect
         assertEquals(listOf("cobblemon:ember_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:ember_target"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("ember", "fire", "spray", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("ember", "fire", "spray", "special"), effect.animations)
     }
 
     /**
@@ -93,7 +93,7 @@ class BuiltInRoleFilesTest {
             val effect = BuiltInRoles.parse(name).effect
             assertEquals(ember.userParticles, effect.actorParticles.map { it.toString() }, name)
             assertEquals(ember.targetParticles, effect.targetParticles.map { it.toString() }, name)
-            assertEquals(ember.animations, effect.animations.filter { it != "cry" }, name)
+            assertEquals(ember.animations, effect.animations, name)
         }
     }
 
@@ -103,7 +103,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("superheater").effect
         assertEquals(listOf("cobblemon:dragonbreath_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:dragonbreath_target"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("dragonbreath", "spray", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("dragonbreath", "spray", "special"), effect.animations)
     }
 
     /**
@@ -121,7 +121,7 @@ class BuiltInRoleFilesTest {
             listOf("cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"),
             effect.targetParticles.map { it.toString() },
         )
-        assertEquals(listOf("thundershock", "electric", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("thundershock", "electric", "special"), effect.animations)
     }
 
     /**
@@ -133,7 +133,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("crystal_tender").effect
         assertEquals(listOf("cobblemon:rockthrow_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(emptyList<String>(), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("rockthrow", "rock", "physical", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("rockthrow", "rock", "physical"), effect.animations)
     }
 
     /** Cobblemon's `ember` timeline sends the ember from the user, aimed at the target, and only the hit lands on the target. */
@@ -142,7 +142,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("brew_stoker").effect
         assertEquals(listOf("cobblemon:ember_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:ember_target"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("ember", "fire", "spray", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("ember", "fire", "spray", "special"), effect.animations)
     }
 
     /** Cobblemon's `poisongas` timeline sends the gas from the user, aimed at the target, and only the cloud forms on the target. */
@@ -151,7 +151,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("brewer").effect
         assertEquals(listOf("cobblemon:poisongas_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:poisongas_target"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("poisongas", "spray", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("poisongas", "spray", "special"), effect.animations)
     }
 
     /** The Pump casts the Wheel Driver's Water Gun: the spray and the actor burst from the worker, the splash on the target. */
@@ -160,7 +160,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("pump").effect
         assertEquals(listOf("cobblemon:watergun_spray", "cobblemon:watergun_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:watergun_target", "cobblemon:watergun_targetfoam"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("watergun", "spray", "beam", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("watergun", "spray", "beam", "special"), effect.animations)
     }
 
     /** The built-in files are the examples for pack makers, so each one writes both keys of its loop. */
@@ -186,7 +186,7 @@ class BuiltInRoleFilesTest {
         val effect = BuiltInRoles.parse("muse").effect
         assertEquals(listOf("cobblemon:fairywind_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:fairywind_target", "cobblemon:fairywind_targethit"), effect.targetParticles.map { it.toString() })
-        assertEquals(listOf("fairywind", "special", "cry"), effect.animationsWithCry)
+        assertEquals(listOf("fairywind", "special"), effect.animations)
     }
 
     @Test

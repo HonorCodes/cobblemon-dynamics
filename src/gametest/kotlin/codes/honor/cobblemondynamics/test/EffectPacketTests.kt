@@ -3,9 +3,9 @@ package codes.honor.cobblemondynamics.test
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.bed.BedTier
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.fx.EffectPlayer
 import codes.honor.cobblemondynamics.fx.HealEffect
 import codes.honor.cobblemondynamics.fx.SleepEffect
-import codes.honor.cobblemondynamics.net.WorkSoundPayload
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.net.messages.client.animation.PlayPosableAnimationPacket
@@ -86,10 +86,10 @@ class EffectPacketTests {
 
     /**
      * A Tired Charmander sleeps on the only Hay Bed and a second one rests in place. For 400 ticks each gets Cobblemon's sleep
-     * particles on its `middle` locator every 40 ticks, and no work sound (CD-FX-10, the server's part; manual checklist 25). Then a
-     * Clefairy joins and heals one of them. Cobblemon 1.8.4 has no Floral Healing effect, so the healer plays its `special`
-     * animation, then its cry, and Cobblemon's heal particles show on the ally (CD-HEAL-15, the server's part; manual checklist 28).
-     * Until the heal ends, the ally also gets its sleep particles every 40 ticks, so the heal check leaves those out.
+     * particles on its `middle` locator every 40 ticks, and no animation, so no cry (CD-FX-10, the server's part; manual checklist
+     * 25). Then a Clefairy joins and heals one of them. Cobblemon 1.8.4 has no Floral Healing effect, so the healer plays its `special`
+     * animation, which has no sound, and Cobblemon's heal particles show on the ally (CD-HEAL-15, the server's part; manual checklist
+     * 28). Until the heal ends, the ally also gets its sleep particles every 40 ticks, so the heal check leaves those out.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 1_600, batch = LISTENER_BATCH)
     fun cdFx10Heal15SleepAndHealEffectsReachANearbyPlayer(helper: GameTestHelper) {
@@ -132,8 +132,9 @@ class EffectPacketTests {
                     for ((what, entity) in listOf("the sleeper" to sleeper, "the worker that rests in place" to rester)) {
                         assertSleepLoop(helper, listener, entity, what)
                     }
-                    val sounds = listener.sent.map { it.second }.filterIsInstance<WorkSoundPayload>()
-                    helper.assertTrue(sounds.isEmpty(), "CD-FX-10: work sounds went out: $sounds")
+                    val ids = setOf(sleeper.id, rester.id)
+                    val poses = listener.sent.map { it.second }.filterIsInstance<PlayPosableAnimationPacket>().filter { it.entityId in ids }
+                    helper.assertTrue(poses.isEmpty(), "CD-FX-10: the sleeping workers got the animations ${poses.map { it.animation }}")
                     healer = TestKit.tether(helper, pasture, owner, "clefairy level=50")
                     listener.sent.clear()
                     step = "heal"
@@ -189,12 +190,11 @@ class EffectPacketTests {
 
     private fun assertHealEffect(helper: GameTestHelper, listener: Listener, healer: PokemonEntity, ally: PokemonEntity) {
         val animations = listener.sent.map { it.second }.filterIsInstance<PlayPosableAnimationPacket>().filter { it.entityId == healer.id }
-        val fallback = HealEffect.FALLBACK_ANIMATIONS.toSet()
+        val special = EffectPlayer.animationOf(healer, HealEffect.FALLBACK_ANIMATIONS)
+        helper.assertTrue(special?.name == "special", "CD-HEAL-15: Cobblemon's files give the Clefairy the animation $special")
         helper.assertTrue(
-            animations.any {
-                it.animation == fallback
-            },
-            "CD-HEAL-15: the healer's animations were ${animations.map { it.animation }}",
+            animations.map { it.animation } == listOf(setOf("special")),
+            "CD-HEAL-15, CD-FX-09: the healer's animations were ${animations.map { it.animation }}",
         )
         // The ally sleeps until the heal ends, so its sleep loop (CD-FX-10) can reach the player in the same window.
         val shots = particlesOn(listener, ally).filterNot { it.second.effectId in SleepEffect.PARTICLES }

@@ -807,7 +807,8 @@ Play-test change (2026-11-10): an effect no longer plays every 40 ticks. `Bedroc
 first name of the role's list that the worker's model has, with its `animation_length`. The animation
 packet names only that animation. The next effect starts when the animation has ended and the role's
 `idle_ticks` (default 40) have passed (`EffectClock.periodTicks`). A model with none of the names gets the
-particles only, every `loop_ticks`.
+particles only, every `loop_ticks`. Work is silent: the animation is the first one with no sound, and the
+`work_sound` payload, `ClientEffects.playWorkSound` and `ClientConfig.workSounds` are gone (CD-FX-09).
 
 Platform facts that changed the plan: actor particles aim at the focus entity too, because Cobblemon's move
 timelines send them with `targetLocators` and `flamethrower_actor` sets its direction from

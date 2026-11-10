@@ -11,7 +11,6 @@ class EffectClockTest {
         animations = listOf("special"),
         actorParticles = emptyList(),
         targetParticles = emptyList(),
-        sound = null,
     )
 
     @Test

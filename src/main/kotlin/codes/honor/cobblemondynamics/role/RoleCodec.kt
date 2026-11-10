@@ -8,7 +8,6 @@ import com.mojang.serialization.JsonOps
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.util.ExtraCodecs
-import java.util.Optional
 
 /** Parses the body of one role file, `data/{namespace}/cobblemon_dynamics/roles/{role}.json`. */
 object RoleCodec {
@@ -17,6 +16,9 @@ object RoleCodec {
     /** The default of `loop_ticks` and of `idle_ticks`: 2 seconds. */
     private const val DEFAULT_TICKS = 40
 
+    /** A model's cry animation plays the Pokémon's cry, and work is silent (CD-FX-09). */
+    private const val CRY = "cry"
+
     private val EFFECT: Codec<EffectDefinition> = RecordCodecBuilder.create { i ->
         i.group(
             ExtraCodecs.POSITIVE_INT.optionalFieldOf("loop_ticks", DEFAULT_TICKS).forGetter { it.loopTicks },
@@ -24,10 +26,7 @@ object RoleCodec {
             Codec.STRING.listOf().fieldOf("animations").forGetter { it.animations },
             ResourceLocation.CODEC.listOf().optionalFieldOf("actor_particles", emptyList()).forGetter { it.actorParticles },
             ResourceLocation.CODEC.listOf().optionalFieldOf("target_particles", emptyList()).forGetter { it.targetParticles },
-            ResourceLocation.CODEC.optionalFieldOf("sound").forGetter { Optional.ofNullable(it.sound) },
-        ).apply(i) { loop, idle, animations, actor, target, sound ->
-            EffectDefinition(loop, idle, animations, actor, target, sound.orElse(null))
-        }
+        ).apply(i, ::EffectDefinition)
     }
 
     private data class Body(
@@ -60,6 +59,12 @@ object RoleCodec {
             b.schema != SCHEMA -> DataResult.error { "unsupported schema ${b.schema}" }
 
             !b.params.isJsonObject -> DataResult.error { "params must be an object" }
+
+            b.effect.animations.any { it.equals(CRY, ignoreCase = true) } ->
+                DataResult.error { "the effect names the animation $CRY, which plays the Pokémon's cry, and work effects are silent" }
+
+            ((json as? JsonObject)?.get("effect") as? JsonObject)?.has("sound") == true ->
+                DataResult.error { "the effect names a sound, and work effects are silent" }
 
             else -> DataResult.success(
                 RoleDefinition(

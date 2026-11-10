@@ -20,15 +20,27 @@ class RoleCodecTest {
     """
 
     @Test
-    fun `CD-FX-03 the Water Gun list ends with cry in the listed order`() {
+    fun `CD-FX-03 the Water Gun list keeps its order and gains no cry`() {
         val role = parse(waterGun).getOrThrow()
-        assertEquals(listOf("watergun", "spray", "beam", "special", "cry"), role.effect.animationsWithCry)
+        assertEquals(listOf("watergun", "spray", "beam", "special"), role.effect.animations)
+    }
+
+    /** The approver's play-test ruling (2026-11-10): work is silent, and a model's cry animation plays its cry. */
+    @Test
+    fun `CD-FX-09 a role file that names cry is skipped with an error that names cry`() {
+        for (cry in listOf("cry", "Cry")) {
+            val result = parse(waterGun.replace("\"spray\",", "\"$cry\", \"spray\","))
+            assertTrue(result.error().isPresent, "a file with $cry parsed")
+            assertTrue(RoleCodec.describeError(id, result).contains("cry"))
+        }
     }
 
     @Test
-    fun `CD-FX-03 a cry written mid-list moves to the end once`() {
-        val role = parse(waterGun.replace("\"spray\",", "\"cry\", \"spray\",")).getOrThrow()
-        assertEquals(listOf("watergun", "spray", "beam", "special", "cry"), role.effect.animationsWithCry)
+    fun `CD-FX-09 a role file that names a sound is skipped`() {
+        val sound = waterGun.replace("\"loop_ticks\": 40,", "\"loop_ticks\": 40, \"sound\": \"cobblemon:move.watergun.actor\",")
+        val result = parse(sound)
+        assertTrue(result.error().isPresent, "a file with a sound parsed")
+        assertTrue(RoleCodec.describeError(id, result).contains("sound"))
     }
 
     @Test

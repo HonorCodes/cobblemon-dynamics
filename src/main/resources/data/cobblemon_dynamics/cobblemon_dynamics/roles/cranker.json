@@ -9,7 +9,7 @@
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,
-    "animations": ["pound", "punch", "tail", "physical", "cry"],
+    "animations": ["pound", "punch", "tail", "physical"],
     "actor_particles": [],
     "target_particles": ["cobblemon:pound_target", "cobblemon:pound_targetsparks"]
   }

@@ -35,6 +35,9 @@ class BedrockAnimations(private val root: Path) : AnimationCatalog {
     /** Where an animation name of a poser points: `animation.<group>.<animation>` in the file `<group>.animation.json`. */
     data class AnimationRef(val group: String, val animation: String)
 
+    /** One animation of a group file: its length, and whether it plays a sound, which work never does (CD-FX-09). */
+    private class Clip(val seconds: Double, val sound: Boolean)
+
     private class Variation(val aspects: Set<String>, val poser: ResourceLocation)
 
     private data class Query(val species: ResourceLocation, val aspects: Set<String>, val names: List<String>)
@@ -43,7 +46,7 @@ class BedrockAnimations(private val root: Path) : AnimationCatalog {
     private val poserFiles: Map<String, Path> by lazy { files("posers", ".json") }
     private val groupFiles: Map<String, Path> by lazy { files("animations", ".animation.json") }
     private val posers = HashMap<String, Map<String, AnimationRef>>()
-    private val groups = HashMap<String, Map<String, Double>>()
+    private val groups = HashMap<String, Map<String, Clip>>()
     private val answers = HashMap<Query, WorkAnimation?>()
 
     @Synchronized
@@ -57,8 +60,8 @@ class BedrockAnimations(private val root: Path) : AnimationCatalog {
         val poser = poserOf(species, aspects) ?: return null
         for (name in names) {
             val ref = animationOf(poser, name) ?: continue
-            val seconds = groupOf(ref.group)["animation.${ref.group}.${ref.animation}"] ?: continue
-            if (seconds > 0) return WorkAnimation(name, WorkAnimation.ticks(seconds))
+            val clip = groupOf(ref.group)["animation.${ref.group}.${ref.animation}"] ?: continue
+            if (clip.seconds > 0 && !clip.sound) return WorkAnimation(name, WorkAnimation.ticks(clip.seconds))
         }
         return null
     }
@@ -80,7 +83,7 @@ class BedrockAnimations(private val root: Path) : AnimationCatalog {
         return posers.getOrPut(poser.path) { readPoser(file) }[name]
     }
 
-    private fun groupOf(group: String): Map<String, Double> = groups.getOrPut(group) { groupFiles[group]?.let(::readGroup).orEmpty() }
+    private fun groupOf(group: String): Map<String, Clip> = groups.getOrPut(group) { groupFiles[group]?.let(::readGroup).orEmpty() }
 
     /** The variations of each species, in Cobblemon's order: by each file's `order`, then by path, each file in its own order. */
     private fun readVariations(): Map<ResourceLocation, List<Variation>> {
@@ -112,11 +115,17 @@ class BedrockAnimations(private val root: Path) : AnimationCatalog {
         }?.toMap()
     }.orEmpty()
 
-    /** The `animation_length` of each animation in a group file that has one. */
-    private fun readGroup(file: Path): Map<String, Double> = read(file) { group ->
+    /**
+     * Each animation of a group file that has an `animation_length`. An animation plays a sound through a `sound_effects` keyframe,
+     * as cries do, or through a MoLang `timeline` instruction such as `q.sound('animation.leather.wing_flap.medium')`.
+     */
+    private fun readGroup(file: Path): Map<String, Clip> = read(file) { group ->
         group.getAsJsonObject("animations")?.entrySet()?.mapNotNull { (name, value) ->
-            val length = (value as? JsonObject)?.get("animation_length")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }
-            length?.let { name to it.asDouble }
+            val animation = value as? JsonObject ?: return@mapNotNull null
+            val length = animation.get("animation_length")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }
+            val keyframes = (animation.get("sound_effects") as? JsonObject)?.size() ?: 0
+            val instructions = (animation.get("timeline") as? JsonObject)?.toString().orEmpty()
+            length?.let { name to Clip(it.asDouble, keyframes > 0 || SOUND_CALL.containsMatchIn(instructions)) }
         }?.toMap()
     }.orEmpty()
 
@@ -142,6 +151,9 @@ class BedrockAnimations(private val root: Path) : AnimationCatalog {
 
         /** The group and the animation of Cobblemon's `q.bedrock`, `q.bedrock_primary` and `q.bedrock_stateful` functions. */
         val BEDROCK_ANIMATION = Regex("""q\.bedrock(?:_primary|_stateful)?\(\s*'([^']+)'\s*,\s*'([^']+)'""")
+
+        /** A MoLang call of a sound function, such as Cobblemon's `q.sound`. MoLang is case-insensitive. */
+        val SOUND_CALL = Regex("""sound\w*\s*\(""", RegexOption.IGNORE_CASE)
     }
 }
 

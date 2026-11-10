@@ -182,6 +182,8 @@ object ServerConfig {
 `val defaultWorkSounds: Boolean get() = workSoundsValue.default`, the default that the spec writes to a
 new file. A `const val` with a camel-case name fails ktlint's `property-naming` rule.
 
+Play-test change (2026-11-10): `effects.workSounds` is gone, because work is silent (CD-CFG-06).
+
 Register both in the mod constructor:
 
 ```kotlin
@@ -475,6 +477,9 @@ object RoleSelection {
 val animationsWithCry: List<String>
     get() = animations.filter { it != "cry" } + "cry"
 ```
+
+Play-test change (2026-11-10): work is silent. `animationsWithCry` and the `sound` key are gone, and
+`RoleCodec` skips a role file that names `cry`, whose animation plays the Pokémon's cry, or a `sound`.
 
 `RoleCodec` uses a `RecordCodecBuilder` over the file body:
 

@@ -11,8 +11,8 @@ fun interface ActionEffectLookup {
 object HealEffect {
     val FLORAL_HEALING: ResourceLocation = ResourceLocation.parse("cobblemon:floralhealing")
 
-    /** The healer's animations, in order: its `special` animation, or its cry when its model has no `special`. */
-    val FALLBACK_ANIMATIONS: List<String> = listOf("special", "cry")
+    /** The healer's animation, when its model has one with no sound. Never its cry, because work is silent (CD-FX-09). */
+    val FALLBACK_ANIMATIONS: List<String> = listOf("special")
 
     /**
      * On the ally. Not `cobblemon:heal_sparkles`: its file calls `math.random()` with no arguments, which Cobblemon 1.8.4's MoLang

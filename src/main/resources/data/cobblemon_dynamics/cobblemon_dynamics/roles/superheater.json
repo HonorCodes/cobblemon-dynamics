@@ -9,7 +9,7 @@
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,
-    "animations": ["dragonbreath", "spray", "special", "cry"],
+    "animations": ["dragonbreath", "spray", "special"],
     "actor_particles": ["cobblemon:dragonbreath_actor"],
     "target_particles": ["cobblemon:dragonbreath_target"]
   }

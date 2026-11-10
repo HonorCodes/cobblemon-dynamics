@@ -9,7 +9,7 @@
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,
-    "animations": ["rockthrow", "rock", "physical", "cry"],
+    "animations": ["rockthrow", "rock", "physical"],
     "actor_particles": ["cobblemon:rockthrow_actor"],
     "target_particles": []
   }

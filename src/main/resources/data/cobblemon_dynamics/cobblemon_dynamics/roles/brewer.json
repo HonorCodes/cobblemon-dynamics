@@ -9,7 +9,7 @@
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,
-    "animations": ["poisongas", "spray", "special", "cry"],
+    "animations": ["poisongas", "spray", "special"],
     "actor_particles": ["cobblemon:poisongas_actor"],
     "target_particles": ["cobblemon:poisongas_target"]
   }

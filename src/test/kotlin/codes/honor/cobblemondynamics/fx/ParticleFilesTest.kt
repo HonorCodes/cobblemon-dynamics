@@ -15,7 +15,7 @@ import java.nio.file.Path
  * crashes while it ticks a particle whose MoLang calls `math.random()` with no arguments, as `cobblemon:heal_sparkles` does.
  */
 class ParticleFilesTest {
-    private class ParticleFile(val path: Path, val text: String, val spawns: Set<ResourceLocation>)
+    private class ParticleFile(val path: Path, val text: String, val spawns: Set<ResourceLocation>, val sound: Boolean)
 
     /** Cobblemon's particle files by their `identifier`, the id that its client knows them by. */
     private val files: Map<ResourceLocation, ParticleFile> by lazy {
@@ -26,8 +26,9 @@ class ParticleFilesTest {
             val effect = JsonParser.parseString(text).asJsonObject.getAsJsonObject("particle_effect")
             val id = ResourceLocation.parse(effect.getAsJsonObject("description").get("identifier").asString)
             val spawns = HashSet<ResourceLocation>()
-            effect.get("events")?.let { collectSpawns(it, spawns) }
-            id to ParticleFile(path, text, spawns)
+            val events = effect.get("events")
+            events?.let { collectSpawns(it, spawns) }
+            id to ParticleFile(path, text, spawns, events?.toString()?.contains("\"sound_effect\"") == true)
         }
     }
 
@@ -70,6 +71,23 @@ class ParticleFilesTest {
             queue += file.spawns
         }
         assertTrue(problems.isEmpty(), problems.joinToString("\n"))
+    }
+
+    /** A particle event can play a sound, as Cobblemon's `bite_target` does. Work is silent (the approver's play-test ruling, 2026-11-10). */
+    @Test
+    fun `CD-FX-09 no particle that the mod sends, and no particle that one spawns, plays a sound`() {
+        val loud = HashSet<ResourceLocation>()
+        val seen = HashSet<ResourceLocation>()
+        val queue = ArrayDeque(sent)
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            val file = files[id]
+            if (!seen.add(id) || file == null) continue
+            if (file.sound) loud += id
+            queue += file.spawns
+        }
+        assertTrue(loud.isEmpty(), "particles with a sound event: $loud")
+        assertTrue(files.getValue(ResourceLocation.parse("cobblemon:bite_target")).sound, "the check misses the sound of bite_target")
     }
 
     @Test

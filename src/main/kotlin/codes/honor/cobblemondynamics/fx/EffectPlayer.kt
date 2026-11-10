@@ -2,7 +2,6 @@ package codes.honor.cobblemondynamics.fx
 
 import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
-import codes.honor.cobblemondynamics.net.WorkSoundPayload
 import codes.honor.cobblemondynamics.registry.DynamicsEntities
 import codes.honor.cobblemondynamics.role.EffectDefinition
 import codes.honor.cobblemondynamics.role.RoleDefinition
@@ -23,7 +22,6 @@ import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormParticl
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
-import net.neoforged.neoforge.network.PacketDistributor
 
 /** Loops each role's move effect with Cobblemon's own packets, aimed at a focus entity on the target (ADR-0007). */
 object EffectPlayer {
@@ -48,13 +46,13 @@ object EffectPlayer {
         workingSince: Long,
         now: Long,
     ) {
-        val animation = animationOf(entity, role.effect.animationsWithCry)
+        val animation = animationOf(entity, role.effect.animations)
         if (!EffectClock.shouldPlay(workingSince, now, EffectClock.periodTicks(animation, role.effect))) return
         val players = recipients(level, entity)
         if (players.isNotEmpty()) play(entity, focus, role.effect, animation, players)
     }
 
-    /** The first of [names] that the model of [entity] plays, from Cobblemon's own animation files (CD-FX-03). */
+    /** The first of [names] that the model of [entity] plays with no sound, from Cobblemon's own animation files (CD-FX-03, CD-FX-09). */
     fun animationOf(entity: PokemonEntity, names: List<String>): WorkAnimation? {
         val pokemon = entity.pokemon
         return animations.first(pokemon.species.resourceIdentifier, pokemon.aspects, names)
@@ -72,8 +70,8 @@ object EffectPlayer {
 
     /**
      * A completed heal. When Cobblemon's server data has the Floral Healing timeline, it runs with the healer as its user and the
-     * ally as its target (CD-HEAL-16). Otherwise the healer plays its `special` animation, else its cry, and Cobblemon's heal
-     * particles show on the ally (CD-HEAL-15).
+     * ally as its target (CD-HEAL-16). Otherwise the healer plays its `special` animation when its model has one with no sound, and
+     * Cobblemon's heal particles show on the ally (CD-HEAL-15).
      */
     fun playHeal(level: ServerLevel, healer: PokemonEntity, ally: PokemonEntity) {
         when (val choice = HealEffect.choose { ActionEffects.actionEffects[it] }) {
@@ -85,7 +83,9 @@ object EffectPlayer {
             HealEffect.Choice.Fallback -> {
                 val players = recipients(level, healer)
                 if (players.isEmpty()) return
-                PlayPosableAnimationPacket(healer.id, LinkedHashSet(HealEffect.FALLBACK_ANIMATIONS), emptyList()).sendToPlayers(players)
+                animationOf(healer, HealEffect.FALLBACK_ANIMATIONS)?.let {
+                    PlayPosableAnimationPacket(healer.id, setOf(it.name), emptyList()).sendToPlayers(players)
+                }
                 for (id in particles.filter(HealEffect.FALLBACK_PARTICLES)) {
                     SpawnSnowstormEntityParticlePacket(id, ally.id, HealEffect.ALLY_LOCATORS).sendToPlayers(players)
                 }
@@ -135,9 +135,6 @@ object EffectPlayer {
                 is ParticleShot.AtFocus -> SpawnSnowstormParticlePacket(shot.id, focus.position())
             }.sendToPlayers(players)
         }
-        val sound = effect.sound ?: return
-        val payload = WorkSoundPayload(entity.id, sound)
-        for (player in players) PacketDistributor.sendToPlayer(player, payload)
     }
 
     /** At the target center (CD-FX-04). */

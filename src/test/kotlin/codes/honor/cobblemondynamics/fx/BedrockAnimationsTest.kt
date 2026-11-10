@@ -41,7 +41,10 @@ class BedrockAnimationsTest {
             """{ "animations": {
                  "special": "q.bedrock_primary('alpha', 'special', q.curve('symmetrical_wide'))",
                  "physical": "q.bedrock_primary('alpha', 'strike', 'look', q.curve('symmetrical_wide'))",
-                 "status": "q.bedrock_primary('alpha', 'status', q.curve('symmetrical_wide'))" } }""",
+                 "status": "q.bedrock_primary('alpha', 'status', q.curve('symmetrical_wide'))",
+                 "loud": "q.bedrock_primary('alpha', 'loud')",
+                 "flap": "q.bedrock_primary('alpha', 'flap')",
+                 "quiet": "q.bedrock_primary('alpha', 'quiet')" } }""",
         )
         write("posers/0001_alpha/alpha_alolan.json", """{ "animations": { "special": "q.bedrock_primary('alpha', 'special_alolan')" } }""")
         write(
@@ -50,7 +53,11 @@ class BedrockAnimationsTest {
                  "animation.alpha.special": { "animation_length": 3.0 },
                  "animation.alpha.strike": { "animation_length": 2.0 },
                  "animation.alpha.special_alolan": { "animation_length": 4.0 },
-                 "animation.alpha.status": { "loop": true } } }""",
+                 "animation.alpha.status": { "loop": true },
+                 "animation.alpha.loud": { "animation_length": 2.0, "sound_effects": { "0.0": { "effect": "pokemon.alpha.cry" } } },
+                 "animation.alpha.flap": { "animation_length": 2.0,
+                   "timeline": { "0.5": "q.has_entity ? { q.sound('animation.leather.wing_flap.medium'); };" } },
+                 "animation.alpha.quiet": { "animation_length": 2.0, "sound_effects": {}, "timeline": { "0.5": "v.x = 1;" } } } }""",
         )
         write(
             "animations/0002_beta/beta.animation.json",
@@ -96,9 +103,53 @@ class BedrockAnimationsTest {
         assertNull(animations.first(ResourceLocation.parse("cobblemon:gamma"), emptySet(), listOf("special")))
     }
 
+    /** The approver's play-test ruling (2026-11-10): work is silent, so an animation with a sound keyframe never plays. */
+    @Test
+    fun `CD-FX-09 an animation that plays a sound, through a sound keyframe or a timeline, is passed over`() {
+        assertEquals(WorkAnimation("quiet", 40), fixture().first(alpha, emptySet(), listOf("loud", "flap", "quiet")))
+        assertNull(fixture().first(alpha, emptySet(), listOf("loud", "flap")))
+    }
+
     private val jar by lazy { BedrockAnimations(CobblemonJar.bedrock.resolve("pokemon")) }
 
-    private fun animationsOf(role: String) = BuiltInRoles.parse(role).effect.animationsWithCry
+    private fun animationsOf(role: String) = BuiltInRoles.parse(role).effect.animations
+
+    private fun animationOf(species: String, role: String) =
+        jar.first(ResourceLocation.parse("cobblemon:$species"), emptySet(), animationsOf(role))
+
+    /**
+     * Cobblemon 1.8.4 gives Machop, Eevee, Vaporeon, Grimer, Rockruff and Dragonair no `special` or `physical` animation. They used to
+     * fall back to their cry, which played the cry's sound on every loop. Now they play no animation, and their particles loop every
+     * 40 ticks.
+     */
+    @Test
+    fun `CD-FX-09 a worker whose model has no attack animation plays no animation, and its particles loop every 40 ticks`() {
+        val cases = listOf(
+            "machop" to "cranker",
+            "eevee" to "cranker",
+            "vaporeon" to "wheel_driver",
+            "grimer" to "brewer",
+            "rockruff" to "crystal_tender",
+            "dragonair" to "superheater",
+        )
+        for ((species, role) in cases) {
+            assertNull(animationOf(species, role), species)
+            assertEquals(40, EffectClock.periodTicks(null, BuiltInRoles.parse(role).effect), species)
+        }
+    }
+
+    /** Bellibolt's `special` animation plays its cry, and Volcarona's beats its wings with a sound, in Cobblemon 1.8.4. */
+    @Test
+    fun `CD-FX-09 a model whose attack animation plays a sound plays no animation`() {
+        assertNull(animationOf("bellibolt", "generator"))
+        assertNull(animationOf("volcarona", "stoker"))
+    }
+
+    @Test
+    fun `CD-HEAL-15 a Clefairy healer plays its 3 s special animation`() {
+        val clefairy = jar.first(ResourceLocation.parse("cobblemon:clefairy"), emptySet(), HealEffect.FALLBACK_ANIMATIONS)
+        assertEquals(WorkAnimation("special", 60), clefairy)
+    }
 
     /** Cobblemon 1.8.4: Charmander's JSON poser maps `special` to `animation.charmander.special`, which lasts 3 s. */
     @Test

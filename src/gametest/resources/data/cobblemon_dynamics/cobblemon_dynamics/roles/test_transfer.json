@@ -9,6 +9,6 @@
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,
-    "animations": ["kinesis", "special", "cry"]
+    "animations": ["kinesis", "special"]
   }
 }

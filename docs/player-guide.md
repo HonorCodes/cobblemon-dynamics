@@ -102,8 +102,7 @@ Tired icon, so seven icons cover the eight states.
 A Working worker faces its target and plays its role's move. The move's animation plays to its end, and the
 worker then stands idle for 2 seconds before it plays the move again. A worker whose model has no animation
 for the move shows the move's particles every 2 seconds. The move's particles fly to the center of the
-target. Players within 64 blocks of the worker see the effects. Work sounds are off by
-default. The client config key `effects.workSounds` turns them on.
+target. Players within 64 blocks of the worker see the effects. Work effects play no sound.
 
 ## Work Leash
 
@@ -273,7 +272,8 @@ Work Stamina of the other workers in its pasture.
   that ally for 5 minutes.
 - A heal that takes the healer to 0% makes it Tired. It then goes to a bed like any worker.
 - If Cobblemon has a Floral Healing action effect, the heal plays it. Otherwise, as on Cobblemon 1.8.4, the
-  healer plays its special pose or its cry, and heal circles show on the ally.
+  healer plays its special pose, if its model has one, and heal circles show on the ally. The heal plays no
+  sound.
 
 ### Healer recovery
 
@@ -518,7 +518,6 @@ The client config is `config/cobblemon_dynamics-client.toml`.
 
 | Key | Default | Range | What it does |
 | --- | --- | --- | --- |
-| `effects.workSounds` | `false` | `true`, `false` | Play the sounds of the work moves. |
 | `hud.headBarRange` | 16 | 4 to 64 | Blocks within which workers show their head bars. |
 | `hud.panelBars` | `true` | `true`, `false` | Show the Work Stamina bars and the state icons in the pasture panel. |
 
@@ -534,11 +533,13 @@ The `effect` object holds these keys:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `animations` | none | The animation names to try, in order. The worker plays the first one that its model has. |
+| `animations` | none | The animation names to try, in order. The worker plays the first one that its model has with no sound. A file that names `cry` does not load, because the cry animation plays the Pokémon's cry. |
 | `actor_particles` | `[]` | Cobblemon particle ids that fly from the worker to the target. |
 | `target_particles` | `[]` | Cobblemon particle ids that burst at the target. |
 | `idle_ticks` | 40 | The ticks that the worker stands idle after its animation ends, before it plays the move again. |
 | `loop_ticks` | 40 | The interval of a worker whose model has none of the animations. It shows only the particles. |
+
+Work is silent, so an effect has no sound key. A file whose effect names a `sound` does not load.
 
 - `/reload` applies changed role files without a restart.
 - A file that does not parse is skipped. The log then holds one error that names the file.

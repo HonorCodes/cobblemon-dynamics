@@ -9,7 +9,7 @@
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,
-    "animations": ["fairywind", "special", "cry"],
+    "animations": ["fairywind", "special"],
     "actor_particles": ["cobblemon:fairywind_actor"],
     "target_particles": ["cobblemon:fairywind_target", "cobblemon:fairywind_targethit"]
   }

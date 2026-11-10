@@ -196,8 +196,8 @@ world.
 28. **CD-HEAL-15.** Setup: a Work Mode pasture with a level 30 Clefairy and a level 1 Charmander Working at a
     furnace with 64 raw iron. Action: watch until the Clefairy heals the Charmander. The heal starts when the
     Charmander drops under 25%, after about 2 minutes. Expected: when the Clefairy reaches the Charmander, it
-    plays its special pose or its cry. Heal circles show on the Charmander, and its bar goes to 100%. The
-    client does not crash.
+    plays its special pose. Heal circles show on the Charmander, and its bar goes to 100%. No sound plays,
+    and the client does not crash.
 
 ## Stoker
 
@@ -227,11 +227,11 @@ world.
 
 ## Work effects
 
-35. **CD-FX-09.** Setup: 5 Charmanders Working at 5 furnaces with input, with the default client config.
-    Action: listen for 10 seconds. Then close the game, and set `workSounds = true` under `[effects]` in
-    `config/cobblemon_dynamics-client.toml`. Start the game and listen for 10 seconds again. Set
-    `workSounds = false` afterward. Expected: with the default config, no move sound plays. With
-    `workSounds = true`, each worker plays its move sound with its effect.
+35. **CD-FX-09.** Setup: a Machop and an Eevee Working at two Create hand cranks, a Vaporeon Working at a
+    water wheel with no water, and 2 Charmanders Working at 2 furnaces with input. Action: listen for 10
+    seconds. Expected: no sound comes from the workers' effects. The Machop, the Eevee and the Vaporeon play no
+    animation, and their particles show every 2 seconds. A Pokémon's own ambient cry, which Cobblemon plays
+    about once a minute, is not a work effect.
 
 ## Compatibility
 
