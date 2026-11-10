@@ -200,3 +200,11 @@ row id is missing from the checklist.
 
 CD-REL-14 (the Phase 2 gate before 1.0.0 publishes) and CD-REL-15 (1.0.0 joins the approver's pack) belong to
 M8 and M9. The gate report lists them as open, out of this plan's scope.
+
+**End-of-phase pass for deferred GameTests.** Before Step 2, give every row in the list below a test: a
+GameTest, a test pack scenario, or a manual checklist line from Task 8. Run them and fix what fails, then
+generate the report. The gate report states how each of these rows was checked.
+
+Deferred rows (the index's execution rule 6; append as milestones defer more):
+
+- M1 Task 10: CD-FX-04, CD-FX-05, CD-FX-06, CD-FX-07, CD-PERF-04.
