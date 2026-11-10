@@ -446,7 +446,8 @@ references. This section lists what the code uses.
   ends one tick after release. The handler renews the heat of a burner on every tick that its worker
   Works, and the heat lapses one tick after the last renewal, so a release that never came leaves no
   burner hot. Empty burners (`HeatLevel.NONE`, no block entity) are never targets, because heating
-  one would duplicate a blaze.
+  one would duplicate a blaze. A creative burner has no demand: its tick returns before it reads the
+  heat level, so a worker's heat would never reach it.
 - **Boilers.** Create's `BoilerHeater` registry reads the burner block state. `KINDLED` gives 1 heat
   and `SEETHING` gives 2. Boilers need no extra code.
 - **Drive direction.** `BlockEntityBehaviourEvent.forType(...)` for `AllBlockEntityTypes.WATER_WHEEL`,

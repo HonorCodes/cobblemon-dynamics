@@ -222,6 +222,36 @@ class BurnerTests {
         }
     }
 
+    /**
+     * A creative Blaze Burner holds its heat whatever heats it, so a worker gains nothing there. A Charmander claims it, but on its spot
+     * it waits in Standby and never Works, and its Work Stamina never drops (carry-over from M3).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun creativeBlazeBurnerHasNoDemand(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val burner = CreateKit.filledBurner(helper, burnerRel)
+        val registries = helper.level.registryAccess()
+        val saved = burner.saveWithFullMetadata(registries)
+        saved.putBoolean("isCreative", true)
+        burner.loadWithComponents(saved, registries)
+        helper.assertTrue(burner.isCreative(), "the burner did not load as a creative burner")
+        CreateKit.basin(helper, aboveRel)
+        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        var standbySince = -1L
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, fire) ?: return@onEachTick
+            helper.assertTrue(worker.status != WorkerStatus.WORKING, "the Charmander works a creative burner")
+            helper.assertTrue(worker.stamina.fraction == 1.0, "Work Stamina dropped at a creative burner: ${worker.stamina}")
+            if (worker.status != WorkerStatus.STANDBY) return@onEachTick
+            helper.assertTrue(
+                TestKit.claimOf(helper, fire)?.key == TestKit.keyOf(helper, burner.blockPos),
+                "the Charmander waits elsewhere",
+            )
+            if (standbySince < 0) standbySince = helper.tick
+            if (helper.tick - standbySince >= 100) helper.succeed()
+        }
+    }
+
     /** A filled burner at [rel] with 1,000 ticks of normal fuel, as Create saves one that burns coal. */
     private fun fueledBurner(helper: GameTestHelper, rel: BlockPos): BlazeBurnerBlockEntity {
         val burner = CreateKit.filledBurner(helper, rel)

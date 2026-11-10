@@ -357,8 +357,9 @@ Leash](#flip-a-water-wheel-or-a-hand-crank).
 **Target:** a Blaze Burner that holds a blaze. An empty Blaze Burner is not a target.
 
 The Burner Keeper keeps the burner kindled, as coal does. It works only while a basin or a fluid tank sits
-directly on top of the burner. Under a boiler, the burner counts 1 heat. The Burner Keeper never changes
-the burner's own fuel. When it stops, the burner goes back to the heat of its own fuel within 2 ticks.
+directly on top of the burner. It never works a creative Blaze Burner, whose heat a worker cannot change.
+Under a boiler, the burner counts 1 heat. The Burner Keeper never changes the burner's own fuel. When it
+stops, the burner goes back to the heat of its own fuel within 2 ticks.
 
 **Role file parameter:** `heat` (`kindled`).
 

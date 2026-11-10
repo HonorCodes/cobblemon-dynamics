@@ -132,8 +132,8 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 - End-of-phase pass (M5): a work spot is one cell, so a wide worker's body can overlap the blocks beside it
   (CD-ASG-09). Check it in the play-test and widen the spot check if it shows.
-- End-of-phase pass (M5): a Burner Keeper works a creative Blaze Burner, which gains nothing from it. Make
-  `hasDemand` false for a creative burner.
+- Done in the end-of-phase pass (M5): a Burner Keeper worked a creative Blaze Burner, which gains nothing
+  from it. `hasDemand` is now false for a creative burner (`BurnerTests.creativeBlazeBurnerHasNoDemand`).
 - End-of-phase pass (M5): two Pokémon that walk toward each other on the same row of cell centres push each
   other straight back, because Minecraft pushes along the line between their centres. Navigation follows cell
   centres and the engine snaps a Working worker to its spot's centre, so a walk that pushes a Working worker off
