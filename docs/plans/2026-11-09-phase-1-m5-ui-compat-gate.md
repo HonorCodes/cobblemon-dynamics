@@ -375,15 +375,57 @@ Design (as built):
 
 **Rows:** CD-REL-08, CD-REL-09, CD-PLAT-06 (manual check).
 
-**Files:** `docs/player-guide.md`, `docs/testing/manual-checklist.md`, `scripts/check_manual_checklist.py`.
+**Files:** `docs/player-guide.md`, `docs/testing/manual-checklist.md`,
+`src/test/kotlin/.../build/PlayerGuideTest.kt`, `src/test/kotlin/.../build/ManualChecklistTest.kt` (in place of the
+planned `scripts/check_manual_checklist.py`), `build.gradle` (test inputs).
 
 The guide has a section for Work Mode, the Work Leash, Work Stamina, beds, healers and each v1 role, written
 with the `ste-writing` skill. The checklist has one entry per `Demo:` test in the spec sheet, with its row
-id, setup, steps and the fail condition copied from the row. `check_manual_checklist.py` fails when a Demo
-row id is missing from the checklist.
+id, setup, action and expected result, the negation of the row's fail condition. `ManualChecklistTest` fails
+when a Demo row id is missing from the checklist.
 
-- [ ] **Steps:** write the script → run it and see it fail → write the checklist and the guide → run it and
-  see it pass → commit `"Add the player guide and the manual checklist for every Demo test"`.
+Design (as built):
+
+- The guide's sections: Quick start, Work Mode (workers, the work area, how a worker finds its target, Work Mode
+  off, the eight states, work effects), Work Leash, Work Stamina, Beds, Healers, Roles (one section per built-in
+  role, with its types, level, target, demand rule, numbers and role file parameters), Configuration (every server
+  and client config key with its default and range, and role files), Commands and Compatibility. The guide takes
+  its numbers from the code and the role files, for example the Generator table from `FeCurve` and the healer
+  table from `StaminaMath.healerMinutes`. It describes no Phase 2 role.
+- `PlayerGuideTest` (CD-REL-08) checks for a heading for Work Mode, Work Leash, Work Stamina, Beds, Healers,
+  Server config, Client config and Commands, and for a heading for each built-in role file. The role name comes
+  from the file name (`brew_stoker` is the Brew Stoker), so a role file that M6 or M7 adds fails the test until
+  the guide covers it. The test also checks that the guide names every key of the server and client config specs
+  and every subcommand that `DynamicsCommands` registers.
+- `ManualChecklistTest` (CD-REL-09) reads the spec sheet. It fails when a Phase 1 row whose acceptance test holds
+  `Demo:` is missing from the checklist, or when the checklist names a row that the sheet lacks. It runs in
+  `./gradlew build` and so in CI, which runs no Python script. The sheet has 34 such rows: 28 whose test starts
+  with `Demo:`, and the Demo parts of CD-PLAT-02, CD-PLAT-03, CD-PLAT-05, CD-FX-05, CD-UI-07 and CD-CMP-01. At
+  the v1.0.0 tag, CD-REL-09 counts the Phase 2 Demo tests too, so the Phase 2 work drops the test's area filter.
+- The `test` task lists `docs/player-guide.md`, `docs/testing/**` and the spec sheet as inputs.
+- A mutation run (a removed role heading, a renamed config key, a removed Beds heading, a renamed command, a
+  changed row id in the checklist) failed the matching test each time.
+- The checklist starts with the play-test setup: the test pack client (`testpack.py client`), a clean NeoForge
+  21.1.265 instance, `options.txt` for a new game folder, the optional Cobbleworkers, Cobblebase and Cloth Config
+  jars in `run/testpack/cache/`, and the `smoke` server folder, started by hand, for the checks that need a
+  server or a second player. It has 42 checks in 11 groups: platform 5, Work Mode and the panel 10, Work Leash 9,
+  Work Stamina and beds 3, healers 1, Stoker 1, Wheel Driver 4, Cranker 1, work effects 1, compatibility 4 and
+  release 3. Beside the 34 Demo rows, it holds the six real-restart checks of the Task 9 list (CD-CLM-07,
+  CD-LSH-07, CD-WHL-07, CD-CRK-08, CD-STA-04, CD-BED-14: checks 13, 24, 33, 34, 26 and 27) and the two
+  carry-over checks of the rehydration note (CD-ASG-09 for a wide worker, CD-ASG-14 for a crowded pasture).
+- CD-CLM-07 with a real restart: a worker's first poll after a load is immediate, so a person cannot read the
+  registry before the first scan. The check turns the Stoker off in the server config while the world is closed.
+  A work claim that `/cobblemondynamics claims` then lists can only have come from the save.
+- CD-CMP-05 needs a Cobblebase that lacks a hooked method. Cobblebase 2.0.0 has every hooked method, but 1.5.4
+  (Modrinth version `arXwBcAs`) lacks `NavigationHelper.findNearbyWaterCached`, as `javap` on its jar shows, and
+  its Cobblemon range `[1.7.0,)` admits 1.8.4. The check expects one warning that names `waterTeleport`. If 1.5.4
+  itself fails on Cobblemon 1.8.4, the check is blocked.
+- CD-LSH-20 needs the Telekinesis role (M6), so the Phase 1 play-test records it as blocked. CD-REL-12 waits for
+  the approver at the gate (Task 9), and CD-REL-04 for the public release (M9).
+
+- [ ] **Steps:** write `PlayerGuideTest` and `ManualChecklistTest` → run them and see them fail on the missing
+  files → write the guide and the checklist → run them and see them pass → `./gradlew build` → commit
+  `"Add the player guide and the manual play-test checklist"`.
 
 ---
 
