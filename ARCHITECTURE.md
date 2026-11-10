@@ -227,7 +227,9 @@ Transition rules:
   example, a Wheel Driver at a wheel that real water turns moves to a dry wheel. A leashed worker never
   moves off its bound target.
 - **Beds.** A Tired worker claims the nearest unclaimed bed inside its pasture's work area. A bed has
-  one sleeper. Any size of Pokémon can sleep on a bed.
+  one sleeper. Any size of Pokémon can sleep on a bed: a worker lies down once it is within 0.5 blocks of
+  the bed's top center, or within half its width when it is wider, because navigation stops a wide
+  Pokémon that far from its goal.
 - **Healers.** A healer must have at least 25% Work Stamina and no machine claim. It picks a Tired ally
   first (nearest first), else the ally with the lowest Work Stamina under 25%. Allies are in the
   same pasture and have no Fairy type. A healer never heals itself. One healer acts on one ally at a
@@ -248,7 +250,8 @@ writes are safe in any order against block entity ticks (see section 8).
    compat layer sets or clears the Cobbleworkers rest flag at the same time.
 5. Scans run per pasture:
    - A scan pass reads the block entity maps of the chunks that overlap the work area. That finds every
-     machine target and every bed.
+     machine target. A worker that gets Tired reads the same maps for the beds of its work area at that
+     moment, so it claims a bed in the same tick, also on its first tick after a restart.
    - Budding blocks have no block entity. Only a pasture with a Crystal Tender candidate iterates block
      positions for them, at up to 512 checks per pasture per tick.
    - A pass can span several 40-tick intervals. The next pass starts at the first 40-tick boundary
@@ -274,11 +277,16 @@ Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that 
    Cobblemon's `look_at_target` runs only in the idle activity, which the work activity replaces.
 4. At the work spot, a hold task keeps `PATH_COOLDOWN` set. Cobblemon's wander task needs both
    `WALK_TARGET` and `PATH_COOLDOWN` to be absent, so wandering stays paused.
-5. On a bed, a task snaps the Pokémon to the bed center. It then sets
-   `enablePoseTypeRecalculation=false` and `POSE_TYPE=SLEEP`. It never sets the battle SLEEP status,
-   because that status persists.
+5. On a bed, a task snaps the Pokémon to the bed center every tick, and a worker that rests in place to
+   where it stood. It then sets `enablePoseTypeRecalculation=false` and `POSE_TYPE=SLEEP`. It never sets
+   the battle SLEEP status, because that status persists. It marks the pose in the entity's NeoForge
+   data.
 6. When the memory clears, a switch-back task restores the normal schedule. It also restores
-   `enablePoseTypeRecalculation`, because Cobblemon saves that flag to NBT.
+   `enablePoseTypeRecalculation`, because Cobblemon saves that flag to NBT. Any order that is not a sleep
+   order, a release, and the load of an entity that was saved while it slept restore the flag of a
+   marked entity too.
+7. Entering the work activity ends Cobblemon's own night sleep, as its wake-up task does: it clears the
+   battle SLEEP status and the `pokemon_sleeping` memory, which only that task clears otherwise.
 
 `TargetHandler` contract (Kotlin sketch):
 
@@ -362,6 +370,10 @@ references. This section lists what the code uses.
 - **Pose.** `PokemonEntity.enablePoseTypeRecalculation` and the `POSE_TYPE` entity data with
   `PoseType.SLEEP`. The species flag `behaviour.resting.canSleep` does not gate our beds, because a
   model without a sleep pose falls back to its idle pose.
+- **Night sleep.** Cobblemon's `go_to_sleep` task, in the idle activity, gives a drowsy Pokémon the battle
+  SLEEP status and the `pokemon_sleeping` memory and switches it to Cobblemon's sleeping activity, whose
+  `wake_up` task clears both. The work activity replaces the sleeping activity, so the Brain bridge
+  clears both itself when it switches a Pokémon to work.
 - **Pokémon data.** `Pokemon.level`, `types`, `isLegendary()`, `isMythical()`, `persistentData` with
   `onChange()`, `getOwnerUUID()`, `isWild()`, `isPlayerOwned()`, `isFainted()` and `uuid`.
 - **Events.** `CobblemonEvents.POKEMON_FAINTED`, `EVOLUTION_COMPLETE`, `LEVEL_UP_EVENT` and

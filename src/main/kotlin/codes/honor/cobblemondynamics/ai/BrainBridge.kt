@@ -1,8 +1,12 @@
 package codes.honor.cobblemondynamics.ai
 
 import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.id
+import com.cobblemon.mod.common.CobblemonMemories
 import com.cobblemon.mod.common.api.ai.config.task.TaskConfig
+import com.cobblemon.mod.common.api.pokemon.status.Statuses
+import com.cobblemon.mod.common.entity.PoseType
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.LivingEntity
@@ -11,6 +15,12 @@ import net.minecraft.world.phys.Vec3
 
 /** The engine's only way into a Pokémon's Brain: the work order memory and the `cobblemon_dynamics:work` activity. */
 object BrainBridge {
+    /** In the entity's NeoForge data while this mod holds the entity in the sleep pose, so that only a pose of ours is restored. */
+    private const val POSED = "$MOD_ID:posed"
+
+    /** A sleeper further than this from its sleep point is put back on it. */
+    private const val LIE_TOLERANCE_SQR = 1e-4
+
     /** Before Cobblemon loads the behaviour files. Without these types the work behaviour cannot load, and workers stay Idle. */
     fun registerTaskTypes() {
         try {
@@ -54,6 +64,48 @@ object BrainBridge {
         if (!brain.isActive(work)) return
         val level = entity.level() as? ServerLevel ?: return
         brain.stopAll(level, entity)
+        endNightSleep(entity)
+    }
+
+    /**
+     * Cobblemon's night sleep gives a Pokémon the battle SLEEP status and the sleeping memory, and only its own wake-up task clears
+     * them. That task runs in Cobblemon's sleeping activity, which the work activity replaces, so a Pokémon that Cobblemon put to sleep
+     * would work with the status, which persists into battles, and with the sleep pose. This wakes it as Cobblemon's wake-up task does.
+     */
+    private fun endNightSleep(entity: PokemonEntity) {
+        val brain = entity.brain
+        if (!brain.isMemoryValue(CobblemonMemories.POKEMON_SLEEPING, true)) return
+        val pokemon = entity.pokemon
+        if (!entity.isBattling && pokemon.status?.status == Statuses.SLEEP) pokemon.status = null
+        brain.eraseMemory(CobblemonMemories.POKEMON_SLEEPING)
+    }
+
+    /**
+     * The sleep pose of a worker on a bed or at rest. Cobblemon recalculates the pose every tick unless recalculation is off, and it
+     * chooses the sleep pose only for the battle SLEEP status or its own sleeping memory, so the bridge turns recalculation off and
+     * sets the pose itself. It never sets the battle status, which persists (CD-AI-07).
+     */
+    fun pose(entity: PokemonEntity) {
+        entity.persistentData.putBoolean(POSED, true)
+        entity.enablePoseTypeRecalculation = false
+        if (entity.entityData.get(PokemonEntity.POSE_TYPE) != PoseType.SLEEP) entity.entityData.set(PokemonEntity.POSE_TYPE, PoseType.SLEEP)
+    }
+
+    /**
+     * Ends a pose of ours. Cobblemon saves the recalculation flag with the entity, so a flag left off would freeze the pose for good
+     * (CD-AI-08). An entity that loads with our mark, because it was saved while it slept, gets its pose back here too.
+     */
+    fun wake(entity: PokemonEntity) {
+        val data = entity.persistentData
+        if (!data.getBoolean(POSED)) return
+        data.remove(POSED)
+        entity.enablePoseTypeRecalculation = true
+    }
+
+    /** Keeps a sleeper on its sleep point, at rest (CD-BED-10). */
+    fun lieAt(entity: PokemonEntity, point: Vec3) {
+        if (entity.position().distanceToSqr(point) > LIE_TOLERANCE_SQR) entity.teleportTo(point.x, point.y, point.z)
+        entity.deltaMovement = Vec3.ZERO
     }
 
     /** Turns the head, the body and the yaw to [target] (CD-AI-05). */

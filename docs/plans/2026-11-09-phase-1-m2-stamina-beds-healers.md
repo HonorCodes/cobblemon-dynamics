@@ -346,70 +346,104 @@ CD-BED-09, CD-BED-10, CD-BED-11, CD-BED-12, CD-BED-13, CD-BED-14, CD-AI-07, CD-A
 CD-CLM-09 (GameTest), CD-CLM-06 (sleeping bound worker), CD-WMD-05 (full scene), CD-ASG-18 (full day).
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/bed/BedSelector.kt`
-- Modify: `engine/WorkerMachine.kt` (Tired transitions), `engine/WorkEngine.kt`, `ai/WorkTaskConfig.kt`
-  (sleep hold and pose), `fx/EffectPlayer.kt` (sleep loop)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/bed/BedSelector.kt` (also `BedCandidate`)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/fx/SleepEffect.kt`
+- Modify: `engine/WorkerStatus.kt` (`isResting`), `engine/Worker.kt` (`bed`, `restSpot`), `engine/WorkerMachine.kt` (Tired
+  transitions), `engine/WorkEngine.kt`, `engine/EngineEvents.kt` (the pose restore on `EntityJoinLevelEvent`),
+  `ai/BrainBridge.kt` (pose, wake, the end of Cobblemon's night sleep), `ai/WorkOrder.kt`, `ai/WorkTaskConfig.kt` (sleep
+  hold and pose), `ai/SwitchFromWorkTaskConfig.kt`, `fx/EffectPlayer.kt` (sleep loop)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/bed/BedSelectorTest.kt`
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/engine/RestMachineTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/RestTests.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/fx/SleepEffectTest.kt`
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/RestTests.kt`, `TestKit.relative`
 
 **Interfaces:**
 - Produces:
 
 ```kotlin
-data class BedCandidate(val key: TargetKey, val center: Vec3, val tier: Int)
-object BedSelector {
-    /** Nearest free bed inside the area; on a distance tie the higher tier; then the lowest position. */
-    fun pick(from: Vec3, beds: List<BedCandidate>, isFree: (TargetKey) -> Boolean): BedCandidate?
+data class BedCandidate(val key: TargetKey, val center: Vec3, val tier: Int) {
+    companion object { fun sleepPoint(pos: BlockPos): Vec3 }               // the bed's top, at the center of its block
 }
-// WorkerMachine additions
-fun onTired(w: Worker, now: Long, bed: BedCandidate?): MachineEvent    // TO_BED with a bed claim, or RESTING_IN_PLACE
-fun onRested(w: Worker, now: Long): MachineEvent                         // leashed -> TRAVELING to the binding, auto -> IDLE
+object BedSelector {
+    /** Nearest free bed; on a distance tie the higher tier; then the lowest position. The caller passes the work area's beds. */
+    fun pick(from: Vec3, beds: List<BedCandidate>, isFree: (TargetKey) -> Boolean): BedCandidate?
+    fun isAt(pos: Vec3, width: Double, center: Vec3): Boolean              // within max(0.5, width / 2) across, 1.5 up or down
+}
+// WorkerMachine additions, with MachineEvent.ToBed(bed), RestInPlace, FellAsleep, LostBed and Rested(toBinding)
+fun onTired(w: Worker, now: Long, bed: BedCandidate?): MachineEvent      // TO_BED on the bed that the engine claimed, or RESTING_IN_PLACE
+fun onRestTick(w: Worker, now: Long, atBed: Boolean, bedPresent: Boolean): MachineEvent?   // SLEEPING, or RESTING_IN_PLACE when the bed is lost
+fun onRested(w: Worker, now: Long): MachineEvent                         // IDLE; the engine then claims a leashed worker's bound target
+object SleepEffect { const val LOOP_TICKS = 40; val PARTICLES: List<ResourceLocation>; val LOCATORS: List<String> }
 ```
 
-Rules: a worker that reaches 0% while Working becomes Tired. An auto worker releases its work claim in the
-same tick (CD-STA-13). A leashed worker keeps its binding (CD-CLM-09). Then the worker claims a bed with
-`BedSelector.pick` over the beds inside its pasture's work area (CD-BED-05, CD-BED-06, CD-BED-07), or rests
-in place at the base rate (CD-BED-08). `TO_BED` becomes `SLEEPING` when the worker is within 0.5 blocks of
-the bed center; a bed not reached 600 ticks after the claim gives `RESTING_IN_PLACE`. Sleeping and resting
-set the Brain work order to `sleep = true`: the work task snaps the entity to the bed center every tick
-(CD-BED-10), sets `enablePoseTypeRecalculation = false` and `POSE_TYPE = PoseType.SLEEP`, and never sets the
-battle SLEEP status (CD-AI-07). Waking restores `enablePoseTypeRecalculation = true` (CD-AI-08). Sleep
-effects: `cobblemon:sleep_actor` and `cobblemon:sleep_actorresidual` every 40 ticks with no sound
-(CD-FX-10). A broken bed moves its sleeper to `RESTING_IN_PLACE` in the same tick (CD-BED-11). At 100%,
-the bed claim is released in the same tick (CD-BED-12). Only Tired workers of Work Mode pastures reach a bed
-(CD-BED-13). After a restart, a Tired worker claims a bed again on its first poll, within 40 ticks
-(CD-BED-14). Bed size never filters a Pokémon (CD-BED-09).
+Rules, as built: the engine drains Work Stamina in its stamina step, after the worker's tick. A worker that
+the step makes Tired goes to rest in the same step: the release path ends its work claim, with the handler's
+`onStop` (CD-STA-13), and a leash binding stays (CD-CLM-09). The engine then reads the beds of the pasture's
+work area from the chunks' block entity maps, picks one with `BedSelector.pick` and claims it (CD-BED-05,
+CD-BED-06, CD-BED-07), or the worker rests in place at the base rate where it stands (CD-BED-08). The bed
+lookup happens at that moment, not in the scan pass, so a Tired worker that joins after a restart also takes
+a bed on its first tick (CD-BED-14). `TO_BED` becomes `SLEEPING` when `BedSelector.isAt` is true: within
+0.5 blocks of the sleep point, or within half the Pokémon's width when it is wider. Navigation stops a wide
+Pokémon that far from its last path node, as it does at a work spot, so this is what lets any size of
+Pokémon use a bed (CD-BED-09); the engine then lays it on the sleep point. A bed that is not reached
+`travelTimeoutTicks` (600) after the claim, or that is no longer a bed block, gives `RESTING_IN_PLACE` in the
+same tick, and the bed's factor stops (CD-BED-11). Sleeping and resting set the Brain work order to
+`sleep = true`: the work task puts the entity back on its sleep point every tick (CD-BED-10), sets
+`enablePoseTypeRecalculation = false` and `POSE_TYPE = PoseType.SLEEP`, and never sets the battle SLEEP
+status (CD-AI-07). The bridge marks its pose in the entity's NeoForge data (`cobblemon_dynamics:posed`). Any
+order without `sleep`, the end of the order, and a release restore `enablePoseTypeRecalculation = true` for a
+marked entity; so does `EntityJoinLevelEvent`, for an entity that was saved while it slept (CD-AI-08). Sleep
+effects: `cobblemon:sleep_actor` and `cobblemon:sleep_actorresidual` on the `middle` locator, as Cobblemon's
+own sleep timeline plays them, every 40 ticks with no sound (CD-FX-10). A worker that the stamina step fills
+gets up in the same step: its bed claim ends (CD-BED-12), and a leashed worker claims its bound target, so it
+is `TRAVELING` in that tick (CD-STA-14). Only Tired workers of Work Mode pastures reach a bed (CD-BED-13).
 
-- [ ] **Step 1: Failing unit tests** — `BedSelectorTest`: beds at 3 and 5 blocks gives the 3-block bed
-  (CD-BED-05); Hay and Plush beds both at 4.0 gives the Plush Bed (CD-BED-06); a claimed bed is skipped.
-  `RestMachineTest`: the five rules above on a fake clock, plus CD-STA-09 (a Tired worker at 99.9% is
-  refused a furnace, at 100% it gets it) and the extended CD-ASG-18 day: a worker and a healer through
-  24,000 ticks with Tired, bed, sleep and heal phases, exactly one state per tick.
-- [ ] **Step 2: Failing GameTests** (`RestTests`), each from its row's acceptance text:
+Carry-over from M1: Cobblemon's night sleep (`go_to_sleep`, in the idle activity) gives a pastured Pokémon the
+battle SLEEP status and the `pokemon_sleeping` memory, and only its `wake_up` task, in Cobblemon's sleeping
+activity, clears them. A work order replaces that activity, so `BrainBridge.enterWork` wakes the Pokémon as
+`wake_up` does: it clears the SLEEP status (outside battle) and the memory.
+
+- [ ] **Step 1: Failing unit tests** — `BedSelectorTest`: beds at 3 and 5 blocks gives the 3-block bed, also
+  against a higher tier (CD-BED-05); Hay and Plush beds both at 4.0 gives the Plush Bed (CD-BED-06); a
+  claimed bed is skipped; no free bed gives none; a full tie goes to the lowest position; the arrival radius
+  for a small and a wide Pokémon (CD-BED-09). `RestMachineTest`: the rules above on a fake clock (to bed,
+  rest in place, asleep on arrival, the 600-tick bed timeout, a broken bed under a walker and a sleeper, the
+  wake of an auto and a leashed worker), CD-STA-09 (a Tired worker at 99.9% is refused a furnace, at 100% it
+  gets it) and a CD-ASG-18 day of a worker through 24,000 ticks with work, bed, sleep and rest-in-place
+  phases, one state per tick, with the Tired flag set exactly in the rest states. Task 5 adds the healer's
+  day. `SleepEffectTest`: the two particles, the locator and the 40-tick loop (CD-FX-10).
+- [ ] **Step 2: GameTests** (`RestTests`), for what depends on Cobblemon's navigation, pose and sleep code:
 
 ```kotlin
-// cdSta13TiredAutoWorkerFreesItsMachine: a Lv1 Charmander set to 1 tick of stamina; 1 tick after Tired its claim is gone,
-//   and a second Charmander claims the furnace at the next scan.
-// cdSta14LeashedWorkerReturnsAfterRest: a leashed worker at 99.99% Sleeping; at 100% it is TRAVELING within 20 ticks.
-// cdLsh12TiredBindingWaits: bind a Tired Pokémon to a furnace; it does not work before 100% and keeps the binding.
-// cdBed05NearestBed / cdBed07OnlyInsideArea (beds at offsets 8 and 9) / cdBed08RestInPlaceTimesRecovery: a Lv10 worker at 0%
-//   with no bed stays in place, shows PoseType.SLEEP, and reaches 100% at 36,000 ± 20 ticks (use ticksPerLevel = 20 in a
-//   config-override batch so the test takes 200 ticks; the row's ratio is what the test checks).
-// cdBed09WailordUsesAHayBed: a Tired Wailord claims and sleeps on a Hay Bed.
-// cdBed10SleeperStaysOnTheBed: 1,200 ticks within 0.25 blocks of the bed center.
-// cdBed11BrokenBedMeansRestInPlace / cdBed12FullSleeperFreesItsBed (recovery, and a heal in Task 5) /
-// cdBed13OnlyTiredWorkersSleep (a worker at 50% and a wild Pokémon beside a free bed for 1,200 ticks) /
-// cdBed14SleeperClaimsABedAfterRestart (simulateRestart, then on a free bed within 40 ticks).
-// cdAi07NoBattleSleepStatus: a worker sleeps and wakes; pokemon.status never reads Cobblemon's sleep status.
-// cdAi08PoseRecalculationRestored: after waking, and after the entity is saved and loaded, enablePoseTypeRecalculation is true.
-// cdClm09TiredLeashedWorkerGetsABed / cdClm06SleepingBoundWorkerKeepsItsTarget (an Idle Charmander 3 blocks from the
-//   bound target for 400 ticks never claims it) / cdWmd05FullScene (two Working, one sleeper, one healer; Work Mode off;
-//   1 tick later no claim).
+// cdBed05TiredWorkerSleepsOnTheNearestBedAndWorksAgain: a Lv1 Charmander works a furnace and is left one tick of Work Stamina.
+//   When Tired it holds a bed claim on the Hay Bed 3 blocks away and not the Plush Bed 5 blocks away, in the same tick
+//   (CD-STA-13, CD-BED-05). It walks there through the Brain, stays within 0.25 blocks of the sleep point in the sleep pose
+//   (CD-BED-10, about 1,780 ticks), and never has the battle SLEEP status (CD-AI-07). It is full on the tick that the base rate
+//   on the way and twice the base rate on the bed give (CD-BED-03, CD-BED-04). On that tick the bed claim is gone (CD-BED-12)
+//   and pose recalculation is on, also in an entity loaded from its saved NBT (CD-AI-08); the next scan sends it back to work.
+// cdBed08LeashedWorkerRestsInPlaceAndGoesBack (batch stamina_fast: ticksPerLevel = 20 and healer minutes of 1, set by
+//   @BeforeBatch and put back by @AfterBatch): a leashed Lv10 Charmander with no bed works 200 ticks, rests in place within
+//   0.25 blocks of where it stood in the sleep pose, keeps its binding while its furnace stays reserved (CD-BED-08, CD-LSH-12,
+//   CD-CLM-06, CD-CLM-09), is full 200 ± 1 ticks later (the row's 36,000 at 3,600 ticks per level), and is TRAVELING to its
+//   furnace on that tick (CD-STA-14).
+// cdBed09WailordSleepsOnAHayBed: a Wailord, 7.76 blocks wide, at 0% claims the one Hay Bed and lies on it (CD-BED-09).
+// cdAi07NightSleepEndsWhenWorkStarts (batch night_sleep at day time 18,000, put back to 6,000): Cobblemon's own go_to_sleep
+//   puts a drowsy Charmander to sleep; a furnace then appears, and from the tick of its claim the worker has no SLEEP status,
+//   no sleeping memory and, a tick later, no sleep pose, and it works (the carry-over).
 ```
 
-  Tests that wait for real recovery use a config batch with `ticksPerLevel = 20` and healer minutes of 1,
-  so a full cycle takes a few hundred ticks; each asserts the row's ratio, not its wall time.
+  The other planned GameTests, each: GameTest deferred (high confidence): verified in the end-of-phase pass.
+  - CD-STA-13 (`cdSta13TiredAutoWorkerFreesItsMachine`, the second Charmander that claims the furnace at the
+    next scan): the release in the same tick is in `cdBed05`, and the scan is M1's assignment.
+  - CD-LSH-12 (`cdLsh12TiredBindingWaits`, a binding made while the Pokémon is Tired): `claimBound` skips a
+    Tired worker, and `cdBed08` keeps a binding through a rest.
+  - CD-BED-07 (`cdBed07OnlyInsideArea`, beds at offsets 8 and 9): the bed lookup reads the work area through
+    the same `WorkArea.contains` as the CD-ASG-08 tests.
+  - CD-BED-11 (`cdBed11BrokenBedMeansRestInPlace`), CD-BED-13 (`cdBed13OnlyTiredWorkersSleep`) and CD-BED-14
+    (`cdBed14SleeperClaimsABedAfterRestart`): engine rules with unit tests on the machine.
+  - CD-CLM-06 (`cdClm06SleepingBoundWorkerKeepsItsTarget`, the Work Mode off and second pasture parts) and
+    CD-WMD-05 (`cdWmd05FullScene`): the registry's reservation and pasture release have unit tests.
+  - CD-FX-10: a demo row; the effect loop has a unit test, and the play-test checks the particles.
 - [ ] **Step 3: Write the code, run everything, commit** —
   `git commit -m "Send Tired workers to the nearest free bed and wake them at 100%"`.
 

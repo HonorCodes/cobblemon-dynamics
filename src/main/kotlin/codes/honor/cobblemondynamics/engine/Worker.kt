@@ -1,9 +1,11 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.bed.BedCandidate
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.stamina.Stamina
 import net.minecraft.core.BlockPos
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 /** The engine's runtime state of one tethered Pokémon. [WorkerMachine] makes every status change. */
@@ -24,12 +26,18 @@ class Worker(val pokemonId: UUID, var pasture: PastureKey) {
             stamina.tired = value
         }
 
-    /** The tick of the current work claim. */
+    /** The tick of the current work or bed claim. */
     var claimTick: Long = -1
 
     /** The canonical target of the current work claim, and the standable cell that the worker works it from. */
     var target: BlockPos? = null
     var spot: BlockPos? = null
+
+    /** The bed that a worker in ToBed or Sleeping holds a bed claim on. */
+    var bed: BedCandidate? = null
+
+    /** Where a worker in RestingInPlace lies, which is where it stood when it got Tired or lost its bed. */
+    var restSpot: Vec3? = null
 
     /** The tick of the last status change. */
     var statusSince: Long = 0

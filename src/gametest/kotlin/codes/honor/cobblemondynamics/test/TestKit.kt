@@ -196,6 +196,12 @@ object TestKit {
 
     fun keyOf(helper: GameTestHelper, pos: BlockPos): TargetKey.Block = TargetKey.block(helper.level.dimension().location(), pos)
 
+    /**
+     * [absolute] relative to the test's origin, the inverse of `helper.absolutePos` for an unrotated test. Vanilla 1.21.1's
+     * `GameTestHelper.relativePos` turns the position 180 degrees, so it gives (-x, y, -z).
+     */
+    fun relative(helper: GameTestHelper, absolute: BlockPos): BlockPos = absolute.subtract(helper.absolutePos(BlockPos.ZERO))
+
     /** Teleports [entity] to the bottom center of [rel], which must lie inside its roam box. */
     fun moveTo(helper: GameTestHelper, entity: PokemonEntity, rel: BlockPos) {
         val pos = helper.absoluteVec(rel.bottomCenter)

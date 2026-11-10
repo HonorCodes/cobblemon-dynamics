@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.CobblemonMemories
 import com.cobblemon.mod.common.api.ai.BehaviourConfigurationContext
 import com.cobblemon.mod.common.api.ai.config.task.TaskConfig
 import com.cobblemon.mod.common.api.npc.configuration.MoLangConfigVariable
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.LivingEntity
@@ -55,12 +56,17 @@ abstract class WorkOrderTask :
     protected abstract fun follow(entity: LivingEntity, order: WorkOrder)
 }
 
-/** Walks to the work spot through Cobblemon's core `follow_walk_target`, then holds the spot (CD-AI-02). */
+/**
+ * Walks to the work spot or the bed through Cobblemon's core `follow_walk_target`, then holds the spot (CD-AI-02). A sleep order
+ * holds the worker on its sleep point in the sleep pose (CD-BED-10, CD-AI-07), and any other order ends that pose (CD-AI-08).
+ */
 class WorkMoveTask : WorkOrderTask() {
     private var walkingTo: BlockPos? = null
 
     override fun follow(entity: LivingEntity, order: WorkOrder) {
         val brain = entity.brain
+        val pokemon = entity as? PokemonEntity
+        if (!order.sleep) pokemon?.let(BrainBridge::wake)
         if (!order.hold) {
             brain.setMemory(MemoryModuleType.WALK_TARGET, WalkTarget(order.spot, WALK_SPEED, 0))
             walkingTo = BlockPos.containing(order.spot)
@@ -71,6 +77,10 @@ class WorkMoveTask : WorkOrderTask() {
         brain.setMemoryWithExpiry(CobblemonMemories.PATH_COOLDOWN, true, HOLD_COOLDOWN_TICKS)
         (entity as? Mob)?.navigation?.stop()
         walkingTo = null
+        if (order.sleep && pokemon != null) {
+            BrainBridge.lieAt(pokemon, order.spot)
+            BrainBridge.pose(pokemon)
+        }
     }
 
     override fun stop(level: ServerLevel, entity: LivingEntity, gameTime: Long) {

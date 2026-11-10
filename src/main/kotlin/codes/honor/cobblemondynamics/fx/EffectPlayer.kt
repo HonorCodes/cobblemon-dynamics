@@ -34,9 +34,23 @@ object EffectPlayer {
         now: Long,
     ) {
         if (!EffectClock.shouldPlay(workingSince, now, role.effect.loopTicks)) return
-        val radius = WorkEngineSettings.current.effectBroadcastRadius
-        val players = level.players().filter { Recipients.inRange(it.distanceToSqr(entity), radius) }
+        val players = recipients(level, entity)
         if (players.isNotEmpty()) play(entity, focus, role.effect, players)
+    }
+
+    /** CD-FX-10: Cobblemon's sleep particles on a worker that sleeps or rests in place, every 40 ticks, and no sound. */
+    fun tickSleeping(level: ServerLevel, entity: PokemonEntity, since: Long, now: Long) {
+        if (!SleepEffect.shouldPlay(since, now)) return
+        val players = recipients(level, entity)
+        if (players.isEmpty()) return
+        for (id in particles.filter(SleepEffect.PARTICLES)) {
+            SpawnSnowstormEntityParticlePacket(id, entity.id, SleepEffect.LOCATORS).sendToPlayers(players)
+        }
+    }
+
+    private fun recipients(level: ServerLevel, entity: PokemonEntity): List<ServerPlayer> {
+        val radius = WorkEngineSettings.current.effectBroadcastRadius
+        return level.players().filter { Recipients.inRange(it.distanceToSqr(entity), radius) }
     }
 
     /** The animation goes out even when no particle id is known (CD-FX-11). */
