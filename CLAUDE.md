@@ -95,6 +95,17 @@ when your hands are on the code.
   `ScreenEvent.Render.Pre`.
 - NeoForge's `AFTER_TRANSLUCENT_BLOCKS` render stage has a fresh pose stack, and the view rotation is on the
   model-view stack. Draw relative to the camera.
+- A unit test that reads a repository file by path needs that file in the `test` task's inputs in
+  `build.gradle`. Otherwise Gradle and the CI build cache reuse a stale pass.
+- NeoForge uses a GameTest's namespace as its structure namespace, so a test in its own namespace (the perf
+  run) needs its own copy of the structure.
+- CI's super-linter v9.0.0 runs ruff 0.16.8, which sorts modules new in Python 3.11 (such as `tomllib`) as
+  third-party, unlike local ruff 0.17. Import such a module inside the function that uses it.
+- Two Pokémon that walk toward each other on the same row of cell centres push each other back and never pass.
+- A jar built with `-Prelease_version` stays in `build/libs`, and the test pack installs the newest jar there.
+  Delete it before you run the test pack.
+- `data merge block` sets a block entity's saved state without a player, and a new folder in
+  `world/datapacks/` is enabled by the next `/reload`.
 - On Windows, Python's `write_text` writes CRLF unless you pass `newline="\n"`. Check for CR characters
   before staging.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
