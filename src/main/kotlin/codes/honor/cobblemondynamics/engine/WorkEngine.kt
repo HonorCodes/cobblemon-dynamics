@@ -1,7 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
-import codes.honor.cobblemondynamics.CobblemonDynamics
 import codes.honor.cobblemondynamics.Feedback
+import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.ai.WorkOrder
 import codes.honor.cobblemondynamics.bed.BedBlock
@@ -70,8 +70,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private val pastures = LinkedHashMap<PastureKey, PastureRuntime>()
     private val slots = HashMap<UUID, PastureRuntime.Slot>()
 
-    /** The species already warned about, because their Brains cannot hold a work order. */
-    private val unbridged = HashSet<ResourceLocation>()
+    /** One warning for each species whose Brain cannot hold a work order. */
+    private val unbridged = OnceLogger()
 
     fun worker(pokemonId: UUID): Worker? = slots[pokemonId]?.worker
 
@@ -681,9 +681,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), center, hold = isArrived(entity, spot)))
         if (!BrainBridge.holdsOrder(entity)) {
             val species = slot.pokemon.species.resourceIdentifier
-            if (unbridged.add(species)) {
-                CobblemonDynamics.LOGGER.warn("{} has a baseAI that skips Cobblemon's auto behaviours, so it cannot work", species)
-            }
+            unbridged.warn(species) { "$species has a baseAI that skips Cobblemon's auto behaviours, so it cannot work" }
             worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
             release(t, slot)
             return

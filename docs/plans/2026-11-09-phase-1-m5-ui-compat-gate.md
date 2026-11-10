@@ -210,13 +210,32 @@ Design (checked against the Cobbleworkers 2.0.7 and Cobblebase 2.0.1 jars, decom
 
 **Rows:** CD-UI-11, CD-UI-12, CD-PERF-05 (static part).
 
-**Files:** `src/test/kotlin/.../build/LangTest.kt`.
+**Files:** `src/test/kotlin/.../build/LangTest.kt`, `OnceLogger.kt` (root package), `src/test/kotlin/.../OnceLoggerTest.kt`.
 
 `LangTest` scans `src/main/kotlin/**` and `src/main/java/**`: every `Component.translatable("...")` key and
 every `cobblemon_dynamics.` key string in code exists in `en_us.json`; no file under `client/` or `leash/`
 or `command/` calls `Component.literal`; every `en_us` value that names the stat reads `Work Stamina`, never
 a bare `Stamina`; no `LOGGER.info`, `LOGGER.warn` or `LOGGER.error` call sits in a file under `engine/`,
 `handler/` or `fx/` except through `OnceLogger`, the helper that logs each cause once.
+
+Design (as built):
+
+- A key string in code that `en_us` lacks must be the prefix of a key family that the code builds as
+  `"$PREFIX.<suffix>"`. The test lists the suffixes of each family from the code's own values: the states and
+  recovery rules through `StaminaReport`, the claim kinds, and the reason constants of `LeashResets`. It fails
+  when the code builds a family that its list does not hold, so a new family needs its suffixes in the test.
+- `en_us` is complete for names too: every item model, every block state file and every entity type that
+  `DynamicsEntities` registers has its `item.`, `block.` or `entity.` key.
+- The `Component.literal` check, with `Component.nullToEmpty`, covers the whole main source set, not only
+  `client/`, `leash/` and `command/`, because every component that the mod builds reaches a player.
+- `OnceLogger` sits in the root package, outside the scanned packages. Each instance keeps its own set of causes
+  and builds a message only for a new cause. In `engine/`, `handler/` and `fx/` the test refuses
+  `LOGGER.info|warn|error`, an own `getLogger` and every use of `CobblemonDynamics.LOGGER` other than `debug` and
+  `trace`. Four warnings moved to `OnceLogger`: the baseAI species warning in `WorkEngine`, the missing particle
+  and missing particle files warnings in `fx/`, and the crank mixin warning in `CreateCompat`.
+  `RoleRegistry.disableHandler`, which `guarded` calls from the engine, already logs once per handler.
+- A mutation run (a removed item name, state key and key constant entry, a bare "Stamina", and a
+  `Component.literal` in a client file) failed the matching test each time.
 
 - [ ] **Steps:** write `LangTest` → run it and fix what it finds → commit `"Gate lang keys, literals and per-tick logging in tests"`.
 

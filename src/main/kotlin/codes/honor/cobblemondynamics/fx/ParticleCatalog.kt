@@ -1,6 +1,6 @@
 package codes.honor.cobblemondynamics.fx
 
-import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.OnceLogger
 import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import net.minecraft.resources.ResourceLocation
@@ -15,12 +15,10 @@ fun interface ParticleCatalog {
 }
 
 /** Drops the ids that the catalog lacks, with one warning per id. The animation plays either way (CD-FX-11). */
-class CheckedParticles(private val catalog: ParticleCatalog, private val warn: (String) -> Unit) {
-    private val warned = HashSet<ResourceLocation>()
-
+class CheckedParticles(private val catalog: ParticleCatalog, private val warnings: OnceLogger) {
     fun filter(ids: List<ResourceLocation>): List<ResourceLocation> = ids.filter { id ->
         val known = catalog.contains(id)
-        if (!known && warned.add(id)) warn("Particle $id is not in the loaded Cobblemon, so work effects play without it")
+        if (!known) warnings.warn(id) { "Particle $id is not in the loaded Cobblemon, so work effects play without it" }
         known
     }
 }
@@ -32,6 +30,8 @@ class CheckedParticles(private val catalog: ParticleCatalog, private val warn: (
 object JarParticleCatalog : ParticleCatalog {
     private const val SUFFIX = ".particle.json"
 
+    private val warnings = OnceLogger()
+
     private val ids: Set<ResourceLocation>? by lazy(::load)
 
     // Without the files nothing is known. The client skips an id that it lacks, so every id goes out.
@@ -40,7 +40,7 @@ object JarParticleCatalog : ParticleCatalog {
     private fun load(): Set<ResourceLocation>? {
         val root = ModList.get().getModFileById("cobblemon")?.file?.findResource("assets", "cobblemon", "bedrock", "particles")
         if (root == null || !Files.isDirectory(root)) {
-            CobblemonDynamics.LOGGER.warn("Cobblemon's particle files are missing, so work effects cannot check their particle ids")
+            warnings.warn(SUFFIX) { "Cobblemon's particle files are missing, so work effects cannot check their particle ids" }
             return null
         }
         val files = Files.walk(root).use { paths -> paths.filter { it.fileName.toString().endsWith(SUFFIX) }.toList() }
