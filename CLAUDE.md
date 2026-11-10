@@ -81,6 +81,20 @@ when your hands are on the code.
 - To fake an open menu, set `player.containerMenu` and post `PlayerContainerEvent.Open`. Close it in
   `afterTest`, or the open-menu tracker can mark a later test's table at the same position as open.
 - A call that reaches every worker, such as `WorkEngine.stopWorkingHandlers()`, needs its own GameTest batch.
+- `./gradlew runClient --args=...` replaces ModDevGradle's own arguments, and the launch fails. Add arguments to
+  `neoForge.runs.client.programArguments` (for example through an init script passed with `-I`).
+- A fresh `run/client` opens the accessibility onboarding screen, and quick play waits behind it. Write
+  `run/client/options.txt` with `onboardAccessibility:false` first.
+- Client mixins on Cobblemon GUI classes apply only when a pasture panel first opens, so `MixinState` reads false
+  for them until then.
+- Mixin refuses to target another mixin's handler. To change what another mod's handler does, hook the methods
+  that it calls (see the Cobblebase `@Pseudo` mixins).
+- Cobblebase 2.0.1 needs Cloth Config at run time but does not declare it. The test pack pins both.
+- A screen gives a click to its first child that takes it, so a widget added in `ScreenEvent.Init.Post` catches
+  its own clicks in `MouseButtonPressed.Pre`. `AbstractWidget.render` is final, so refresh a widget in
+  `ScreenEvent.Render.Pre`.
+- NeoForge's `AFTER_TRANSLUCENT_BLOCKS` render stage has a fresh pose stack, and the view rotation is on the
+  model-view stack. Draw relative to the camera.
 - On Windows, Python's `write_text` writes CRLF unless you pass `newline="\n"`. Check for CR characters
   before staging.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it

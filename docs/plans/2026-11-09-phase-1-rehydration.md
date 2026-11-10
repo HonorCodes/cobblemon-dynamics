@@ -31,8 +31,8 @@ design of every task. This note holds what the plan does not.
 | M2 | Merged: PR #7, merge commit `000cbd4`. |
 | Dependabot | Merged: tomlj 2.2.0 (#4), JUnit 6.1.3 (#5), and Gradle 9.9.0 with Kotlin 2.2.21 (#8). `dependabot.yml` keeps Kotlin on 2.2.x and the platform dependencies at their floors. To re-test a Dependabot pull request against a newer `main`, close and reopen it. |
 | M3 | Merged: PR #9, merge commit `e001192`. |
-| M4 | All five tasks are committed on `m4-vanilla-fe-roles`, plus the server-stop fix (`stopWorkingHandlers`): 276 unit tests, 95 of 95 GameTests, 3 of 3 in the core run, `DEPS PASS` and `SMOKE PASS`. Its pull request is open (`gh pr list`); merge it with a merge commit when CI is green. |
-| M5 | Not started. |
+| M4 | Merged: PR #10, merge commit `f6adcec`. |
+| M5 | Branch `m5-ui-compat-gate`, rebased onto `main` (`f6adcec`). Tasks 1 to 4 are committed: 317 unit tests, 96 of 96 GameTests, 3 of 3 in the core run, `COMPAT PASS`, `DEPS PASS`, `SMOKE PASS`. The client smoke check (`runClient` quick-playing `run/client/saves/smoke-flat`) reached the world with no errors. Next: Tasks 5 to 7, then Task 8, then the end-of-phase pass for the deferred rows and the gate (Task 9). M5 is one pull request, opened at Task 9. |
 
 ## Environment
 
