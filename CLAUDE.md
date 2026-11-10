@@ -26,6 +26,14 @@ when your hands are on the code.
   registers only the memories that task configs declare.
 - Tick order: the level tick (Brains run here), then `LevelTickEvent.Post`, then the GameTest ticker.
 - Kotlin block comments nest. A `/**` inside a KDoc, for example in a path glob, breaks the file.
+- `FakePlayer.openMenu` drops every menu. To check that a block opened its screen, count `openMenu` calls
+  in a subclass (`TestKit.MenuCountingPlayer`).
+- A new pastured entity sets `ownerUUID` only on its first tick. On the server, read the owner from
+  `pokemon.getOwnerUUID()`.
+- The GameTest server ticks as fast as it can, so log timestamps are not tick time.
+- `/reload` replies before the reload ends. The test pack waits for the next `Loaded N recipes` log line.
+- A fake player's first party add makes Cobblemon log harmless ERROR lines about a corrupt or missing
+  `pokedex` or `tm_moves` `.old` file.
 - The isolated test pack (`scripts/testpack/`) builds clean servers under `run/testpack/`. Never point it
   at the COHO modpack or another existing instance.
 - Line endings: `.gitattributes` forces LF (CRLF for `.bat`). `gradlew` breaks on Linux CI with CRLF.

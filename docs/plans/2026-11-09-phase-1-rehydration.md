@@ -21,14 +21,13 @@ design of every task. This note holds what the plan does not.
   push per review round; no AI attribution or `Co-Authored-By` anywhere; stage explicit paths only; a
   commit with a `.md` file needs a ` [rag:N]` subject suffix (hook-enforced).
 
-## State at the time of writing (paused for a computer restart)
+## State at the time of writing (M1 complete)
 
 | Item | State |
 | --- | --- |
 | Plan | On `main`. Index plus files `m0`, `m1` (two parts), `m2`, `m3`, `m4`, `m5`. `py scripts/check_plan_coverage.py` prints `missing: 0`. |
 | M0 | Merged: PR #1, merge commit `0c6f06f`. |
-| M1 | Branch `m1-engine-leash-stoker`, pushed to `origin`, no PR yet. Tasks 1 to 10 are committed (`git log --oneline main..m1-engine-leash-stoker`). Tasks 11 (Work Leash), 12 (claims command) and 13 (payloads, test pack `reload`) remain. Last check: `./gradlew build` passes (84 unit tests). `runGameTestServer` passed 44 of 44 in one run on the Task 10 commit. |
-| M1 extras | `6675c0e` corrects CD-CFG-01: NeoForge 21.1 writes server configs to `config/`. `beba4d5` adds the `Dependency graph` job (Gradle dependency submission) to `security.yml`. It first runs on the M1 pull request, so check that it passes there. |
+| M1 | All 13 tasks are committed on `m1-engine-leash-stoker`, and its pull request is open (`gh pr list`). On the branch tip, `./gradlew build` passes 108 unit tests, `runGameTestServer` passes 50 of 50, and the test pack prints `SMOKE PASS` and `RELOAD PASS`. ktlint, ruff and super-linter pass. Merge it with a merge commit when CI is green. The new `Dependency graph` job in `security.yml` first runs on this pull request. |
 | M2 to M5 | Not started. |
 
 ## Environment
@@ -126,13 +125,13 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 ## Carry-over items
 
-- Task 11: add `entity.cobblemon_dynamics.work_focus` to `en_us.json`.
-- CD-FX-04: target particles such as `flamethrower_target` burst on the worker. Cobblemon's
-  entity-sourced particle packet ignores the aim. The recommendation is to send target particles as
-  Cobblemon's position-based particle packet at the focus entity. Do it in the Tasks 11 to 13 part, or
-  check it in the play-test.
 - M2: a worker that Cobblemon put to sleep at night keeps its SLEEP status when it switches to work.
   Handle it with the bed and rest logic (see ADR-0004 on sleep).
+- M2 Task 6: `/cobblemondynamics claims` already lists bed and heal claims (built in M1 Task 12). M2 Task 6
+  has a note about this.
+- Role files: target particles now go out at the work focus and actor particles from the worker (M1, ADR-0007
+  amendment). Put each particle of a new role file in the list that matches where Cobblemon emits it, as
+  the Wheel Driver's `watergun_spray` (actor) shows.
 
 ## References
 
@@ -142,14 +141,12 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 ## Next steps, in order
 
-1. `git pull` on `main` and on `m1-engine-leash-stoker`. Check that the tree is clean and the build passes.
-2. Run M1 Tasks 11 to 13 with one subagent: the template, the carry-over items, and the CD-SEC-04
-   decision. In Task 13 the subagent does Steps 1 to 4 and commits. It does not open the pull request.
-3. Review: build, GameTests twice, ktlint, ruff, super-linter, coverage.
-4. Open the M1 pull request as described above. Body: the rows of Tasks 1 to 13; the rows whose final part
-   lands in M3 or M4 (index table); CD-STK-07; CD-CFG-01; the CD-SEC-04 boundary; the ADR-0004 amendment;
-   the dependency graph job; the deferred rows. Merge when green.
-5. Branch `m2-stamina-beds-healers` from `main` and run M2, then M3, M4 and M5 the same way. Update the plan
-   text whenever reality differs, and keep `check_plan_coverage.py` at `missing: 0`.
-6. At M5 Task 9, run the end-of-phase pass for the deferred rows, write the gate report, assemble the
+1. `git pull` on `main`. If the M1 pull request is still open, finish it: CI green, threads resolved,
+   merge with a merge commit.
+2. Branch `m2-stamina-beds-healers` from `main` and run M2 in two parts (Tasks 1 to 3, then 4 to 6) with
+   the brief template and the carry-over items. Then M3, M4 and M5 the same way, one pull request each.
+   Update the plan text whenever reality differs, and keep `check_plan_coverage.py` at `missing: 0`.
+3. Before each pull request: build, GameTests twice, ktlint, ruff, super-linter and coverage, all on the
+   branch tip.
+4. At M5 Task 9, run the end-of-phase pass for the deferred rows, write the gate report, assemble the
    play-test client with `testpack.py client`, and stop for the operator.
