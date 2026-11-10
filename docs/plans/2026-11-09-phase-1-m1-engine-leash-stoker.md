@@ -1051,6 +1051,12 @@ only of a spot that would be the best so far. The pass found the gap: with one c
 blocks wide got a spot in a gap one block wide, where its body overlapped the walls and its path could not
 go (`WideWorkerTests.cdAsg09WideWorkerGetsASpotItsBodyFits`, `WorkSpotsTest`, `WorkerBodyTest`).
 
+Play-test change (2026-11-10): the spot nearest to the worker could stand on top of the target. `find`
+now takes the target's `TargetShape` (its blocks within one block of the canonical position) and never
+returns a spot that stands on the target. It ranks a spot beside the target at its base height first, then
+another spot at that height, then a spot at another height, and within each the one nearest to the target,
+then to the worker (`WorkSpotsTest`, `WorkSpotTests`).
+
 - [ ] **Step 1: Write the failing tests**
 
 ```kotlin

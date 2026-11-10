@@ -278,3 +278,6 @@ These checks repeat the findings of the approver's first play-test after their f
 43. **CD-FX-01.** Setup: a Charmander Working at a furnace with 64 raw iron. Action: watch the Charmander for
     20 seconds. Expected: it plays its whole special animation, then stands in its idle pose for about 2
     seconds before the next one. No animation starts again before it ends.
+44. **CD-ASG-09.** Setup: a Work Mode pasture with a Charmander, and a furnace with 64 raw iron on the floor 5
+    blocks from the pasture block, with open floor around it. Action: watch the Charmander until it Works.
+    Expected: it stands on the floor beside the furnace, not on top of it and not several blocks away.

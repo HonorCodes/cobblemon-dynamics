@@ -211,6 +211,13 @@ Transition rules:
 - **Auto claims.** On each scan, every Idle worker takes the nearest unclaimed target of an
   auto-assign role it can do. A Fairy-type never takes a machine through an auto claim, so with no
   binding it acts as a healer. The Pump, the Muse and the four Phase 2 roles are leash-only.
+- **Work spots.** A claim needs a work spot: a cell in the work area within the role's range of the
+  target center, with line of sight to it and room for the worker's body, and not taken by another
+  worker. A spot never stands on the target. A spot beside the target at its base height comes first:
+  its column touches the target's footprint on one of four sides, so a worker stands beside a furnace
+  or a large water wheel on the floor that the target stands on. Other spots at the base height come
+  next, then spots at other heights. Within each group, the spot nearest to the target center wins,
+  then the one nearest to the worker.
 - **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
   worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
   stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.

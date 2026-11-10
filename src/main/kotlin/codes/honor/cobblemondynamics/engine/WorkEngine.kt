@@ -447,7 +447,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val grid = LevelSpotGrid(t.level, role.handler, target, others, entity.bbWidth.toDouble(), entity.bbHeight.toDouble())
         val center = role.handler.targetCenter(target)
         val spot = guarded(role.handler, null) {
-            WorkSpots.find(grid, area(t, runtime), center, role.definition.range, slot.entity.position())
+            // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
+            val shape = TargetShape.around(target) { t.level.isLoaded(it) && role.handler.isPartOfTarget(t.level, target, it) }
+            WorkSpots.find(grid, area(t, runtime), shape, center, role.definition.range, slot.entity.position())
         }
         if (spot == null) {
             worker.skipUntil[key] = t.now + t.settings.retryWaitTicks

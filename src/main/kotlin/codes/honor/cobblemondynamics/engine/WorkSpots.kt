@@ -41,8 +41,47 @@ object WorkerBody {
     }
 }
 
+/**
+ * The blocks of a target, as the work spot preference sees them (CD-ASG-09): its base height, the lowest y of its blocks, and its
+ * footprint, the columns (x, z) that its blocks fill.
+ */
+class TargetShape(blocks: Collection<BlockPos>) {
+    private val cells: Set<Long> = blocks.mapTo(HashSet()) { it.asLong() }
+    private val columns: Set<Long> = blocks.mapTo(HashSet()) { column(it.x, it.z) }
+
+    val baseY: Int = blocks.minOf { it.y }
+
+    /** A spot stands on the target when the block under it is one of the target's blocks. */
+    fun standsOn(x: Int, y: Int, z: Int): Boolean = BlockPos.asLong(x, y - 1, z) in cells
+
+    /** A spot is beside the target at the base height, in a column that touches the footprint on one of its four sides. */
+    fun isBeside(x: Int, y: Int, z: Int): Boolean =
+        y == baseY && column(x, z) !in columns && SIDES.any { (dx, dz) -> column(x + dx, z + dz) in columns }
+
+    companion object {
+        private val SIDES = listOf(1 to 0, -1 to 0, 0 to 1, 0 to -1)
+
+        private fun column(x: Int, z: Int): Long = (x.toLong() shl 32) or (z.toLong() and 0xFFFFFFFFL)
+
+        fun of(pos: BlockPos): TargetShape = TargetShape(listOf(pos))
+
+        /** The blocks of the target at [canonical] within one block of it, which holds a Create large water wheel. */
+        fun around(canonical: BlockPos, isPart: (BlockPos) -> Boolean): TargetShape {
+            val near = BlockPos.betweenClosed(canonical.offset(-1, -1, -1), canonical.offset(1, 1, 1)).map(BlockPos::immutable)
+            return TargetShape(near.filter(isPart) + canonical)
+        }
+    }
+}
+
 object WorkSpots {
     private const val EPSILON = 1e-9
+
+    /** The preference of a spot (CD-ASG-09): beside the target at its base height, else at that height, else at another height. */
+    private enum class Place { BESIDE, LEVEL, OTHER_HEIGHT }
+
+    private data class Rank(val place: Place, val toTarget: Double, val toWorker: Double, val pos: Long) : Comparable<Rank> {
+        override fun compareTo(other: Rank): Int = compareValuesBy(this, other, { it.place }, { it.toTarget }, { it.toWorker }, { it.pos })
+    }
 
     fun inRange(spotCenter: Vec3, targetCenter: Vec3, range: Double): Boolean =
         spotCenter.distanceToSqr(targetCenter) <= range * range + EPSILON
@@ -84,34 +123,46 @@ object WorkSpots {
     }
 
     /**
-     * The standable spot in [area], within [range] of [targetCenter] and with line of sight to it, that is nearest to
-     * [from]. Ties go to the spot nearest the target, then to the lowest `BlockPos.asLong()`. A spot is standable only with room for
-     * the worker's body ([SpotGrid.fitsBody]), which the search asks only of a spot that would be the best so far.
+     * The work spot of a worker at [from]: a standable spot in [area], within [range] of [targetCenter] and with line of sight to it,
+     * that does not stand on the [target]. A spot beside the target at its base height comes first, then another spot at that height,
+     * then a spot at another height, so a worker stands beside its target on the floor that the target stands on (the approver's
+     * play-test ruling, 2026-11-10). Within each, the spot nearest to the target wins, then the one nearest to the worker, then the
+     * lowest `BlockPos.asLong()`. A spot is standable only with room for the worker's body ([SpotGrid.fitsBody]), which the search asks
+     * only of a spot that would be the best so far.
      */
-    fun find(grid: SpotGrid, area: WorkArea, targetCenter: Vec3, range: Double, from: Vec3): BlockPos? {
+    fun find(grid: SpotGrid, area: WorkArea, target: TargetShape, targetCenter: Vec3, range: Double, from: Vec3): BlockPos? {
         val r = ceil(range).toInt()
         val cx = floor(targetCenter.x).toInt()
         val cy = floor(targetCenter.y).toInt()
         val cz = floor(targetCenter.z).toInt()
         var best: BlockPos? = null
-        var bestKey = Triple(Double.MAX_VALUE, Double.MAX_VALUE, Long.MAX_VALUE)
+        var bestRank: Rank? = null
         for (x in cx - r..cx + r) {
             for (y in cy - r..cy + r) {
                 for (z in cz - r..cz + r) {
                     val pos = BlockPos(x, y, z)
-                    if (!area.contains(pos) || !grid.isStandable(x, y, z)) continue
+                    if (!area.contains(pos) || target.standsOn(x, y, z) || !grid.isStandable(x, y, z)) continue
                     val c = Vec3.atCenterOf(pos)
                     if (!inRange(c, targetCenter, range) || !hasLineOfSight(grid, c, targetCenter)) continue
-                    val key = Triple(c.distanceToSqr(from), c.distanceToSqr(targetCenter), pos.asLong())
-                    if (compareValuesBy(key, bestKey, { it.first }, { it.second }, { it.third }) < 0 && grid.fitsBody(x, y, z)) {
+                    val place = when {
+                        target.isBeside(x, y, z) -> Place.BESIDE
+                        y == target.baseY -> Place.LEVEL
+                        else -> Place.OTHER_HEIGHT
+                    }
+                    val rank = Rank(place, c.distanceToSqr(targetCenter), c.distanceToSqr(from), pos.asLong())
+                    if ((bestRank == null || rank < bestRank) && grid.fitsBody(x, y, z)) {
                         best = pos
-                        bestKey = key
+                        bestRank = rank
                     }
                 }
             }
         }
         return best
     }
+
+    /** The work spot at a target of one block, the cell of [targetCenter]. */
+    fun find(grid: SpotGrid, area: WorkArea, targetCenter: Vec3, range: Double, from: Vec3): BlockPos? =
+        find(grid, area, TargetShape.of(BlockPos.containing(targetCenter)), targetCenter, range, from)
 
     /** The ray parameter at which [p] first crosses a cell boundary in direction [step]. */
     private fun firstCrossing(p: Double, dp: Double, step: Int): Double = when {

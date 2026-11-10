@@ -60,6 +60,8 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
 - Only one worker can work a target at a time, across all pastures and all players.
 - The worker walks to a work spot. A work spot is a cell in the work area where the worker can stand and
   see the center of the target. The spot is at most 6 blocks from the target, or 2 blocks for the Cranker.
+- A worker stands beside its target, on the floor that the target stands on, when it has room there. It
+  never stands on top of its target.
 - Keep some open floor around each target. A target with no work spot gets no worker, and the worker skips
   it for 5 minutes. A target with solid blocks on all six sides never has a work spot.
 - A worker works only while its target needs work, for example while a furnace has an item to smelt.
