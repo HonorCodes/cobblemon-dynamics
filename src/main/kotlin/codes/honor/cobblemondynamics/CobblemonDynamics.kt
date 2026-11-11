@@ -45,6 +45,7 @@ import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.config.ModConfigEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
+import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.AddReloadListenerEvent
@@ -89,6 +90,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         // CD-QWK-33: each claim compat class loads only when its mod is present.
         if (ModList.get().isLoaded("ftbchunks")) FtbChunksCompat.register()
         if (ModList.get().isLoaded("openpartiesandclaims")) OpacCompat.register()
+        // CD-CMP-08: by now the Create integration and the Cobblebase hooks have loaded their mixin targets.
+        modBus.addListener<FMLLoadCompleteEvent> { it.enqueueWork(Runnable { LOGGER.info(mixinLine()) }) }
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }
@@ -100,6 +103,16 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         EnchantingMenus.register()
         DynamicsCommands.register()
     }
+
+    private fun mixinLine(): String = LoadLines.mixins(
+        LoadLines.mixinEntries(
+            MixinState.offered(),
+            MixinState.skipped(),
+            MixinState.merged(),
+            MixinState.withHandlers(),
+            MixinState::applied,
+        ),
+    )
 
     // The server config loads after the data packs, so a load rebuilds the roles too, not only a reload.
     private fun onConfigChanged(config: ModConfig) {

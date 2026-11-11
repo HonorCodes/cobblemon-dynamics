@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.role
 
+import codes.honor.cobblemondynamics.LoadLines
+import codes.honor.cobblemondynamics.LoadLog
 import codes.honor.cobblemondynamics.MixinState
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
@@ -20,8 +22,8 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
     private var parsed: Map<ResourceLocation, RoleDefinition> = emptyMap()
     private val disabledHandlers = DisabledHandlers()
 
-    // Rebuilds after a config change repeat the lines of the last role file load, so each line logs once per load (CD-CFG-10).
-    private val logged = HashSet<String>()
+    // Rebuilds after a config change repeat the lines of the last role file load, so each line logs once per load (CD-CFG-10, CD-CMP-10).
+    private val log = LoadLog { LOGGER.info(it) }
 
     // Whether a mixin injected never changes while the game runs, so each mixin warning logs once per run (CD-WHL-10).
     private val mixinWarnings = HashSet<String>()
@@ -51,7 +53,7 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
     /** A role file load, which `/reload` also runs, gives each handler that threw another try. */
     private fun replace(roles: Map<ResourceLocation, RoleDefinition>) {
         parsed = roles
-        logged.clear()
+        log.newLoad()
         disabledHandlers.clear()
         rebuild()
     }
@@ -65,8 +67,9 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
     /** Applies the live `roles.disabled` list, the handler set and the mixin flags to the last parsed role files. */
     @Synchronized
     fun rebuild() {
-        val roles = RoleSet(parsed, ::handlerFor, WorkEngineSettings.current.disabledRoles) { if (logged.add(it)) LOGGER.info(it) }
+        val roles = RoleSet(parsed, ::handlerFor, WorkEngineSettings.current.disabledRoles, log::info)
         current = MixinGate.apply(roles, MixinState::applied) { if (mixinWarnings.add(it)) LOGGER.warn(it) }
+        log.info(LoadLines.roles(parsed.size, current.active.size, current.disabled))
     }
 
     /**

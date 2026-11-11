@@ -38,6 +38,13 @@ public final class MixinState {
     private static final Set<String> CALLED_HANDLERS = ConcurrentHashMap.newKeySet();
     private static final Map<String, Boolean> OVERRIDES = new ConcurrentHashMap<>();
 
+    // The load line of CD-CMP-08: what Mixin offered the plugin, what the plugin skipped and why, what Mixin merged, and which of those
+    // declare a handler. Mixin fills them once while the game loads, and nothing clears them.
+    private static final Set<String> OFFERED = ConcurrentHashMap.newKeySet();
+    private static final Map<String, String> SKIPPED = new ConcurrentHashMap<>();
+    private static final Set<String> MERGED = ConcurrentHashMap.newKeySet();
+    private static final Set<String> WITH_HANDLERS = ConcurrentHashMap.newKeySet();
+
     private MixinState() {
     }
 
@@ -58,10 +65,47 @@ public final class MixinState {
      * Called by the mixin plugin after Mixin applied {@code mixinClassName} to {@code target}. With {@code defaultRequire: 0} a missing
      * injection point applies the mixin class but injects no call, so only a call to a handler counts.
      */
-    public static void recordApplied(String mixinClassName, ClassNode target) {
+    public static void recordApplied(String mixinClassName, ClassNode target, boolean hasHandlers) {
+        String key = keyOf(mixinClassName);
+        MERGED.add(key);
+        if (hasHandlers) WITH_HANDLERS.add(key);
         Set<String> called = calledHandlers(target);
         CALLED_HANDLERS.addAll(called);
-        if (!called.isEmpty()) APPLIED.add(keyOf(mixinClassName));
+        if (!called.isEmpty()) APPLIED.add(key);
+    }
+
+    /** Called by the mixin plugin for each mixin that Mixin offers it on this side, while Mixin prepares the config (CD-CMP-08). */
+    public static void recordOffered(String mixinClassName) {
+        OFFERED.add(keyOf(mixinClassName));
+    }
+
+    /** Called by the mixin plugin for each mixin that it skips, with the reason, such as {@code cobblebase absent}. */
+    public static void recordSkipped(String mixinClassName, String reason) {
+        SKIPPED.put(keyOf(mixinClassName), reason);
+    }
+
+    public static Set<String> offered() {
+        return Set.copyOf(OFFERED);
+    }
+
+    public static Map<String, String> skipped() {
+        return Map.copyOf(SKIPPED);
+    }
+
+    public static Set<String> merged() {
+        return Set.copyOf(MERGED);
+    }
+
+    public static Set<String> withHandlers() {
+        return Set.copyOf(WITH_HANDLERS);
+    }
+
+    /** True when the mixin class declares a handler, a method whose name holds the mark. An accessor mixin declares none. */
+    public static boolean declaresHandler(ClassNode mixin) {
+        for (MethodNode method : mixin.methods) {
+            if (method.name.contains(HANDLER_MARK)) return true;
+        }
+        return false;
     }
 
     public static void setForTest(String key, boolean value) {

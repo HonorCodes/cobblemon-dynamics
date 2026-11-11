@@ -26,6 +26,18 @@ class RoleSetTest {
     }
 
     @Test
+    fun `CD-CMP-10 disabled names a role of the config list and a role with no handler, each with its reason`() {
+        val furnaceOnly = { id: ResourceLocation -> if (id.path == "furnace") FakeHandler(id) else null }
+        val muse = role("muse", setOf("fairy"), autoAssign = false, handler = "cobblemon_dynamics:enchanting")
+        val set = RoleSet(mapOf(stoker.id to stoker, wheel.id to wheel, muse.id to muse), furnaceOnly, setOf(muse.id)) { }
+        val expected = mapOf(
+            muse.id to "roles.disabled",
+            wheel.id to "handler cobblemon_dynamics:water_wheel is not registered",
+        )
+        assertEquals(expected, set.disabled)
+    }
+
+    @Test
     fun `forTypes keeps only eligible roles`() {
         val set = RoleSet(mapOf(stoker.id to stoker, wheel.id to wheel), { FakeHandler(it) }, emptySet()) { }
         assertEquals(listOf(stoker.id), set.forTypes(listOf("fire", "flying")).map { it.definition.id })

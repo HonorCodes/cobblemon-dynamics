@@ -22,6 +22,7 @@ object MixinGate {
         }
         if (missing.isEmpty()) return roles
         for ((handler, mixin) in missing) warn("Handler $handler is disabled: its mixin $mixin did not apply")
-        return roles.withoutHandlers(missing.mapTo(HashSet()) { it.first })
+        val mixinOf = missing.toMap()
+        return roles.withoutHandlers(mixinOf.keys) { handler -> "its mixin ${mixinOf[handler]} did not apply" }
     }
 }

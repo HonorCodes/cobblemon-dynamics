@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.net
 
+import codes.honor.cobblemondynamics.CobblemonDynamics
+import codes.honor.cobblemondynamics.LoadLines
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.WorkModePolicy
@@ -62,6 +64,15 @@ object DynamicsPayloads {
             registrar.playToServer(LeashOverviewRequestPayload.TYPE, LeashOverviewRequestPayload.STREAM_CODEC) { _, context ->
                 serverPlayer(context)?.let(::onOverviewRequest)
             }
+            // CD-CMP-09: the ids of the payloads above, by direction, in the order of registration.
+            val toClient = listOf(PasturePanelStatePayload.TYPE, LeashOverviewPayload.TYPE).map { it.id() }
+            val toServer = listOf(
+                WorkModeTogglePayload.TYPE,
+                PasturePanelOpenPayload.TYPE,
+                PasturePanelClosePayload.TYPE,
+                LeashOverviewRequestPayload.TYPE,
+            ).map { it.id() }
+            CobblemonDynamics.LOGGER.info(LoadLines.payloads(VERSION, toClient, toServer))
         }
     }
 
