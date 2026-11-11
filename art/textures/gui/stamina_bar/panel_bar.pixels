@@ -1,0 +1,12 @@
+# Work Stamina bar over a pasture panel row: the frame and the empty inside (CD-ART-04).
+size 50 4
+palette
+  . transparent
+  o #121214     frame
+  s #2b2b31     inside, the shadow under the top
+  e #404048     inside
+pixels
+.oooooooooooooooooooooooooooooooooooooooooooooooo.
+osssssssssssssssssssssssssssssssssssssssssssssssso
+oeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeo
+.oooooooooooooooooooooooooooooooooooooooooooooooo.

@@ -2,9 +2,12 @@ package codes.honor.cobblemondynamics.client
 
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import com.google.gson.JsonParser
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import java.io.File
+import javax.imageio.ImageIO
 
 class StaminaBarTest {
     private val lang = File(System.getProperty("cd.projectDir"), "src/main/resources/assets/cobblemon_dynamics/lang/en_us.json")
@@ -50,6 +53,30 @@ class StaminaBarTest {
             val fill = parts.filter { it.second == StaminaBar.color(percent) }.sumOf { it.first.width }
             assertEquals(StaminaBar.fillWidth(percent, bar.width - 2), fill, "the fill width at $percent%")
         }
+    }
+
+    @Test
+    fun `the fill is the left fill width of the bar's inside, and nothing at 0 percent`() {
+        val bar = Rect(-10, -2, 30, 4)
+        assertEquals(Rect(-9, -1, 28, 2), StaminaBar.inner(bar))
+        assertNull(StaminaBar.fill(bar, 0))
+        assertEquals(Rect(-9, -1, 1, 2), StaminaBar.fill(bar, 1))
+        assertEquals(Rect(-9, -1, 11, 2), StaminaBar.fill(bar, 42))
+        assertEquals(Rect(-9, -1, 28, 2), StaminaBar.fill(bar, 100))
+    }
+
+    /** The bars draw their sprites one texture pixel per GUI or name-tag pixel. */
+    @Test
+    fun `CD-ART-04 each bar sprite is the size of the bar that draws it`() {
+        val assets = File(System.getProperty("cd.projectDir"), "src/main/resources/assets/cobblemon_dynamics")
+
+        fun size(texture: ResourceLocation) = ImageIO.read(File(assets, texture.path)).let { it.width to it.height }
+        val panel = PanelLayout.rowParts(0, 0).bar
+        val head = HeadBarRange.BAR
+        assertEquals(panel.width to panel.height, size(StaminaBar.PANEL_BAR))
+        assertEquals(StaminaBar.inner(panel).let { it.width to it.height }, size(StaminaBar.PANEL_FILL))
+        assertEquals(head.width to head.height, size(StaminaBar.HEAD_BAR))
+        assertEquals(StaminaBar.inner(head).let { it.width to it.height }, size(StaminaBar.HEAD_FILL))
     }
 
     @Test

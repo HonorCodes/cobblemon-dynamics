@@ -1,0 +1,21 @@
+# Work Mode button, hover: a light border and a lighter body (CD-ART-04). 70 x 12, nine-sliced by its .mcmeta.
+size 70 12
+palette
+  . transparent
+  o #eef1f6     outline
+  t #a0aab8     top and left edge
+  b #6a7482     body
+  u #4a5260     bottom and right edge
+pixels
+.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.
+otttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttto
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+ouuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuo
+.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.

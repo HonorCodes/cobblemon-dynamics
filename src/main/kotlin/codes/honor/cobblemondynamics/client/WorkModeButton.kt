@@ -2,11 +2,14 @@ package codes.honor.cobblemondynamics.client
 
 import codes.honor.cobblemondynamics.net.PasturePanelStatePayload
 import codes.honor.cobblemondynamics.net.WorkModeTogglePayload
+import com.mojang.blaze3d.systems.RenderSystem
+import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.Tooltip
 import net.minecraft.network.chat.Component
+import net.minecraft.util.Mth
 
 /**
  * The Work Mode button of the pasture panel. It shows the state that the server last sent and asks for the other one. It stays
@@ -47,6 +50,17 @@ class WorkModeButton(x: Int, y: Int) :
         if (state.canToggle) ClientNet.send(WorkModeTogglePayload(!state.workMode))
     }
 
+    /** As `AbstractButton` draws a button, with the Work Mode sprite of the button's state (CD-ART-04) instead of vanilla's. */
+    override fun renderWidget(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        guiGraphics.setColor(1f, 1f, 1f, alpha)
+        RenderSystem.enableBlend()
+        RenderSystem.enableDepthTest()
+        guiGraphics.blitSprite(WorkModeSprites.of(state?.workMode == true, active, isHoveredOrFocused), x, y, width, height)
+        guiGraphics.setColor(1f, 1f, 1f, 1f)
+        val color = if (active) ACTIVE_LABEL else INACTIVE_LABEL
+        renderString(guiGraphics, Minecraft.getInstance().font, color or (Mth.ceil(alpha * 255f) shl 24))
+    }
+
     /** The label shrinks to fit, because "Work Mode: Off" is wider than Recall in the vanilla font. */
     override fun renderString(guiGraphics: GuiGraphics, font: Font, color: Int) {
         val textWidth = font.width(message)
@@ -63,5 +77,9 @@ class WorkModeButton(x: Int, y: Int) :
         const val ON = "cobblemon_dynamics.ui.work_mode.on"
         const val OFF = "cobblemon_dynamics.ui.work_mode.off"
         const val LOCKED = "cobblemon_dynamics.ui.work_mode.locked"
+
+        /** Vanilla's label colours of an active and an inactive button. */
+        private const val ACTIVE_LABEL = 0xFFFFFF
+        private const val INACTIVE_LABEL = 0xA0A0A0
     }
 }

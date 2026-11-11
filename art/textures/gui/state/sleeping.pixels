@@ -1,23 +1,27 @@
-# sleeping: imported from sleeping.png
+# State icon: Sleeping (CD-ART-04, CD-UI-07). The Phase 1 shape, with an outline in a dark shade of
+# its colour and a bevel lit from the top-left. The shapes differ without colour (CD-UI-08).
 size 16 16
 palette
   . transparent
-  a #181818
-  b #a078eb
+  o #261a4d     outline
+  h #e8dbff     highlight
+  l #bfa2f4     lit
+  b #9e76ea     base
+  d #7350c6     shade
 pixels
 ................
 ................
-..aaaaaaaaaaaa..
-..abbbbbbbbbba..
-..abbbbbbbbbbaa.
-..aaaaaaaabbbba.
-......aabbbbbaa.
-....aaabbbbaaa..
-..aaabbbbaaa....
-.aabbbbbaa......
-.abbbbaaaaaaaa..
-.aabbbbbbbbbba..
-..abbbbbbbbbba..
-..aaaaaaaaaaaa..
+..oooooooooooo..
+..ohlllllllllo..
+..obddddddbbdoo.
+..oooooooolbbdo.
+......oohlbddoo.
+....ooohbddooo..
+..ooohlbdooo....
+.oohlbddoo......
+.olbbdoooooooo..
+.oolbblllllllo..
+..obdddddddddo..
+..oooooooooooo..
 ................
 ................

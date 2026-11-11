@@ -1117,6 +1117,26 @@ class WorkModeSpritesTest {
 - [ ] **Step 6: Multiplayer check.** The sprites and their code are client only, in `client/`, behind
   `FMLEnvironment.dist.isClient`. They draw only what the server sent.
 
+  **As built (2026-11-11).**
+  - `StaminaBar` also gains `inner(bar)` and `fill(bar, percent)`, the inside of a bar and its filled part, which both
+    bars draw from. `parts` stays, as this task says, but no code draws it now: the head bar no longer needs quads that do
+    not overlap.
+  - `HeadBars` draws the frame sprite 0.01 behind the name-tag plane and the fill on it, as vanilla puts a name tag's
+    background 0.01 behind its text (`Font$StringRenderOutput.finish`, checked with `javap`). The frame's render type
+    starts first, and `MultiBufferSource.BufferSource.getBuffer` draws a shared render type's quads when the next one
+    starts (`RenderType.text` has no fixed buffer in `RenderBuffers`), so the fill always draws after the frame.
+  - `WorkModeButton.renderWidget` repeats `AbstractButton.renderWidget` with our sprite: the widget's alpha, blend and depth
+    test, and the label colour with the alpha in its top byte. `PanelBars` tints the fill with `GuiGraphics.setColor`,
+    which sets `RenderSystem.setShaderColor` after it draws what is batched.
+  - Tests beyond Step 1: `WorkModeSpritesTest` checks that each button sprite is the size of `PanelLayout.BUTTON` with a
+    nine-slice `.mcmeta` of that size, and `StaminaBarTest` checks `fill` and that each bar sprite is the size of the bar
+    that draws it.
+  - The sprites: the button's body is slate, with a 1-pixel outline, round corners, a lighter top and left edge and a
+    darker bottom and right edge. On and off have a 2-pixel accent at the left end, inside the 3-pixel nine-slice border.
+    The bars have round corners and an inside that is darker under the top edge. The fills are white over light grey, so
+    the tint shows as two tones. The seven icons keep the alpha masks of Phase 1. Each has an outline in a dark shade of
+    its colour and a bevel lit from the top-left.
+
 - [ ] **Step 7: Commit:** `git commit -m "Draw the Work Mode button, the Work Stamina bars and the state icons from final sprites"`.
 
 ---

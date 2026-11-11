@@ -1,23 +1,27 @@
-# working: imported from working.png
+# State icon: Working (CD-ART-04, CD-UI-07). The Phase 1 shape, with an outline in a dark shade of
+# its colour and a bevel lit from the top-left. The shapes differ without colour (CD-UI-08).
 size 16 16
 palette
   . transparent
-  a #181818
-  b #64c85a
+  o #143316     outline
+  h #d8f6ca     highlight
+  l #93de83     lit
+  b #62c457     base
+  d #3e9440     shade
 pixels
-......aaaa......
-..aaa.abba.aaa..
-.aabaaabbaaabaa.
-.abbbbbbbbbbbba.
-.aabbbbbbbbbbaa.
-..abbbbaabbbba..
-aaabbbaaaabbbaaa
-abbbbaa..aabbbba
-abbbbaa..aabbbba
-aaabbbaaaabbbaaa
-..abbbbaabbbba..
-.aabbbbbbbbbbaa.
-.abbbbbbbbbbbba.
-.aabaaabbaaabaa.
-..aaa.abba.aaa..
-......aaaa......
+......oooo......
+..ooo.ohlo.ooo..
+.ooloooldoooloo.
+.olblllbblllbdo.
+.oolbbbddbbbdoo.
+..olbbdoobbbdo..
+ooolbdoooobbdooo
+ohlbdoo..oolbllo
+obdbdoo..oolbddo
+ooolbloooohbdooo
+..olbbloohbbdo..
+.oolbbbllbbbdoo.
+.olbdddbbdddbdo.
+.oodoooldooodoo.
+..ooo.obdo.ooo..
+......oooo......
