@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.test.create
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.MixinState
 import codes.honor.cobblemondynamics.handler.create.FanCatalyst
+import codes.honor.cobblemondynamics.handler.create.FanState
 import codes.honor.cobblemondynamics.handler.create.FanWorkers
 import codes.honor.cobblemondynamics.handler.create.FireMode
 import codes.honor.cobblemondynamics.test.TestKit
@@ -16,6 +17,7 @@ import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import kotlin.math.abs
@@ -77,6 +79,31 @@ class FanTests {
         val sand = CreateKit.depot(helper, BlockPos(5, 1, 7), ItemStack(Items.SAND))
         CreateKit.catalyse(helper, fan, FanCatalyst.GHOST)
         helper.succeedWhen { helper.assertTrue(sand.heldItem.`is`(Items.SOUL_SAND), "CD-FAN-08: the depot holds ${sand.heldItem}") }
+    }
+
+    /**
+     * A fan flipped to smoking is saved, and a new block entity loads from the save and takes its place, as a chunk load after a
+     * restart does. The new fan reads smoking, and still reads it after its first tick (CD-FAN-11).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 100)
+    fun cdFan11SmokingSurvivesARestart(helper: GameTestHelper) {
+        val fan = CreateKit.fan(helper, fanRel, Direction.EAST, rpm = 64)
+        fun mode() = FanState.of(helper.getBlockEntity<BlockEntity>(fanRel))?.fireMode
+        helper.startSequence()
+            .thenIdle(2)
+            .thenExecute {
+                val state = FanState.of(fan) ?: throw GameTestAssertException("Create attached no fan state to the fan")
+                helper.assertTrue(state.flipMode() == FireMode.SMOKING, "the flip of a new fan gave ${state.fireMode}")
+                val registries = helper.level.registryAccess()
+                val loaded = BlockEntity.loadStatic(fan.blockPos, fan.blockState, fan.saveWithFullMetadata(registries), registries)
+                    ?: throw GameTestAssertException("the fan did not load from its save")
+                helper.level.setBlockEntity(loaded)
+                helper.assertTrue(helper.getBlockEntity<BlockEntity>(fanRel) === loaded, "the loaded fan did not replace the old one")
+                helper.assertTrue(mode() == FireMode.SMOKING, "CD-FAN-11: the fan loaded from its save reads ${mode()}")
+            }
+            .thenIdle(1)
+            .thenExecute { helper.assertTrue(mode() == FireMode.SMOKING, "CD-FAN-11: after its first tick the loaded fan reads ${mode()}") }
+            .thenSucceed()
     }
 
     /**

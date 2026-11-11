@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -78,6 +79,32 @@ class FanCatalystTests {
                 helper.assertTrue(status() == WorkerStatus.STANDBY, "the Charmander is ${status()} with no item in the current")
                 helper.assertTrue(helper.level.gameTime - since <= 20, "CD-FAN-15: no Standby within 20 ticks of the last item")
             }
+            .thenSucceed()
+    }
+
+    /**
+     * Stone fills the block in front of a fan that faces east, so the owner's bind of a Charmander to the fan refuses with its message
+     * and binds nothing (CD-FAN-04). The first bind comes on the tick of the tether, before the engine's poll knows the Charmander,
+     * and the second after the poll.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
+    fun cdFan04StoneInFrontRefusesTheBind(helper: GameTestHelper) {
+        val fanRel = BlockPos(3, 2, 7)
+        CreateKit.fan(helper, fanRel, Direction.EAST, rpm = 64)
+        helper.setBlock(fanRel.east(), Blocks.STONE)
+        val scene = scene(helper)
+        val charmander = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=20")
+        fun assertRefused(moment: String) {
+            val binding = TestKit.bind(helper, scene.owner, charmander, fanRel)
+            helper.assertTrue(binding == null, "CD-FAN-04: the bind $moment gave $binding")
+            val reply = TestKit.lastMessage(scene.owner)
+            helper.assertTrue(reply == "No room in front of the fan", "CD-FAN-04: the bind $moment answered '$reply'")
+        }
+        helper.assertTrue(TestKit.workerOf(helper, charmander) == null, "the engine knew the Charmander on the tick of its tether")
+        assertRefused("before the engine's poll")
+        helper.startSequence()
+            .thenWaitUntil { helper.assertTrue(TestKit.workerOf(helper, charmander) != null, "the engine has no Charmander yet") }
+            .thenExecute { assertRefused("after the engine's poll") }
             .thenSucceed()
     }
 

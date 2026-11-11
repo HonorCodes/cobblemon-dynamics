@@ -17,8 +17,8 @@ class ManualChecklistTest {
     }
 
     @Test
-    fun `CD-REL-09 the manual checklist lists every Demo test of the Phase 1 rows`() {
-        val demos = rows.filter { (id, test) -> id.split('-')[1] !in PHASE_2_AREAS && test.contains("Demo:") }.keys
+    fun `CD-REL-09 the manual checklist lists every Demo test of the spec sheet`() {
+        val demos = rows.filter { (_, test) -> test.contains("Demo:") }.keys
         assertTrue(demos.isNotEmpty(), "no Demo rows in $SPEC")
         val missing = demos.filterNot { Regex("""\b$it\b""").containsMatchIn(checklist) }
         assertTrue(missing.isEmpty(), "Demo rows missing from the manual checklist: $missing")
@@ -34,9 +34,6 @@ class ManualChecklistTest {
     private companion object {
         const val SPEC = "docs/plans/2026-11-09-v1-spec-sheet.md"
         const val ACCEPTANCE_TEST = 5
-
-        /** The spec sheet's Phase 2 areas. Every other row belongs to Phase 1. */
-        val PHASE_2_AREAS = setOf("TLK", "MAG", "FAN", "TLW", "QWK", "ART")
         val ROW_ID = Regex("""\bCD-[A-Z]+-\d{2}\b""")
     }
 }

@@ -110,4 +110,41 @@ class MagnetTests {
             helper.succeed()
         }
     }
+
+    /**
+     * A Lv10 Klink collects a stack of 64 dirt, 7 items a batch. When the test takes the stack off the ground, the Klink is in Standby
+     * within 20 ticks. With a new stack on the ground it Works, and when the test fills the chest with stone, it is in Standby within
+     * 20 ticks while the stack still lies on the ground (CD-MAG-07).
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 600)
+    fun cdMag07NoItemsOrAFullChestMeansStandby(helper: GameTestHelper) {
+        val scene = scene(helper, "klink level=10")
+        val chest = helper.getBlockEntity<ChestBlockEntity>(chestRel)
+        helper.assertTrue(TestKit.bind(helper, scene.owner, scene.worker, chestRel) != null, "the bind to the chest was refused")
+        fun status() = TestKit.workerOf(helper, scene.worker)?.status
+        var stack = drop(helper, BlockPos(13, 2, 11), ItemStack(Items.DIRT, 64))
+        var since = 0L
+        helper.startSequence()
+            .thenWaitUntil { helper.assertTrue(status() == WorkerStatus.WORKING, "the Klink is ${status()}") }
+            .thenExecute {
+                stack.discard()
+                since = helper.level.gameTime
+            }
+            .thenWaitUntil {
+                helper.assertTrue(status() == WorkerStatus.STANDBY, "the Klink is ${status()} with no item on the ground")
+                helper.assertTrue(helper.level.gameTime - since <= 20, "CD-MAG-07: no Standby within 20 ticks of the last item leaving")
+            }
+            .thenExecute { stack = drop(helper, BlockPos(13, 2, 11), ItemStack(Items.DIRT, 64)) }
+            .thenWaitUntil { helper.assertTrue(status() == WorkerStatus.WORKING, "the Klink is ${status()} with dirt on the ground again") }
+            .thenExecute {
+                for (slot in 0 until chest.containerSize) chest.setItem(slot, ItemStack(Items.STONE, 64))
+                since = helper.level.gameTime
+            }
+            .thenWaitUntil {
+                helper.assertTrue(status() == WorkerStatus.STANDBY, "the Klink is ${status()} with a full chest")
+                helper.assertTrue(helper.level.gameTime - since <= 20, "CD-MAG-07: no Standby within 20 ticks of the chest filling")
+                helper.assertTrue(stack.isAlive, "the dirt left the ground, so the Standby proves nothing about the full chest")
+            }
+            .thenSucceed()
+    }
 }

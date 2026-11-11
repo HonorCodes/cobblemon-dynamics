@@ -236,11 +236,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
-     * CD-FAN-04: whether [pokemonId]'s worker has a spot at [canonical] for [role]. True while the engine knows no entity for it, so
-     * the claim decides.
+     * CD-FAN-04: whether [pokemonId]'s worker has a spot at [canonical] for [role]. The engine knows a newly pastured Pokémon only from
+     * its pasture's next poll, so until then the check finds the entity among the pasture's tethered entities. True only when no entity
+     * exists for it, so the claim decides.
      */
     fun hasSpot(level: ServerLevel, pasture: BlockPos, pokemonId: UUID, role: ActiveRole, canonical: BlockPos): Boolean {
-        val entity = entityOf(pokemonId) ?: return true
+        val entity = entityOf(pokemonId) ?: PastureAdapter.tetheredEntity(level, pasture, pokemonId) ?: return true
         val t = tick(level)
         val others = takenSpots(t).also { taken -> slots[pokemonId]?.worker?.spot?.let { taken.remove(it.asLong()) } }
         val area = WorkArea.of(pasture, t.settings, PastureAdapter.maxWanderDistance())
