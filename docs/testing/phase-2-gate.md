@@ -144,7 +144,7 @@ These items stay open at the gate. Each item names its source.
   blocks. `WorkModeService.request` accepts a request from exactly 10.0 blocks, which the CD-SEC-04 GameTest checks. A
   toggle from the panel at exactly 10.0 blocks still fails, because Cobblemon has dropped the link. That is stricter than
   the row, never looser. Source: [the multiplayer audit](multiplayer-audit.md#rulings-of-2026-11-11), ruling 4 and
-  row 13, and the CD-SEC-04 line of the [rehydration note](../plans/2026-11-09-phase-1-rehydration.md).
+  row 13, and the CD-SEC-04 line of the development notes.
 - **The `cdHeal17` timeout.** `HealerTests.cdHeal17SpentHealerGoesToBedOrRestsInPlace` timed out once at 1,200 ticks with
   no failed assertion, then passed in two runs in a row. The test does not reach the code that M8 Task 7 changed, and a
   healer sees only the allies of its own pasture. Watch the test in the gate run. Source: Step 1 of
@@ -154,7 +154,7 @@ These items stay open at the gate. Each item names its source.
   job submits these libraries with the compile classpath, and they have development scope. The mod ships none of them.
   Only `jarJar` libraries get runtime scope, and `build.gradle` declares none. Dependency review fails only on runtime
   scope. Source: `.github/workflows/security.yml`, and the M1 row of the
-  [rehydration note](../plans/2026-11-09-phase-1-rehydration.md).
+  development notes.
 
 ## Play-test note
 

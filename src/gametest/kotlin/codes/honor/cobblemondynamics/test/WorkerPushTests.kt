@@ -23,7 +23,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
  * Workers on one row of cell centres. Minecraft pushes two entities apart along the line between their centres, so two workers that
  * meet head-on in a row push each other straight back, and a walker pushes a Working worker off its spot, which then walks back into
  * it. Without a fix each trip stalls until `travelTimeoutTicks` (600), and CD-ASG-14 then keeps the worker off its target for 6,000
- * ticks (carry-over item of the rehydration note). The scenes use a corridor one block wide, so no worker can step aside.
+ * ticks (carry-over item of the development notes). The scenes use a corridor one block wide, so no worker can step aside.
  */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)

@@ -4,7 +4,7 @@ This checklist holds the checks that need a person. It covers each `Demo:` test 
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) (CD-REL-09). It also covers the real-restart checks and the
 play-test checks that the end-of-phase pass of
 [M5 Task 9](../plans/2026-11-09-phase-1-m5-ui-compat-gate.md#task-9-phase-1-gate) and the
-[rehydration note](../plans/2026-11-09-phase-1-rehydration.md#carry-over-items) list.
+development notes list.
 
 Each check names its spec row, the setup, the action and the expected result. If the expected result does
 not happen, the check fails. In a doubtful case, the row's "Fails if" text in the spec sheet decides. Record

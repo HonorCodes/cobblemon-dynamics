@@ -1509,7 +1509,7 @@ PHASES = {
   Every automated row passes. The art review rows show `art review` until the approver's review.
 
 - [ ] **Step 4: Commit, push, open the pull request.** `git commit -m "Write the Phase 2 gate report and assemble the play-test client [rag:3]"`.
-  Then follow the rehydration note's pull request steps (HAR-809). Merge when CI is green and every thread is resolved.
+  Then follow the development notes' pull request steps (HAR-809). Merge when CI is green and every thread is resolved.
 
 - [ ] **Step 5: Stop.** Hand off to the approver for the Phase 2 play-test and the art review: the play-test client of
   Step 3, the checks of the play-test note, and the review spritesheet `build/art-review/spritesheet.png` (`py scripts/art.py review`)

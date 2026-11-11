@@ -15,7 +15,7 @@ The art cannot come from the mods that we integrate with:
 - AE2's textures and models are CC BY-NC-SA 3.0.
 - Mojang's textures are not ours to copy.
 
-The operator chose these options: Claude drafts every asset and the operator approves each one, in the
+The operator chose these options: every asset is drafted for this mod and the operator approves each one, in the
 vanilla 16×16 style.
 
 ## Decision
@@ -39,7 +39,7 @@ vanilla 16×16 style.
   - Every asset except the logo is original. No pixel comes from Mojang, Cobblemon, Create or AE2.
   - Textures use the vanilla 16×16 style. Block models use a format that Blockbench can open.
   - Source files live under `art/` in the repository, under the repository's MPL-2.0 license.
-  - Claude drafts each asset. The operator approves each one on a screenshot review page before the
+  - Each asset is drafted for this mod. The operator approves each one on a screenshot review page before the
     public release.
   - Private builds may use placeholder art.
 
@@ -56,7 +56,7 @@ vanilla 16×16 style.
 ## Alternatives considered
 
 - **An artist makes the finals.** Higher quality, but it adds a dependency on another person's schedule.
-- **A hybrid.** Claude builds the models and first-pass textures, and an artist repaints them. It keeps
+- **A hybrid.** First-pass models and textures are drafted for the mod, and an artist repaints them. It keeps
   part of the same dependency.
 - **32×32 textures.** Room for detail on the Plush and Starlit beds, but they look out of place next to
   vanilla and Create blocks.

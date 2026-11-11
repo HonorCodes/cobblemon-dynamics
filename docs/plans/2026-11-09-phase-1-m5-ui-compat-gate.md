@@ -414,7 +414,7 @@ Design (as built):
   Work Stamina and beds 3, healers 1, Stoker 1, Wheel Driver 4, Cranker 1, work effects 1, compatibility 4 and
   release 3. Beside the 34 Demo rows, it holds the six real-restart checks of the Task 9 list (CD-CLM-07,
   CD-LSH-07, CD-WHL-07, CD-CRK-08, CD-STA-04, CD-BED-14: checks 13, 24, 33, 34, 26 and 27) and the two
-  carry-over checks of the rehydration note (CD-ASG-09 for a wide worker, CD-ASG-14 for a crowded pasture).
+  carry-over checks of the development notes (CD-ASG-09 for a wide worker, CD-ASG-14 for a crowded pasture).
 - CD-CLM-07 with a real restart: a worker's first poll after a load is immediate, so a person cannot read the
   registry before the first scan. The check turns the Stoker off in the server config while the world is closed.
   A work claim that `/cobblemondynamics claims` then lists can only have come from the save.
@@ -619,7 +619,7 @@ its end-of-phase test. Test names are `Class.method` in `src/gametest/kotlin/`, 
   - CD-STA-04: `StaminaStoreTests.cdSta04And05StaminaStartsFullAndFollowsThePokemon`; manual checklist 26.
   - CD-BED-14: `RestTests.cdBed14SleeperClaimsABedAfterRestart`; manual checklist 27.
 
-The same pass checked the three behaviour items of the rehydration note's carry-over list, each with a GameTest that failed
+The same pass checked the three behaviour items of the development notes' carry-over list, each with a GameTest that failed
 before its fix:
 
 - Worker deadlock: `WorkerPushTests.workersMeetingHeadOnInOneRowPassAndWork` and `aWalkerPassesAWorkingWorkerInOneRow` (a

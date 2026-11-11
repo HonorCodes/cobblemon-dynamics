@@ -1299,7 +1299,7 @@ git commit -m "Add the isolated test pack with smoke and dependency-range scenar
 
 **Files:**
 - Modify: `README.md` (Status section: "Phase 1 in progress", and a "Building" section)
-- Create: `CLAUDE.md` (repo gotchas only: JDK 21 through `JAVA_HOME` because `java` on the PATH may be 8,
+- Create: a local notes file (repo gotchas only: JDK 21 through `JAVA_HOME` because `java` on the PATH may be 8,
   `gradlew.bat` on Windows, GameTest logs live in `run/gametest/logs/`, the test pack never uses the COHO
   pack)
 

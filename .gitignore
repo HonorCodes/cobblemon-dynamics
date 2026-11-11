@@ -26,3 +26,16 @@ run/
 .idea/
 *.iml
 repo/
+
+# AI assistant files stay local and out of the repository.
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.aider*
+.codex/
+.beads/
+.github/copilot-instructions.md
+docs/plans/*-rehydration.md

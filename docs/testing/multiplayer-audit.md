@@ -170,4 +170,4 @@ The review's list of code that was right still holds:
    loads a chunk. Done, with a unit test and one GameTest.
 3. Row 46, Floral Healing: no code change now. The [Open item](#open-item) section records the condition.
 4. Row 13, the toggle at exactly 10.0 blocks: holds. It is stricter than CD-SEC-04, never looser, and the decisions of the
-   rehydration note already record it.
+   development notes already record it.
