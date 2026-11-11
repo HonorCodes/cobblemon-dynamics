@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.net.PanelViewers
@@ -37,7 +38,11 @@ object EngineEvents {
             PanelViewers.reset()
             DynamicsPayloads.reset()
             RoleRegistry.reset()
+            Feedback.reset()
             EngineTiming.stopRecording()
+        }
+        NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedInEvent> { event ->
+            (event.entity as? ServerPlayer)?.let(Feedback::onLogin)
         }
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { event ->
             val player = event.entity as? ServerPlayer ?: return@addListener

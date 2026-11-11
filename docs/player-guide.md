@@ -157,7 +157,8 @@ Sneak and right-click your bound Pokémon with the Work Leash. The action bar sh
 mounts the Pokémon.
 
 A binding also clears in the cases below. The player who bound the Pokémon then gets the chat message
-"{Pokémon} lost its work binding: {reason}".
+"{Pokémon} lost its work binding: {reason}". If that player is offline, the message waits for their next login. The
+server keeps up to 10 such messages per player, the newest, and a server restart drops them.
 
 | Case | Reason in the message |
 | --- | --- |

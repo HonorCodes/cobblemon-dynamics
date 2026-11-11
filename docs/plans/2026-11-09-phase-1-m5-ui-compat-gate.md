@@ -704,7 +704,7 @@ listener now), `CobblemonDynamics.kt`, the lang entry `itemGroup.cobblemon_dynam
 
 ### Rulings after the multiplayer audit (R62)
 
-**Rows:** CD-UI-17, new. CD-LSH-05, amended. Each fix of the audit has its own commit on the branch
+**Rows:** CD-UI-17, new. CD-LSH-05 and CD-LSH-13, amended. Each fix of the audit has its own commit on the branch
 `multiplayer-hardening`. By the approver's ruling there are no multiplayer GameTests: unit tests cover the pure logic, and
 the rest was checked against the Cobblemon 1.8.4 sources and, with `javap`, the NeoForge 21.1.265 and Minecraft 1.21.1
 classes.
@@ -724,3 +724,5 @@ command), `LangTest` (the reason has its lang entry) and manual check 51 for the
 - CD-LSH-05: a target bound to another player's Pokémon refuses with "Already assigned to another player's {species}".
   `BindRules` picks the message from whether the clicking player owns the bound Pokémon, which `LeashInteractions` reads
   from the store that holds it. Test: `BindRulesTest`.
+- CD-LSH-13: `Feedback.chat` queues the message of an offline binder in `OfflineMessages`, which keeps the 10 newest per
+  player. `PlayerLoggedInEvent` delivers them and `ServerStoppedEvent` drops them. Test: `OfflineMessagesTest`.
