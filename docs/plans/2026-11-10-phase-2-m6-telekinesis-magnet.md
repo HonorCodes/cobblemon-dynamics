@@ -307,7 +307,17 @@ fun cdAsg09UnreachablePocketGivesWayToAReachableSpot(helper: GameTestHelper) {
 
   Run `./gradlew runGameTestServer` and see the test fail on the old code (the Charmander takes (7, 2, 4) and never Works),
   then pass with Step 3. Every other GameTest still passes, which shows that the path check refuses no spot that a worker
-  reached before.
+  reached before. Some Phase 1 scenes gave a worker no path, and they now give one, with the same assertions:
+  - `AssignmentTests.cdAsg01OnlyOwnedHealthyPastured` moved its Charmanders to y = 1, into the floor, from where they fall
+    under it. `cdAsg03NearestFurnaceWins` and `cdAsg13UnreachableTargetTimesOut` held theirs at y = 1 until the claim, so the
+    path check started inside a solid block. `WorkModeTests.cdWmd06OffPastureGivesNoClaims` and the disabled-role test in
+    `RoleDataTests` moved theirs to y = 1, so "no claim" held even if the rule under test broke. All of them now stand at
+    y = 2.
+  - `AssignmentTests.cdAsg08VerticalWorkAreaEdge` had a ledge 5 blocks above the floor as its only spot. Cobblemon's
+    pathfinder does not step onto that ledge, which floats over air beside the furnace's pillar: a temporary probe found the
+    path to it ending one step short, from the floor and from a stair beside it, with or without the furnace, also with a
+    4 × node budget, while a step onto a block that rests on the floor succeeded. A stone staircase now rises from the
+    pasture's side, and its top steps are the spots that a path reaches.
 
 - [ ] **Step 6: Multiplayer check.** Read the code against the rules of the plan index. `Reach` reads only the worker's
   own entity and navigation. Nothing keys on a player.
