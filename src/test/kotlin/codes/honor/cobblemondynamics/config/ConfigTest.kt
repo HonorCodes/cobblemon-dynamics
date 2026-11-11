@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.config
 
+import com.electronwill.nightconfig.core.UnmodifiableConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -66,6 +67,16 @@ class ConfigTest {
             assertFalse(ServerConfig.isValid(key, 1), key)
             assertFalse(ServerConfig.isValid(key, 25), key)
         }
+    }
+
+    @Test
+    fun `CD-QWK-35 the server config holds the keys of CD-CFG-01 and no other`() =
+        assertEquals(CFG_01_KEYS.toSet(), keys(ServerConfig.SPEC.spec).toSet())
+
+    /** The full path of every value, as PlayerGuideTest reads it. */
+    private fun keys(config: UnmodifiableConfig, prefix: String = ""): List<String> = config.valueMap().flatMap { (name, value) ->
+        val path = if (prefix.isEmpty()) name else "$prefix.$name"
+        if (value is UnmodifiableConfig) keys(value, path) else listOf(path)
     }
 
     private companion object {

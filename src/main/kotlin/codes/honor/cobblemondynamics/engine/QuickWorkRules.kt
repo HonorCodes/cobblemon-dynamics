@@ -23,6 +23,9 @@ object QuickWorkRules {
     /** Cobblemon's `BEAM_MODE` while a recall plays (`PokemonEntity.recallWithAnimation`). */
     const val RECALL_BEAM = 3
 
+    /** CD-QWK-29: a running order asks its permission again this often. */
+    const val PERMISSION_TICKS = 20L
+
     sealed interface Pick {
         data class Order(val role: RoleDefinition) : Pick
 
@@ -59,6 +62,9 @@ object QuickWorkRules {
     fun dropExpired(aims: MutableMap<UUID, QuickAim>, now: Long) {
         aims.values.removeIf { isExpired(it.tick, now) }
     }
+
+    /** CD-QWK-29: an order asks its permission again on every 20th tick after its start. */
+    fun permissionDue(startedAt: Long, now: Long): Boolean = now > startedAt && (now - startedAt) % PERMISSION_TICKS == 0L
 
     /** CD-QWK-13: past the leash, from the owner's eye position to the box of the aimed block. The start and the end of an order ask it. */
     fun beyondLeash(ownerDistanceSqr: Double, leashRange: Int): Boolean = ownerDistanceSqr > leashRange.toDouble() * leashRange
@@ -113,4 +119,7 @@ enum class QuickEnd(val messageKey: String) {
     OWNER_LEFT("cobblemon_dynamics.quick_work.end.owner_left"),
     BATTLE("cobblemon_dynamics.quick_work.end.battle"),
     UNREACHABLE(QuickWorkRules.CANNOT_REACH),
+
+    /** CD-QWK-29: the owner lost the permission of the start, which reads "You may not use {target}". */
+    PERMISSION(QuickWorkRules.NO_PERMISSION),
 }
