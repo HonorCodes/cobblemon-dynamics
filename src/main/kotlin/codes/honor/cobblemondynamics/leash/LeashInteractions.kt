@@ -98,16 +98,26 @@ object LeashInteractions {
         val now = level.gameTime
         val dimension = level.dimension().location()
         val selection = stack.get(LeashComponents.SELECTION.get())
-        val pending = livePending(stack, dimension, now)
         val pokemon = selection?.let { ownedPokemon(player, it.pokemonId) }
         val pasture = pokemon?.let { PastureAdapter.workModePastureOf(level, it) }
-        val roles = fittingRoles(level, pokemon, clicked, pending)
+        val area = pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
+        val live = livePending(stack, dimension, now)
+        // CD-SEC-08: the stack's pending source is checked before any read of its block, so a written one never loads a chunk.
+        val check = live?.let { BindRules.checkPending(it.pos, area) { pos -> level.isLoaded(pos) } }
+        if (check == BindRules.PendingCheck.OUTSIDE_AREA || check == BindRules.PendingCheck.ABSENT) {
+            stack.remove(LeashComponents.PENDING_SOURCE.get())
+        }
+        if (check == BindRules.PendingCheck.OUTSIDE_AREA) {
+            refuse(player, stack, BindRules.Outcome.Refuse(BindRules.OUTSIDE_AREA), null)
+            return
+        }
+        val pending = live.takeUnless { check == BindRules.PendingCheck.ABSENT }
+        val roles = if (check == BindRules.PendingCheck.NO_AREA) emptyList() else fittingRoles(level, pokemon, clicked, pending)
         val types = pokemon?.types?.map { it.showdownId }.orEmpty()
         val best = RoleSelection.best(roles.map { it.definition }, types)?.let { def -> roles.first { it.definition == def } }
         val canonical = best?.let { role -> guarded(role.handler, clicked) { role.handler.canonical(level, clicked) } } ?: clicked
         // The checks of a source-and-destination binding are the source's, and the destination is the clicked block.
         val source = pending?.pos ?: canonical
-        val area = pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
         val other = otherBound(level, source, selection?.pokemonId)
         val input = BindRules.Input(
             selection = selection,

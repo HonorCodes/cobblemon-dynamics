@@ -13,6 +13,7 @@ import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import com.simibubi.create.foundation.block.ItemUseOverrides
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.event.server.ServerStoppedEvent
 
 /**
  * The Create integration. Every class that names a Create type sits in this package or in `mixin.create`, and only [register]
@@ -40,6 +41,7 @@ object CreateCompat {
             }
         }
         NeoForge.EVENT_BUS.addListener(BlockEntityBehaviourEvent::class.java, ::attachBehaviours)
+        NeoForge.EVENT_BUS.addListener<ServerStoppedEvent> { PokemonHeat.reset() }
         HandlerRegistry.register(WaterWheelHandler)
         HandlerRegistry.register(HandCrankHandler)
         HandlerRegistry.register(BurnerHeatHandler)

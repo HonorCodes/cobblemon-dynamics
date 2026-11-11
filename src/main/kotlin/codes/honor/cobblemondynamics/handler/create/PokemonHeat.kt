@@ -23,6 +23,11 @@ object PokemonHeat {
         grants.remove(burner)
     }
 
+    /** Forgets every grant when a server stops, because the integrated server stops and starts again in the same JVM. */
+    fun reset() {
+        grants.clear()
+    }
+
     /** The heat that a worker gives [burner] on the current tick, or null. Always null on a client. */
     @JvmStatic
     fun levelFor(burner: BlazeBurnerBlockEntity): BlazeBurnerBlock.HeatLevel? {
