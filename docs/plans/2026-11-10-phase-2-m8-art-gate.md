@@ -1199,7 +1199,7 @@ SHA-256. The release workflow runs it for every public tag (CD-ART-12).
   FAIL` until the approver's review at the gate stop (Task 8).
 
   **As built (2026-11-11).** The review sheet also shows each Work Stamina bar as the game draws it, at the 100%, 40% and
-  10% of manual checklist check 49: the fill cropped as `StaminaBar.fillWidth` crops it and tinted with the colour that
+  10% of manual checklist check 57: the fill cropped as `StaminaBar.fillWidth` crops it and tinted with the colour that
   `StaminaBar.kt` declares for that stamina (`bar_tints`, `drawn_bar`). The approver judges the bars from these, because
   the fill sprite alone is a grey strip.
 
@@ -1334,22 +1334,31 @@ fun `CD-REL-09 the manual checklist lists every Demo test of the spec sheet`() {
 
   Delete `PHASE_2_AREAS` from the test. Run it: it fails on CD-ART-02, CD-ART-03, CD-ART-04 and CD-ART-07.
 
-- [ ] **Step 3: The checklist entries,** in a new group "Art", after check 46:
+- [ ] **Step 3: The checklist entries,** in a new group "Art", after the last check:
 
 ```markdown
 ## Art
 
-47. **CD-ART-02.** Setup: the review spritesheet `build/art-review/spritesheet.png`, and the four beds and a Charge Cell
-    placed in the play-test world. Action: compare each block in the world with its view on the sheet. Expected: each block reads as
-    the object that it is, and the approver approves it in the review record.
-48. **CD-ART-03.** Setup: a Work Leash in the hotbar and one in the hand. Action: look at the icon in the inventory and in
+These checks show the art of the first release. Record their results in the play-test note of the Phase 2 gate report,
+`docs/testing/phase-2-gate.md`. The approver's verdict on each asset goes into the review record,
+`docs/testing/art-review.md`.
+
+55. **CD-ART-02.** Setup: the review spritesheet `build/art-review/spritesheet.png`, and the four beds and a Charge Cell
+    placed in the play-test world. Action: compare each block in the world with its view on the sheet. Expected: each
+    block reads as the object that it is, and the approver approves it in the review record.
+56. **CD-ART-03.** Setup: a Work Leash in the hotbar and one in the hand. Action: look at the icon in the inventory and in
     the hand. Expected: a lead with a red-and-white clasp, in the style of Cobblemon's items, and the approver approves it.
-49. **CD-ART-04.** Setup: a pasture panel with the Work Mode button, a panel row with a bar, and a worker's head bar. Action:
+57. **CD-ART-04.** Setup: a pasture panel with the Work Mode button, a panel row with a bar, and a worker's head bar. Action:
     look at the button on, off, disabled and under the mouse, the bars at 100%, 40% and 10%, and the seven state icons.
     Expected: every sprite shows, and the approver approves each one.
-50. **CD-ART-07.** Setup: Blockbench. Action: open each model file under `art/models/block/` as a Java block model. Expected:
+58. **CD-ART-07.** Setup: Blockbench. Action: open each model file under `art/models/block/` as a Java block model. Expected:
     each model opens and shows the block.
 ```
+
+  The checklist held 54 checks when this task ran, so the new checks are 55 to 58. The first draft numbered them 47 to 50.
+  Checks 45 to 54 existed by then, and the M5 plan and check 48 cite two of them. Task 5's as-built note now cites check 57.
+  Task 8's play-test note now runs to check 58, so it also holds checks 45 to 51, which came after the Phase 1 play-test.
+  The checklist intro now says that it covers each `Demo:` test in the spec sheet.
 
   Run `ManualChecklistTest` and see it pass.
 
@@ -1427,7 +1436,7 @@ PHASES = {
     review record, and the steps below.
   - "Known issues and open decisions": the open items of this plan index and of Tasks 1 to 7.
   - "Play-test note": a table with a line for each check of the manual checklist that the Phase 2 play-test covers: checks
-    20, 44 to 50, and the Phase 1 checks that Phase 2 code touches (6, 9, 10, 14, 15 and 22).
+    20, 44 to 58, and the Phase 1 checks that Phase 2 code touches (6, 9, 10, 14, 15 and 22).
   - "Art review": a pointer to `docs/testing/art-review.md`.
   - "How this report is made": the commands of Step 3.
 

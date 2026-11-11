@@ -634,7 +634,7 @@ SPRITE_ORDER = ("on", "off", "hover", "disabled", "panel_bar", "panel_fill", "he
                 "idle", "traveling", "working", "standby", "tired", "sleeping", "healing")
 TABS = ROOT / "src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsTabs.kt"
 STAMINA_BAR = ROOT / "src/main/kotlin/codes/honor/cobblemondynamics/client/StaminaBar.kt"
-# The Work Stamina bar at the stamina of manual checklist check 49, with the tint that StaminaBar.color gives it there.
+# The Work Stamina bar at the stamina of manual checklist check 57, with the tint that StaminaBar.color gives it there.
 BAR_SAMPLES = ((100, "GREEN"), (40, "YELLOW"), (10, "RED"))
 # A 5 x 9 bitmap font for the labels: each glyph lists its rows from the top, with '#' for a lit pixel. Rows 7 and 8
 # hold the descenders, and the rows that a glyph leaves out are blank.

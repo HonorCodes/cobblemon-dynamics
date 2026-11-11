@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -77,6 +78,29 @@ class FanCatalystTests {
             .thenWaitUntil {
                 helper.assertTrue(status() == WorkerStatus.STANDBY, "the Charmander is ${status()} with no item in the current")
                 helper.assertTrue(helper.level.gameTime - since <= 20, "CD-FAN-15: no Standby within 20 ticks of the last item")
+            }
+            .thenSucceed()
+    }
+
+    /**
+     * Stone fills the block in front of a fan that faces east, so the owner's bind of a Charmander to the fan refuses with its message
+     * and binds nothing (CD-FAN-04). The bind waits until the engine knows the Charmander, because the spot check reads the worker's
+     * entity from the engine and passes while the engine has none.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
+    fun cdFan04StoneInFrontRefusesTheBind(helper: GameTestHelper) {
+        val fanRel = BlockPos(3, 2, 7)
+        CreateKit.fan(helper, fanRel, Direction.EAST, rpm = 64)
+        helper.setBlock(fanRel.east(), Blocks.STONE)
+        val scene = scene(helper)
+        val charmander = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=20")
+        helper.startSequence()
+            .thenWaitUntil { helper.assertTrue(TestKit.workerOf(helper, charmander) != null, "the engine has no Charmander yet") }
+            .thenExecute {
+                val binding = TestKit.bind(helper, scene.owner, charmander, fanRel)
+                helper.assertTrue(binding == null, "CD-FAN-04: the bind with stone in front of the fan gave $binding")
+                val reply = TestKit.lastMessage(scene.owner)
+                helper.assertTrue(reply == "No room in front of the fan", "CD-FAN-04: the bind answered '$reply'")
             }
             .thenSucceed()
     }

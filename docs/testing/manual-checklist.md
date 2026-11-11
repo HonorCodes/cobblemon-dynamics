@@ -1,6 +1,6 @@
 # Manual play-test checklist
 
-This checklist holds the checks that need a person. It covers each `Demo:` test of the Phase 1 rows in the
+This checklist holds the checks that need a person. It covers each `Demo:` test in the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) (CD-REL-09). It also covers the real-restart checks and the
 play-test checks that the end-of-phase pass of
 [M5 Task 9](../plans/2026-11-09-phase-1-m5-ui-compat-gate.md#task-9-phase-1-gate) and the
@@ -331,3 +331,20 @@ This check shows the Phase 2 Tailwind on a client. Record its result in the play
 
 54. **CD-TLW-07.** Setup: a 64-sail windmill with a bound level 50 Flying-type that Works. Action: watch the sails for 30
     seconds. Expected: the sails turn smoothly at the faster speed, and they never snap back.
+
+## Art
+
+These checks show the art of the first release. Record their results in the play-test note of the Phase 2 gate report,
+`docs/testing/phase-2-gate.md`. The approver's verdict on each asset goes into the review record,
+`docs/testing/art-review.md`.
+
+55. **CD-ART-02.** Setup: the review spritesheet `build/art-review/spritesheet.png`, and the four beds and a Charge Cell
+    placed in the play-test world. Action: compare each block in the world with its view on the sheet. Expected: each
+    block reads as the object that it is, and the approver approves it in the review record.
+56. **CD-ART-03.** Setup: a Work Leash in the hotbar and one in the hand. Action: look at the icon in the inventory and in
+    the hand. Expected: a lead with a red-and-white clasp, in the style of Cobblemon's items, and the approver approves it.
+57. **CD-ART-04.** Setup: a pasture panel with the Work Mode button, a panel row with a bar, and a worker's head bar. Action:
+    look at the button on, off, disabled and under the mouse, the bars at 100%, 40% and 10%, and the seven state icons.
+    Expected: every sprite shows, and the approver approves each one.
+58. **CD-ART-07.** Setup: Blockbench. Action: open each model file under `art/models/block/` as a Java block model. Expected:
+    each model opens and shows the block.
