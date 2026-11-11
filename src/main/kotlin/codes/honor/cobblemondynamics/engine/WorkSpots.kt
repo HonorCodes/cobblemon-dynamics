@@ -9,8 +9,11 @@ import kotlin.math.floor
 
 /** The block view that work spot selection needs. Unit tests use a fixed grid. */
 interface SpotGrid {
-    /** A floor below, and room for the body at [y] and `y + 1`. */
+    /** A floor below, room for the body at [y] and `y + 1`, and no other worker's spot. */
     fun isStandable(x: Int, y: Int, z: Int): Boolean
+
+    /** A floor below and room for the body at [y] and `y + 1`, whether or not it is another worker's spot. */
+    fun canStand(x: Int, y: Int, z: Int): Boolean = isStandable(x, y, z)
 
     /** The caller excludes the target's own blocks. */
     fun blocksSight(x: Int, y: Int, z: Int): Boolean
@@ -79,9 +82,17 @@ object WorkSpots {
     /** The preference of a spot (CD-ASG-09): beside the target at its base height, else at that height, else at another height. */
     private enum class Place { BESIDE, LEVEL, OTHER_HEIGHT }
 
-    private data class Rank(val place: Place, val toTarget: Double, val toWorker: Double, val pos: Long) : Comparable<Rank> {
-        override fun compareTo(other: Rank): Int = compareValuesBy(this, other, { it.place }, { it.toTarget }, { it.toWorker }, { it.pos })
+    /** A spot is closed when a worker cannot walk into it on the level. A closed spot, such as a pit, ranks after every open one. */
+    private data class Rank(val closed: Boolean, val place: Place, val toTarget: Double, val toWorker: Double, val pos: Long) :
+        Comparable<Rank> {
+        override fun compareTo(other: Rank): Int =
+            compareValuesBy(this, other, { it.closed }, { it.place }, { it.toTarget }, { it.toWorker }, { it.pos })
     }
+
+    private val SIDES = listOf(1 to 0, -1 to 0, 0 to 1, 0 to -1)
+
+    /** One of the four cells beside the spot, at its height, has a floor and room for a body, whoever stands there. */
+    private fun isOpen(grid: SpotGrid, x: Int, y: Int, z: Int): Boolean = SIDES.any { (dx, dz) -> grid.canStand(x + dx, y, z + dz) }
 
     fun inRange(spotCenter: Vec3, targetCenter: Vec3, range: Double): Boolean =
         spotCenter.distanceToSqr(targetCenter) <= range * range + EPSILON
@@ -127,8 +138,9 @@ object WorkSpots {
      * that does not stand on the [target]. A spot beside the target at its base height comes first, then another spot at that height,
      * then a spot at another height, so a worker stands beside its target on the floor that the target stands on (the approver's
      * play-test ruling, 2026-11-10). Within each, the spot nearest to the target wins, then the one nearest to the worker, then the
-     * lowest `BlockPos.asLong()`. A spot is standable only with room for the worker's body ([SpotGrid.fitsBody]), which the search asks
-     * only of a spot that would be the best so far.
+     * lowest `BlockPos.asLong()`. A spot that a worker cannot walk into on the level, such as a pit beside the target, comes after every
+     * open spot, because the worker may not reach it. A spot is standable only with room for the worker's body ([SpotGrid.fitsBody]).
+     * The search asks for line of sight, openness and room only of a spot that could still be the best so far.
      */
     fun find(grid: SpotGrid, area: WorkArea, target: TargetShape, targetCenter: Vec3, range: Double, from: Vec3): BlockPos? {
         val r = ceil(range).toInt()
@@ -143,14 +155,18 @@ object WorkSpots {
                     val pos = BlockPos(x, y, z)
                     if (!area.contains(pos) || target.standsOn(x, y, z) || !grid.isStandable(x, y, z)) continue
                     val c = Vec3.atCenterOf(pos)
-                    if (!inRange(c, targetCenter, range) || !hasLineOfSight(grid, c, targetCenter)) continue
+                    if (!inRange(c, targetCenter, range)) continue
                     val place = when {
                         target.isBeside(x, y, z) -> Place.BESIDE
                         y == target.baseY -> Place.LEVEL
                         else -> Place.OTHER_HEIGHT
                     }
-                    val rank = Rank(place, c.distanceToSqr(targetCenter), c.distanceToSqr(from), pos.asLong())
-                    if ((bestRank == null || rank < bestRank) && grid.fitsBody(x, y, z)) {
+                    val asOpen = Rank(false, place, c.distanceToSqr(targetCenter), c.distanceToSqr(from), pos.asLong())
+                    val current = bestRank
+                    if (current != null && asOpen >= current) continue
+                    if (!hasLineOfSight(grid, c, targetCenter)) continue
+                    val rank = if (isOpen(grid, x, y, z)) asOpen else asOpen.copy(closed = true)
+                    if ((current == null || rank < current) && grid.fitsBody(x, y, z)) {
                         best = pos
                         bestRank = rank
                     }

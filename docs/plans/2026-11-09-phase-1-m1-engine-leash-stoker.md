@@ -1055,7 +1055,9 @@ Play-test change (2026-11-10): the spot nearest to the worker could stand on top
 now takes the target's `TargetShape` (its blocks within one block of the canonical position) and never
 returns a spot that stands on the target. It ranks a spot beside the target at its base height first, then
 another spot at that height, then a spot at another height, and within each the one nearest to the target,
-then to the worker (`WorkSpotsTest`, `WorkSpotTests`).
+then to the worker (`WorkSpotsTest`, `WorkSpotTests`). A spot with no standable cell beside it at its height (a
+pit) ranks after every open spot, because the Wheel Driver GameTests showed that a Squirtle cannot reach a pit
+beside a wheel. `SpotGrid.canStand` judges that cell whether or not another worker's spot is there.
 
 - [ ] **Step 1: Write the failing tests**
 

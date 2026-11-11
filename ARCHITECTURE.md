@@ -217,7 +217,9 @@ Transition rules:
   its column touches the target's footprint on one of four sides, so a worker stands beside a furnace
   or a large water wheel on the floor that the target stands on. Other spots at the base height come
   next, then spots at other heights. Within each group, the spot nearest to the target center wins,
-  then the one nearest to the worker.
+  then the one nearest to the worker. A spot that a worker cannot walk into on the level, because no
+  cell beside it at its height has a floor and room for a body, comes after every open spot. A worker
+  may not reach such a pit, and the old rule, nearest to the worker, avoided it by chance.
 - **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
   worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
   stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.

@@ -20,8 +20,10 @@ class LevelSpotGrid(
 ) : SpotGrid {
     private val cursor = BlockPos.MutableBlockPos()
 
-    override fun isStandable(x: Int, y: Int, z: Int): Boolean {
-        if (BlockPos.asLong(x, y, z) in taken || !level.isLoaded(cursor.set(x, y, z))) return false
+    override fun isStandable(x: Int, y: Int, z: Int): Boolean = BlockPos.asLong(x, y, z) !in taken && canStand(x, y, z)
+
+    override fun canStand(x: Int, y: Int, z: Int): Boolean {
+        if (!level.isLoaded(cursor.set(x, y, z))) return false
         val below = cursor.set(x, y - 1, z)
         if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) return false
         return isEmpty(x, y, z) && isEmpty(x, y + 1, z)
