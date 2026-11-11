@@ -49,7 +49,9 @@ The operator chose type-based eligibility, not per-species lists.
 
 - Pack makers can change rates, effects and eligible types without code.
 - The JSON format is a public interface. A change to it needs a new `schema` number and a migration
-  note.
+  note. The format becomes public with the first public release. Until then, schema 1 is the format
+  that release ships. The play-test changes of 2026-11-10 (`idle_ticks`, and no `cry` or `sound`
+  animation) stay in schema 1.
 - The built-in roles double as the reference examples for pack makers.
 - Server owners and pack makers each have one place to tune, so they do not fight over one number.
 - The built-in numbers follow the balance rule ([ADR-0010](0010-balance-rule.md)). A pack can break that
