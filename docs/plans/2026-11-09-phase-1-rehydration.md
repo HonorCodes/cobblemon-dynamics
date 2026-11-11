@@ -170,3 +170,4 @@ Phase 1 has reached its gate. The work is stopped for the operator's play-test (
 5. Phase 2 (M6 to M8: Telekinesis, Magnet, Fan, Tailwind and the final art) needs its own plan, written
    with `superpowers:writing-plans` from the spec rows in the TLK, MAG, FAN, TLW and ART areas. Start it
    with the known issues in the gate report, first the work spot reachability check.
+6. The Phase 2 plan is [`2026-11-10-phase-2-plan.md`](2026-11-10-phase-2-plan.md). Start M6 when its execution rule 7 holds.
