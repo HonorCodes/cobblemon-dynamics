@@ -1310,7 +1310,7 @@ its end-of-phase test. Test names are `Class.method` in `src/gametest/kotlin/`, 
   - CD-QWK-18: `QuickWorkTests.cdQwk18BrokenFurnaceEndsTheOrder`.
   - CD-QWK-19: `QuickWorkTests.cdQwk19StandbyTimeEndsTheOrder`.
   - CD-QWK-20: `QuickWorkTests.cdQwk20OwnerWhoLeavesEndsTheOrder`.
-  - CD-QWK-21: `QuickWorkTests.cdQwk21BattleEndsTheOrder`.
+  - CD-QWK-21 (Unit + Demo): `QuickWorkRulesTest`; manual checklist 59.
   - CD-QWK-22: `QuickWorkTests.cdQwk22TrappedWorkerTimesOut`.
 
 The same pass checked that every Phase 2 role has its section in the player guide (`PlayerGuideTest`, CD-REL-08), and
@@ -1353,6 +1353,11 @@ this paragraph's first three words, so keep them.
     because it finds no owner (`PokemonServerDelegate`), so the order ends as for a recall. The unit test of the end rule
     checks the reason of an owner who left.
   - Each refusal test checks that the send-out aimed at its block, so that a missed aim cannot pass it.
+
+  CD-QWK-21 has no GameTest, by the coordinator's ruling of 2026-11-11 under the approver's delegation. Cobblemon 1.8.4
+  clears a battle id that names no live battle on the entity's next tick, and a test battle against a fake owner ends in
+  one tick. Its unit tests in `QuickWorkRulesTest` and check 59 of the manual checklist, in a new group "Quick Work",
+  check it. Task 8's play-test note therefore runs to check 59.
 
 - [ ] **Step 2: Failing test.** `ManualChecklistTest` drops its area filter, so it counts the Phase 2 Demo rows:
 
@@ -1473,7 +1478,7 @@ PHASES = {
     review record, and the steps below.
   - "Known issues and open decisions": the open items of this plan index and of Tasks 1 to 7.
   - "Play-test note": a table with a line for each check of the manual checklist that the Phase 2 play-test covers: checks
-    20, 44 to 58, and the Phase 1 checks that Phase 2 code touches (6, 9, 10, 14, 15 and 22).
+    20, 44 to 59, and the Phase 1 checks that Phase 2 code touches (6, 9, 10, 14, 15 and 22).
   - "Art review": a pointer to `docs/testing/art-review.md`.
   - "How this report is made": the commands of Step 3.
 

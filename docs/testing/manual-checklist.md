@@ -348,3 +348,13 @@ These checks show the art of the first release. Record their results in the play
     Expected: every sprite shows, and the approver approves each one.
 58. **CD-ART-07.** Setup: Blockbench. Action: open each model file under `art/models/block/` as a Java block model. Expected:
     each model opens and shows the block.
+
+## Quick Work
+
+This check shows Quick Work on a client. Record its result in the play-test note of the Phase 2 gate report.
+
+59. **CD-QWK-21.** Setup: a level 10 Charmander as the selected Pokémon of your party, and a furnace with 8 raw iron. Look at
+    the furnace from about 6 blocks away and press R. The action bar reads "Charmander goes to work on Furnace", and the
+    Charmander Works the furnace. Run `/pokespawn rattata level=5`, and step 4 blocks back from the Rattata. Action: look at
+    the Rattata and press R, so that a battle with it starts. Expected: when the battle starts, the action bar reads
+    "Charmander stopped working for a battle".
