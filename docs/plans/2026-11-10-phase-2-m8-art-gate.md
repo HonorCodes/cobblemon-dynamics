@@ -1217,13 +1217,18 @@ CD-SEC-11, CD-PLAT-06, CD-FX-08, CD-UI-05, CD-UI-09.
 
 The approver: "this MUST work in multiplayer ... we should make sure the code is made in-mind for multiplayer", and "no
 multiplayer game tests, we don't have that capacity. just make sure you're confident in the code." This task reads the
-whole mod against the eight multiplayer rules of the plan index and fixes what breaks one. It writes no GameTest. A fix
-whose logic is pure gets a unit test first. The separate review of the Phase 1 code ran before M6, so this audit also
-checks that its fixes still hold.
+whole mod against the eight multiplayer rules of the plan index and fixes what breaks one. It writes no GameTest with two
+players. A fix whose logic is pure gets a unit test first. The separate review of the Phase 1 code ran before M6, so this
+audit also checks that its fixes still hold.
+
+Ruling of 2026-11-11 on the audit: a client in creative mode stays trusted with item data, so the pending source stays on
+the Work Leash stack. The destination click checks that source before it reads the source block, and never loads a chunk.
+That check is a CD-SEC-08 rule, so it gets one GameTest, `LeashTests.cdSec08FarPendingSourceBindsNothingAndLoadsNoChunk`.
 
 **Files:**
 - Create: `docs/testing/multiplayer-audit.md` (the findings)
 - Modify: each file that a finding fixes, with its unit test
+- Modify: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/LeashTests.kt` (the pending-source GameTest)
 
 - [ ] **Step 1: Inventory.** Run each search over `src/main` and read every hit:
 

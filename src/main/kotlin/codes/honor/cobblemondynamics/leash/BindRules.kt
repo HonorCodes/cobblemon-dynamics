@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.leash
 
+import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.handler.BindingShape
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleSelection
@@ -51,6 +52,32 @@ object BindRules {
         /** The Pokémon's types, primary first, which pick between the fitting roles of one handler (ruling 1 of the Phase 2 plan). */
         val types: List<String> = emptyList(),
     )
+
+    /** What a block click does with the leash's pending source before it reads any block of it (CD-SEC-08). */
+    enum class PendingCheck {
+        /** The click may read the source. */
+        READ,
+
+        /** The click refuses with "Outside its pasture's work area" (CD-TLK-09), and the source leaves the stack. */
+        OUTSIDE_AREA,
+
+        /** The source counts as absent and leaves the stack, as an expired one does. */
+        ABSENT,
+
+        /** The Pokémon has no Work Mode pasture, so the click reads nothing of the source and the rules refuse it. */
+        NO_AREA,
+    }
+
+    /**
+     * A client in creative mode can write the stack, so a click reads a pending source only where a source click could have stored it:
+     * inside [area], in a chunk that [loaded] reports. The check reads no block, so it never loads a chunk.
+     */
+    fun checkPending(source: BlockPos, area: WorkArea?, loaded: (BlockPos) -> Boolean): PendingCheck = when {
+        area == null -> PendingCheck.NO_AREA
+        !area.contains(source) -> PendingCheck.OUTSIDE_AREA
+        !loaded(source) -> PendingCheck.ABSENT
+        else -> PendingCheck.READ
+    }
 
     fun evaluate(input: Input, shapeOf: (RoleDefinition) -> BindingShape): Outcome {
         if (input.selection == null || !input.pokemonOwnedByPlayer) return Outcome.Refuse(NO_SELECTION)

@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.leash
 
+import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.handler.BindingShape
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.role
@@ -172,6 +173,28 @@ class BindRulesTest {
         val ghost = role("fan_catalyst_ghost", setOf("ghost"), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
         val outcome = BindRules.evaluate(input(roles = listOf(fire, ghost), types = listOf("ghost", "fire")), shape)
         assertEquals(ghost, assertInstanceOf(BindRules.Outcome.Bind::class.java, outcome).role)
+    }
+
+    /** A client in creative mode can write the leash's pending source, so a click reads it only where a source click could have put it. */
+    @Test
+    fun `CD-SEC-08 a pending source is read only inside the work area and in a loaded chunk`() {
+        val area = WorkArea(BlockPos(0, 64, 0), 8, 6)
+        val edge = BlockPos(8, 70, -8)
+        val loaded: (BlockPos) -> Boolean = { true }
+        val unloaded: (BlockPos) -> Boolean = { false }
+        assertEquals(BindRules.PendingCheck.READ, BindRules.checkPending(edge, area, loaded))
+        assertEquals(BindRules.PendingCheck.ABSENT, BindRules.checkPending(edge, area, unloaded), "a source in an unloaded chunk was read")
+        assertEquals(
+            BindRules.PendingCheck.OUTSIDE_AREA,
+            BindRules.checkPending(BlockPos(9, 64, 0), area, loaded),
+            "a source outside the work area was read",
+        )
+        assertEquals(
+            BindRules.PendingCheck.OUTSIDE_AREA,
+            BindRules.checkPending(BlockPos(100_000, 64, 100_000), area, unloaded),
+            "a far source counted as absent before it counted as outside the work area",
+        )
+        assertEquals(BindRules.PendingCheck.NO_AREA, BindRules.checkPending(edge, null, loaded), "a source with no work area was read")
     }
 
     private companion object {

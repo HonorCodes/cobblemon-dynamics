@@ -6,6 +6,7 @@ import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.leash.LeashComponents
+import codes.honor.cobblemondynamics.leash.PendingSource
 import codes.honor.cobblemondynamics.net.LeashOverviewPayload
 import codes.honor.cobblemondynamics.registry.DynamicsItems
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
@@ -447,6 +448,32 @@ class LeashTests {
         TestKit.clickBlock(helper, scene.owner, cancelledRel)
         val binding = BindingStore.read(scene.pokemon.pokemon)
         helper.assertTrue(binding == null, "CD-SEC-11: a click on the cancelled chest as the destination bound $binding")
+        helper.succeed()
+    }
+
+    /**
+     * A client in creative mode can write the Work Leash's stack. A pending source that names a block 100,000 blocks away, in a chunk
+     * that is not loaded, binds nothing at the destination click, and the click loads no chunk (CD-SEC-08). The source is outside the
+     * work area, so the click refuses with that message, and the source leaves the stack.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 100)
+    fun cdSec08FarPendingSourceBindsNothingAndLoadsNoChunk(helper: GameTestHelper) {
+        val barrelRel = BlockPos(9, 1, 3)
+        helper.setBlock(barrelRel, Blocks.BARREL)
+        val scene = scene(helper, "alakazam level=40")
+        val stack = TestKit.leash(scene.owner)
+        TestKit.clickEntity(scene.owner, scene.pokemon)
+        val far = helper.absolutePos(barrelRel).offset(100_000, 0, 100_000)
+        helper.assertFalse(helper.level.isLoaded(far), "the far source's chunk is loaded before the click, so the test proves nothing")
+        val pending = LeashComponents.PENDING_SOURCE.get()
+        stack.set(pending, PendingSource(helper.level.dimension().location(), far, Direction.UP, helper.level.gameTime))
+        TestKit.clickBlock(helper, scene.owner, barrelRel, Direction.NORTH)
+        val binding = BindingStore.read(scene.pokemon.pokemon)
+        helper.assertTrue(binding == null, "CD-SEC-08: the destination click bound the far pending source: $binding")
+        helper.assertFalse(helper.level.isLoaded(far), "CD-SEC-08: the destination click loaded the chunk of the far pending source")
+        val reply = TestKit.lastMessage(scene.owner)
+        helper.assertTrue(reply == "Outside its pasture's work area", "CD-TLK-09: the destination click answered '$reply'")
+        helper.assertFalse(stack.has(pending), "the refused pending source stayed on the leash: ${stack.get(pending)}")
         helper.succeed()
     }
 }
