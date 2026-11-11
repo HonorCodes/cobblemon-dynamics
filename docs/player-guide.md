@@ -563,6 +563,8 @@ Work is silent, so an effect has no sound key. A file whose effect names a `soun
 - `/reload` applies changed role files without a restart.
 - A file that does not parse is skipped. The log then holds one error that names the file.
 - A file that names an unknown handler turns its role off. The log then holds one line that names the role.
+- If a role's code fails in the game, the mod turns off every role that uses the same code, and the log holds
+  one warning. `/reload` or a server restart turns those roles on again.
 
 ## Commands
 

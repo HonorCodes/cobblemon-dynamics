@@ -343,6 +343,11 @@ role parameters and, for Telekinesis, the destination and both faces. It also ca
 value that the handler keeps for the length of the work claim, such as the Generator's capability cache. The
 engine gives each claim an empty memo and drops it when the claim ends.
 
+A handler call that throws turns off every role of that handler, with one warning, and the next tick releases
+their claims. The roles come back when the server stops and when the role files load again, which `/reload`
+does. A dedicated server therefore keeps no role off for good, and in singleplayer the next world of the same
+game starts with every role.
+
 ## 7. Network
 
 Our payloads use NeoForge `CustomPacketPayload` with a `StreamCodec`, registered in

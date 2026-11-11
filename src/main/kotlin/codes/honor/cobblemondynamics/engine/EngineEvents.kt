@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.engine
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.net.PanelViewers
 import codes.honor.cobblemondynamics.pasture.WorkModeService
+import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -33,6 +34,7 @@ object EngineEvents {
             WorkEngine.stop()
             WorkModeService.reset()
             PanelViewers.reset()
+            RoleRegistry.reset()
             EngineTiming.stopRecording()
         }
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { event ->
