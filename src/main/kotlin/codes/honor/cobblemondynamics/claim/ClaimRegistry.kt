@@ -13,7 +13,8 @@ class ClaimRegistry(private val reservations: ReservationView) {
     private val byKey = HashMap<TargetKey, Claim>()
     private val byWorker = HashMap<UUID, Claim>()
 
-    fun tryClaim(worker: UUID, key: TargetKey, kind: ClaimKind, pasture: PastureKey, now: Long): ClaimResult {
+    /** [pasture] is null for a Quick Work order, whose claim no pasture holds, so no release by pasture ends it. */
+    fun tryClaim(worker: UUID, key: TargetKey, kind: ClaimKind, pasture: PastureKey?, now: Long): ClaimResult {
         if (worker in byWorker) return ClaimResult.WorkerBusy
         if (key in byKey) return ClaimResult.TargetTaken
         // Only work claims check reservations (CD-CLM-06). A reservation holds no worker entry, so the bound worker can still

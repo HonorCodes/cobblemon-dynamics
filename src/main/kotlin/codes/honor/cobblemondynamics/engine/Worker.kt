@@ -8,8 +8,11 @@ import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
-/** The engine's runtime state of one tethered Pokémon. [WorkerMachine] makes every status change. */
-class Worker(val pokemonId: UUID, var pasture: PastureKey) {
+/**
+ * The engine's runtime state of one tethered Pokémon, or of a party Pokémon on a Quick Work order, whose [pasture] is null
+ * (ADR-0013). [WorkerMachine] makes every status change.
+ */
+class Worker(val pokemonId: UUID, var pasture: PastureKey?) {
     var status: WorkerStatus = WorkerStatus.IDLE
     var leashed: Boolean = false
 

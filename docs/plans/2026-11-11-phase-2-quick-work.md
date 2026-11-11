@@ -495,11 +495,14 @@ fun `CD-CLM-06 CD-QWK-07 a leash binding refuses a Quick Work claim`() {
     `PastureRuntime.Slot` with `WorkerSlot` in `WorkEngine`.
   - `Worker.pasture` and `Claim.pasture` become `PastureKey?`, and `ClaimRegistry.tryClaim` takes a `PastureKey?`. The KDoc of
     each says that null means a Quick Work order. `releaseAll { it.pasture == key }` needs no change.
-  - `LeashInteractions.mayFlip` reads the placer only for a claim with a pasture. With no binder and no placer, only an
-    operator flips a target that a Quick Worker drives (CD-SEC-10):
+  - `LeashInteractions.mayFlip` reads the binder and the placer only for a claim with a pasture. With no binder and no
+    placer, only an operator flips a target that a Quick Worker drives (CD-SEC-10). The binder needs the check too: a party
+    Pokémon can still carry a binding that `LeashResets` has not cleared yet, for example while its pasture is unloaded.
 
 ```kotlin
-val placer = claim.pasture?.let { PastureAdapter.pastureAt(level, BlockPos.of(it.pos)) }?.let(PastureAdapter::placer)
+val pasture = claim.pasture
+val binder = pasture?.let { engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder }
+val placer = pasture?.let { PastureAdapter.pastureAt(level, BlockPos.of(it.pos)) }?.let(PastureAdapter::placer)
 ```
 
   - `PastureRuntime` implements `WorkSite`: `override val level`, `override val pastureKey get() = key`,
@@ -580,6 +583,7 @@ private fun dimensionOf(slot: WorkerSlot): ResourceLocation? =
 if (worker.tired && !worker.status.isResting) {
     when (site) {
         is PastureRuntime -> goToRest(t, site, slot)
+
         // CD-QWK-17: no pasture holds a Quick Worker, so it takes no bed. The end flushes its Work Stamina.
         is QuickRuntime -> return endOrder(t, site, QuickEnd.TIRED)
     }
@@ -617,7 +621,9 @@ fun onSentOut(level: ServerLevel, pokemon: Pokemon, entity: PokemonEntity) {
     val t = tick(level)
     if (!t.settings.quickWorkEnabled || t.now - aim.tick > QuickWorkRules.AIM_TICKS || aim.dimension != t.dimension) return
     if (entity.isRemoved || entity.isBattling || pokemon.uuid in slots || !BrainBridge.canHoldOrder(entity)) return
-    if (pokemon.isFainted() || pokemon.isBattleClone() || pokemon.storeCoordinates.get()?.store !is PlayerPartyStore) return
+    // CD-QWK-25: only the party Pokémon of the player who aimed, as at the key press.
+    val store = pokemon.storeCoordinates.get()?.store as? PlayerPartyStore
+    if (pokemon.isFainted() || pokemon.isBattleClone() || store?.playerUUID != aim.owner) return
     val owner = server.playerList.getPlayer(aim.owner)?.takeIf { it.level() === level } ?: return
     if (!level.isLoaded(aim.pos)) return
     val types = typesOf(pokemon)
@@ -671,8 +677,10 @@ private fun start(
             tell(aim.owner, QuickWorkRules.STARTED, pokemon, name)
         }
 
-        Attempt.NO_SPOT -> tell(aim.owner, QuickWorkRules.CANNOT_REACH, pokemon, name)
         Attempt.REFUSED -> tell(aim.owner, QuickWorkRules.CLAIMED, pokemon, name)
+
+        // No work spot that a path reaches (CD-QWK-10). An order never searches again, so the owner learns why now.
+        else -> tell(aim.owner, QuickWorkRules.CANNOT_REACH, pokemon, name)
     }
 }
 
@@ -681,6 +689,9 @@ private fun tell(owner: UUID, key: String, pokemon: Pokemon, target: Component) 
     Feedback.actionBar(owner, server, Component.translatable(key, pokemon.getDisplayName(), target))
 ```
 
+  - `start` gives every claim result other than `GRANTED` and `REFUSED` the "cannot reach" message, because an order never
+    tries again. So a result that `claim` gains later, such as the one for a navigation that cannot plan, needs no change
+    in `start`.
   - `WorkEngine`, one tick and the end of an order:
 
 ```kotlin

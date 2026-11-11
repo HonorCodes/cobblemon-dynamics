@@ -78,6 +78,21 @@ class ClaimRegistryTest {
     }
 
     @Test
+    fun `CD-CLM-01 a Quick Work claim names no pasture and stays when a pasture releases its claims`() {
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(a, furnace, ClaimKind.WORK, null, 0))
+        registry.tryClaim(b, TargetKey.block(overworld, BlockPos(3, 64, 0)), ClaimKind.WORK, pastureA, 0)
+        registry.releaseAll { it.pasture == pastureA }
+        assertEquals(a, registry.holderOf(furnace)?.worker)
+        assertNull(registry.holderOf(furnace)?.pasture)
+    }
+
+    @Test
+    fun `CD-CLM-06 CD-QWK-07 a leash binding refuses a Quick Work claim`() {
+        reservations[furnace] = b
+        assertEquals(ClaimResult.Reserved, registry.tryClaim(a, furnace, ClaimKind.WORK, null, 0))
+    }
+
+    @Test
     fun `release frees both indexes`() {
         registry.tryClaim(a, furnace, ClaimKind.WORK, pastureA, 0)
         registry.release(a)
