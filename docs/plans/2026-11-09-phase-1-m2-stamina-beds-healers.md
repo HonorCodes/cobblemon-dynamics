@@ -515,6 +515,10 @@ run it with a context whose user is the healer and whose target is the ally, as 
 animation (then `cry`) and spawn `cobblemon:heal_circles` and `cobblemon:heal_sparkles` on the ally's
 `middle` locator (CD-HEAL-15).
 
+Play-test change (2026-11-10): the fallback spawns only `cobblemon:heal_circles`. The file of
+`cobblemon:heal_sparkles` calls `math.random()` with no arguments, and the Cobblemon 1.8.4 client crashes on it.
+The healer plays only its `special` animation, when its model has one with no sound, never its cry (CD-FX-09).
+
 - [ ] **Step 1: Failing unit tests**
 
 ```kotlin
@@ -589,7 +593,7 @@ and a Lv50 healer at 75%: three heals, one state per tick each, and the Tired fl
   - CD-HEAL-11 (the ally leaves the pasture while the healer walks): `qualifies` and `onHealTick` have unit
     tests.
   - CD-HEAL-15: a demo row. Fake players receive no packets, so the play-test checks the healer's pose and the
-    sparkles; the fallback's animations and particles have a unit test.
+    heal circles; the fallback's animations and particles have a unit test.
   - CD-HEAL-17 (healers at 25% with and without a free bed): the stamina step's rest path is the one that
     `cdBed05` and `cdBed08` run, and the transition has a unit test.
 - [ ] **Step 3: Write the code, run everything, commit** —

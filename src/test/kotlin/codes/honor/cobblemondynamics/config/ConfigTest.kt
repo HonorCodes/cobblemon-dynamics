@@ -50,9 +50,8 @@ class ConfigTest {
     }
 
     @Test
-    fun `CD-CFG-06 client workSounds defaults to false`() {
-        assertTrue(ClientConfig.hasKey("effects.workSounds"))
-        assertFalse(ClientConfig.defaultWorkSounds)
+    fun `CD-CFG-06 the client config has no work sound option, because work is silent`() {
+        assertFalse(ClientConfig.hasKey("effects.workSounds"))
     }
 
     private companion object {

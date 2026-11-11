@@ -60,6 +60,9 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
 - Only one worker can work a target at a time, across all pastures and all players.
 - The worker walks to a work spot. A work spot is a cell in the work area where the worker can stand and
   see the center of the target. The spot is at most 6 blocks from the target, or 2 blocks for the Cranker.
+- A worker stands beside its target, on the floor that the target stands on, when it has room there and can
+  walk there. It never stands on top of its target, and it uses a one-block pit beside the target only when
+  no other spot exists.
 - Keep some open floor around each target. A target with no work spot gets no worker, and the worker skips
   it for 5 minutes. A target with solid blocks on all six sides never has a work spot.
 - A worker works only while its target needs work, for example while a furnace has an item to smelt.
@@ -99,9 +102,10 @@ Tired icon, so seven icons cover the eight states.
 
 ### Work effects
 
-A Working worker faces its target and plays its role's move every 2 seconds. The move's particles fly to
-the center of the target. Players within 64 blocks of the worker see the effects. Work sounds are off by
-default. The client config key `effects.workSounds` turns them on.
+A Working worker faces its target and plays its role's move. The move's animation plays to its end, and the
+worker then stands idle for 2 seconds before it plays the move again. A worker whose model has no animation
+for the move shows the move's particles every 2 seconds. The move's particles fly to the center of the
+target. Players within 64 blocks of the worker see the effects. Work effects play no sound.
 
 ## Work Leash
 
@@ -271,7 +275,8 @@ Work Stamina of the other workers in its pasture.
   that ally for 5 minutes.
 - A heal that takes the healer to 0% makes it Tired. It then goes to a bed like any worker.
 - If Cobblemon has a Floral Healing action effect, the heal plays it. Otherwise, as on Cobblemon 1.8.4, the
-  healer plays its special pose or its cry, and heal circles and sparkles show on the ally.
+  healer plays its special pose, if its model has one, and heal circles show on the ally. The heal plays no
+  sound.
 
 ### Healer recovery
 
@@ -315,7 +320,7 @@ Level changes the output of the Generator, the Pump and the Muse. The Superheate
 
 ### Stoker
 
-**Types:** Fire. **Level:** any. **Move:** Flamethrower.
+**Types:** Fire. **Level:** any. **Move:** Ember.
 
 **Target:** a furnace, a smoker, a blast furnace, or a modded furnace that extends the vanilla furnace.
 
@@ -352,7 +357,7 @@ Leash](#flip-a-water-wheel-or-a-hand-crank).
 
 ### Burner Keeper
 
-**Types:** Fire. **Level:** any. **Move:** Flamethrower. **Needs:** Create.
+**Types:** Fire. **Level:** any. **Move:** Ember. **Needs:** Create.
 
 **Target:** a Blaze Burner that holds a blaze. An empty Blaze Burner is not a target.
 
@@ -516,7 +521,6 @@ The client config is `config/cobblemon_dynamics-client.toml`.
 
 | Key | Default | Range | What it does |
 | --- | --- | --- | --- |
-| `effects.workSounds` | `false` | `true`, `false` | Play the sounds of the work moves. |
 | `hud.headBarRange` | 16 | 4 to 64 | Blocks within which workers show their head bars. |
 | `hud.panelBars` | `true` | `true`, `false` | Show the Work Stamina bars and the state icons in the pasture panel. |
 
@@ -527,6 +531,18 @@ built-in files use the namespace `cobblemon_dynamics`, and a data pack file at t
 A role file holds the role's types, its auto-assign flag, its priority, its range, its handler, the handler's
 parameters and its effect. The range is the largest distance from the work spot to the target. The role
 sections above name each parameter.
+
+The `effect` object holds these keys:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `animations` | none | The animation names to try, in order. The worker plays the first one that its model has with no sound. A file that names `cry` does not load, because the cry animation plays the Pokémon's cry. |
+| `actor_particles` | `[]` | Cobblemon particle ids that fly from the worker to the target. |
+| `target_particles` | `[]` | Cobblemon particle ids that burst at the target. |
+| `idle_ticks` | 40 | The ticks that the worker stands idle after its animation ends, before it plays the move again. |
+| `loop_ticks` | 40 | The interval of a worker whose model has none of the animations. It shows only the particles. |
+
+Work is silent, so an effect has no sound key. A file whose effect names a `sound` does not load.
 
 - `/reload` applies changed role files without a restart.
 - A file that does not parse is skipped. The log then holds one error that names the file.

@@ -8,7 +8,8 @@
   "params": {},
   "effect": {
     "loop_ticks": 40,
-    "animations": ["ember", "fire", "spray", "special", "cry"],
+    "idle_ticks": 40,
+    "animations": ["ember", "fire", "spray", "special"],
     "actor_particles": ["cobblemon:ember_actor"],
     "target_particles": ["cobblemon:ember_target"]
   }

@@ -66,15 +66,15 @@ Thirteen types have roles in version 1.0.
 | Wheel Driver | Water | Create water wheel, large water wheel | Turns the wheel as if water flowed through it. Each wheel stores its own direction. | Water Gun | Auto | WHL |
 | Pump | Water | Fluid tanks, boilers, basins and cauldrons, and any block that accepts water through NeoForge's fluid capability | Fills the target with water. The rate scales with level. | Water Gun | Leash only | PMP |
 | Generator | Electric | Any block that accepts Forge Energy, including AE2 energy acceptors, chargers and inscribers | Pushes Forge Energy into the target. The output scales with level. Legendary and mythical Pokémon produce more. | Thunder Shock | Auto | GEN |
-| Stoker | Fire | Furnace, smoker, blast furnace, and modded furnaces that extend the vanilla furnace | Keeps the furnace lit as if it burned coal, while a recipe can run. The fuel slot stays untouched. | Flamethrower | Auto | STK |
-| Burner Keeper | Fire | A Create Blaze Burner that holds a blaze | Keeps the burner kindled, as coal does, while a basin or fluid tank sits on top. | Flamethrower | Auto | BRN |
+| Stoker | Fire | Furnace, smoker, blast furnace, and modded furnaces that extend the vanilla furnace | Keeps the furnace lit as if it burned coal, while a recipe can run. The fuel slot stays untouched. | Ember | Auto | STK |
+| Burner Keeper | Fire | A Create Blaze Burner that holds a blaze | Keeps the burner kindled, as coal does, while a basin or fluid tank sits on top. | Ember | Auto | BRN |
 | Superheater | Dragon | A Create Blaze Burner that holds a blaze | From level 50, keeps the burner superheated, as a Blaze Cake does, while a basin or fluid tank sits on top. Below level 50, it keeps the burner kindled. | Dragon Breath | Auto | SUP |
 | Cranker | Fighting, Normal | Create hand crank | Turns the crank without a stop. Each crank stores its own direction. | Pound | Auto | CRK |
 | Crystal Tender | Rock | Blocks in `#c:budding_blocks`: budding amethyst and AE2 budding certus quartz | Gives extra growth ticks, as one AE2 Growth Accelerator does, while a face of the block can still grow. | Rock Throw | Auto | CRY |
 | Brew Stoker | Fire | Brewing stand | Keeps the stand fueled as if it held blaze powder, while a brew can start. | Ember | Auto | BRF |
 | Brewer | Poison | Brewing stand | Makes a running brew finish faster. | Poison Gas | Auto | BRW |
 | Muse | Fairy | Enchanting table | Adds bookshelf power while a player uses the table. The power scales with level. | Fairy Wind | Leash only | MUS |
-| Healer | Fairy | Tired or low allies in the same pasture | Restores an ally's Work Stamina. Each heal costs the healer some of its own Work Stamina. | Special pose, heal sparkles on the ally | Auto | HEAL |
+| Healer | Fairy | Tired or low allies in the same pasture | Restores an ally's Work Stamina. Each heal costs the healer some of its own Work Stamina. | Special pose, heal circles on the ally | Auto | HEAL |
 
 The Valve Handle is not a Cranker target. Create lets a valve handle turn only a set
 angle, so it cannot supply continuous power.

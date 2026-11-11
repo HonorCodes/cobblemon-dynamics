@@ -8,7 +8,8 @@
   "params": { "bookshelves_at_level_100": 15 },
   "effect": {
     "loop_ticks": 40,
-    "animations": ["fairywind", "special", "cry"],
+    "idle_ticks": 40,
+    "animations": ["fairywind", "special"],
     "actor_particles": ["cobblemon:fairywind_actor"],
     "target_particles": ["cobblemon:fairywind_target", "cobblemon:fairywind_targethit"]
   }

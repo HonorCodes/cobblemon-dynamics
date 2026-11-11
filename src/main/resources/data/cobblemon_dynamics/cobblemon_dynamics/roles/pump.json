@@ -8,7 +8,8 @@
   "params": { "mb_per_level": 5 },
   "effect": {
     "loop_ticks": 40,
-    "animations": ["watergun", "spray", "beam", "special", "cry"],
+    "idle_ticks": 40,
+    "animations": ["watergun", "spray", "beam", "special"],
     "actor_particles": ["cobblemon:watergun_spray", "cobblemon:watergun_actor"],
     "target_particles": ["cobblemon:watergun_target", "cobblemon:watergun_targetfoam"]
   }

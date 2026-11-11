@@ -1,6 +1,5 @@
 package codes.honor.cobblemondynamics.net
 
-import codes.honor.cobblemondynamics.client.ClientEffects
 import codes.honor.cobblemondynamics.client.ClientState
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.WorkModePolicy
@@ -13,15 +12,13 @@ import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /** Every payload of the mod. None is optional, so a client without the mod cannot join (CD-PLAT-06). Handlers run on the main thread. */
 object DynamicsPayloads {
-    private const val VERSION = "1"
+    /** 2: no `work_sound` payload, because work is silent (CD-FX-09). */
+    private const val VERSION = "2"
 
     fun register(modBus: IEventBus) {
         modBus.addListener<RegisterPayloadHandlersEvent> { event ->
             val registrar = event.registrar(VERSION)
             // Client handlers run only on a client, so the client classes that they call never load on a dedicated server.
-            registrar.playToClient(WorkSoundPayload.TYPE, WorkSoundPayload.STREAM_CODEC) { payload, _ ->
-                ClientEffects.playWorkSound(payload)
-            }
             registrar.playToClient(PasturePanelStatePayload.TYPE, PasturePanelStatePayload.STREAM_CODEC) { payload, _ ->
                 ClientState.onPanelState(payload)
             }

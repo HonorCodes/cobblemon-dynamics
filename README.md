@@ -75,14 +75,14 @@ with two types can do the roles of either type, one role at a time.
 | Water | Wheel Driver | Create water wheel, large water wheel | Water Gun | 1 |
 | Water | Pump (leash only) | Fluid tanks, boilers, basins, cauldrons | Water Gun | 1 |
 | Electric | Generator | Any block that accepts Forge Energy, AE2 machines included | Thunder Shock | 1 |
-| Fire | Stoker | Furnace, smoker, blast furnace | Flamethrower | 1 |
-| Fire | Burner Keeper | Create Blaze Burner (kindled heat) | Flamethrower | 1 |
+| Fire | Stoker | Furnace, smoker, blast furnace | Ember | 1 |
+| Fire | Burner Keeper | Create Blaze Burner (kindled heat) | Ember | 1 |
 | Fire | Brew Stoker | Brewing stand (fuel) | Ember | 1 |
 | Dragon | Superheater | Create Blaze Burner (superheated from level 50) | Dragon Breath | 1 |
 | Fighting, Normal | Cranker | Create hand crank | Pound | 1 |
 | Rock | Crystal Tender | Budding amethyst, AE2 budding certus quartz | Rock Throw | 1 |
 | Poison | Brewer | Brewing stand (speed) | Poison Gas | 1 |
-| Fairy | Healer | Tired allies in the same pasture | Special pose, heal sparkles | 1 |
+| Fairy | Healer | Tired allies in the same pasture | Special pose, heal circles | 1 |
 | Fairy | Muse (leash only) | Enchanting table | Fairy Wind | 1 |
 | Psychic | Telekinesis (leash only) | A source container and a destination, AE2 ME Interface included | Kinesis | 2 |
 | Steel | Magnet (leash only) | A container that collects dropped items from the work area | Metal sparks | 2 |

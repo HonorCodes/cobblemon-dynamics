@@ -8,7 +8,8 @@
   "params": { "interval_ticks": 10 },
   "effect": {
     "loop_ticks": 40,
-    "animations": ["rockthrow", "rock", "physical", "cry"],
+    "idle_ticks": 40,
+    "animations": ["rockthrow", "rock", "physical"],
     "actor_particles": ["cobblemon:rockthrow_actor"],
     "target_particles": []
   }

@@ -2,9 +2,8 @@ package codes.honor.cobblemondynamics.config
 
 import net.neoforged.neoforge.common.ModConfigSpec
 
-/** The client config, `config/cobblemon_dynamics-client.toml`. */
+/** The client config, `config/cobblemon_dynamics-client.toml`. It has no work sound option, because work is silent (CD-CFG-06). */
 object ClientConfig {
-    private val workSoundsValue: ModConfigSpec.BooleanValue
     private val headBarRangeValue: ModConfigSpec.IntValue
     private val panelBarsValue: ModConfigSpec.BooleanValue
 
@@ -12,10 +11,6 @@ object ClientConfig {
 
     init {
         val b = ModConfigSpec.Builder()
-
-        b.push("effects")
-        workSoundsValue = b.comment("Play the sounds of the work effects.").define("workSounds", false)
-        b.pop()
 
         b.push("hud")
         headBarRangeValue = b.comment("Blocks within which workers show their head bars.")
@@ -26,10 +21,6 @@ object ClientConfig {
         SPEC = b.build()
     }
 
-    /** The default that the spec writes to a new client config. */
-    val defaultWorkSounds: Boolean get() = workSoundsValue.default
-
-    val workSounds: Boolean get() = workSoundsValue.get()
     val headBarRange: Int get() = headBarRangeValue.get()
     val panelBars: Boolean get() = panelBarsValue.get()
 

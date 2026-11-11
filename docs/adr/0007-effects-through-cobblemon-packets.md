@@ -70,3 +70,35 @@ The build changed one detail of the decision. Actor particles still go out as
 `SpawnSnowstormParticlePacket` at the work focus entity's position. Cobblemon's client spawns an
 entity-sourced particle at a locator of its source entity and uses the targeted entity only for the aim,
 so a target particle sent that way burst on the worker instead of on the target.
+
+## Amendment (2026-11-10, play-test): no heal sparkles
+
+The healer no longer shows `cobblemon:heal_sparkles` on the ally. Its particle file calls `math.random()`
+with no arguments, which Cobblemon 1.8.4's MoLang rejects, and the client crashed with "Ticking Particle"
+on the first heal. Only `cobblemon:heal_circles` plays on the ally.
+
+## Amendment (2026-11-10, play-test): each animation plays to its end
+
+A loop every 40 ticks started Cobblemon's attack animations again before they ended, and the approver found
+it glitchy. Most `special` and `physical` animations last 3 s, and the longest last 4 s. The server now reads
+the length of each animation from Cobblemon's client assets in its jar. The species' resolver picks the
+poser, the poser maps an animation name to a bedrock animation, and the animation file gives its
+`animation_length`. The effect player sends only the first name of the role's list that the worker's model
+has, so the client plays the animation whose length the server knows. The next effect starts when that
+animation has ended and the role's `idle_ticks` (default 40) have passed, so the model returns to its idle
+pose. The particles go out with each animation. A worker whose model has none of the names gets no
+animation, and its particles play every `loop_ticks` (default 40).
+
+## Amendment (2026-11-10, play-test): work is silent
+
+The approver ruled that all work is silent. The sounds came from the `cry` fallback: Cobblemon 1.8.4 gives
+many models, such as Machop, Eevee, Vaporeon, Grimer, Rockruff and Dragonair, no `special` or `physical`
+animation, so they played `cry`, whose keyframes play the cry, on every loop. No role file and no fixed
+effect names `cry` now, and the role loader skips a file that names it. The healer plays only its `special`
+animation. The effect player passes over any animation whose file plays a sound, through `sound_effects` or
+a `q.sound` call in its `timeline`, as Bellibolt's `special` and Volcarona's wing beats do. A unit test
+checks that no particle that the mod sends plays a sound through a particle event. The `work_sound` payload,
+the role file key `sound` and the client option `effects.workSounds` are gone, because nothing plays a
+sound. The Floral Healing timeline (CD-HEAL-16) is the one exception: Cobblemon 1.8.4 has none, and a
+later Cobblemon timeline plays as Cobblemon defines it, sounds included. The Consequences line above that
+most Pokémon play `cry` no longer holds. Most play no animation, and their particles show the work.

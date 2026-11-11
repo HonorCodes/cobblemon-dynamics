@@ -206,7 +206,8 @@ Other effect assets:
   Only Synthesis has particles: `cobblemon:synthesis_accretion`, `cobblemon:synthesis_sun` and
   `cobblemon:synthesis_sunlight`.
 - Reusable heal visuals: `cobblemon:heal_circles` and `cobblemon:heal_sparkles` (generic, unused by
-  Cobblemon). Drain timelines with heal particles: `cobblemon:absorb` (`absorb_actorheal`),
+  Cobblemon). The file of `heal_sparkles` calls `math.random()` with no arguments, which the 1.8.4 client's
+  MoLang rejects, so the client crashes on it (found in the play-test, 2026-11-10). Drain timelines with heal particles: `cobblemon:absorb` (`absorb_actorheal`),
   `cobblemon:megadrain`, `cobblemon:gigadrain` (`gigadrain_actorheal`, `gigadrain_actorhealbig`),
   `cobblemon:leechlife` and `cobblemon:drainpunch`. Fairy visuals: `cobblemon:fairywind` and
   `cobblemon:impact_fairy`.

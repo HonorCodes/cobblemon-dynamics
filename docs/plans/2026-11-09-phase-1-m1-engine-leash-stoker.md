@@ -182,6 +182,8 @@ object ServerConfig {
 `val defaultWorkSounds: Boolean get() = workSoundsValue.default`, the default that the spec writes to a
 new file. A `const val` with a camel-case name fails ktlint's `property-naming` rule.
 
+Play-test change (2026-11-10): `effects.workSounds` is gone, because work is silent (CD-CFG-06).
+
 Register both in the mod constructor:
 
 ```kotlin
@@ -476,6 +478,9 @@ val animationsWithCry: List<String>
     get() = animations.filter { it != "cry" } + "cry"
 ```
 
+Play-test change (2026-11-10): work is silent. `animationsWithCry` and the `sound` key are gone, and
+`RoleCodec` skips a role file that names `cry`, whose animation plays the Pokémon's cry, or a `sound`.
+
 `RoleCodec` uses a `RecordCodecBuilder` over the file body:
 
 ```kotlin
@@ -554,6 +559,10 @@ id and rebuilds `current` without that handler.
 }
 ```
 
+Play-test change (2026-11-10): the Stoker casts Ember, as the Brew Stoker does, with the actor particle
+`cobblemon:ember_actor` and the target particle `cobblemon:ember_target`. The approver found Flamethrower too
+flashy for a loop.
+
 - [ ] **Step 4: Run them and see them pass**
 
 Run: `./gradlew test --tests "codes.honor.cobblemondynamics.role.*"`
@@ -565,8 +574,8 @@ Expected: PASS, 11 tests.
 `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/`, parses it with `RoleCodec`, and
 checks the Role table (CD-FX-02): a map from role id to `(handler, types, autoAssign, priority, first
 animation)`. In M1 the map holds the Stoker row only:
-`stoker -> ("cobblemon_dynamics:furnace", {"fire"}, true, 0, "flamethrower")`. M4 extends the map to every
-Phase 1 role. The test fails when a file is missing from the map or differs from it.
+`stoker -> ("cobblemon_dynamics:furnace", {"fire"}, true, 0, "flamethrower")`, with `"ember"` since the
+play-test. M4 extends the map to every Phase 1 role. The test fails when a file is missing from the map or differs from it.
 
 Run: `./gradlew test --tests "codes.honor.cobblemondynamics.role.BuiltInRoleFilesTest"`
 Expected: PASS.
@@ -1041,6 +1050,14 @@ spot's two cells (at most 1 block wide and 2 high) needs no more than `isStandab
 only of a spot that would be the best so far. The pass found the gap: with one cell checked, a Camerupt 2.3
 blocks wide got a spot in a gap one block wide, where its body overlapped the walls and its path could not
 go (`WideWorkerTests.cdAsg09WideWorkerGetsASpotItsBodyFits`, `WorkSpotsTest`, `WorkerBodyTest`).
+
+Play-test change (2026-11-10): the spot nearest to the worker could stand on top of the target. `find`
+now takes the target's `TargetShape` (its blocks within one block of the canonical position) and never
+returns a spot that stands on the target. It ranks a spot beside the target at its base height first, then
+another spot at that height, then a spot at another height, and within each the one nearest to the target,
+then to the worker (`WorkSpotsTest`, `WorkSpotTests`). A spot with no standable cell beside it at its height (a
+pit) ranks after every open spot, because the Wheel Driver GameTests showed that a Squirtle cannot reach a pit
+beside a wheel. `SpotGrid.canStand` judges that cell whether or not another worker's spot is there.
 
 - [ ] **Step 1: Write the failing tests**
 

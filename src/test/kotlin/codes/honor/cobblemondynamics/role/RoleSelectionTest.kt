@@ -16,7 +16,7 @@ fun role(path: String, types: Set<String>, priority: Int = 0, autoAssign: Boolea
         priority = priority,
         range = 6.0,
         params = JsonObject(),
-        effect = EffectDefinition(40, listOf("special"), emptyList(), emptyList(), null),
+        effect = EffectDefinition(40, 40, listOf("special"), emptyList(), emptyList()),
     )
 
 class RoleSelectionTest {

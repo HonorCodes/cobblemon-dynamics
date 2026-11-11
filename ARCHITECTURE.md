@@ -109,7 +109,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Handler registry | `handler` | Maps a handler id to a `TargetHandler`. Create handlers register only when Create is loaded. | Role registry, work engine |
 | Target handlers | `handler.*` | One per machine family. Each one finds targets, canonicalizes them, checks demand, applies work and cleans up on release. | Vanilla blocks, NeoForge capabilities, Create |
 | Brain bridge | `ai` | Registers the `cobblemon_dynamics:work` activity, the `cobblemon_dynamics:work_order` memory and the task types. Ships the auto behaviour JSON. Moves, faces, holds, poses and approaches as the work order says. | Cobblemon Brain system |
-| Effects | `fx` | Sends Cobblemon animation and particle packets on each effect loop. Spawns and removes work focus entities. Runs the Floral Healing timeline when Cobblemon has it. Sends sound only to clients that turned work sounds on. | Cobblemon network, clients |
+| Effects | `fx` | Sends Cobblemon animation and particle packets on each effect loop. Spawns and removes work focus entities. Runs the Floral Healing timeline when Cobblemon has it. Sends no sound: work is silent. | Cobblemon network, clients |
 | Work Stamina | `stamina` | Computes capacity, drain and recovery. Stores the value in the Pokémon's `persistentData`. Mirrors a display value to a synced entity attachment. | Work engine, Cobblemon data |
 | Beds | `bed` | Registers the Hay Bed, Wool Bed, Plush Bed and Starlit Bed blocks and their speed factors. Each bed has a block entity, so scans find beds in the chunk's block entity map and never iterate block positions for them. | Claim registry, work engine |
 | Heal | `heal` | Picks the next ally for each healer and applies the heal as one transaction. | Claim registry, stamina |
@@ -211,6 +211,15 @@ Transition rules:
 - **Auto claims.** On each scan, every Idle worker takes the nearest unclaimed target of an
   auto-assign role it can do. A Fairy-type never takes a machine through an auto claim, so with no
   binding it acts as a healer. The Pump, the Muse and the four Phase 2 roles are leash-only.
+- **Work spots.** A claim needs a work spot: a cell in the work area within the role's range of the
+  target center, with line of sight to it and room for the worker's body, and not taken by another
+  worker. A spot never stands on the target. A spot beside the target at its base height comes first:
+  its column touches the target's footprint on one of four sides, so a worker stands beside a furnace
+  or a large water wheel on the floor that the target stands on. Other spots at the base height come
+  next, then spots at other heights. Within each group, the spot nearest to the target center wins,
+  then the one nearest to the worker. A spot that a worker cannot walk into on the level, because no
+  cell beside it at its height has a floor and room for a body, comes after every open spot. A worker
+  may not reach such a pit, and the old rule, nearest to the worker, avoided it by chance.
 - **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
   worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
   stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.
@@ -264,7 +273,10 @@ writes are safe in any order against block entity ticks (see section 8).
      after the previous pass completes. Pasture start ticks are staggered by a position hash.
    - Leash-only roles need no scan. Their targets come from bindings.
 6. When a scan pass completes, the assigner runs. Idle workers take targets, and healers choose allies.
-7. Every 40 ticks per Working worker, staggered, the effect player sends the role's effect.
+7. The effect player sends the role's effect when a worker starts Working. It sends the next one when the
+   worker's animation has ended and the role's `idle_ticks` (40) have passed, so that the model returns to
+   its idle pose first. A worker whose model has none of the role's animations gets the particles every
+   `loop_ticks` (40).
 8. Every 20 ticks per Working Telekinesis or Magnet worker, the handler moves up to
    ceil(64 × L ÷ 100) items. That gives the rate in items per second.
 9. When a worker's displayed Work Stamina changes by 1 percentage point, or its state changes, the
@@ -339,7 +351,6 @@ ownership and rate.
 | `cobblemon_dynamics:pasture_panel_state` | server to client | `workMode`, `canToggle`, entries of (`pokemonId`, `percent`, `state`) | On open, after a toggle, and every 20 ticks while the panel is open. |
 | `cobblemon_dynamics:leash_overview_request` | client to server | none | The player selects the Work Leash. |
 | `cobblemon_dynamics:leash_overview` | server to client | entries of (`entityId`, `targetPos`) | Reply to the request. The client outlines these targets. |
-| `cobblemon_dynamics:work_sound` | server to client | `entityId`, `sound` | Each effect loop of a role that names a sound, to players within the broadcast radius. The client plays it only with `effects.workSounds` on. |
 
 Built-in sync, with no payload of ours:
 
@@ -352,7 +363,7 @@ Cobblemon packets that the effect player sends, to players within 64 blocks:
 
 | Packet | Use |
 |---|---|
-| `PlayPosableAnimationPacket(entityId, names, expressions)` | The work pose. The client plays the first name that the model has, so the role lists names from most to least specific. |
+| `PlayPosableAnimationPacket(entityId, names, expressions)` | The work animation. The server picks the first name of the role's list that the worker's model has, and sends that name alone, so the client plays the animation whose length the server knows. |
 | `SpawnSnowstormEntityParticlePacket(effectId, sourceId, sourceLocators, targetedEntityId, targetLocators)` | A role's actor particles, from the worker toward the work focus entity, or to the healed ally. Sleep particles on a sleeping worker. |
 | `SpawnSnowstormParticlePacket(effectId, position)` | A role's target particles, at the work focus entity's position. The entity packet would spawn them on the worker. |
 
@@ -404,8 +415,21 @@ references. This section lists what the code uses.
 - **Effect ids.** Move timelines live in `data/cobblemon/action_effects/moves/`. Particles live in
   `assets/cobblemon/bedrock/particles/moves/<move>/`. The note lists the animation names and
   particle ids of every role move. Sleep uses `cobblemon:sleep_actor` and
-  `cobblemon:sleep_actorresidual`. The healer uses `cobblemon:heal_circles` and
-  `cobblemon:heal_sparkles`. The Magnet uses `cobblemon:metal_sparks`.
+  `cobblemon:sleep_actorresidual`. The healer uses `cobblemon:heal_circles`. It never uses
+  `cobblemon:heal_sparkles`, because that file calls `math.random()` with no arguments. Cobblemon 1.8.4's
+  MoLang rejects the call, and the client crashes while it ticks the particle. The Magnet uses
+  `cobblemon:metal_sparks`.
+- **Animations.** A server has no client resources, so the effect player reads Cobblemon's client assets
+  from its jar, each file once and on first use. In `assets/cobblemon/bedrock/pokemon/`, `resolvers/` names
+  the poser of each species: the last variation whose aspects the Pokémon has. `posers/` maps each
+  animation name of a JSON poser to a group and an animation, as in
+  `q.bedrock_primary('charmander', 'special', ...)`. `animations/<group>.animation.json` gives the
+  `animation_length` of `animation.<group>.<animation>`, and whether it plays a sound, through `sound_effects`
+  or a `q.sound` call in its `timeline`. A poser with no JSON file is one of Cobblemon's
+  Kotlin models, which name their animations `animation.<poser>.<name>`. The server ignores the animation
+  names of single poses, which Cobblemon 1.8.4 uses for battle and water poses, and variations with a MoLang
+  condition, which only the client can run. A species whose assets come from another mod plays no work
+  animation.
 - **Floral Healing exception.** When Cobblemon's server data holds the action effect
   `cobblemon:floralhealing`, the healer runs that timeline with a custom context: the healer is the
   user and the ally entity is the target. The context defines the battle-only queries, as
@@ -598,7 +622,6 @@ Client config `config/cobblemon_dynamics-client.toml`:
 
 | Key | Default |
 |---|---|
-| `effects.workSounds` | `false` |
 | `hud.headBarRange` | 16 |
 | `hud.panelBars` | `true` |
 
@@ -627,12 +650,20 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
   },
   "effect": {
     "loop_ticks": 40,
-    "animations": ["thundershock", "electric", "special", "cry"],
+    "idle_ticks": 40,
+    "animations": ["thundershock", "electric", "special"],
     "actor_particles": ["cobblemon:thundershock_actorsparks", "cobblemon:thundershock_actorbolts", "cobblemon:thundershock_actor"],
     "target_particles": ["cobblemon:thundershock_target", "cobblemon:thundershock_targetbolts", "cobblemon:thundershock_targetimpact"]
   }
 }
 ```
+
+Work is silent. The role loader skips a file whose effect names a `sound` or the animation `cry`, which plays
+the Pokémon's cry, and the effect player passes over an animation whose file plays a sound. The effect
+plays the first of its `animations` that the worker's model has, to its end. The worker then
+stays idle for `idle_ticks` before the next play. A worker whose model has none of them shows the particles
+every `loop_ticks`. Actor particles leave the worker toward the target, and target particles burst at the
+target.
 
 The Generator computes FE/t = round(m × base × (max ÷ base)^((L − 1) ÷ 99)). The multiplier m is 2 for
 a Pokémon with a label in `rare_labels` and 1 otherwise, and the rounding comes last. With the
@@ -772,7 +803,7 @@ Rules:
 |---|---|---|
 | Cobblemon pasture internals change. They have no API and no events, and `Tethering`, `PastureLinkManager` and the `PCGUI` layout can change without notice. | One `pasture` package holds every read. Polling replaces mixins on `tether`. Cobblemon is pinned to `[1.8.4,1.9)`. Engine GameTests run on each Cobblemon update. | PLAT, WMD |
 | Cobblemon's behaviour system changes: `TaskConfig.types`, Brain rebuild timing, or the auto folder rules. A future species `baseAI` would skip our auto behaviour. | The engine owns all state and rewrites the memory each tick. One `ai` package holds the bridge. If task registration fails, workers stay Idle and the mod logs one error. | AI |
-| Move effects drift: particle ids get renamed, and few models have attack poses. | Each role lists animation names from specific to `cry`. The manual checklist covers every effect. No gameplay depends on an effect. | FX |
+| Move effects drift: particle ids get renamed, and few models have attack poses. | Each role lists animation names from specific to general, with no `cry`, and a model with none of them shows the particles only. The manual checklist covers every effect. No gameplay depends on an effect. | FX |
 | The roam box, Brain rebuilds and `onChange()` cost. | The work area is clamped to the roam box. Work Stamina flushes on a coarse schedule. | ASG, STA, PERF |
 | A Create or vanilla mixin fails after an update. The enchanting mixin targets a compiler-generated lambda name. | `MixinPlugin` and the per-mixin flags. The affected role disables itself instead of crashing. | PLAT, CMP |
 | The fan and windmill hooks need the client to agree with the server. | Every value that the client reads syncs through Create's behaviour packets or a synced attachment. GameTests and the checklist cover the client view. | FAN, TLW |

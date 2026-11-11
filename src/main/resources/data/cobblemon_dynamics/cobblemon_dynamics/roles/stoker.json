@@ -8,8 +8,9 @@
   "params": {},
   "effect": {
     "loop_ticks": 40,
-    "animations": ["flamethrower", "fire", "spray", "special", "cry"],
-    "actor_particles": ["cobblemon:flamethrower_actor"],
-    "target_particles": ["cobblemon:flamethrower_target", "cobblemon:flamethrower_targetburst"]
+    "idle_ticks": 40,
+    "animations": ["ember", "fire", "spray", "special"],
+    "actor_particles": ["cobblemon:ember_actor"],
+    "target_particles": ["cobblemon:ember_target"]
   }
 }

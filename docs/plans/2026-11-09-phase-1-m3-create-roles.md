@@ -454,7 +454,8 @@ heat comes from the role params:
 
 `burner_keeper.json`: types `["fire"]`, `auto_assign` true, priority 0, range 6.0, params `{ "heat": "kindled" }`, effect
 Flamethrower (the Stoker's: actor `cobblemon:flamethrower_actor`, target `cobblemon:flamethrower_target`,
-`cobblemon:flamethrower_targetburst`). `superheater.json`: types `["dragon"]` (CD-SUP-02), `auto_assign` true, priority 10,
+`cobblemon:flamethrower_targetburst`; Ember since the play-test of 2026-11-10, as the Stoker: actor `cobblemon:ember_actor`,
+target `cobblemon:ember_target`). `superheater.json`: types `["dragon"]` (CD-SUP-02), `auto_assign` true, priority 10,
 range 6.0, params `{ "heat": "seething", "min_level": 50, "below_min_level_heat": "kindled" }`, effect Dragon Breath
 (`dragonbreath`, `spray`, `special`, `cry`; actor `cobblemon:dragonbreath_actor`, which Cobblemon's timeline emits from the user
 toward the target, and target `cobblemon:dragonbreath_target`, which it emits on the target).

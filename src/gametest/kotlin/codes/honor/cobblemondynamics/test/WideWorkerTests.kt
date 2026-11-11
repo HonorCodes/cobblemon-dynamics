@@ -63,9 +63,9 @@ class WideWorkerTests {
 
     /**
      * A furnace with input stands on the floor, and two tall pillars leave a gap one block wide 5 blocks south of it, with a clear line to
-     * the furnace. A Camerupt, 2.4 blocks wide, is held 8 blocks south of the furnace until it claims: the free cells nearest to it that
-     * see the furnace are in and beside the gap, where its body overlaps the pillars. Its spot must have room for its body
-     * (CD-ASG-09), and it must reach that spot and Work within 300 ticks.
+     * the furnace. A Camerupt, 2.4 blocks wide, is held 8 blocks south of the furnace until it claims. Its body overlaps the furnace in
+     * each cell beside the furnace, and the pillars in and beside the gap. Its spot must have room for its body (CD-ASG-09), and it
+     * must reach that spot and Work within 300 ticks.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
     fun cdAsg09WideWorkerGetsASpotItsBodyFits(helper: GameTestHelper) {

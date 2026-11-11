@@ -6,6 +6,7 @@ import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -59,6 +60,116 @@ class WorkSpotsTest {
     fun `the nearest spot to the worker wins`() {
         val grid = GridFixture(emptySet(), target)
         assertEquals(BlockPos(1, 1, 0), WorkSpots.find(grid, area, center, 6.0, Vec3(1.5, 1.0, 0.5)))
+    }
+
+    /** An open floor everywhere with nothing in the way of sight, where only the [standable] cells are free for the worker. */
+    private class OpenGrid(private val standable: Set<BlockPos>) : SpotGrid {
+        override fun isStandable(x: Int, y: Int, z: Int): Boolean = BlockPos(x, y, z) in standable
+
+        override fun canStand(x: Int, y: Int, z: Int): Boolean = true
+
+        override fun blocksSight(x: Int, y: Int, z: Int): Boolean = false
+    }
+
+    /** The approver's play-test ruling (2026-11-10): workers stand beside their target, on the floor that it stands on. */
+    @Test
+    fun `CD-ASG-09 a spot beside the target at its base height wins over the spots nearer to the worker`() {
+        val grid = GridFixture(emptySet(), target)
+        assertEquals(BlockPos(1, 1, 0), WorkSpots.find(grid, area, center, 6.0, Vec3(5.5, 1.0, 0.5)))
+        assertEquals(BlockPos(0, 1, -1), WorkSpots.find(grid, area, center, 6.0, Vec3(0.5, 1.0, -4.5)))
+    }
+
+    @Test
+    fun `CD-ASG-09 a spot that stands on the target is never chosen`() {
+        val onTop = BlockPos(0, 2, 0)
+        val worker = Vec3(0.5, 2.0, 0.5)
+        assertEquals(BlockPos(3, 1, 3), WorkSpots.find(OpenGrid(setOf(onTop, BlockPos(3, 1, 3))), area, center, 6.0, worker))
+        assertNull(WorkSpots.find(OpenGrid(setOf(onTop)), area, center, 6.0, worker))
+    }
+
+    @Test
+    fun `CD-ASG-09 a spot at the target's base height wins over a nearer spot at another height`() {
+        val grid = OpenGrid(setOf(BlockPos(1, 2, 0), BlockPos(3, 1, 0)))
+        assertEquals(BlockPos(3, 1, 0), WorkSpots.find(grid, area, center, 6.0, Vec3(1.5, 2.0, 0.5)))
+    }
+
+    @Test
+    fun `CD-ASG-09 among the other spots at the base height, the one nearest to the target wins`() {
+        val grid = OpenGrid(setOf(BlockPos(2, 1, 0), BlockPos(4, 1, 0), BlockPos(0, 2, 2)))
+        assertEquals(BlockPos(2, 1, 0), WorkSpots.find(grid, area, center, 6.0, Vec3(4.5, 1.0, 0.5)))
+    }
+
+    /**
+     * A Create large water wheel: a ring of 3 × 3 blocks upright on the floor, here on x = 0. A spot beside any of its lowest blocks is
+     * beside the target, and a spot on top of the ring stands on it.
+     */
+    @Test
+    fun `CD-ASG-09 a spot beside the footprint of a multi-block target is beside the target`() {
+        val wheel = (1..3).flatMap { y -> (-1..1).map { z -> BlockPos(0, y, z) } }
+        val shape = TargetShape(wheel)
+        val wheelCenter = Vec3(0.5, 2.5, 0.5)
+        val grid = object : SpotGrid by GridFixture(emptySet(), BlockPos(0, 2, 0)) {
+            override fun isStandable(x: Int, y: Int, z: Int): Boolean = (y == 1 && BlockPos(x, 1, z) !in wheel) || (x == 0 && y == 4)
+        }
+        val spot = WorkSpots.find(grid, area, shape, wheelCenter, 6.0, Vec3(5.5, 1.0, 5.5))
+        assertEquals(BlockPos(1, 1, 0), spot)
+        assertTrue(shape.isBeside(1, 1, -1) && shape.isBeside(-1, 1, 1) && shape.isBeside(0, 1, 2) && shape.isBeside(0, 1, -2))
+        assertFalse(shape.isBeside(1, 1, 2), "a corner cell only touches the wheel at an edge")
+        assertTrue(shape.standsOn(0, 4, 1))
+        // A worker on top of the wheel still gets the spot beside it, and never one on the wheel.
+        assertEquals(BlockPos(1, 1, 0), WorkSpots.find(grid, area, shape, wheelCenter, 6.0, Vec3(0.6, 4.0, 0.5)))
+    }
+
+    @Test
+    fun `a target's shape holds its blocks within one block of its canonical position, and its base height`() {
+        val ring = (1..3).flatMap { y -> (-1..1).map { z -> BlockPos(0, y, z) } }.toSet()
+        val shape = TargetShape.around(BlockPos(0, 2, 0)) { it in ring }
+        assertEquals(1, shape.baseY)
+        assertTrue(shape.isBeside(1, 1, 0))
+        assertFalse(shape.isBeside(1, 2, 0), "beside the ring, but above its base height")
+        val single = TargetShape.of(target)
+        assertEquals(1, single.baseY)
+        val sides = listOf(BlockPos(1, 1, 0), BlockPos(-1, 1, 0), BlockPos(0, 1, 1), BlockPos(0, 1, -1))
+        assertTrue(sides.all { single.isBeside(it.x, it.y, it.z) })
+        assertFalse(single.isBeside(1, 1, 1), "a diagonal cell")
+        assertFalse(single.isBeside(0, 1, 0), "the target's own cell")
+        assertTrue(single.standsOn(0, 2, 0))
+        assertFalse(single.standsOn(1, 2, 0))
+    }
+
+    /**
+     * The only free cell beside the target is a pit: walls on its three other sides, at the floor's height. A worker cannot walk into it
+     * on the level, and the play-test GameTests showed that a Squirtle cannot reach such a pit beside a water wheel, so every open spot
+     * comes first. The other cells beside the target have a wall above them.
+     */
+    @Test
+    fun `CD-ASG-09 a spot that a worker cannot walk into on the level, such as a pit beside the target, comes after every open spot`() {
+        val pit = BlockPos(1, 1, 0)
+        val pitWalls = listOf(BlockPos(2, 1, 0), BlockPos(1, 1, 1), BlockPos(1, 1, -1))
+        val walls = (pitWalls + listOf(BlockPos(-1, 2, 0), BlockPos(0, 2, 1), BlockPos(0, 2, -1))).toSet()
+        val grid = GridFixture(walls, target)
+        assertTrue(grid.isStandable(pit.x, pit.y, pit.z), "the pit is not standable")
+        assertEquals(BlockPos(-1, 1, 1), WorkSpots.find(grid, area, center, 6.0, Vec3(-3.5, 1.0, 2.5)))
+        // With no open spot in reach, the pit is still a spot.
+        val closedIn = object : SpotGrid by grid {
+            override fun isStandable(x: Int, y: Int, z: Int): Boolean = BlockPos(x, y, z) == pit
+        }
+        assertEquals(pit, WorkSpots.find(closedIn, area, center, 6.0, Vec3(-3.5, 1.0, 2.5)))
+    }
+
+    /** Another worker's spot is still floor: a spot at the end of a corridor whose next cell another worker took stays open. */
+    @Test
+    fun `CD-ASG-09 a spot stays open when the cell beside it is another worker's spot`() {
+        val corridor = (1..4).flatMap { x -> listOf(BlockPos(x, 1, 1), BlockPos(x, 1, -1)) }
+        val walls = (corridor + listOf(BlockPos(-1, 2, 0), BlockPos(0, 2, 1), BlockPos(0, 2, -1))).toSet()
+        val fixture = GridFixture(walls, target)
+        val taken = BlockPos(2, 1, 0)
+        val grid = object : SpotGrid by fixture {
+            override fun isStandable(x: Int, y: Int, z: Int): Boolean = BlockPos(x, y, z) != taken && fixture.isStandable(x, y, z)
+
+            override fun canStand(x: Int, y: Int, z: Int): Boolean = fixture.isStandable(x, y, z)
+        }
+        assertEquals(BlockPos(1, 1, 0), WorkSpots.find(grid, area, center, 6.0, Vec3(5.5, 1.0, 0.5)))
     }
 
     @Test

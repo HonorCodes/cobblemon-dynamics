@@ -196,8 +196,8 @@ world.
 28. **CD-HEAL-15.** Setup: a Work Mode pasture with a level 30 Clefairy and a level 1 Charmander Working at a
     furnace with 64 raw iron. Action: watch until the Clefairy heals the Charmander. The heal starts when the
     Charmander drops under 25%, after about 2 minutes. Expected: when the Clefairy reaches the Charmander, it
-    plays its special pose or its cry. Heal circles and sparkles show on the Charmander, and its bar goes to
-    100%.
+    plays its special pose. Heal circles show on the Charmander, and its bar goes to 100%. No sound plays,
+    and the client does not crash.
 
 ## Stoker
 
@@ -227,11 +227,11 @@ world.
 
 ## Work effects
 
-35. **CD-FX-09.** Setup: 5 Charmanders Working at 5 furnaces with input, with the default client config.
-    Action: listen for 10 seconds. Then close the game, and set `workSounds = true` under `[effects]` in
-    `config/cobblemon_dynamics-client.toml`. Start the game and listen for 10 seconds again. Set
-    `workSounds = false` afterward. Expected: with the default config, no move sound plays. With
-    `workSounds = true`, each worker plays its move sound with its effect.
+35. **CD-FX-09.** Setup: a Machop and an Eevee Working at two Create hand cranks, a Vaporeon Working at a
+    water wheel with no water, and 2 Charmanders Working at 2 furnaces with input. Action: listen for 10
+    seconds. Expected: no sound comes from the workers' effects. The Machop, the Eevee and the Vaporeon play no
+    animation, and their particles show every 2 seconds. A Pokémon's own ambient cry, which Cobblemon plays
+    about once a minute, is not a work effect.
 
 ## Compatibility
 
@@ -270,3 +270,14 @@ world.
 42. **CD-REL-04** (at the public release, M9). Setup: the Phase 2 gate has passed (CD-REL-14). Action: push the
     tag `v1.0.0`. Expected: after the `release` run ends, Modrinth and CurseForge both list the version
     `1.0.0+mc1.21.1`. This check is not part of the Phase 1 play-test.
+
+## Play-test fixes (2026-11-10)
+
+These checks repeat the findings of the approver's first play-test after their fixes.
+
+43. **CD-FX-01.** Setup: a Charmander Working at a furnace with 64 raw iron. Action: watch the Charmander for
+    20 seconds. Expected: it plays its whole special animation, then stands in its idle pose for about 2
+    seconds before the next one. No animation starts again before it ends.
+44. **CD-ASG-09.** Setup: a Work Mode pasture with a Charmander, and a furnace with 64 raw iron on the floor 5
+    blocks from the pasture block, with open floor around it. Action: watch the Charmander until it Works.
+    Expected: it stands on the floor beside the furnace, not on top of it and not several blocks away.
