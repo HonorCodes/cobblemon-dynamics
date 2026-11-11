@@ -130,51 +130,66 @@ Check 42 (CD-REL-04) belongs to the public release (M9), so the Phase 1 play-tes
 The approver writes this section. For each check, record pass, fail with what you saw, or blocked with the reason. Also
 record the result of the spark run and, after the CD-REL-12 demo, both run URLs, the job conclusions and the site checks.
 
-- Date:
-- Approver:
-- Launcher and instance:
-- Spark run (steps 7 to 10):
-- CD-REL-12 demo (check 41):
+- Date: 2026-11-10
+- Approver: Trevor Forbes. This note records the approver's message of 2026-11-10.
+- Launcher and instance: CurseForge, the instance `Cobblemon Dynamics Play-test` (world `test1`, with the `cdtest` kit
+  data pack). It runs the mod jar of PR #12 (`69e4399`).
+- Result: GREEN. The approver's note: "I tested what was in the mod so far and it's GREEN, everything works well."
+- Round 1 (2026-11-10) found five issues: the heal crash, a Flamethrower effect that was too flashy for a loop, work
+  animations that a loop cut off, work cries, and workers that stood on top of their targets. PR #12 (`69e4399`) fixed
+  all five, and checks 43 and 44 repeat two of them. Round 2 played the PR #12 jar and found no issue.
+- CD-REL-13: complete on 2026-11-10. The gate run on `0cddb71` passed, and this note records the approver's play-test of
+  a Phase 1 build. Both records come before the first M6 merge.
+- Rulings that came with the note: Fire-types no longer heat Blaze Burners, a new Charge Cell block, and a creative tab
+  for the mod's items. The corrections list of the spec sheet records them. They change the build after this play-test.
+- Spark run (steps 7 to 10): not reported.
+- CD-REL-12 demo (check 41): not run. It waits for the approver's go-ahead on the tags (known issue (b)).
+
+The note gives one result for the whole build, not one for each check. The table gives that result to each check that the
+play-test instance covers. A check that needs a setup outside the instance shows "not reported", because the note does
+not say that the setup ran.
 
 | Check | Row | Result | What you saw |
 | --- | --- | --- | --- |
-| 5 | CD-PLAT-06 | | |
-| 6 | CD-UI-01 | | |
-| 7 | CD-UI-02 | | |
-| 8 | CD-UI-03 | | |
-| 9 | CD-UI-04 | | |
-| 10 | CD-UI-07 | | |
-| 11 | CD-UI-08 | | |
-| 12 | CD-UI-10 | | |
-| 13 | CD-CLM-07 | | |
-| 14 | CD-ASG-09 | | |
-| 15 | CD-ASG-14 | | |
-| 16 | CD-LSH-02 | | |
-| 17 | CD-LSH-04 | | |
-| 18 | CD-LSH-06 | | |
-| 19 | CD-LSH-13 | | |
+| 5 | CD-PLAT-06 | not reported | The check needs the server, which the note does not name. |
+| 6 | CD-UI-01 | pass | GREEN in the approver's note. |
+| 7 | CD-UI-02 | pass | GREEN in the approver's note. |
+| 8 | CD-UI-03 | not reported | The check needs the server and a second player, which the note does not name. |
+| 9 | CD-UI-04 | pass | GREEN in the approver's note. |
+| 10 | CD-UI-07 | pass | GREEN in the approver's note. |
+| 11 | CD-UI-08 | pass | GREEN in the approver's note. |
+| 12 | CD-UI-10 | pass | GREEN in the approver's note. |
+| 13 | CD-CLM-07 | pass | GREEN in the approver's note. |
+| 14 | CD-ASG-09 | pass | GREEN in the approver's note. |
+| 15 | CD-ASG-14 | pass | GREEN in the approver's note. |
+| 16 | CD-LSH-02 | pass | GREEN in the approver's note. |
+| 17 | CD-LSH-04 | pass | GREEN in the approver's note. |
+| 18 | CD-LSH-06 | pass | GREEN in the approver's note. |
+| 19 | CD-LSH-13 | pass | GREEN in the approver's note. |
 | 20 | CD-LSH-20 | blocked | The Telekinesis role arrives in M6. |
-| 21 | CD-LSH-21 | | |
-| 22 | CD-UI-06 | | |
-| 23 | CD-UI-09 | | |
-| 24 | CD-LSH-07 | | |
-| 25 | CD-FX-10 | | |
-| 26 | CD-STA-04 | | |
-| 27 | CD-BED-14 | | |
-| 28 | CD-HEAL-15 | | |
-| 29 | CD-STK-07 | | |
-| 30 | CD-FX-04 | | |
-| 31 | CD-FX-05 | | |
-| 32 | CD-WHL-09 | | |
-| 33 | CD-WHL-07 | | |
-| 34 | CD-CRK-08 | | |
-| 35 | CD-FX-09 | | |
-| 36 | CD-CMP-01 | | |
-| 37 | CD-CMP-03 | | |
-| 38 | CD-CMP-04 | | |
-| 39 | CD-CMP-05 | | |
-| 40 | CD-REL-01 | | |
-| 41 | CD-REL-12 | | |
+| 21 | CD-LSH-21 | pass | GREEN in the approver's note. |
+| 22 | CD-UI-06 | pass | GREEN in the approver's note. |
+| 23 | CD-UI-09 | not reported | The check needs the server and a second player, which the note does not name. |
+| 24 | CD-LSH-07 | pass | GREEN in the approver's note. |
+| 25 | CD-FX-10 | pass | GREEN in the approver's note. |
+| 26 | CD-STA-04 | pass | GREEN in the approver's note. |
+| 27 | CD-BED-14 | pass | GREEN in the approver's note. |
+| 28 | CD-HEAL-15 | pass | GREEN in the approver's note. |
+| 29 | CD-STK-07 | pass | GREEN in the approver's note. |
+| 30 | CD-FX-04 | pass | GREEN in the approver's note. |
+| 31 | CD-FX-05 | pass | GREEN in the approver's note. |
+| 32 | CD-WHL-09 | pass | GREEN in the approver's note. |
+| 33 | CD-WHL-07 | pass | GREEN in the approver's note. |
+| 34 | CD-CRK-08 | pass | GREEN in the approver's note. |
+| 35 | CD-FX-09 | pass | GREEN in the approver's note. |
+| 36 | CD-CMP-01 | not reported | The check needs the Cobbleworkers jar, which the note does not name. |
+| 37 | CD-CMP-03 | not reported | The check needs the Cobblebase and Cloth Config jars, which the note does not name. |
+| 38 | CD-CMP-04 | not reported | The check needs the Cobblebase and Cloth Config jars, which the note does not name. |
+| 39 | CD-CMP-05 | not reported | The check needs Cobblebase 1.5.4 and Cloth Config, which the note does not name. |
+| 40 | CD-REL-01 | not reported | The check opens a pull request with a failing unit test, which the note does not name. |
+| 41 | CD-REL-12 | not run | The tags wait for the approver's go-ahead. |
+| 43 | CD-FX-01 | pass | GREEN in the approver's note. |
+| 44 | CD-ASG-09 | pass | GREEN in the approver's note. |
 
 ## How this report is made
 

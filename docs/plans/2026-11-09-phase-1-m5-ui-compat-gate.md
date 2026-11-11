@@ -444,9 +444,11 @@ Design (as built):
   test pack scenario on one commit; generate the report; every automated row passes.
 - [x] **Step 3:** assemble the approver's play-test instance with `py scripts/testpack/testpack.py client` and
   write its path and steps at the top of the gate report.
-- [ ] **Step 4:** commit the report, push, open the M5 pull request, resolve reviews and merge.
-- [ ] **Step 5: Stop.** Hand off to the approver for the play-test. CD-REL-13 completes when the approver's
-  play-test note is recorded in the gate report, before any M6 work merges.
+- [x] **Step 4:** commit the report, push, open the M5 pull request, resolve reviews and merge.
+- [x] **Step 5: Stop.** Hand off to the approver for the play-test. CD-REL-13 completes when the approver's
+  play-test note is recorded in the gate report, before any M6 work merges. The approver reported the second
+  round GREEN on 2026-11-10, after PR #12 fixed the five findings of round 1. The gate report's play-test note
+  records it, and CD-REL-13 is complete.
 
 Steps 1 to 3 as built:
 

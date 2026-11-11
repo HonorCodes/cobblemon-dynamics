@@ -18,6 +18,8 @@ Corrections after agreement:
 - 2026-11-10, approver's play-test ruling: CD-ASG-09 prefers a work spot beside the target at its base height and never
   picks one that stands on the target. Before, the spot nearest to the worker won, which could be on top of the target. A
   spot that a worker cannot walk into on the level, such as a pit beside a water wheel, comes last.
+- 2026-11-10, approver's play-test result: the second play-test of the Phase 1 build, on the jar of PR #12, is GREEN.
+  The play-test note in `docs/testing/phase-1-gate.md` records it, so CD-REL-13 is complete. No row changes.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
