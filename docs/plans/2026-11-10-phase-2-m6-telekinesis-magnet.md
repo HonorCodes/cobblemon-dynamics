@@ -188,8 +188,18 @@ fun `CD-ASG-09 a best spot with no path gives way to the next best spot`() {
 @Test
 fun `CD-ASG-14 a target whose three best spots have no path gets no spot`() {
     val checked = mutableListOf<BlockPos>()
-    val spot = WorkSpots.findReachable(GridFixture(emptySet(), target), area, TargetShape.of(target), center, 6.0, from,
-        reachable = { checked += it; false })
+    val spot = WorkSpots.findReachable(
+        GridFixture(emptySet(), target),
+        area,
+        TargetShape.of(target),
+        center,
+        6.0,
+        from,
+        reachable = {
+            checked += it
+            false
+        },
+    )
     assertNull(spot)
     assertEquals(WorkSpots.MAX_PATH_CHECKS, checked.size)
     assertEquals(checked.size, checked.toSet().size, "a spot was checked twice: $checked")
@@ -199,7 +209,10 @@ fun `CD-ASG-14 a target whose three best spots have no path gets no spot`() {
 fun `CD-ASG-09 a reachable best spot costs one path check`() {
     val checked = mutableListOf<BlockPos>()
     val grid = GridFixture(emptySet(), target)
-    val spot = WorkSpots.findReachable(grid, area, TargetShape.of(target), center, 6.0, from, reachable = { checked += it; true })
+    val spot = WorkSpots.findReachable(grid, area, TargetShape.of(target), center, 6.0, from, reachable = {
+        checked += it
+        true
+    })
     assertEquals(WorkSpots.find(grid, area, TargetShape.of(target), center, 6.0, from), spot)
     assertEquals(1, checked.size)
 }
@@ -386,7 +399,9 @@ class QueryClock(private val intervalTicks: Int = TransferParams.BATCH_TICKS) {
 
 ```kotlin
 /** A container of fixed slots with a limit per slot, as a batch sees it. Its items are strings. */
-private class Slots(size: Int, private val limit: Int = 64) : ItemSource<String>, ItemSink<String> {
+private class Slots(size: Int, private val limit: Int = 64) :
+    ItemSource<String>,
+    ItemSink<String> {
     val slots = arrayOfNulls<Lot<String>>(size)
     var refuseOnExecute = false
     var refusePutBack = false
@@ -419,7 +434,13 @@ private class Slots(size: Int, private val limit: Int = 64) : ItemSource<String>
     override fun accept(lot: Lot<String>, simulate: Boolean): Int {
         if (refuseOnExecute && !simulate) return 0
         var left = lot.count
-        val order = slots.indices.sortedBy { if (slots[it]?.item == lot.item) 0 else if (slots[it] == null) 1 else 2 }
+        val order = slots.indices.sortedBy {
+            when {
+                slots[it]?.item == lot.item -> 0
+                slots[it] == null -> 1
+                else -> 2
+            }
+        }
         for (i in order) {
             val current = slots[i]
             if (left == 0 || (current != null && current.item != lot.item)) continue
@@ -446,7 +467,10 @@ class ItemBatchTest {
 
     @Test
     fun `CD-TLK-03 a Lv50 batch never moves a 33rd item, also across slots`() {
-        val source = Slots(10).also { it.slots[0] = Lot("dirt", 20); it.slots[1] = Lot("dirt", 20) }
+        val source = Slots(10).also {
+            it.slots[0] = Lot("dirt", 20)
+            it.slots[1] = Lot("dirt", 20)
+        }
         val sink = Slots(5)
         assertEquals(32, ItemBatch.move(source, sink, params.itemsPerBatch(50)) { fail("spilled $it") })
         assertEquals(8, source.total)
