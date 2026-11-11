@@ -51,7 +51,7 @@ SHA-256. The release workflow runs it for every public tag (CD-ART-12).
 | textures/gui/state/traveling | `art/textures/gui/state/traveling.pixels` | `6954892fb07a33bf7d221419959337ece9c5660346d75f1321fd457e9d9597b4` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/gui/state/working | `art/textures/gui/state/working.pixels` | `70c447f804945e3f23ef0e88ad22552b2d4379254d7d5b02d0721e7365c2ce9f` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/item/work_leash | `art/textures/item/work_leash.pixels` | `e30a61f1b631620cd72bb99951d4a0370e22925213a23814845f81c536931217` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
-| logo/logo-256 | `art/logo/logo-256.png` | `313191dad27841882de547803012154d0e7edbafa1511465b2af4e7a476e1802` | pending |  |  |
-| logo/icon-512 | `art/logo/icon-512.png` | `b1f36c30e201e69a0e7a51ed121890bda793ece5f115ff55e87526bdea6e6007` | pending |  |  |
+| logo/logo-256 | `art/logo/logo-256.png` | `313191dad27841882de547803012154d0e7edbafa1511465b2af4e7a476e1802` | approved | 2026-11-11 | The approver: "yes", when asked to approve the logo. |
+| logo/icon-512 | `art/logo/icon-512.png` | `b1f36c30e201e69a0e7a51ed121890bda793ece5f115ff55e87526bdea6e6007` | approved | 2026-11-11 | The approver: "yes", when asked to approve the logo. |
 
 <!-- art-review rows end -->
