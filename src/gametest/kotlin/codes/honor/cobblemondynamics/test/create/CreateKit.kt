@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.handler.create.FanState
 import codes.honor.cobblemondynamics.handler.create.FireMode
 import com.simibubi.create.AllBlocks
 import com.simibubi.create.api.boiler.BoilerHeater
+import com.simibubi.create.content.contraptions.bearing.WindmillBearingBlockEntity
 import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
@@ -26,7 +27,10 @@ import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.DirectionalBlock
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.sqrt
 
 /** Builds Create machines for GameTests. Only the full GameTest run has Create, so this stays out of `kotlin-shared`. */
 object CreateKit {
@@ -151,4 +155,20 @@ object CreateKit {
             state.grant(kind, helper.level.gameTime)
         }
     }
+
+    /**
+     * A windmill bearing at [rel] that faces up, with a shaft below it and a flat sheet of [sails] sails on its face. A sail holds on
+     * to its neighbours across its own facing, so the sheet assembles as one windmill.
+     */
+    fun windmill(helper: GameTestHelper, rel: BlockPos, sails: Int): WindmillBearingBlockEntity {
+        helper.setBlock(rel.below(), AllBlocks.SHAFT.defaultState.setValue(RotatedPillarKineticBlock.AXIS, Direction.Axis.Y))
+        helper.setBlock(rel, AllBlocks.WINDMILL_BEARING.defaultState.setValue(DirectionalKineticBlock.FACING, Direction.UP))
+        val width = ceil(sqrt(sails.toDouble())).toInt()
+        // Row by row from one corner; the sheet always covers the block on the bearing's face, at its center.
+        for (i in 0 until sails) helper.setBlock(rel.offset(i % width - width / 2, 1, i / width - width / 2), sail())
+        return helper.getBlockEntity(rel)
+    }
+
+    /** A sail that lies flat, as a windmill that faces up holds it. */
+    fun sail() = AllBlocks.SAIL.defaultState.setValue(DirectionalBlock.FACING, Direction.UP)
 }

@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.engine.WorkSpots
+import codes.honor.cobblemondynamics.handler.create.TailwindMath
+import codes.honor.cobblemondynamics.handler.create.TailwindParams
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
@@ -37,6 +39,7 @@ class BuiltInRoleFilesTest {
         "fan_catalyst_fire" to Row("cobblemon_dynamics:fan_catalyst", setOf("fire"), false, 0, "firespin"),
         "fan_catalyst_water" to Row("cobblemon_dynamics:fan_catalyst", setOf("water"), false, 0, "bubble"),
         "fan_catalyst_ghost" to Row("cobblemon_dynamics:fan_catalyst", setOf("ghost"), false, 0, "willowisp"),
+        "tailwind" to Row("cobblemon_dynamics:tailwind", setOf("flying"), false, 0, "gust"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -301,6 +304,40 @@ class BuiltInRoleFilesTest {
         assertEquals(MoveTimeline.read("bubble").animations, effect.animations)
         assertEquals(listOf("cobblemon:bubble_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(emptyList<String>(), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-TLW-01 Pidgey may be a Tailwind worker, and Pikachu may not`() {
+        val tailwind = BuiltInRoles.parse("tailwind")
+        assertTrue(RoleSelection.isEligible(tailwind, listOf("normal", "flying")), "Pidgey")
+        assertFalse(RoleSelection.isEligible(tailwind, listOf("electric")), "Pikachu")
+    }
+
+    @Test
+    fun `CD-TLW-02 the Tailwind role file sets auto_assign to false`() {
+        val key = autoAssignKey("tailwind")
+        assertTrue(
+            key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+            "tailwind.json has auto_assign $key",
+        )
+    }
+
+    @Test
+    fun `CD-TLW-03 CD-TLW-04 the default Tailwind file adds floor of S times L over 100 sails, up to 128 in all`() {
+        val params = TailwindParams.of(BuiltInRoles.parse("tailwind").params)
+        assertEquals(TailwindParams(0.01, 128), params)
+        assertEquals(32, TailwindMath.bonus(64, 50, params.perLevel, params.maxTotalSails))
+        assertEquals(28, TailwindMath.bonus(100, 100, params.perLevel, params.maxTotalSails))
+    }
+
+    /** Cobblemon's `gust` timeline sends the gust from the user, and its two hits land on the target. */
+    @Test
+    fun `CD-FX-04 Tailwind's Gust blows from the worker and hits the bearing`() {
+        val effect = BuiltInRoles.parse("tailwind").effect
+        val gust = MoveTimeline.read("gust")
+        assertEquals(gust.animations, effect.animations)
+        assertEquals(gust.userParticles, effect.actorParticles.map { it.toString() })
+        assertEquals(gust.targetParticles, effect.targetParticles.map { it.toString() })
     }
 
     /** The Cranker is the only role whose move needs contact. */

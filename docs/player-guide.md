@@ -356,9 +356,10 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Fan Catalyst Fire](#fan-catalyst-fire) | `cobblemon_dynamics:fan_catalyst_fire` | Fire | Encased fan that faces sideways | Work Leash | Create |
 | [Fan Catalyst Water](#fan-catalyst-water) | `cobblemon_dynamics:fan_catalyst_water` | Water | Encased fan that faces sideways | Work Leash | Create |
 | [Fan Catalyst Ghost](#fan-catalyst-ghost) | `cobblemon_dynamics:fan_catalyst_ghost` | Ghost | Encased fan that faces sideways | Work Leash | Create |
+| [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
 
-Level changes the output of the Generator, the Pump, the Muse, Telekinesis and the Magnet. The Superheater
-superheats only from level 50. Every other role works the same at every level.
+Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet and Tailwind. The
+Superheater superheats only from level 50. Every other role works the same at every level.
 
 ### Stoker
 
@@ -597,6 +598,26 @@ Washing, as Create's bulk washing does.
 #### Fan Catalyst Ghost
 
 Haunting, as Create's bulk haunting does.
+
+### Tailwind
+
+**Types:** Flying. **Level:** the bonus grows with level. **Move:** Gust. **Assignment:** Work Leash only.
+**Needs:** Create.
+
+**Target:** a windmill bearing.
+
+A Flying-type adds wind to a Create windmill. Select the Pokémon with the Work Leash, then right-click the
+windmill bearing. While the worker Works, the windmill counts floor(S × L ÷ 100) more sails, where S is its
+number of real sails and L the worker's level. Real and added sails together stay at 128 or less. So a
+64-sail windmill turns at 12 RPM with a level 50 worker, and at 16 RPM, Create's maximum, with a level 100
+worker. The added sails end within 2 ticks of the end of the work. A windmill still needs 8 real sails to
+assemble.
+
+The worker stands beside or behind the bearing, never where the sails turn. Under a windmill that faces up,
+the worker needs room below the sails, so assemble the windmill before you bind. A worker waits in Standby
+while the windmill is not assembled.
+
+**Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
 
 ## Configuration
 

@@ -566,16 +566,23 @@ references. This section lists what the code uses.
 - **Tailwind (Phase 2).** Mixin `WindmillBearingBlockEntityMixin` on `getGeneratedSpeed()`:
 
   ```java
-  @ModifyExpressionValue(method = "getGeneratedSpeed", at = @At(value = "INVOKE",
+  @Redirect(method = "getGeneratedSpeed()F", at = @At(value = "INVOKE",
       target = "Lcom/simibubi/create/content/contraptions/bearing/BearingContraption;getSailBlocks()I"))
-  private int cobblemon_dynamics$virtualSails(int sails) { ... }
+  private int cobblemon_dynamics$virtualSails(BearingContraption contraption) { ... }
   ```
+
+  It is a `@Redirect`, not MixinExtras' `@ModifyExpressionValue`, because MixinExtras injects that
+  one after the config plugin's `postApply`, where `MixinState` would never see the call.
 
   It adds floor(real sails × L ÷ 100), and the total never exceeds 128 sails. Speed is the sail count
   ÷ 8 RPM, capped at 16 RPM, with 512 SU per RPM. The handler calls `updateGeneratedRotation()` on the
   server after each bonus change. A windmill still needs 8 real sails to assemble, because assembly
   reads the sail field directly. The bonus syncs to the client through the Tailwind behaviour.
   Demand: the windmill is assembled and turning.
+  - The handler renews the bonus on every Working tick. The behaviour clears a bonus that was not
+    renewed, so a release that never came leaves no virtual sails after 2 ticks.
+  - A work spot keeps the worker's body out of the turning sails: beside or behind the bearing's face.
+    Under a windmill that faces up, the spot needs room for the body below the sails.
 - **Item handlers (Phase 2).** The item vault returns its controller's combined handler from any
   block. A depot accepts an insert only into slot 0 while it is empty. A chute accepts only while it is
   empty. Telekinesis and the Magnet insert a copy of each stack, because the depot and the chute keep
@@ -760,7 +767,9 @@ Other role parameters, as fragments of their role files:
   Create 6.0.10's floor.
 - **Mixins.** Java classes in `cobblemon_dynamics.mixins.json`, declared with `[[mixins]]` in
   `neoforge.mods.toml`. NeoForge ships Mixin and MixinExtras (0.5.5 in NeoForge 21.1.265), which
-  provides `@ModifyExpressionValue` and `@Local`. `MixinPlugin` skips the Create and Cobblebase mixins
+  provides `@ModifyExpressionValue` and `@Local`. MixinExtras injects `@ModifyExpressionValue` late,
+  after the config plugin's `postApply`, so a mixin whose role `MixinGate` checks uses Mixin's own
+  injectors. `MixinPlugin` skips the Create and Cobblebase mixins
   when those mods are absent. It also skips a mixin whose target class lacks a field or method that
   the mixin shadows, because Mixin fails the required config at load on such a shadow. Each
   integration mixin sets a static flag when it applies, and a role whose flag stays unset disables

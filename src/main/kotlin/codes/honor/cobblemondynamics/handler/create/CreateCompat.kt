@@ -6,6 +6,7 @@ import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import com.simibubi.create.AllBlockEntityTypes
 import com.simibubi.create.api.event.BlockEntityBehaviourEvent
+import com.simibubi.create.content.contraptions.bearing.WindmillBearingBlockEntity
 import com.simibubi.create.content.kinetics.fan.AirCurrent
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
@@ -22,12 +23,14 @@ object CreateCompat {
 
     fun register(modBus: IEventBus) {
         // A mixin applies when its target class loads. These class literals load each target of the `create.` mixins during mod
-        // construction, so MixinState holds its final answer before the first role build reads it (CD-WHL-10, CD-BRN-07, CD-FAN-17).
+        // construction, so MixinState holds its final answer before the first role build reads it (CD-WHL-10, CD-BRN-07, CD-FAN-17,
+        // CD-TLW-10).
         val mixinTargets = listOf(
             WaterWheelBlockEntity::class.java,
             BlazeBurnerBlockEntity::class.java,
             ItemUseOverrides::class.java,
             AirCurrent::class.java,
+            WindmillBearingBlockEntity::class.java,
         )
         CobblemonDynamics.LOGGER.debug("Create integration on, mixin targets loaded: {}", mixinTargets.map { it.simpleName })
         PokemonFanTypes.REGISTER.register(modBus)
@@ -41,6 +44,7 @@ object CreateCompat {
         HandlerRegistry.register(HandCrankHandler)
         HandlerRegistry.register(BurnerHeatHandler)
         HandlerRegistry.register(FanCatalystHandler)
+        HandlerRegistry.register(TailwindHandler)
     }
 
     /**
@@ -52,5 +56,6 @@ object CreateCompat {
         event.forType(AllBlockEntityTypes.LARGE_WATER_WHEEL.get()) { event.attach(DriveBehaviour(it)) }
         event.forType(AllBlockEntityTypes.HAND_CRANK.get()) { event.attach(DriveBehaviour(it)) }
         event.forType(AllBlockEntityTypes.ENCASED_FAN.get()) { event.attach(FanState(it)) }
+        event.forType(AllBlockEntityTypes.WINDMILL_BEARING.get()) { event.attach(TailwindBonus(it)) }
     }
 }

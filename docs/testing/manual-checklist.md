@@ -324,3 +324,10 @@ Phase 2 gate report, `docs/testing/phase-2-gate.md`.
     in the Gastly's, as Create shows for lava, water and soul fire.
 53. **CD-FAN-16.** Setup: a Charmander Working at a fan. Action: sneak and right-click the fan with the Work Leash twice.
     Expected: the action bar shows "Fan mode: Smoking", then "Fan mode: Blasting".
+
+## Tailwind
+
+This check shows the Phase 2 Tailwind on a client. Record its result in the play-test note of the Phase 2 gate report.
+
+54. **CD-TLW-07.** Setup: a 64-sail windmill with a bound level 50 Flying-type that Works. Action: watch the sails for 30
+    seconds. Expected: the sails turn smoothly at the faster speed, and they never snap back.

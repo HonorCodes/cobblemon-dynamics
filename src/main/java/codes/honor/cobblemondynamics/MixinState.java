@@ -19,6 +19,7 @@ public final class MixinState {
     public static final String BLAZE_BURNER = "create.BlazeBurnerBlockEntityMixin";
     public static final String ITEM_USE_OVERRIDES = "create.ItemUseOverridesMixin";
     public static final String AIR_CURRENT = "create.AirCurrentMixin";
+    public static final String WINDMILL_BEARING = "create.WindmillBearingBlockEntityMixin";
     public static final String ENCHANTMENT_MENU = "vanilla.EnchantmentMenuMixin";
     public static final String WORKER_PUSH = "vanilla.WorkerPushMixin";
     public static final String PASTURE_WIDGET = "cobblemon.client.PastureWidgetMixin";

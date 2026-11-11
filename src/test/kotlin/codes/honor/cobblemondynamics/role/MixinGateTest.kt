@@ -64,6 +64,16 @@ class MixinGateTest {
     }
 
     @Test
+    fun `CD-TLW-10 a missing windmill mixin disables Tailwind with one warning`() {
+        val tailwind = role("tailwind", setOf("flying"), autoAssign = false, handler = "cobblemon_dynamics:tailwind")
+        val set = RoleSet(mapOf(tailwind.id to tailwind), { FakeHandler(it) }, emptySet()) { }
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set, applied = { it != MixinState.WINDMILL_BEARING }, warn = warnings::add)
+        assertTrue(gated.active.isEmpty())
+        assertEquals(1, warnings.size)
+    }
+
+    @Test
     fun `CD-WHL-10 an applied mixin keeps its roles, and a role that needs no mixin stays on`() {
         val warnings = mutableListOf<String>()
         val gated = MixinGate.apply(set(wheel, superheater, stoker), applied = { it == MixinState.WATER_WHEEL }, warn = warnings::add)

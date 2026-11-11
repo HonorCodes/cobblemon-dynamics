@@ -89,12 +89,22 @@ Checked in Task 3 on 2026-11-11, with `javap` on Create and the Cobblemon 1.8.4 
 - `Pokemon.types` lists the primary type first: `FormData.types` is `listOf(primaryType, secondaryType)`, or the primary
   type alone.
 
-Inferred (check before the task that uses it):
+Checked in Task 4 on 2026-11-11, with `javap` and the `TailwindTests` GameTests:
 
-- A sheet of sails whose `FACING` is the bearing's facing assembles as one windmill, and a speed change reaches a shaft
-  behind the bearing within 1 tick (Task 4).
-- `MixinState`'s handler-call check sees the call that `@ModifyExpressionValue` injects, as it does for `@ModifyArg`
-  (Task 4).
+- `WindmillBearingBlockEntity.getGeneratedSpeed()` calls `BearingContraption.getSailBlocks()` once, divides by
+  `windmillSailsPerRPM` and clamps to 1..16. `BearingContraption.assemble` compares the `sailBlocks` field itself with
+  `minimumWindmillSails`. `WindmillBearingBlock.useItemOn` with an empty hand assembles, or disassembles a running windmill,
+  for a player who `mayBuild()` and does not sneak.
+- A flat sheet of sails whose `FACING` is the bearing's facing assembles as one windmill, and a speed change reaches the
+  shaft below the bearing within 2 ticks (`cdTlw06Tlw09Tlw08TheBonusFollowsTheWork`).
+- Corrected: `MixinState`'s handler-call check does not see a call that `@ModifyExpressionValue` injects.
+  `ModifyExpressionValueInjectionInfo` extends MixinExtras' `MixinExtrasLateInjectionInfo`, whose `inject()` only queues the
+  injection, and `LateInjectionApplicatorExtension.postApply` injects it after every config plugin's `postApply`. The first
+  run of the Tailwind GameTests logged "Handler cobblemon_dynamics:tailwind is disabled: its mixin
+  create.WindmillBearingBlockEntityMixin did not apply". The mixin is therefore a `@Redirect` of the same call, which Mixin
+  injects in its own pass.
+- Kotlin reaches a Java static field through a subclass, so `BearingBlock.FACING` and `SailBlock.FACING` compile. The code
+  names the declaring classes, as the rest of `CreateKit` does.
 
 `CreateKit` additions (full test mod only). Task 2 adds all but `windmill`, which Task 4 adds with its first test:
 
@@ -156,14 +166,16 @@ fun catalyse(helper: GameTestHelper, fan: EncasedFanBlockEntity, kind: FanCataly
 
 /** A windmill bearing at [rel] that faces up, with a shaft below it and a flat sheet of [sails] sails on its face. */
 fun windmill(helper: GameTestHelper, rel: BlockPos, sails: Int): WindmillBearingBlockEntity {
-    helper.setBlock(rel.below(), AllBlocks.SHAFT.defaultState.setValue(ShaftBlock.AXIS, Direction.Axis.Y))
-    helper.setBlock(rel, AllBlocks.WINDMILL_BEARING.defaultState.setValue(BearingBlock.FACING, Direction.UP))
-    val sail = AllBlocks.SAIL.defaultState.setValue(SailBlock.FACING, Direction.UP)
+    helper.setBlock(rel.below(), AllBlocks.SHAFT.defaultState.setValue(RotatedPillarKineticBlock.AXIS, Direction.Axis.Y))
+    helper.setBlock(rel, AllBlocks.WINDMILL_BEARING.defaultState.setValue(DirectionalKineticBlock.FACING, Direction.UP))
     val width = ceil(sqrt(sails.toDouble())).toInt()
     // Row by row from one corner; the sheet always covers the block on the bearing's face, at its center.
-    for (i in 0 until sails) helper.setBlock(rel.offset(i % width - width / 2, 1, i / width - width / 2), sail)
+    for (i in 0 until sails) helper.setBlock(rel.offset(i % width - width / 2, 1, i / width - width / 2), sail())
     return helper.getBlockEntity(rel)
 }
+
+/** A sail that lies flat, as a windmill that faces up holds it. */
+fun sail() = AllBlocks.SAIL.defaultState.setValue(DirectionalBlock.FACING, Direction.UP)
 ```
 
 ---
@@ -1329,7 +1341,7 @@ CD-BAL-04 (the windmill part), CD-FX-02 (the Tailwind row), CD-CFG-10 (off witho
 - Modify: `MixinState.java` (`WINDMILL_BEARING`), `cobblemon_dynamics.mixins.json`, `role/MixinGate.kt`, `handler/create/CreateCompat.kt`
   (the behaviour, the class literal, the handler)
 - Modify: `docs/player-guide.md` (`### Tailwind`), `docs/testing/manual-checklist.md` (CD-TLW-07), `ARCHITECTURE.md`
-  (section 8: the renewal and the spot rule)
+  (section 10: MixinExtras injects late; section 8: the `@Redirect`, the renewal and the spot rule)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/TailwindMathTest.kt`, `TailwindNbtTest.kt`,
   `src/test/kotlin/codes/honor/cobblemondynamics/role/MixinGateTest.kt`, `BuiltInRoleFilesTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/TailwindTests.kt`, `CoreTests.kt` (`createRoles`
@@ -1365,6 +1377,7 @@ class TailwindBonus(be: SmartBlockEntity) : BlockEntityBehaviour(be) {
     fun withdraw()
     companion object {
         val TYPE: BehaviourType<TailwindBonus>
+        fun of(bearing: WindmillBearingBlockEntity?): TailwindBonus?
         /** What the windmill mixin counts: Create's real sails plus the bonus. It never lowers Create's own count. */
         @JvmStatic fun totalSails(bearing: WindmillBearingBlockEntity, realSails: Int): Int
     }
@@ -1479,6 +1492,14 @@ fun `CD-TLW-02 the Tailwind role file sets auto_assign to false`() {
     assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "tailwind.json has auto_assign $key")
 }
 
+@Test
+fun `CD-TLW-03 CD-TLW-04 the default Tailwind file adds floor of S times L over 100 sails, up to 128 in all`() {
+    val params = TailwindParams.of(BuiltInRoles.parse("tailwind").params)
+    assertEquals(TailwindParams(0.01, 128), params)
+    assertEquals(32, TailwindMath.bonus(64, 50, params.perLevel, params.maxTotalSails))
+    assertEquals(28, TailwindMath.bonus(100, 100, params.perLevel, params.maxTotalSails))
+}
+
 /** Cobblemon's `gust` timeline sends the gust from the user, and its two hits land on the target. */
 @Test
 fun `CD-FX-04 Tailwind's Gust blows from the worker and hits the bearing`() {
@@ -1569,16 +1590,21 @@ class TailwindBonus(be: SmartBlockEntity) : BlockEntityBehaviour(be) {
 @Mixin(WindmillBearingBlockEntity.class)
 public abstract class WindmillBearingBlockEntityMixin {
     /**
-     * A Working Tailwind worker's virtual sails count toward the speed, on both sides. Assembly reads the sail field itself, so
-     * they never help a windmill assemble (CD-TLW-05), and Create's own clamp keeps the speed at 16 RPM or less (CD-BAL-04).
+     * The virtual sails count toward the speed, on both sides. Assembly reads the sail field itself, so they never help a windmill
+     * assemble (CD-TLW-05), and Create's own clamp keeps the speed at 16 RPM or less (CD-BAL-04).
      */
-    @ModifyExpressionValue(method = "getGeneratedSpeed()F", at = @At(value = "INVOKE",
+    @Redirect(method = "getGeneratedSpeed()F", at = @At(value = "INVOKE",
             target = "Lcom/simibubi/create/content/contraptions/bearing/BearingContraption;getSailBlocks()I"))
-    private int cobblemon_dynamics$virtualSails(int sails) {
-        return TailwindBonus.totalSails((WindmillBearingBlockEntity) (Object) this, sails);
+    private int cobblemon_dynamics$virtualSails(BearingContraption contraption) {
+        return TailwindBonus.totalSails((WindmillBearingBlockEntity) (Object) this, contraption.getSailBlocks());
     }
 }
 ```
+
+  The first draft used MixinExtras' `@ModifyExpressionValue` on the same call. MixinExtras injects it after the config
+  plugin's `postApply`, so `MixinState` never saw the call and the gate turned Tailwind off (see the checked facts above). A
+  `@Redirect` keeps the same rule and injects in Mixin's own pass. Another mod's `@Redirect` of this call would make one of
+  the two skip, and with `defaultRequire: 0` the skipped one turns its role off with one warning.
 
 ```kotlin
 /** Tailwind: a Flying-type adds virtual sails to a Create windmill while it Works, recomputed on every tick (CD-TLW-03). */
@@ -1594,7 +1620,7 @@ object TailwindHandler : TargetHandler {
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = level.getBlockEntity(canonical) is WindmillBearingBlockEntity
 
     override fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean {
-        val facing = level.getBlockState(canonical).takeIf { it.hasProperty(BearingBlock.FACING) }?.getValue(BearingBlock.FACING) ?: return false
+        val facing = level.getBlockState(canonical).getOptionalValue(DirectionalKineticBlock.FACING).orElse(null) ?: return false
         return TailwindMath.clearOfSails(canonical, facing, spot, bodyHeight)
     }
 
@@ -1612,12 +1638,12 @@ object TailwindHandler : TargetHandler {
         val contraption = bearing.movedContraption?.contraption as? BearingContraption ?: return
         val params = TailwindParams.of(ctx.role.params)
         val bonus = TailwindMath.bonus(contraption.sailBlocks, ctx.pokemon.level, params.perLevel, params.maxTotalSails)
-        BlockEntityBehaviour.get(bearing, TailwindBonus.TYPE)?.grant(bonus, ctx.now)
+        TailwindBonus.of(bearing)?.grant(bonus, ctx.now)
     }
 
-    /** CD-TLW-09 */
+    /** CD-TLW-09. In a chunk that is gone, the grant lapses by itself. */
     override fun onStop(ctx: WorkContext) {
-        if (ctx.level.isLoaded(ctx.target)) bearingAt(ctx)?.let { BlockEntityBehaviour.get(it, TailwindBonus.TYPE) }?.withdraw()
+        if (ctx.level.isLoaded(ctx.target)) TailwindBonus.of(bearingAt(ctx))?.withdraw()
     }
 
     private fun bearingAt(ctx: WorkContext): WindmillBearingBlockEntity? = ctx.level.getBlockEntity(ctx.target) as? WindmillBearingBlockEntity
@@ -1656,7 +1682,7 @@ fun cdTlw05SevenSailsNeverAssemble(helper: GameTestHelper) {
         .thenIdle(20)
         .thenExecute {
             helper.assertFalse(bearing.isRunning, "CD-TLW-05: the windmill assembled with 7 real sails")
-            helper.setBlock(bearingRel.offset(0, 1, 1), AllBlocks.SAIL.defaultState.setValue(SailBlock.FACING, Direction.UP))
+            helper.setBlock(bearingRel.offset(0, 1, 1), CreateKit.sail())
             click()
         }
         .thenIdle(20)
@@ -1671,6 +1697,7 @@ fun cdTlw05SevenSailsNeverAssemble(helper: GameTestHelper) {
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 1000)
 fun cdTlw06Tlw09Tlw08TheBonusFollowsTheWork(helper: GameTestHelper) {
+    helper.assertTrue(MixinState.applied(MixinState.WINDMILL_BEARING), "the windmill mixin did not apply")
     val bearing = CreateKit.windmill(helper, bearingRel, sails = 64)
     val scene = scene(helper)
     val pidgey = TestKit.tether(helper, scene.pasture, scene.owner, "pidgey level=50")
@@ -1716,32 +1743,48 @@ fun cdBal04Tlw04TheWindmillNeverPassesSixteenRpm(helper: GameTestHelper) {
         .thenWaitUntil { helper.assertTrue(TestKit.workerOf(helper, pidgey)?.status == WorkerStatus.WORKING, "not Working") }
         .thenExecuteFor(200) { helper.assertTrue(rpm() <= 16f, "CD-BAL-04: the windmill turns at ${rpm()} RPM") }
         .thenExecute {
-            helper.assertTrue(BlockEntityBehaviour.get(bearing, TailwindBonus.TYPE)?.sails == 28, "CD-TLW-04: the bonus is not 28")
+            helper.assertTrue(TailwindBonus.of(bearing)?.sails == 28, "CD-TLW-04: the bonus is ${TailwindBonus.of(bearing)?.sails}, not 28")
             helper.assertTrue(rpm() == 16f, "the worked windmill turns at ${rpm()} RPM, not 16")
         }
         .thenSucceed()
 }
 ```
 
-  `CoreTests.createRoles` gains `tailwind` (CD-CFG-10). CD-TLW-07 is a Demo: manual checklist, below.
+  `CoreTests.createRoles` gains `tailwind` (CD-CFG-10). CD-TLW-07 is a Demo: manual checklist, below. The scenes keep every
+  assertion of the first draft. The check that the windmill mixin applied is new, and it caught the late injection above.
 
 - [ ] **Step 6: Docs.** The guide section and the checklist entry:
 
 ```markdown
 ### Tailwind
 
-A Flying-type adds wind to a Create windmill. Tailwind is leash only: select the Pokémon with the Work Leash, then
-right-click the windmill bearing. While the worker Works, the windmill counts floor(real sails × level ÷ 100) more sails,
-and real and added sails together stay at 128 or less. So a 64-sail windmill turns at 12 RPM with a level 50 worker, and
-at 16 RPM, Create's maximum, with a level 100 worker. A windmill still needs 8 real sails to assemble. The worker stands
-beside or behind the bearing, never where the sails turn. Under a windmill that faces up, the worker needs room below
-the sails, so assemble the windmill before you bind. A worker waits in Standby while the windmill is not assembled.
+**Types:** Flying. **Level:** the bonus grows with level. **Move:** Gust. **Assignment:** Work Leash only.
+**Needs:** Create.
 
-Role file parameters: `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
+**Target:** a windmill bearing.
+
+A Flying-type adds wind to a Create windmill. Select the Pokémon with the Work Leash, then right-click the
+windmill bearing. While the worker Works, the windmill counts floor(S × L ÷ 100) more sails, where S is its
+number of real sails and L the worker's level. Real and added sails together stay at 128 or less. So a
+64-sail windmill turns at 12 RPM with a level 50 worker, and at 16 RPM, Create's maximum, with a level 100
+worker. The added sails end within 2 ticks of the end of the work. A windmill still needs 8 real sails to
+assemble.
+
+The worker stands beside or behind the bearing, never where the sails turn. Under a windmill that faces up,
+the worker needs room below the sails, so assemble the windmill before you bind. A worker waits in Standby
+while the windmill is not assembled.
+
+**Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
 ```
 
+  The roles table gains a Tailwind row, and the sentence on the roles whose output follows the level names Tailwind.
+
 ```markdown
-46. **CD-TLW-07.** Setup: a 64-sail windmill with a bound level 50 Flying-type that Works. Action: watch the sails for 30
+## Tailwind
+
+This check shows the Phase 2 Tailwind on a client. Record its result in the play-test note of the Phase 2 gate report.
+
+54. **CD-TLW-07.** Setup: a 64-sail windmill with a bound level 50 Flying-type that Works. Action: watch the sails for 30
     seconds. Expected: the sails turn smoothly at the faster speed, and they never snap back.
 ```
 

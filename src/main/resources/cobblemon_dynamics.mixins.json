@@ -13,6 +13,7 @@
     "create.BlazeBurnerBlockEntityMixin",
     "create.ItemUseOverridesMixin",
     "create.WaterWheelBlockEntityMixin",
+    "create.WindmillBearingBlockEntityMixin",
     "vanilla.EnchantmentMenuAccess",
     "vanilla.EnchantmentMenuMixin",
     "vanilla.WorkerPushMixin"

@@ -25,7 +25,7 @@ import java.nio.file.Files
 class CoreTests {
     /** The roles that only Create's handlers serve. */
     private val createRoles =
-        listOf("wheel_driver", "superheater", "cranker", "fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
+        listOf("wheel_driver", "superheater", "cranker", "fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost", "tailwind")
 
     /**
      * Each Create role whose file is in the data logs exactly one line, at the data load, and none of them is active. A role file
