@@ -193,7 +193,7 @@ Rulings R1 to R58 come from the design session with the approver on 2026-11-09. 
 | R29. Ruling: Telekinesis, Fan Catalyst, Tailwind and Magnet are leash only. | none |
 | R30. Ruling: Tailwind adds floor(real sails × L ÷ 100) virtual sails, and the total stays within Create's 128-sail cap. | none |
 | R31. Ruling: the Magnet collects from its pasture's whole work area at ceil(64 × L ÷ 100) items per second. | none |
-| R32. Ruling: the first public release ships original models and textures for each bed, the Work Leash, the UI sprites and the mod icon. Claude drafts them, the approver approves each one on a screenshot review page, and the style is vanilla 16 × 16. | none |
+| R32. Ruling: the first public release ships original models and textures for each bed, the Work Leash, the UI sprites and the mod icon. they are drafted for this mod, the approver approves each one on a screenshot review page, and the style is vanilla 16 × 16. | none |
 | R33. Ruling: the approver approved the balance table and design sections 7 and 8: the v2 role mechanics, the art list and bed concepts, and the milestones M0 to M9. | none |
 | R34. Ruling: the bed names are Hay Bed, Wool Bed, Plush Bed and Starlit Bed, and the Wool Bed recipe takes any wool block. | none |
 | R35. Ruling (was A1): the Work Mode button sits in the pasture panel, directly above the Recall button. | none |

@@ -20,7 +20,7 @@ Checked with `javap` on 2026-11-10, on the merged NeoForge 21.1.265 jar in `neof
 the AE2 19.2.19 jar:
 
 - `Capabilities.ItemHandler.BLOCK` is `BlockCapability<IItemHandler, Direction>`, so Kotlin sees the context as
-  `Direction?` (the CLAUDE.md gotcha holds). `IItemHandler` has `getSlots()`, `getStackInSlot(int)`,
+  `Direction?` (the known gotcha holds). `IItemHandler` has `getSlots()`, `getStackInSlot(int)`,
   `insertItem(int, ItemStack, boolean)`, `extractItem(int, int, boolean)`, `getSlotLimit(int)` and
   `isItemValid(int, ItemStack)`. `ItemHandlerHelper.insertItemStacked(IItemHandler, ItemStack, boolean)` is public and
   static. `BlockCapabilityCache.create(cap, ServerLevel, BlockPos, context)` and `getCapability()` exist.
@@ -1903,7 +1903,7 @@ fun cdLsh16SlowbroOnABasinBindsAsPump(helper: GameTestHelper) {
   the same time therefore never see each other's.
 
 - [ ] **Step 7: Commit, push, open the pull request.** `git commit -m "Run the leash rows on the real Telekinesis role and delete the test role [rag:1]"`.
-  Then follow the rehydration note's pull request steps (HAR-809): ktlint, ruff, the super-linter command,
+  Then follow the development notes' pull request steps (HAR-809): ktlint, ruff, the super-linter command,
   `./gradlew build runGameTestServer runGameTestServerCore runGameTestServerPerf`, `py scripts/check_plan_coverage.py --phase 2`,
   then push the branch and open the draft pull request by hand. The body lists the deferred rows of Tasks 3 to 5 and every
   deviation from this file.

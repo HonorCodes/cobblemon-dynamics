@@ -1798,6 +1798,6 @@ This check shows the Phase 2 Tailwind on a client. Record its result in the play
   static state.
 
 - [ ] **Step 9: Commit, push, open the pull request.** `git commit -m "Add virtual sails to Create windmills with leashed Flying-types [rag:2]"`.
-  Then follow the rehydration note's pull request steps (HAR-809), with `py scripts/check_plan_coverage.py --phase 2` among
+  Then follow the development notes' pull request steps (HAR-809), with `py scripts/check_plan_coverage.py --phase 2` among
   the checks. The body lists the deferred rows of Tasks 2 and 3, the corrections to ARCHITECTURE and ADR-0011, and every
   deviation from this file.

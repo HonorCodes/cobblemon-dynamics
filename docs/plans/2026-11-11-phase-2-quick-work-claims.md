@@ -570,7 +570,7 @@ action-bar packet, and no chat from Open Parties and Claims).
   `FtbChunksClaimTests.kt`, and `src/gametestFtbChunks/resources/META-INF/neoforge.mods.toml`
 - Create: `src/gametestOpac/kotlin/codes/honor/cobblemondynamics/opactest/OpacTestMod.kt`, `OpacFixture.kt`,
   `OpacClaimTests.kt`, and `src/gametestOpac/resources/META-INF/neoforge.mods.toml`
-- Modify: `CLAUDE.md`. Do not modify `.github/workflows/build.yml`: CI does not run the two claim runs.
+- Modify: the local notes file. Do not modify `.github/workflows/build.yml`: CI does not run the two claim runs.
 
 **Interfaces:**
 - Consumes: the fixture calls of the checked list above, `TestKit.listed`, `TestKit.pressSendOut`, `TestWorld.register`.
@@ -782,14 +782,14 @@ object OpacFixture {
   - the pull request of this plan, which records both results in its body
   - each later pull request that touches the claims code: `compat/LandClaims.kt`, `compat/ftbchunks/`, `compat/opac/`,
     the permission checks of `WorkEngine` (`mayUse`, `start` and `tickOrder`), `src/gametest/kotlin-claims/`,
-    `src/gametestFtbChunks/` and `src/gametestOpac/`. The rule list of the
-    [rehydration note](2026-11-09-phase-1-rehydration.md#how-to-open-a-pull-request-here) holds this rule.
+    `src/gametestFtbChunks/` and `src/gametestOpac/`. The development notes'
+    pull request rules hold this rule.
   - each phase gate, whose report lists both commands (Task 7 Step 2)
 
   The test claim provider of Task 2 stays in the full run, which CI runs, so CI still tests the engine path of the claim
   checks. The FTB jars never go into a CI artifact or a log upload, because they are "All Rights Reserved".
 
-- [ ] **Step 5: Gotchas.** Add to `CLAUDE.md` what the runs showed, at least these three lines:
+- [ ] **Step 5: Gotchas.** Add to the local notes file what the runs showed, at least these three lines:
   - Architectury's `PlayerHooks.isFake` is true for every subclass of `ServerPlayer`, so FTB Chunks treats each
     `FakePlayer` and test player subclass as a fake player. Claim tests use `TestKit.plainOwner`.
   - FTB Teams gives a player a team only at login. Claim tests call `TeamManagerImpl.INSTANCE.playerLoggedIn` first.

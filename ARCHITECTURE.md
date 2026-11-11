@@ -846,7 +846,7 @@ Rules:
 - Source files live under `art/`: a `.pixels` text source for each texture and the JSON model files.
   `py scripts/art.py build` writes the shipped models and textures under `assets/cobblemon_dynamics/`
   from them. Both are under the repository's MPL-2.0 license.
-- Claude drafts each asset. The operator approves each one on the review spritesheet
+- Each asset is drafted for this mod. The operator approves each one on the review spritesheet
   (`py scripts/art.py review`) before the public release.
 - Private builds may use placeholder art. The final art lands in milestone M8.
 
