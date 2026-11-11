@@ -7,6 +7,8 @@ import codes.honor.cobblemondynamics.client.DynamicsClient
 import codes.honor.cobblemondynamics.command.DynamicsCommands
 import codes.honor.cobblemondynamics.compat.CobblebaseHooks
 import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
+import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
+import codes.honor.cobblemondynamics.compat.opac.OpacCompat
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
@@ -84,6 +86,9 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(MagnetHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
         if (ModList.get().isLoaded("create")) CreateCompat.register(modBus)
+        // CD-QWK-33: each claim compat class loads only when its mod is present.
+        if (ModList.get().isLoaded("ftbchunks")) FtbChunksCompat.register()
+        if (ModList.get().isLoaded("openpartiesandclaims")) OpacCompat.register()
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }
