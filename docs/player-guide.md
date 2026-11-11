@@ -222,7 +222,8 @@ The Pokémon comes out as usual, with no work, and the action bar tells you why,
 - the Pokémon is Tired
 - the block needs no work now, for example a furnace with nothing to smelt
 - the Pokémon cannot reach the block
-- you may not use the block, for example inside spawn protection
+- you may not use the block, for example inside spawn protection, or in a land claim that does not let you right-click
+  the block (see [Quick Work in land claims](#quick-work-in-land-claims))
 
 ### When Quick Work stops
 
@@ -236,12 +237,30 @@ The work stops for good when:
 - the Pokémon cannot reach the block within 30 seconds
 - you log out or go to another dimension
 - the Pokémon starts a battle
+- you may no longer use the block, for example when you leave the party that owns its land claim, or when another player
+  claims its chunk
 
 The Pokémon then follows you again. It does not look for other work. To work the block again, recall the Pokémon and send
 it out again while you look at the block.
 
-Protection mods that only stop right-clicks do not see Quick Work, because you never click the block. A server owner can
-turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and `quickWork.leashRange` change the two
+### Quick Work in land claims
+
+With FTB Chunks or Open Parties and Claims on the server, Quick Work follows their land claims. You can Quick Work a block
+in a land claim only if the claim lets you right-click that block with an empty hand. The claim mod decides, with its own
+rules:
+
+- **FTB Chunks.** The members of the team that owns the claim can. Its allies can too, while the team's setting for block
+  interaction is "allies", which is the default. A team can set it to "public" for every player, or to "private" for its
+  members only.
+- **Open Parties and Claims.** The owner of the claim can, and by default the members of the owner's party can too. The
+  members of an allied party can only if the owner sets `claims.protection.exceptions.fullAccess` to `A` in the owner's
+  player config.
+
+A refused send-out stays a normal one, and the action bar shows a message such as "You may not use Furnace". While the
+Pokémon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops when the right is gone.
+
+Other protection mods that only stop right-clicks do not see Quick Work, because you never click the block. A server owner
+can turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and `quickWork.leashRange` change the two
 distances of 16 blocks.
 
 ## Work Stamina
@@ -770,6 +789,13 @@ Nether needs `/execute in minecraft:the_nether run cobblemondynamics unbind <pos
   experience. Pastures with Work Mode off keep Cobblebase as usual. If a Cobblebase version lacks a method
   that the mod hooks, the log holds one warning, and the game goes on. The server config key
   `compat.cobblebase` turns this off.
+- **FTB Chunks and Open Parties and Claims.** Quick Work asks the claim mod whether you may right-click
+  the block, before the work starts and every 20 ticks while it runs. See
+  [Quick Work in land claims](#quick-work-in-land-claims). If the claim mod fails with an error, Quick
+  Work refuses the work, and the log holds one warning.
+- **Work Mode pastures and land claims.** The workers of a pasture do not ask claim mods. A pasture near
+  the border of another player's claim can work machines inside that claim, so keep its work area out of
+  other players' claims.
 - **Other mods.** The Stoker works any furnace that extends the vanilla furnace. The Generator works any
   block that accepts Forge Energy, and the Pump any block that accepts water, through NeoForge's
   capabilities.

@@ -1,6 +1,6 @@
 # ADR-0013: Quick Work for party Pokémon
 
-Status: Accepted (2026-11-11)
+Status: Accepted (2026-11-11). [Amendment 1](#amendment-1-land-claims-2026-11-11) adds the checks of land claims.
 
 ## Context
 
@@ -177,7 +177,8 @@ handlers and `WorkerMachine` know nothing of pastures, apart from the key in a c
 - The non-goal of work by party Pokémon now excepts Quick Work. CD-ASG-01 gives claims to Pokémon on a Quick Work order too.
 - A protection mod that vetoes only `RightClickBlock` does not see Quick Work. A Quick Worker only adds work to a block (fuel,
   heat, rotation, FE, brewing speed or crystal growth), but a Wheel Driver that turns a stranger's water wheel can still change
-  that player's Create network. A server owner turns Quick Work off with `quickWork.enabled`.
+  that player's Create network. A server owner turns Quick Work off with `quickWork.enabled`. Amendment 1 makes Quick
+  Work ask FTB Chunks and Open Parties and Claims.
 - A Quick Work claim has no pasture, so no binder and no placer stands behind it. While a Quick Worker drives a wheel or a crank,
   only an operator can flip it (CD-SEC-10).
 - A Quick Worker keeps the parts of the engine that need no pasture: head bars while a player holds the Work Leash, the
@@ -201,4 +202,197 @@ handlers and `WorkerMachine` know nothing of pastures, apart from the key in a c
 - **A made-up `RightClickBlock` event as the permission check.** It honors more protection mods, but every listener acts as if
   the player clicked the block.
 - **The claim APIs of Open Parties and Claims or FTB Chunks.** They honor those mods exactly, but each needs its own optional
-  compat code. They can follow if the approver wants them.
+  compat code. They can follow if the approver wants them. The approver asked for them on 2026-11-11, and Amendment 1
+  adds them.
+
+## Amendment 1: land claims (2026-11-11)
+
+Status: Accepted (2026-11-11)
+
+### Context of the amendment
+
+The approver's ruling of 2026-11-11 reads: "yes, respect claims; must work with parties/clans (share chunks)". The approver
+delegated the details, and the coordinator ruled on them. Input R64 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md)
+holds those rulings. Input R65 holds a request of COHO-2, the session that maintains the COHO modpack, for three INFO lines
+at load. The coordinator ruled that they ship in the same build.
+
+Claim mods guard blocks through click events, and a Quick Work order makes no click (Decision 4 above). COHO 2.4.0 runs FTB
+Chunks, so it ships `quickWork.enabled = false`. Input RES6 is the research below. It used `javap` on 2026-11-11 on these
+jars:
+
+- the jars of COHO 2.4.0 (pack tag 2.4.0-rc3): `ftb-chunks-neoforge-2101.1.23.jar`, `ftb-teams-neoforge-2101.1.12.jar`,
+  `ftb-library-neoforge-2101.1.39.jar` and `architectury-13.0.11-neoforge.jar`
+- `open-parties-and-claims-neoforge-1.21.1-0.33.0.jar`, the newest NeoForge 1.21.1 release on Modrinth (2026-10-17).
+  COHO has no Open Parties and Claims, but the approver agreed to both mods.
+
+#### FTB Chunks 2101.1.23
+
+- **Entry point.** `FTBChunksAPI.api()` returns `FTBChunksAPI$API`, which has `boolean isManagerLoaded()` and
+  `ClaimedChunkManager getManager()`.
+- **The check.** `ClaimedChunkManager` has
+  `boolean shouldPreventInteraction(Entity, InteractionHand, BlockPos, Protection, Entity)`. Its first and last parameters
+  are `@Nullable`. `Protection.INTERACT_BLOCK` is one of the constants of the `Protection` interface.
+- **The check of a right-click.** `FTBChunks.blockRightClick` handles Architectury's `InteractionEvent.RIGHT_CLICK_BLOCK`. It
+  calls `shouldPreventInteraction(player, hand, pos, FTBChunksExpected.getBlockInteractProtection(), null)`. On NeoForge,
+  `FTBChunksExpectedImpl.getBlockInteractProtection()` returns `Protection.INTERACT_BLOCK`. A held block item adds a
+  second check, for block placing.
+- **What the check decides.** `ClaimedChunkManagerImpl.shouldPreventInteraction` works in this order:
+  1. It allows an actor that is not a `ServerPlayer`. It allows every player while `disable_protection` is true, and a
+     player whose admin bypass (`getBypassProtection`) is on.
+  2. A fake player gets the answer of the server's `fake_players` value when that value is `deny` or `allow`.
+  3. It allows a block in a chunk that no team claimed, unless `no_wilderness` applies.
+  4. `Protection.INTERACT_BLOCK` then decides. It allows a block in the tag `ftbchunks:interact_whitelist`, and a player
+     whom `ChunkTeamData.canPlayerUse(player, FTBChunksProperties.BLOCK_INTERACT_MODE)` allows. It prevents every other
+     player, except a spectator that is not a fake player.
+- **The team rules.** `ChunkTeamDataImpl.canPlayerUse` allows every player in the mode `public`. It asks `canFakePlayerUse`
+  for a fake player, `isAlly` in the mode `allies`, and the rank "member or better" in the mode `private`. `isAlly` is true
+  for a member or better, and for every player while `ally_mode` is `forced_all`. While `ally_mode` is `forced_none`, it is
+  false for all other players. In the mode `default`, it is true for a player whose rank in the team is `ALLY`.
+- **Fake players.** On NeoForge, Architectury's `PlayerHooks.isFake` returns true for each `ServerPlayer` whose class is
+  not `ServerPlayer` itself (`dev.architectury.hooks.level.entity.forge.PlayerHooksImpl`). So a NeoForge `FakePlayer`,
+  and each test subclass of `ServerPlayer`, is a fake player for FTB Chunks.
+- **Side effects.** When the check prevents an action, it calls
+  `PlayerNotifier.notifyWithCooldown(player, Component.translatable("ftbchunks.action_prevented"), 2000)`. That method
+  calls `displayClientMessage(message, true)`. The action bar then shows "Interaction prevented here by claim
+  protection!", at most once every 2,000 ms for each player. For a fake player in a claimed chunk, the check also calls
+  `ChunkTeamDataImpl.logPreventedAccess`. It posts no event. No argument turns the message off.
+  `Protection.getProtectionPolicy` sends no message, but it skips steps 1 to 3.
+- **The level.** The check reads the chunk and the block state from `player.level()`.
+- **No `mayInteract` hook.** None of the 15 mixin classes of FTB Chunks names `mayInteract`, so
+  `ServerPlayer.mayInteract` does not see its claims.
+- **FTB Teams.** Its API creates a party (`TeamManager.createPartyTeam`) and sets a team property (`Team.setProperty`).
+  Joins, allies and leaves are methods of the class `PartyTeam` of its implementation: `join(ServerPlayer)`,
+  `addAlly(CommandSourceStack, Collection<GameProfile>)` and `leave(UUID)`. FTB Teams makes the own team of a player
+  only at login, in `TeamManagerImpl.playerLoggedIn(ServerPlayer, UUID, String)`.
+- **Licenses.** FTB Chunks, FTB Teams and FTB Library declare "All Rights Reserved". Architectury API declares LGPL-3.0.
+
+The docs of FTB agree with the code. The [FTB Chunks page](https://docs.feed-the-beast.com/mod-docs/mods/suite/Chunks/)
+says that "team members can access and build in your claimed chunks", and that a team can "Ally with other players/teams to
+allow them to access/build in your claimed chunks". The [FTB Teams page](https://docs.feed-the-beast.com/mod-docs/mods/suite/Teams/)
+says that teams "can also control mob griefing, block breaking, block placing, and block interaction for claimed chunks".
+
+#### The FTB settings of COHO 2.4.0
+
+These values come from `server-overlay/config/ftbchunks-world.snbt` and `ftbteams-server.snbt` of the COHO pack:
+
+| Setting | Value | Effect on the check of Quick Work |
+| --- | --- | --- |
+| `ally_mode` | `"default"` | Each team picks its own allies. |
+| `disable_protection` | `false` | Claims protect their blocks. |
+| `fake_players` | `"check"` | A fake player gets the fake player settings of the team. The check asks about the real owner, so this value does not apply. |
+| `no_wilderness` | `false` | A chunk that no team claimed lets every player use its blocks. |
+| `def_block_interact` | `"allies"` | The members and the allies of a team can right-click the blocks in its claims. |
+| `def_block_edit` | `"allies"` | The check does not read it. |
+| `def_fake_players`, `def_fake_player_ids` | `false`, `true` | The check does not read them, because the owner is not a fake player. |
+| `piston_protection`, `protect_unknown_explosions`, `def_allow_explosions` | `true`, `true`, `false` | A right-click does not read them. |
+| `max_party_size`, `limited_lives` | `0`, `0` | No limit. |
+
+The data packs and KubeJS scripts of the pack do not change `ftbchunks:interact_whitelist`. Its default holds the crafting
+table, the bell, Create's table cloths, graves and waystones, and no Quick Work role works any of them. So on COHO, a member
+or an ally of the team that owns a claim can Quick Work a machine in it, and a stranger cannot.
+
+#### Open Parties and Claims 0.33.0
+
+- **Entry point.** `OpenPACServerAPI.get(MinecraftServer)` returns the server API. Its `getChunkProtection()` returns
+  `IChunkProtectionAPI`.
+- **The check.** `boolean onBlockInteraction(Entity entity, InteractionHand hand, ItemStack heldItem, ServerLevel world,
+  BlockPos pos, Direction direction, boolean breaking, boolean messages)` returns true when the mod protects the block.
+  `entity`, `hand` and `heldItem` are `@Nullable`, and `world`, `pos` and `direction` are `@Nonnull`. This form calls the
+  form with a ninth argument, `targetExceptions`, set to true.
+- **What the check decides.** `ChunkProtection` protects nothing while claims are off. An empty held item, with
+  `breaking` false, skips every item check. The owner of the claim has access, except in special modes of the mod such
+  as its non-ally mode. Other players get access through the player config of the owner: `claims.protection.exceptions.fullAccess` (default `P`, the owner's party) and
+  `claims.protection.exceptions.blocksByPlayers` (default `N`, nobody). The groups are `E` (everyone), `N` (nobody), `P`
+  (`PartyPlayerConfigGroup`) and `A` (`AllyPlayerConfigGroup`). By default, a player can change `fullAccess` in the
+  player's own config. A block in the interaction exceptions of the server config passes.
+- **Fake players.** The mod judges a `FakePlayer` as a player, by its UUID, unless the server config lists it as a static
+  fake player (`staticFakePlayers`, `staticFakePlayerClassExceptions`).
+- **Side effects.** With `messages` false, the check sends no message. A player in admin mode or in impersonation who no
+  longer has that permission loses the mode, and the mod syncs the mode to the player, as on each right-click. The
+  nine-argument form pauses full passes while it runs. `ServerPlayerDataAPI.from` makes the data of a player on first use.
+- **No `mayInteract` hook.** None of its 73 mixin classes names `mayInteract`. Its mixins on players and levels hook
+  `Player.mayUseItemAt`, `Level.destroyBlock`, `ServerLevel.isPositionEntityTicking` and `ServerLevel.tick`.
+- **Parties and claims in its API.** `IPartyManagerAPI.createPartyForOwner(Player)`,
+  `IServerPartyAPI.addMember(UUID, PartyMemberRank, String)`, `removeMember(UUID)` and `addAllyParty(UUID)`,
+  `IServerClaimsManagerAPI.claim(ResourceLocation dimension, UUID id, int subConfigIndex, int x, int z, boolean forceload)`
+  and `unclaim(ResourceLocation, int, int)`, and `IPlayerConfigAPI.tryToSet(option, value)`.
+- **License.** LGPL-3.0-only.
+
+#### Artifacts for Gradle
+
+| Mod | Coordinates | Repository | SHA-1 |
+| --- | --- | --- | --- |
+| FTB Chunks | `dev.ftb.mods:ftb-chunks-neoforge:2101.1.23` | `https://maven.ftb.dev/releases` | `a99a51ef8e413af26ee32c4d33a11526fccdd1d1` |
+| FTB Teams | `dev.ftb.mods:ftb-teams-neoforge:2101.1.12` | `https://maven.ftb.dev/releases` | `9c831fbbbccf2178827c3ccf278b2f2a0ce57306` |
+| FTB Library | `dev.ftb.mods:ftb-library-neoforge:2101.1.39` | `https://maven.ftb.dev/releases` | `ff852d99ade215fb892369687d0634ecf0bca6ae` |
+| Architectury API | `maven.modrinth:architectury-api:13.0.11+neoforge` | `https://api.modrinth.com/maven` | `008656a0702801174b8ec245ed7aad1921d6e9f1` |
+| Open Parties and Claims | `maven.modrinth:open-parties-and-claims:neoforge-1.21.1-0.33.0` | `https://api.modrinth.com/maven` | `6075cf36ac8d70bd1fd870e0eb9ac84685388df7` |
+
+Each SHA-1 is that of the repository's jar, and it equals the SHA-1 of the jar in the COHO cache or on Modrinth. The jar of
+`dev.architectury:architectury-neoforge:13.0.11` on `maven.architectury.dev` has another SHA-1, so the build uses the
+Modrinth artifact. FTB Chunks and FTB Teams are not on Modrinth.
+
+### Decision of the amendment
+
+1. **Two optional claim mods.** The classes that name the API of FTB Chunks live in `compat/ftbchunks/`, and those of Open
+   Parties and Claims in `compat/opac/`. Only `FtbChunksCompat.register()` and `OpacCompat.register()` load them, behind
+   `ModList.get().isLoaded("ftbchunks")` and `ModList.get().isLoaded("openpartiesandclaims")`, as for Create. Each
+   `register` adds a check to `LandClaims`, which names no class of either mod. The build compiles against both APIs as
+   compile-only dependencies, and `neoforge.mods.toml` names neither mod.
+2. **The question.** Each check asks whether the owner may right-click the canonical block of the target with an empty main
+   hand. The Pokémon works the block, so the item in the owner's hand plays no part. The owner is the `ServerPlayer` that
+   `PlayerList.getPlayer` returns for the owner's UUID, never a fake player.
+   - FTB Chunks: `!FTBChunksAPI.api().getManager().shouldPreventInteraction(owner, InteractionHand.MAIN_HAND, canonical,
+     Protection.INTERACT_BLOCK, null)`. The check refuses while `isManagerLoaded()` is false, and while the owner is in
+     another level, because FTB Chunks reads `player.level()`.
+   - Open Parties and Claims: `!OpenPACServerAPI.get(server).getChunkProtection().onBlockInteraction(owner,
+     InteractionHand.MAIN_HAND, ItemStack.EMPTY, level, canonical, Direction.UP, false, false)`.
+3. **At the start.** The engine asks the claim mods after the spectator check and `mayInteract`, and before the checks of
+   a Tired Pokémon, a claimed target and demand (Decision 5 above). A refusal sends "You may not use {target}" (CD-QWK-26).
+4. **While the order runs.** On every 20th tick of the order, after the end checks of Decision 7 above, the engine asks the
+   whole permission of the start again: the spectator check, `mayInteract` and each claim mod. A refusal ends the order
+   with "You may not use {target}" (CD-QWK-29). The end checks run first, so the owner is online and in the order's level.
+5. **The messages.** The engine sends its own action-bar message after the check of the claim mod, in the same tick, so
+   it replaces the text of FTB Chunks at once. Open Parties and Claims sends nothing (CD-QWK-32).
+6. **Fail closed.** A check that throws an `Exception` or a `LinkageError` counts as a refusal. One `OnceLogger` warns once
+   for each cause: the mod id with the class of the exception (CD-QWK-30).
+7. **No switch.** No config key turns the checks off (CD-QWK-35). `quickWork.enabled` stays the switch for all of Quick
+   Work.
+8. **Pastures do not change.** The work area of a Work Mode pasture can still reach into the land claim of another player,
+   as in Phase 1. The Phase 2 gate report lists this as a known issue, and the spec sheet lists it as a non-goal.
+9. **Tests.** A test claim provider of the full test mod tests the engine path. Two new GameTest runs,
+   `runGameTestServerFtbChunks` and `runGameTestServerOpac`, each load the mod set of the core run and one claim mod. The
+   test owners of those runs are of the exact class `ServerPlayer`. The test pack starts a dedicated server with each claim
+   mod and checks that the compat classes of the other one never load.
+10. **Load lines (R65).** At load, the mod logs one INFO line for its mixins, one for its payloads and one for its roles
+    (CD-CMP-08 to CD-CMP-10).
+
+### Consequences of the amendment
+
+- COHO can turn Quick Work on again with the jar of this amendment, and keep its FTB Chunks claims.
+- A claim mod other than these two still does not see Quick Work. `quickWork.enabled` stays the answer for such a server.
+- For a stranger's send-out, the text of FTB Chunks shows for less than one tick, and then the stranger sees "You may not
+  use {target}". The notifier of FTB Chunks then waits 2 s before it shows its own text again for that player's clicks.
+- Each order costs one more lookup every 20 ticks. With no order, Quick Work still costs one check per level tick
+  (CD-QWK-24).
+- An update of a claim mod that changes its API refuses every Quick Work order on that server, with one warning per cause,
+  until a release of Dynamics follows the change. The tested versions are those of RES6.
+- The jars of FTB are "All Rights Reserved". The build uses them only as compile-only dependencies and in test runs, and no
+  jar or artifact of Dynamics holds them.
+- The pasture issue of Decision 8 of the amendment stays open.
+
+### Alternatives considered for the amendment
+
+- **`Protection.INTERACT_BLOCK.getProtectionPolicy` alone.** It sends no message, but it skips steps 1 to 3 of the check.
+  Dynamics would then copy part of the rules of FTB Chunks and read config values of its implementation.
+- **The team rules through the API of FTB Teams.** `Team.getRankForPlayer` gives the rank, but the engine would copy the
+  rules of FTB Chunks, which ruling 2 of R64 rules out.
+- **A fake player with the owner's UUID.** FTB Chunks would then apply the fake player settings of the team, not the rights
+  of the owner.
+- **The Pokémon as the actor for Open Parties and Claims.** The mod finds the owner of a tamed entity, but it then applies
+  its rules for mobs, not its rules for players.
+- **A mixin into `PlayerNotifier`.** It would silence FTB Chunks, but a mixin into the internals of another mod breaks when
+  that mod changes.
+- **Version ranges in `neoforge.mods.toml`.** A floor at the tested version stops a pack with an older version from loading,
+  and a ceiling stops a newer one. The checks fail closed instead.
+- **A config switch for the checks.** Ruling 5 of R64 rules it out.

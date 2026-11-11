@@ -118,12 +118,21 @@ These items stay open at the gate. Each item names its source.
   working: {target} can no longer be worked", which blames the target. The server log gets one warning for the species.
   Source: the fourth finding of the independent review in
   [pull request #22](https://github.com/HonorCodes/cobblemon-dynamics/pull/22).
-- **Quick Work and claim mods.** Quick Work makes no block click, because the server traces the owner's view. Claim mods
-  that only cancel block clicks, such as FTB Chunks and Open Parties and Claims, therefore do not see Quick Work. Before
-  an order starts, Quick Work asks `ServerPlayer.mayInteract`, which checks spawn protection and the world border. A
-  server can set `quickWork.enabled = false`. Compat with the claim APIs of those mods is later work. Source:
-  [ADR-0013](../adr/0013-quick-work-for-party-pokemon.md) and design decision 9 of the
-  [Quick Work plan](../plans/2026-11-11-phase-2-quick-work.md#design-decisions-for-the-approver).
+- **Quick Work and claim mods.** In the build of this report, Quick Work makes no block click, because the server traces
+  the owner's view. Claim mods that only cancel block clicks, such as FTB Chunks and Open Parties and Claims, therefore do
+  not see Quick Work. Before an order starts, Quick Work asks `ServerPlayer.mayInteract`, which checks spawn protection
+  and the world border, and a server can set `quickWork.enabled = false`. The approver ruled on 2026-11-11 that Quick
+  Work must respect claims (R64). The [land claims plan](../plans/2026-11-11-phase-2-quick-work-claims.md) adds the
+  checks of FTB Chunks and Open Parties and Claims (CD-QWK-26 to CD-QWK-35), and its last task runs this report again.
+  COHO can then set `quickWork.enabled = true`. Source:
+  [Amendment 1 of ADR-0013](../adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11) and input
+  R64 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md).
+- **Pasture work areas and land claims.** The workers of a Work Mode pasture do not ask claim mods. The work area of a
+  pasture can reach into the land claim of another player, and its workers then work the machines there, as in Phase 1.
+  The Work Leash obeys a cancelled click (CD-SEC-11), so a binding still needs the binder's own click on the block. By the
+  coordinator's ruling of 2026-11-11, under the approver's delegation, the work areas of pastures stay out of the scope of
+  the land claim work. The spec sheet lists them among its non-goals. Source: ruling 6 of input R64 of the
+  [spec sheet](../plans/2026-11-09-v1-spec-sheet.md).
 - **CD-QWK-21 has no GameTest.** Cobblemon 1.8.4 clears a battle id that names no live battle on the entity's next tick,
   and a test battle against a fake owner ends in one tick. By the coordinator's ruling of 2026-11-11, under the approver's
   delegation, the unit tests of the trace range rule and the end rule in `QuickWorkRulesTest` check the row. Check 59 of
