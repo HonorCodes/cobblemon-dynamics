@@ -349,9 +349,10 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
+| [Magnet](#magnet) | `cobblemon_dynamics:magnet` | Steel | A container | Work Leash | |
 
-Level changes the output of the Generator, the Pump, the Muse and Telekinesis. The Superheater superheats only
-from level 50. Every other role works the same at every level.
+Level changes the output of the Generator, the Pump, the Muse, Telekinesis and the Magnet. The Superheater
+superheats only from level 50. Every other role works the same at every level.
 
 ### Stoker
 
@@ -537,6 +538,23 @@ sides and input through its top. A worker waits in Standby while the source is e
 full. The binding clears when the source or the destination is broken or replaced.
 
 **Role file parameters:** `items_per_second_at_level_100` (64) and `destination_range` (32).
+
+### Magnet
+
+**Types:** Steel. **Level:** the rate grows with level. **Move:** the `special` pose, with metal sparks at the
+container. **Assignment:** Work Leash only.
+
+**Target:** a container that holds items through NeoForge's item capability. A double chest or a Create item
+vault is one container.
+
+A Steel-type collects dropped items into a container. The Magnet is leash only: select the Pokémon with the
+Work Leash, then right-click the container. The worker stands at the container and collects from the whole
+work area of its pasture, ceil(64 × L ÷ 100) items every second, where L is its level: 1 at level 1, 32 at
+level 50 and 64 at level 100. It leaves an item alone while the item still has a pickup delay, so a drop that
+a player just threw stays theirs for a moment. What does not fit stays on the ground. A worker waits in
+Standby while no item lies in range or the container is full.
+
+**Role file parameter:** `items_per_second_at_level_100` (64).
 
 ## Configuration
 

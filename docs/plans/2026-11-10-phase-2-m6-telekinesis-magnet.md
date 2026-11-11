@@ -1467,29 +1467,31 @@ full. The binding clears when the source or the destination is broken or replace
 ### Task 5: The Magnet
 
 **Rows:** CD-MAG-01, CD-MAG-02, CD-MAG-03, CD-MAG-04, CD-MAG-05, CD-MAG-06, CD-MAG-07, CD-MAG-08, CD-BAL-05 (binding),
-CD-FX-02 (the Magnet row), CD-CFG-10 and CD-PLAT-05 (the item roles need no Create), CD-REL-08 (the guide section).
+CD-FX-02 (the Magnet row), CD-CFG-10 and CD-PLAT-05 (the item roles need no Create), CD-CLM-04 (a double chest or a vault
+is one container, as in Task 4), CD-REL-08 (the guide section).
 
 **Files:**
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/item/DroppedItems.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/item/MagnetHandler.kt`
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/magnet.json`
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt` (registers the handler)
-- Modify: `docs/player-guide.md` (`### Magnet`)
+- Modify: `docs/player-guide.md` (`### Magnet` and its row of the role table)
+- Modify: `ARCHITECTURE.md` (section 8, "One inventory of several blocks": the Magnet too)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BalanceFilesTest.kt`, `BuiltInRoleFilesTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/MagnetTests.kt`
 - Test: `src/gametestCore/kotlin/codes/honor/cobblemondynamics/coretest/CoreTests.kt`
 
 **Interfaces:**
 - Consumes: `ItemBatch`, `TransferParams`, `QueryClock` (Task 2), `WorkContext.pasture`, `WorkContext.sourceFace`,
-  `WorkArea.box()` (Task 3), `ItemPorts.sink`, `ItemCapability` (Task 4).
+  `WorkArea.box()` (Task 3), `ItemFace`, `ItemCapability` (Task 4).
 - Produces:
 
 ```kotlin
-/** The dropped items of a work area as an [ItemSource]: one slot for each item entity (CD-MAG-04, CD-MAG-05). */
-internal class DroppedItems(private val entities: List<ItemEntity>) : ItemSource<ItemStack> {
+/** The dropped items of a work area as an [ItemSource]: one slot for each item entity of the last query (CD-MAG-04, CD-MAG-05). */
+internal class DroppedItems(private val entities: List<ItemEntity>, private val area: WorkArea) : ItemSource<ItemStack> {
     companion object {
-        /** An item that a player may not pick up yet keeps its delay: the Magnet waits too (CD-MAG-05). */
-        fun collectable(entity: ItemEntity): Boolean
+        /** An item that a player may not pick up yet keeps its delay, and the Magnet waits too (CD-MAG-05). */
+        fun collectable(entity: ItemEntity, area: WorkArea): Boolean
         fun query(level: ServerLevel, area: WorkArea): List<ItemEntity>
     }
 }
@@ -1541,7 +1543,10 @@ fun `CD-BAL-05 Telekinesis and Magnet move at most 64 items per second`() {
 @Test
 fun `CD-MAG-02 the Magnet role file sets auto_assign to false`() {
     val key = autoAssignKey("magnet")
-    assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "magnet.json has auto_assign $key")
+    assertTrue(
+        key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+        "magnet.json has auto_assign $key",
+    )
 }
 
 /** The Magnet plays its `special` pose and Cobblemon's metal sparks at its container. It names no move timeline. */
@@ -1559,18 +1564,19 @@ fun `CD-FX-04 the Magnet sparks at its container`() {
 - [ ] **Step 3: Write the code.**
 
 ```kotlin
-internal class DroppedItems(private val entities: List<ItemEntity>) : ItemSource<ItemStack> {
+internal class DroppedItems(private val entities: List<ItemEntity>, private val area: WorkArea) : ItemSource<ItemStack> {
     override val slotCount: Int get() = entities.size
 
     override fun peek(slot: Int, max: Int): Lot<ItemStack>? =
-        entities[slot].takeIf(::collectable)?.item?.let { Lot(it.copy(), minOf(max, it.count)) }
+        entities[slot].takeIf { collectable(it, area) }?.item?.let { Lot(it.copy(), minOf(max, it.count)) }
 
     override fun take(slot: Int, count: Int): Lot<ItemStack>? {
-        val entity = entities[slot].takeIf(::collectable) ?: return null
+        val entity = entities[slot].takeIf { collectable(it, area) } ?: return null
         val stack = entity.item
         val n = minOf(count, stack.count)
+        val taken = stack.copyWithCount(n)
         if (n == stack.count) entity.discard() else entity.item = stack.copyWithCount(stack.count - n)
-        return Lot(stack.copyWithCount(n), n)
+        return Lot(taken, n)
     }
 
     /** A batch puts back only what it took from the same entity, so the stack never grows past its count before the batch. */
@@ -1579,83 +1585,104 @@ internal class DroppedItems(private val entities: List<ItemEntity>) : ItemSource
         if (entity.isAlive) {
             entity.item = entity.item.copyWithCount(entity.item.count + lot.count)
         } else {
-            entity.level().addFreshEntity(ItemEntity(entity.level(), entity.x, entity.y, entity.z, lot.item.copyWithCount(lot.count)))
+            val level = entity.level()
+            level.addFreshEntity(ItemEntity(level, entity.x, entity.y, entity.z, lot.item.copyWithCount(lot.count), 0.0, 0.0, 0.0))
         }
         return 0
     }
 
     companion object {
-        fun collectable(entity: ItemEntity): Boolean = entity.isAlive && !entity.hasPickUpDelay() && !entity.item.isEmpty
+        fun collectable(entity: ItemEntity, area: WorkArea): Boolean =
+            entity.isAlive && !entity.hasPickUpDelay() && !entity.item.isEmpty && area.contains(entity.blockPosition())
 
         fun query(level: ServerLevel, area: WorkArea): List<ItemEntity> =
-            level.getEntitiesOfClass(ItemEntity::class.java, area.box()) { collectable(it) && area.contains(it.blockPosition()) }
+            level.getEntitiesOfClass(ItemEntity::class.java, area.box()) { collectable(it, area) }
     }
 }
 ```
 
+  `collectable` checks the area again, because a found item can roll out of the area in the 20 ticks until the next query
+  (CD-MAG-04).
+
 ```kotlin
 /**
- * The Magnet: a Steel-type collects dropped items from its pasture's whole work area into its bound container, in one batch
- * every 20 ticks (R52). It looks for items at most once every 20 ticks (CD-MAG-08) and keeps what it found in the claim's memo.
+ * The Magnet: a Steel-type collects dropped items from its pasture's whole work area into its bound container, in one batch every 20
+ * ticks (R52). It looks for items at most once every 20 ticks (CD-MAG-08) and keeps what it found in the claim's memo.
  */
 object MagnetHandler : TargetHandler {
     override val id: ResourceLocation = id("magnet")
 
-    /** Leash only (CD-MAG-02, CD-ASG-05). */
+    /** Leash only (CD-MAG-02, CD-ASG-05), so no scan looks for its targets. */
     override val scanKind: ScanKind = ScanKind.NONE
 
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         ItemCapability.exposes(level, pos, state, blockEntity)
 
+    /** A double chest or a Create item vault is one container, as for Telekinesis (ruling 5 of the Phase 2 plan). */
+    override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos = ItemCapability.canonical(level, pos)
+
+    override fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean =
+        ItemCapability.isPart(level, canonical, pos)
+
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = ItemCapability.exposes(level, canonical)
 
-    /** CD-MAG-07: a dropped item in range that the container takes. */
+    /** CD-MAG-07: a dropped item in the work area that the container takes. */
     override fun hasDemand(ctx: WorkContext): Boolean {
-        if (TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level) <= 0) return false
+        if (itemsPerBatch(ctx) <= 0) return false
         val sink = sink(ctx) ?: return false
-        return ItemBatch.canMove(DroppedItems(drops(ctx)), sink)
+        val area = area(ctx) ?: return false
+        return ItemBatch.canMove(DroppedItems(drops(ctx, area), area), sink)
     }
 
     override fun onStart(ctx: WorkContext) {
         memo(ctx).startedAt = ctx.now
     }
 
-    /** CD-MAG-03, CD-MAG-06. */
+    /** CD-MAG-03, CD-MAG-06: a batch on the first Working tick and every 20 ticks after it. What the container refuses stays put. */
     override fun applyWork(ctx: WorkContext) {
         if (!TickClock.every(TransferParams.BATCH_TICKS, memo(ctx).startedAt, ctx.now)) return
         val sink = sink(ctx) ?: return
-        val limit = TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level)
-        ItemBatch.move(DroppedItems(drops(ctx)), sink, limit) { lot ->
-            val at = Vec3.atCenterOf(ctx.target)
-            Containers.dropItemStack(ctx.level, at.x, at.y + 0.6, at.z, lot.item.copyWithCount(lot.count))
-        }
+        val area = area(ctx) ?: return
+        ItemBatch.move(DroppedItems(drops(ctx, area), area), sink, itemsPerBatch(ctx)) { lot -> spill(ctx, lot) }
     }
 
+    private fun itemsPerBatch(ctx: WorkContext): Int = TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level)
+
+    /** The claim's batch start, its query clock with what the last query found, and the face of its container. */
     private class Memo(var startedAt: Long) {
         val clock = QueryClock()
         var found: List<ItemEntity> = emptyList()
-        var face: BlockCapabilityCache<IItemHandler, Direction?>? = null
+        var face: ItemFace? = null
     }
 
     private fun memo(ctx: WorkContext): Memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
 
-    /** CD-MAG-04, CD-MAG-08: one query for the work area, at most once every 20 ticks. */
-    private fun drops(ctx: WorkContext): List<ItemEntity> {
+    /** CD-MAG-04: the work area of the worker's own pasture. */
+    private fun area(ctx: WorkContext): WorkArea? =
+        ctx.pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
+
+    /** CD-MAG-08: one query of the work area, at most once every 20 ticks. */
+    private fun drops(ctx: WorkContext, area: WorkArea): List<ItemEntity> {
         val memo = memo(ctx)
-        val pasture = ctx.pasture ?: return emptyList()
         if (memo.clock.isDue(ctx.now)) {
-            memo.found = DroppedItems.query(ctx.level, WorkArea.of(pasture, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()))
+            memo.found = DroppedItems.query(ctx.level, area)
             memo.clock.ran(ctx.now)
         }
         return memo.found
     }
 
-    /** Through the face that the player clicked. */
+    /** Through the face that the player clicked. A rebind to the same container keeps the claim, so the face is checked again. */
     private fun sink(ctx: WorkContext): ItemSink<ItemStack>? {
         val memo = memo(ctx)
-        val cache = memo.face ?: BlockCapabilityCache.create(Capabilities.ItemHandler.BLOCK, ctx.level, ctx.target, ctx.sourceFace)
-            .also { memo.face = it }
-        return cache.capability?.let(ItemPorts::sink)
+        val face = memo.face?.takeIf { it.isAt(ctx.target, ctx.sourceFace) }
+            ?: ItemFace(ctx.level, ctx.target, ctx.sourceFace).also { memo.face = it }
+        return face.sink()
+    }
+
+    /** [DroppedItems] puts every refused item back where it lay, so nothing reaches this drop. It keeps the batch's no-loss rule. */
+    private fun spill(ctx: WorkContext, lot: Lot<ItemStack>) {
+        val at = Vec3.atCenterOf(ctx.target)
+        Containers.dropItemStack(ctx.level, at.x, at.y + 0.6, at.z, lot.item.copyWithCount(lot.count))
     }
 }
 ```
@@ -1669,7 +1696,10 @@ object MagnetHandler : TargetHandler {
   `floor_23x10x23`, with the pasture at (11, 1, 11) and the chest at (11, 2, 8):
 
 ```kotlin
-/** Items at horizontal offsets 8 and 9 from the pasture block: the Lv100 Klink takes the first and leaves the second (CD-MAG-01, CD-MAG-04). */
+/**
+ * Items at horizontal offsets 8 and 9 from the pasture block: the Lv100 Klink takes the first and leaves the second (CD-MAG-01,
+ * CD-MAG-04).
+ */
 @GameTest(template = "floor_23x10x23", timeoutTicks = 200)
 fun cdMag04OnlyItemsInsideTheWorkArea(helper: GameTestHelper) {
     val scene = scene(helper, "klink level=100")
@@ -1679,18 +1709,25 @@ fun cdMag04OnlyItemsInsideTheWorkArea(helper: GameTestHelper) {
     helper.runAfterDelay(120) {
         helper.assertTrue(!inside.isAlive, "CD-MAG-04: the item at offset 8 is still on the ground")
         helper.assertTrue(outside.isAlive && outside.item.count == 1, "CD-MAG-04: the item at offset 9 was taken")
-        helper.assertTrue(TestKit.countIn(helper, chestRel, Items.DIRT) == 1, "the chest holds ${TestKit.countIn(helper, chestRel, Items.DIRT)} dirt")
+        val dirt = TestKit.countIn(helper, chestRel, Items.DIRT)
+        helper.assertTrue(dirt == 1, "the chest holds $dirt dirt")
         helper.succeed()
     }
 }
 
-/** A drop with a 40-tick pickup delay stays on the ground while the delay lasts, and the Magnet takes it within 40 ticks after (CD-MAG-05). */
+/**
+ * A drop with a 40-tick pickup delay stays on the ground while the delay lasts, and the Magnet takes it within 40 ticks after
+ * (CD-MAG-05).
+ */
 @GameTest(template = "floor_23x10x23", timeoutTicks = 300)
 fun cdMag05PickupDelayIsRespected(helper: GameTestHelper) {
     val scene = scene(helper, "klink level=100")
     TestKit.bind(helper, scene.owner, scene.worker, chestRel)
     helper.startSequence()
-        .thenWaitUntil { helper.assertTrue(TestKit.workerOf(helper, scene.worker)?.status == WorkerStatus.STANDBY, "not in Standby yet") }
+        .thenWaitUntil {
+            val status = TestKit.workerOf(helper, scene.worker)?.status
+            helper.assertTrue(status == WorkerStatus.STANDBY, "the Klink is $status, not in Standby yet")
+        }
         .thenExecute {
             val item = drop(helper, BlockPos(13, 2, 11), ItemStack(Items.DIRT)).apply { setPickUpDelay(40) }
             val droppedAt = helper.level.gameTime
@@ -1705,7 +1742,10 @@ fun cdMag05PickupDelayIsRespected(helper: GameTestHelper) {
         }
 }
 
-/** A chest with room for 10 cobblestone, 64 cobblestone on the ground and a Lv100 Klink: the chest gains 10, and 54 stay on the ground (CD-MAG-06). */
+/**
+ * A chest with room for 10 cobblestone, 64 cobblestone on the ground and a Lv100 Klink: the chest gains 10, and 54 stay on the ground
+ * (CD-MAG-06).
+ */
 @GameTest(template = "floor_23x10x23", timeoutTicks = 200)
 fun cdMag06PartialInsertLeavesTheRest(helper: GameTestHelper) {
     val scene = scene(helper, "klink level=100")
@@ -1715,7 +1755,8 @@ fun cdMag06PartialInsertLeavesTheRest(helper: GameTestHelper) {
     TestKit.bind(helper, scene.owner, scene.worker, chestRel)
     val stack = drop(helper, BlockPos(13, 2, 11), ItemStack(Items.COBBLESTONE, 64))
     helper.runAfterDelay(100) {
-        helper.assertTrue(TestKit.countIn(helper, chestRel, Items.COBBLESTONE) == 64, "CD-MAG-06: the chest gained more or less than 10")
+        val stored = TestKit.countIn(helper, chestRel, Items.COBBLESTONE)
+        helper.assertTrue(stored == 64, "CD-MAG-06: the chest gained ${stored - 54} cobblestone, not 10")
         helper.assertTrue(stack.isAlive && stack.item.count == 54, "CD-MAG-06: the ground stack holds ${stack.item.count}")
         helper.succeed()
     }
@@ -1723,7 +1764,20 @@ fun cdMag06PartialInsertLeavesTheRest(helper: GameTestHelper) {
 ```
 
   `scene` places the chest at `chestRel` = (11, 2, 8), beside the pasture. `drop(helper, rel, stack)` spawns an `ItemEntity`
-  at the bottom center of `rel` with no motion and no pickup delay, and returns it. Deferred:
+  at the bottom center of `rel` with no motion and no pickup delay, and returns it:
+
+```kotlin
+private fun drop(helper: GameTestHelper, rel: BlockPos, stack: ItemStack): ItemEntity {
+    val at = helper.absoluteVec(rel.bottomCenter)
+    val item = ItemEntity(helper.level, at.x, at.y, at.z, stack, 0.0, 0.0, 0.0)
+    item.setNoPickUpDelay()
+    helper.level.addFreshEntity(item)
+    return item
+}
+```
+
+  The five-argument `ItemEntity` constructor gives the item a random motion, so `drop` uses the one that takes the motion.
+  Deferred:
   - CD-MAG-07 (`cdMag07NoItemsOrAFullChestMeansStandby`: no items on the ground, then a full chest with items on the
     ground. Standby within 20 ticks in each case): GameTest deferred (high confidence): verified in the end-of-phase pass.
 
@@ -1733,23 +1787,33 @@ fun cdMag06PartialInsertLeavesTheRest(helper: GameTestHelper) {
 /** Telekinesis and the Magnet name no Create class, so they work in a pack without Create (CD-PLAT-05, CD-CFG-10). */
 @GameTest(template = "floor_9x5x9")
 fun cdCfg10ItemRolesNeedNoCreate(helper: GameTestHelper) {
-    for (name in listOf("telekinesis", "magnet")) helper.assertTrue(RoleRegistry.current.get(id(name)) != null, "$name is off without Create")
+    for (name in listOf("telekinesis", "magnet")) {
+        helper.assertTrue(RoleRegistry.current.get(id(name)) != null, "$name is off without Create")
+    }
     helper.succeed()
 }
 ```
 
-- [ ] **Step 6: The guide section.** Add `### Magnet` under `## Roles` in `docs/player-guide.md`:
+- [ ] **Step 6: The guide section.** Add `### Magnet` under `## Roles` in `docs/player-guide.md`, and its row in the role
+  table:
 
 ```markdown
 ### Magnet
 
-A Steel-type collects dropped items into a container. The Magnet is leash only: select the Pokémon with the Work Leash, then
-right-click the container. The worker stands at the container and collects from the whole work area of its pasture,
-ceil(64 × level ÷ 100) items every second: 1 at level 1, 32 at level 50 and 64 at level 100. It leaves an item alone while
-the item still has a pickup delay, so a drop that a player just threw stays theirs for a moment. What does not fit stays on
-the ground. A worker waits in Standby while no item lies in range or the container is full.
+**Types:** Steel. **Level:** the rate grows with level. **Move:** the `special` pose, with metal sparks at the
+container. **Assignment:** Work Leash only.
 
-Role file parameter: `items_per_second_at_level_100` (64).
+**Target:** a container that holds items through NeoForge's item capability. A double chest or a Create item
+vault is one container.
+
+A Steel-type collects dropped items into a container. The Magnet is leash only: select the Pokémon with the
+Work Leash, then right-click the container. The worker stands at the container and collects from the whole
+work area of its pasture, ceil(64 × L ÷ 100) items every second, where L is its level: 1 at level 1, 32 at
+level 50 and 64 at level 100. It leaves an item alone while the item still has a pickup delay, so a drop that
+a player just threw stays theirs for a moment. What does not fit stays on the ground. A worker waits in
+Standby while no item lies in range or the container is full.
+
+**Role file parameter:** `items_per_second_at_level_100` (64).
 ```
 
 - [ ] **Step 7: Run** `./gradlew build`, `./gradlew runGameTestServer` and `./gradlew runGameTestServerCore`.
@@ -1757,7 +1821,7 @@ Role file parameter: `items_per_second_at_level_100` (64).
 - [ ] **Step 8: Multiplayer check.** The query reads the level on the server thread. A taken item is discarded or shrunk on
   the server, and tracking clients see the entity change. Two Magnets of two players that share a work area read their own
   memo, and `DroppedItems.take` checks `collectable` again, so a second worker never takes an item that the first one
-  already took.
+  already took. The area is the worker's own pasture's, from the claim's context.
 
 - [ ] **Step 9: Commit:** `git commit -m "Collect dropped items into a container with leashed Steel-types [rag:1]"`.
 

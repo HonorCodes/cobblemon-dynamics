@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:magnet",
+  "types": ["steel"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {
+    "items_per_second_at_level_100": 64
+  },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["special"],
+    "target_particles": ["cobblemon:metal_sparks"]
+  }
+}
