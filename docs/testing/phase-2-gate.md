@@ -22,7 +22,8 @@ block.
 
 ### The play-test client
 
-`py scripts/testpack/testpack.py client` fills the folder `run/testpack/client/mods/` with six jars:
+`py scripts/testpack/testpack.py client` fills the folder `C:\Users\admin\src\cobblemon-dynamics\run\testpack\client\mods\`
+with six jars:
 
 - `Cobblemon-neoforge-1.8.4+1.21.1.jar`
 - `create-1.21.1-6.0.10.jar`
@@ -43,7 +44,8 @@ To launch the client with the Modrinth App:
 4. Create the instance.
 5. In the menu of the new instance, open its folder.
 6. If the instance folder has no `mods` folder, make one.
-7. Copy the six jars of `run/testpack/client/mods/` into the `mods` folder of the instance.
+7. Copy the six jars of `C:\Users\admin\src\cobblemon-dynamics\run\testpack\client\mods\` into the `mods` folder of the
+   instance.
 8. Write the line `onboardAccessibility:false` into `options.txt` in the instance folder. Do this before the first start,
    or the game first opens the accessibility screen, which you can also click through.
 9. Click **Play**.
@@ -53,18 +55,19 @@ jars in its `mods` folder.
 
 ### The review spritesheet and the review record
 
-`py scripts/art.py review` writes the review spritesheet `build/art-review/spritesheet.png`. It also refreshes the rows of
-the review record, [`docs/testing/art-review.md`](art-review.md). The sheet shows each sprite at 8x and at 1x, on a light
-and on a dark inventory slot: the Work Leash, the creative tab icon, every UI sprite and the Work Stamina bars as the game
-draws them. It also shows each block item from above, for reference.
+`py scripts/art.py review` writes the review spritesheet
+`C:\Users\admin\src\cobblemon-dynamics\build\art-review\spritesheet.png`. It also refreshes the rows of the review record,
+[`docs/testing/art-review.md`](art-review.md). The sheet shows each sprite at 8x and at 1x, on a light and on a dark
+inventory slot: the Work Leash, the creative tab icon, every UI sprite and the Work Stamina bars as the game draws them. It
+also shows each block item from above, for reference.
 
 The review record has one row for each asset, with its source and the SHA-256 of that source. Give each row a verdict:
 `approved`, or `changes` with a note. A row whose source changes goes back to `pending`. A public tag publishes only when
 every row is `approved` at its current SHA-256 (CD-ART-12).
 
-The record also lists your logo files, `art/logo/logo-256.png` and `art/logo/icon-512.png` (CD-ART-05). The sheet does
-not show them, so open the two files. They need your approval too, because CD-ART-10 asks for an approval of every asset
-of CD-ART-01 to CD-ART-05.
+The record also lists your logo files, `C:\Users\admin\src\cobblemon-dynamics\art\logo\logo-256.png` and
+`C:\Users\admin\src\cobblemon-dynamics\art\logo\icon-512.png` (CD-ART-05). The sheet does not show them, so open the two
+files. They need your approval too, because CD-ART-10 asks for an approval of every asset of CD-ART-01 to CD-ART-05.
 
 ### Steps
 
@@ -72,12 +75,12 @@ of CD-ART-01 to CD-ART-05.
 2. Set up the client as above.
 3. Do steps 7 to 9 of the [play-test setup](manual-checklist.md#client) of the manual checklist: a creative flat world
    with cheats on, no Pokémon spawning, and your test Pokémon.
-4. Do the checks of the [play-test note](#play-test-note): check 20, checks 44 to 58, and the Phase 1 checks 6, 9, 10,
-   14, 15 and 22, which Phase 2 code touches. The [manual checklist](manual-checklist.md) holds each check.
-5. If the checklist has a Quick Work check for CD-QWK-21 at the gate run, do that check too.
-6. Open the review spritesheet and the two logo files.
-7. Give each row of the review record your verdict.
-8. Record each result of the checks in the play-test note: pass, fail with what you saw, or blocked with the reason.
+4. Do the checks of the [play-test note](#play-test-note): check 20, checks 44 to 59, and the Phase 1 checks 6, 9, 10,
+   14, 15 and 22, which Phase 2 code touches. The [manual checklist](manual-checklist.md) holds each check. Check 59
+   shows the end of a Quick Work order when its owner starts a battle (CD-QWK-21).
+5. Open the review spritesheet and the two logo files.
+6. Give each row of the review record your verdict.
+7. Record each result of the checks in the play-test note: pass, fail with what you saw, or blocked with the reason.
 
 ## Known issues and open decisions
 
@@ -101,11 +104,12 @@ These items stay open at the gate. Each item names its source.
   server can set `quickWork.enabled = false`. Compat with the claim APIs of those mods is later work. Source:
   [ADR-0013](../adr/0013-quick-work-for-party-pokemon.md) and design decision 9 of the
   [Quick Work plan](../plans/2026-11-11-phase-2-quick-work.md#design-decisions-for-the-approver).
-- **CD-QWK-21.** Its GameTest cannot be built as the row states it. Cobblemon 1.8.4 clears a battle id that names no live
-  battle on the entity's next tick, and a test battle against a GameTest fake player ends within 1 tick. The end-of-phase
-  pass changes its acceptance test to a unit test of the end rule plus a Demo in the play-test. Source: "Deferred rows" in
-  [pull request #22](https://github.com/HonorCodes/cobblemon-dynamics/pull/22), and Step 6 of Task 3 of the
-  [Quick Work plan](../plans/2026-11-11-phase-2-quick-work.md).
+- **CD-QWK-21 has no GameTest.** Cobblemon 1.8.4 clears a battle id that names no live battle on the entity's next tick,
+  and a test battle against a fake owner ends in one tick. By the coordinator's ruling of 2026-11-11, under the approver's
+  delegation, the unit tests of the trace range rule and the end rule in `QuickWorkRulesTest` check the row. Check 59 of
+  the manual checklist adds the Demo, a battle that ends a running order in the play-test. The requirement of the row is
+  unchanged. Source: the corrections list of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md), and Step 1 of
+  [M8 Task 7](../plans/2026-11-10-phase-2-m8-art-gate.md#task-7-the-end-of-phase-pass-the-checklist-and-the-guide).
 - **CD-SEC-04's boundary.** Cobblemon 1.8.4 keeps a player's pasture link only while the player is closer than 10.0
   blocks. `WorkModeService.request` accepts a request from exactly 10.0 blocks, which the CD-SEC-04 GameTest checks. A
   toggle from the panel at exactly 10.0 blocks still fails, because Cobblemon has dropped the link. That is stricter than
@@ -132,8 +136,7 @@ verdict on each asset goes into the [art review record](art-review.md), not here
 - Launcher and instance: pending
 - Result: pending
 
-The table has one line for each check of the [manual checklist](manual-checklist.md) that the Phase 2 play-test covers. If
-the checklist gets a Quick Work check for CD-QWK-21 before the gate run, the gate run adds its line.
+The table has one line for each check of the [manual checklist](manual-checklist.md) that the Phase 2 play-test covers.
 
 | Check | Row | Result | What you saw |
 | --- | --- | --- | --- |
@@ -159,6 +162,7 @@ the checklist gets a Quick Work check for CD-QWK-21 before the gate run, the gat
 | 56 | CD-ART-03 | pending | |
 | 57 | CD-ART-04 | pending | |
 | 58 | CD-ART-07 | pending | |
+| 59 | CD-QWK-21 | pending | |
 
 ## Art review
 

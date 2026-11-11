@@ -220,6 +220,7 @@ Architecture decision records:
 | [0010](docs/adr/0010-balance-rule.md) | The balance rule |
 | [0011](docs/adr/0011-v2-roles-in-first-release.md) | The v2 roles in the first release, in phases |
 | [0012](docs/adr/0012-original-art-assets.md) | Original art assets |
+| [0013](docs/adr/0013-quick-work-for-party-pokemon.md) | Quick Work for party Pokémon |
 
 ## Contributing
 

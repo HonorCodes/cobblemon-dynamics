@@ -1483,8 +1483,9 @@ PHASES = {
   From the same made-up inputs, the old script and the new one wrote the same Phase 1 blocks, character for character.
   With `--phase 2`, the same inputs left seven rows with no test. Which rows have a test depends only on the sources and
   the lists, not on the results. The end-of-phase pass is writing the deferred `QuickWorkTests` of CD-QWK-08, CD-QWK-10,
-  CD-QWK-17 and CD-QWK-22. No test cites CD-ART-01, CD-QWK-23 or CD-QWK-24, so these three rows show `no test` until a
-  test cites them.
+  CD-QWK-17 and CD-QWK-22. No test cited CD-ART-01, CD-QWK-23 or CD-QWK-24 then. Pull request #24 then added a test for
+  each of the seven rows: the `QuickWorkTests` GameTests, `ArtFilesTest` (CD-ART-01) and `QuickWorkSourceTest`
+  (CD-QWK-23, CD-QWK-24).
 
 - [ ] **Step 2: The report skeleton.** Create `docs/testing/phase-2-gate.md` in the shape of the Phase 1 report: a short
   introduction, the two generated blocks (`summary` and `rows`), and these sections that the script keeps:
