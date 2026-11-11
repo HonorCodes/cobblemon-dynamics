@@ -3,6 +3,7 @@
 Cobblemon Dynamics puts your pastured Pokémon to work. Turn on Work Mode for a pasture. Each of its Pokémon
 then finds a block that fits one of its types, walks to it and works it. For example, a Fire-type keeps a
 furnace lit, a Water-type turns a Create water wheel, and an Electric-type pushes Forge Energy into a machine.
+A party Pokémon that you send out while you look at a block can work that block too, with [Quick Work](#quick-work).
 
 Install the mod on the client and on the server. The [README](../README.md#requirements) lists the versions
 of Minecraft, NeoForge, Cobblemon and the optional mods.
@@ -196,6 +197,52 @@ Fire](#fan-catalyst-fire)).
 - A Work Stamina bar and a state icon show over each worker within 16 blocks of you. The client config key
   `hud.headBarRange` changes this distance.
 - The targets of your own bound workers show an outline. The targets of other players' workers show none.
+
+## Quick Work
+
+A party Pokémon can work one block on demand, with no pasture and no Work Leash.
+
+1. Select a party Pokémon whose type fits a role, for example a Fire-type for a furnace.
+2. Look at the block, up to 16 blocks away.
+3. Press **R** to send the Pokémon out, as you always do.
+
+The Pokémon walks to the block and works it, as a worker in a pasture does. Its Work Stamina drains while it works. The
+action bar tells you when the work starts, and when and why it stops.
+
+Quick Work uses only the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
+Generator, Crystal Tender, Brew Stoker and Brewer. When only a Work Leash role of the Pokémon fits the block, for example
+Telekinesis for a Psychic-type at a chest, the action bar shows "Chest needs the Work Leash". A Pokémon with a Fairy type
+does no Quick Work, because it is a healer.
+
+### When Quick Work does not start
+
+The Pokémon comes out as usual, with no work, and the action bar tells you why, when:
+
+- another Pokémon works the block already, or a Work Leash binding holds it
+- the Pokémon is Tired
+- the block needs no work now, for example a furnace with nothing to smelt
+- the Pokémon cannot reach the block
+- you may not use the block, for example inside spawn protection
+
+### When Quick Work stops
+
+The work stops for good when:
+
+- you go more than 16 blocks from the block
+- you recall the Pokémon, or it faints
+- the Pokémon gets Tired. It then recovers in your party at the rate with no bed.
+- the block breaks or changes, or a Work Leash binding takes it
+- the block needs no work for 10 seconds
+- the Pokémon cannot reach the block within 30 seconds
+- you log out or go to another dimension
+- the Pokémon starts a battle
+
+The Pokémon then follows you again. It does not look for other work. To work the block again, recall the Pokémon and send
+it out again while you look at the block.
+
+Protection mods that only stop right-clicks do not see Quick Work, because you never click the block. A server owner can
+turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and `quickWork.leashRange` change the two
+distances of 16 blocks.
 
 ## Work Stamina
 
@@ -641,6 +688,9 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `engine.effectBroadcastRadius` | 64 | 16 to 128 | Blocks around a worker within which players receive its work effects. |
 | `workMode.toggleCooldownTicks` | 10 | 0 to 200 | Ticks after a player's accepted Work Mode change during which the server ignores that player's next change. |
 | `leash.pendingSelectionTicks` | 600 | 100 to 6,000 | Ticks that the Work Leash keeps a pending source before it clears it. No role in this guide uses a pending source. |
+| `quickWork.enabled` | `true` | `true`, `false` | Turns [Quick Work](#quick-work) on or off. With `false`, a send-out never starts Quick Work. |
+| `quickWork.targetRange` | 16 | 2 to 24 | Blocks that your view reaches to find the block for Quick Work. Never more than `quickWork.leashRange`. |
+| `quickWork.leashRange` | 16 | 2 to 24 | Blocks between your eyes and the block at which Quick Work stops. |
 | `stamina.ticksPerLevel` | 3,600 | 20 to 72,000 | Ticks of Working per level from 100% to 0%. The worker rule takes the same time to recover. |
 | `stamina.healerRecoveryMinutesAtLevel1` | 1,200 | 1 to 10,000 | Minutes that a level 1 healer takes from 0% to 100%. |
 | `stamina.healerRecoveryMinutesAtLevel100` | 120 | 1 to 10,000 | Minutes that a level 100 healer takes from 0% to 100%. |
