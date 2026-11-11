@@ -21,7 +21,7 @@ design of every task. This note holds what the plan does not.
   push per review round; no AI attribution or `Co-Authored-By` anywhere; stage explicit paths only; a
   commit with a `.md` file needs a ` [rag:N]` subject suffix (hook-enforced).
 
-## State at the time of writing (M5 Task 9 Steps 1 to 3 done)
+## State at the time of writing (Phase 1 play-test in progress)
 
 | Item | State |
 | --- | --- |
@@ -32,7 +32,9 @@ design of every task. This note holds what the plan does not.
 | Dependabot | Merged: tomlj 2.2.0 (#4), JUnit 6.1.3 (#5), and Gradle 9.9.0 with Kotlin 2.2.21 (#8). `dependabot.yml` keeps Kotlin on 2.2.x and the platform dependencies at their floors. To re-test a Dependabot pull request against a newer `main`, close and reopen it. |
 | M3 | Merged: PR #9, merge commit `e001192`. |
 | M4 | Merged: PR #10, merge commit `f6adcec`. |
-| M5 | Branch `m5-ui-compat-gate`, rebased onto `main` (`f6adcec`). Tasks 1 to 8 and the end-of-phase pass for the deferred rows are committed. Task 9 Steps 1 to 3 are done. `scripts/gate_report.py` wrote the gate report `docs/testing/phase-1-gate.md` for the run on commit `0cddb71`: 356 unit tests, 162, 3 and 1 GameTests, and `SMOKE`, `DEPS`, `COMPAT`, `RELOAD` and `RESTART PASS`. In it, all 269 rows with automated tests pass, 35 rows have a play-test part, and 3 rows stay open after Phase 1. `testpack.py client` assembled the play-test client in `run/testpack/client/mods/`. Next: the M5 pull request (Task 9 Step 4), then the stop for the approver's play-test (Step 5). M5 is one pull request. |
+| M5 | Merged: PR #11, merge commit `4aad0dd`. The gate report `docs/testing/phase-1-gate.md` is for the run on commit `0cddb71`: all 269 rows with automated tests pass, 35 rows have a play-test part, and 3 rows stay open after Phase 1. |
+| Play-test | The operator plays in the CurseForge instance `C:\Users\admin\curseforge\minecraft\Instances\Cobblemon Dynamics Play-test` (world `test1`, with the `cdtest` kit datapack: `/function cdtest:help`). The instance came from `run/testpack/cobblemon-dynamics-playtest-curseforge.zip`. Round 1 (2026-11-10) found five issues: the heal crash, a too-flashy Flamethrower, cut-off animation loops, work cries and workers standing on top of their targets. PR #12 (`69e4399`) fixed all five, and the instance runs that jar. After each session, read the instance's `logs/latest.log` and `crash-reports/`. Copy a new jar into its `mods/` only while the game is closed. |
+| Shared machine | The COHO-2 session runs large COHO server and client tests on this PC. It asks over cross-session messages to hold JVM runs when free memory is low. Run JVMs one at a time. |
 
 ## Environment
 
