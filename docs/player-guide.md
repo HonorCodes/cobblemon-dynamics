@@ -270,6 +270,8 @@ Work Stamina of the other workers in its pasture.
 ### How a healer picks an ally
 
 - It heals only Pokémon in its own pasture. It never heals itself or a Fairy-type.
+- In a pasture that several players share, it heals the other players' workers too, because a shared pasture
+  works as one team.
 - It picks the nearest Tired ally first.
 - When no ally is Tired, it picks the ally with the lowest Work Stamina under 25%.
 - A healer heals one ally at a time, and an ally gets one healer at a time.

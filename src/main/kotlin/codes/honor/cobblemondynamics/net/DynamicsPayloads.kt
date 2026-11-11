@@ -67,7 +67,8 @@ object DynamicsPayloads {
 
     /**
      * The pasture is the one whose panel the player has open, as Cobblemon's own panel finds it. Cobblemon keeps that link only
-     * while the player is closer than 10.0 blocks, so a toggle from exactly 10.0 blocks finds no pasture (CD-SEC-04). A refused or
+     * while the player is closer than 10.0 blocks, so a toggle from exactly 10.0 blocks finds no pasture (CD-SEC-04). It also keeps
+     * the link in another level of the same dimension type, so the pasture is looked up in the player's own level. A refused or
      * ignored request sends the player the current state, so the panel shows the truth. It does so at most once per toggle cooldown,
      * so a flood of refused requests cannot rebuild the panel state on every packet.
      */

@@ -253,9 +253,11 @@ Transition rules:
   Pokémon that far from its goal.
 - **Healers.** A healer must have at least 25% Work Stamina and no machine claim. It picks a Tired ally
   first (nearest first), else the ally with the lowest Work Stamina under 25%. Allies are in the
-  same pasture and have no Fairy type. A healer never heals itself. One healer acts on one ally at a
-  time, through a heal claim on the ally's UUID. Healers choose after each scan pass. The heal completes
-  within 2 blocks of the ally's body, because a healer stops at the body of a wide ally.
+  same pasture and have no Fairy type. An ally may belong to another player: a shared pasture is
+  cooperative, so its healers heal every owner's workers. A healer never heals itself. One healer
+  acts on one ally at a time, through a heal claim on the ally's UUID. Healers choose after each scan
+  pass. The heal completes within 2 blocks of the ally's body, because a healer stops at the body of a
+  wide ally.
 
 ## 6. Per-tick flow
 
@@ -359,6 +361,12 @@ Both sides register every payload in common code (`net/DynamicsPayloads`), so th
 sends. The client's handlers of the two server-to-client payloads live in `client/ClientPayloads`, which
 `DynamicsClient` installs on the client dist only. No common class names a client class.
 
+Every handler runs on the main thread. NeoForge 21.1's `PayloadRegistrar` starts with `HandlerThread.MAIN`
+and wraps each handler in `MainThreadPayloadHandler`, which passes it to `IPayloadContext.enqueueWork`. On
+the server, `ServerPayloadContext.enqueueWork` runs it on the server's main thread, at once when it is
+already there (checked with `javap` on NeoForge 21.1.265). No registrar of ours calls `executesOn`, so the
+server state that the handlers read needs no locks, and requests apply in the order they arrive (CD-SEC-06).
+
 | Payload id | Direction | Fields | When |
 |---|---|---|---|
 | `cobblemon_dynamics:work_mode_toggle` | client to server | `enabled` (the requested state) | The player presses the Work Mode button. The server resolves the pasture with `PastureLinkManager.getLinkByPlayer(player)`. |
@@ -387,9 +395,10 @@ Built-in sync, with no payload of ours:
 - The drive direction, fan state and Tailwind bonus behaviours, through Create's block entity packets.
 - Action-bar feedback, through `ServerPlayer.displayClientMessage(component, true)`.
 
-Cobblemon packets that the effect player sends. Each one goes to the players that track the entity it names, within
-`engine.effectBroadcastRadius` (64) blocks of that entity, so a client never gets a packet for an entity that it does not
-have. The heal fallback sends the healer's pose to the healer's trackers and the ally's particles to the ally's.
+Cobblemon packets that the effect player sends. Each one goes to the players that track the entity it names,
+within `engine.effectBroadcastRadius` (64) blocks of that entity, so a client never gets a packet for an
+entity that it does not have. The heal fallback sends the healer's pose to the healer's trackers and the
+ally's particles to the ally's.
 
 | Packet | Use |
 |---|---|
@@ -405,9 +414,14 @@ references. This section lists what the code uses.
 ### Cobblemon 1.8.4
 
 - **Pasture reads** (package `pasture`): `PokemonPastureBlockEntity.tetheredPokemon`,
-  `Tethering.getPokemon()`, `Tethering.pasturePos`, `Tethering.box`, `Tethering.playerId`, and the
-  block entity's `ownerId`. On the entity side: `PokemonEntity.tethering`. From a player:
-  `PastureLinkManager.getLinkByPlayer(player)`, valid within 10 blocks in the same dimension.
+  `Tethering.getPokemon()`, `Tethering.pasturePos`, `Tethering.box`, `Tethering.playerId`, and the block
+  entity's `ownerId`. On the entity side: `PokemonEntity.tethering`. From a player:
+  `PastureLinkManager.getLinkByPlayer(player)`. The link holds the dimension type of the pasture's level,
+  which `PastureBlock.useWithoutItem` records, and `getLinkByPlayer` drops it when the player's level has
+  another dimension type or the player is 10 blocks or more from the pasture's center. Vanilla's three
+  dimensions have three dimension types, so a dimension change drops the link. Two levels of one dimension
+  type keep it, but our toggle looks up the pasture in the player's own level, so it never reaches a pasture
+  of another level.
 - **Work Mode owner.** Cobblemon records the placer in `ownerId` but never enforces it. Our toggle
   accepts the recorded placer and operators (permission level 2 or higher). A pasture with no
   recorded placer accepts toggles from operators only. A player can break and place such a pasture
@@ -598,9 +612,9 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
   `ItemHandlerHelper.insertItemStacked`, then discards the entity or keeps the remainder.
 - **Attachments.** Block entity, entity and level attachments as listed in section 4. Attachment sync
   needs NeoForge 21.1.197 or later. Our floor of 21.1.219 covers it.
-- **Entity tracking.** NeoForge's `ChunkMap.getPlayersWatching(entity)` lists the players whose clients track an
-  entity, from the entity's own tracker. NeoForge added it to 21.1 with attachment sync, so our floor covers it too.
-  The effect player reads its recipients there (section 7).
+- **Entity tracking.** NeoForge's `ChunkMap.getPlayersWatching(entity)` lists the players whose clients
+  track an entity, from the entity's own tracker. NeoForge added it to 21.1 with attachment sync, so our
+  floor covers it too. The effect player reads its recipients there (section 7).
 - **Interaction order.** `Item#onItemUseFirst` runs before the block opens its GUI, so the Work Leash
   handles each target click there. `Item#useOn` never runs when the block consumes the click.
 - **Furnace family.** Access transformer entries for `AbstractFurnaceBlockEntity.litTime`, `litDuration`
