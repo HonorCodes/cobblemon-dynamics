@@ -1342,6 +1342,18 @@ this paragraph's first three words, so keep them.
   is an open item for Task 8. The Quick Work rows join the deferred list with the Quick Work branch, whose Task 3 adds
   them.
 
+  **As built, the Quick Work rows (2026-11-11).** The twelve Quick Work GameTests run in the batch `quick_work`, each with
+  one owner. With them, two runs of `./gradlew runGameTestServer` in a row pass 220 of 220 tests, and
+  `runGameTestServerCore` passes 4 of 4. Only CD-QWK-22 needed a change after the first run. Its first scene walled the
+  Charmander in on a furnace at floor height, 1 block above the spots. `Arrival.isAt` takes a worker as there up to 1.5
+  blocks above its spot, so the order outlived the travel timeout. The furnace now stands on a stone pillar, 2 blocks
+  above any spot. These scenes read their rows in a set way:
+  - CD-QWK-06 has one owner in two phases. `mayInteract` refuses it first, and then it is a spectator.
+  - CD-QWK-20 takes the owner out of the player list. Cobblemon then removes the party Pokémon's entity on its next tick,
+    because it finds no owner (`PokemonServerDelegate`), so the order ends as for a recall. The unit test of the end rule
+    checks the reason of an owner who left.
+  - Each refusal test checks that the send-out aimed at its block, so that a missed aim cannot pass it.
+
 - [ ] **Step 2: Failing test.** `ManualChecklistTest` drops its area filter, so it counts the Phase 2 Demo rows:
 
 ```kotlin

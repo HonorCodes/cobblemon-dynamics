@@ -238,16 +238,26 @@ object TestKit {
      * A fake owner at [rel] that `PlayerList.getPlayer` finds, as Cobblemon's owner lookup and Quick Work need. It joins only the player
      * list's UUID map, so it gets no broadcast, no spawns and no ticks, and it leaves the map when the test ends.
      */
-    fun listedOwner(helper: GameTestHelper, rel: BlockPos, name: String = "owner"): ServerPlayer {
-        val player = owner(helper, name)
+    fun listedOwner(helper: GameTestHelper, rel: BlockPos, name: String = "owner"): ServerPlayer = listed(helper, owner(helper, name), rel)
+
+    /** Puts [player] at [rel] and into the player list's UUID map, which it leaves when the test ends, as for [listedOwner]. */
+    fun <P : ServerPlayer> listed(helper: GameTestHelper, player: P, rel: BlockPos): P {
         val pos = helper.absoluteVec(rel.bottomCenter)
         place(player, pos.x, pos.y, pos.z)
-        @Suppress("UNCHECKED_CAST")
-        val byUuid = PLAYERS_BY_UUID.get(helper.level.server.playerList) as MutableMap<UUID, ServerPlayer>
+        val byUuid = playersByUuid(helper)
         byUuid[player.uuid] = player
         afterTest(helper) { byUuid.remove(player.uuid) }
         return player
     }
+
+    /** Takes [player] out of the player list's UUID map, so that `PlayerList.getPlayer` no longer finds it, as after a logout. */
+    fun unlist(helper: GameTestHelper, player: ServerPlayer) {
+        playersByUuid(helper).remove(player.uuid)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun playersByUuid(helper: GameTestHelper): MutableMap<UUID, ServerPlayer> =
+        PLAYERS_BY_UUID.get(helper.level.server.playerList) as MutableMap<UUID, ServerPlayer>
 
     private val PLAYERS_BY_UUID: Field = PlayerList::class.java.getDeclaredField("playersByUUID").apply { isAccessible = true }
 
