@@ -327,9 +327,10 @@ class LeashTests {
     }
 
     /**
-     * The test role `test_transfer` stands in for Telekinesis. A click on a chest's top face with a selected Alakazam stores the chest
-     * and the face as the pending source and binds nothing (CD-LSH-17), and the action bar asks for a destination (CD-LSH-20). The
-     * click on a barrel's north face then binds the chest as the source and the barrel as the destination, with both faces (CD-LSH-18).
+     * The real Telekinesis role binds a chest to a barrel (CD-TLK-01). A click on a chest's top face with a selected Alakazam stores the
+     * chest and the face as the pending source and binds nothing (CD-LSH-17), and the action bar asks for a destination (CD-LSH-20).
+     * The click on a barrel's north face then binds the chest as the source and the barrel as the destination, with both faces
+     * (CD-LSH-18).
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 100)
     fun cdLsh17Lsh18Lsh20SourceThenDestination(helper: GameTestHelper) {
@@ -350,7 +351,7 @@ class LeashTests {
         TestKit.clickBlock(helper, scene.owner, barrelRel, Direction.NORTH)
         helper.runAfterDelay(1) {
             val binding = BindingStore.read(scene.pokemon.pokemon)
-            val source = binding?.roleId == id("test_transfer") && binding.target == chest && binding.face == Direction.UP
+            val source = binding?.roleId == id("telekinesis") && binding.target == chest && binding.face == Direction.UP
             val destination = binding?.destination == barrel && binding.destinationFace == Direction.NORTH
             helper.assertTrue(source && destination, "CD-LSH-18: the destination click gave $binding")
             helper.assertFalse(stack.has(LeashComponents.PENDING_SOURCE.get()), "the leash keeps its pending source after the bind")
@@ -359,9 +360,10 @@ class LeashTests {
     }
 
     /**
-     * A right-click on air clears a pending source at once. A new pending source is still on the stack 599 ticks after its click and is
-     * gone at 600, on the inventory tick that a player's inventory runs every tick (CD-LSH-19). Fake players never tick their
-     * inventory, so the test runs that tick itself.
+     * A chest click with an Alakazam selected stores a pending source of the real Telekinesis role. A right-click on air clears a
+     * pending source at once. A new pending source is still on the stack 599 ticks after its click and is gone at 600, on the inventory
+     * tick that a player's inventory runs every tick (CD-LSH-19). Fake players never tick their inventory, so the test runs that tick
+     * itself.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
     fun cdLsh19AirClickAndTimeoutClearThePendingSource(helper: GameTestHelper) {
@@ -413,8 +415,9 @@ class LeashTests {
 
     /**
      * A listener cancels right-clicks on one chest, as a protection mod does, and denies item use on another. Clicks on either with a
-     * selected Alakazam store no pending source and bind nothing (CD-SEC-11). A free chest then becomes the pending source, which shows
-     * that the selection works, and a click on the cancelled chest as the destination binds nothing either.
+     * selected Alakazam, which the real Telekinesis role fits, store no pending source and bind nothing (CD-SEC-11). A free chest then
+     * becomes the pending source, which shows that the selection works, and a click on the cancelled chest as the destination binds
+     * nothing either.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 100)
     fun cdSec11CancelledClickNeverBinds(helper: GameTestHelper) {

@@ -118,6 +118,10 @@ object LeashInteractions {
             boundToOther = other?.seenBy(player.uuid),
             pending = pending,
             sameAsPending = pending?.pos == canonical,
+            destinationInReach = pending == null ||
+                pasture == null ||
+                best == null ||
+                guarded(best.handler, false) { best.handler.destinationInReach(best.definition, pasture, canonical) },
         )
         val outcome = BindRules.evaluate(input) { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE }
         when (outcome) {

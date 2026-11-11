@@ -66,8 +66,9 @@ class AssignmentTests {
         val fainted = TestKit.tether(helper, pasture, owner, "charmander level=10")
         fainted.pokemon.currentHealth = 0
         val healthy = TestKit.tether(helper, pasture, owner, "charmander level=10")
-        TestKit.moveTo(helper, fainted, BlockPos(7, 1, 6))
-        TestKit.moveTo(helper, healthy, BlockPos(7, 1, 0))
+        // On the floor: a Pokémon moved into the floor (y = 1) falls under it, where no path reaches a work spot (CD-ASG-09).
+        TestKit.moveTo(helper, fainted, BlockPos(7, 2, 6))
+        TestKit.moveTo(helper, healthy, BlockPos(7, 2, 0))
         TestKit.workMode(pasture, true)
         helper.onEachTick {
             for ((name, other) in listOf("wild" to wild, "party" to party, "fainted" to fainted)) {
@@ -88,7 +89,7 @@ class AssignmentTests {
         val near = TestKit.furnace(helper, BlockPos(4, 1, 10), ItemStack(Items.RAW_IRON, 8))
         val far = TestKit.furnace(helper, BlockPos(13, 1, 10), ItemStack(Items.RAW_IRON, 8))
         val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
-        val hold = BlockPos(7, 1, 10)
+        val hold = BlockPos(7, 2, 10)
         TestKit.moveTo(helper, fire, hold)
         TestKit.workMode(pasture, true)
         helper.onEachTick {
@@ -114,13 +115,19 @@ class AssignmentTests {
         expectEdge(helper, inside, outside, "horizontal offset")
     }
 
-    /** Each furnace stands on a stone pillar, with a one-block ledge beside it as its only work spot. */
+    /**
+     * Each furnace stands on a stone pillar, with a one-block ledge beside it. A claim needs a path to its spot (CD-ASG-09), and
+     * Cobblemon's pathfinder does not step from the floor or a stair onto that ledge, so a stone staircase rises from the pasture's
+     * side to the inside furnace. Its top steps are spots that a path reaches.
+     */
     @GameTest(template = "floor_23x17x23", timeoutTicks = 400)
     fun cdAsg08VerticalWorkAreaEdge(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 11), owner)
         TestKit.workMode(pasture, true)
         val inside = furnaceOnPillar(helper, BlockPos(11, 7, 5))
+        // The column n blocks south of the ledge at (12, 6, 5) is n blocks lower, down to the floor.
+        for (step in 1..4) for (y in 2..6 - step) helper.setBlock(BlockPos(12, y, 5 + step), Blocks.STONE)
         val outside = furnaceOnPillar(helper, BlockPos(11, 8, 17))
         repeat(2) { TestKit.tether(helper, pasture, owner, "charmander level=10") }
         expectEdge(helper, inside, outside, "vertical offset")
@@ -213,7 +220,7 @@ class AssignmentTests {
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
         TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
         val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
-        val hold = BlockPos(7, 1, 12)
+        val hold = BlockPos(7, 2, 12)
         TestKit.moveTo(helper, fire, hold)
         TestKit.workMode(pasture, true)
         var claim: Claim? = null

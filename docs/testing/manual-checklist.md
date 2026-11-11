@@ -154,11 +154,10 @@ world.
     Then break the Charmander's furnace. Expected: the chat shows "Vaporeon lost its work binding: its new
     form cannot do the job". Then it shows "Charmander lost its work binding: its target was broken or
     replaced".
-20. **CD-LSH-20** (Phase 2). Setup: an Alakazam in a Work Mode pasture, and a chest in its work area. Action:
-    select the Alakazam with the Work Leash, then right-click the chest. Expected: the action bar reads
-    "Select a destination for Alakazam". The check needs the Telekinesis role, which arrives in M6. Record it
-    as blocked in the Phase 1 play-test. In Phase 1, its GameTest with the test role
-    `cobblemon_dynamics:test_transfer` is the evidence.
+20. **CD-LSH-20.** Setup: an Alakazam in a Work Mode pasture, and a chest in its work area. Action: select the
+    Alakazam with the Work Leash, then right-click the chest. Expected: the action bar reads "Select a
+    destination for Alakazam". The check runs in the Phase 2 play-test, with the Telekinesis role of M6, and
+    its result goes into the Phase 2 gate report, `docs/testing/phase-2-gate.md`.
 21. **CD-LSH-21.** Setup: a Charmander in a Work Mode pasture, and a furnace with input in its work area. Build
     a ring of blocks two high around the furnace, one block away from it. The floor beside the furnace stays
     open, but no path leads to it. Action: bind the Charmander to the furnace and wait 31 seconds. Expected:

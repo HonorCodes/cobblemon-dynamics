@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.engine.WorkSpots
+import codes.honor.cobblemondynamics.handler.item.TransferParams
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import net.minecraft.world.phys.Vec3
@@ -31,6 +32,8 @@ class BuiltInRoleFilesTest {
         "brewer" to Row("cobblemon_dynamics:brewing_speed", setOf("poison"), true, 0, "poisongas"),
         "pump" to Row("cobblemon_dynamics:fluid_fill", setOf("water"), false, 0, "watergun"),
         "muse" to Row("cobblemon_dynamics:enchanting", setOf("fairy"), false, 0, "fairywind"),
+        "telekinesis" to Row("cobblemon_dynamics:telekinesis", setOf("psychic"), false, 0, "kinesis"),
+        "magnet" to Row("cobblemon_dynamics:magnet", setOf("steel"), false, 0, "special"),
     )
 
     /** The `auto_assign` key as the file writes it, so that a missing key fails as well as `true`. */
@@ -185,6 +188,53 @@ class BuiltInRoleFilesTest {
         val key = autoAssignKey("muse")
         assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "muse.json has auto_assign $key")
         assertFalse(BuiltInRoles.parse("muse").autoAssign)
+    }
+
+    /**
+     * Cobblemon's `kinesis` timeline emits `kinesis_actor` and `kinesis_actorspiral` from the user, and nothing on the target. The
+     * file of `kinesis_actor` plays `cobblemon:move.kinesis.actor` on creation, and work is silent (CD-FX-09), so the role sends
+     * only the spiral.
+     */
+    @Test
+    fun `CD-FX-04 Telekinesis's Kinesis spirals from the worker, with no sound`() {
+        val effect = BuiltInRoles.parse("telekinesis").effect
+        val kinesis = MoveTimeline.read("kinesis")
+        assertEquals(kinesis.animations, effect.animations)
+        assertEquals(kinesis.userParticles - "cobblemon:kinesis_actor", effect.actorParticles.map { it.toString() })
+        assertEquals(emptyList<String>(), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-TLK-02 the Telekinesis role file sets auto_assign to false`() {
+        val key = autoAssignKey("telekinesis")
+        assertTrue(
+            key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+            "telekinesis.json has auto_assign $key",
+        )
+    }
+
+    @Test
+    fun `CD-TLK-03 the default Telekinesis file moves 1, 16, 32 and 64 items per batch at Lv1, 25, 50 and 100`() {
+        val params = TransferParams.of(BuiltInRoles.parse("telekinesis").params)
+        assertEquals(listOf(1, 16, 32, 64), listOf(1, 25, 50, 100).map(params::itemsPerBatch))
+    }
+
+    @Test
+    fun `CD-MAG-02 the Magnet role file sets auto_assign to false`() {
+        val key = autoAssignKey("magnet")
+        assertTrue(
+            key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+            "magnet.json has auto_assign $key",
+        )
+    }
+
+    /** The Magnet plays its `special` pose and Cobblemon's metal sparks at its container. It names no move timeline. */
+    @Test
+    fun `CD-FX-04 the Magnet sparks at its container`() {
+        val effect = BuiltInRoles.parse("magnet").effect
+        assertEquals(listOf("special"), effect.animations)
+        assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:metal_sparks"), effect.targetParticles.map { it.toString() })
     }
 
     /** The Cranker is the only role whose move needs contact. */

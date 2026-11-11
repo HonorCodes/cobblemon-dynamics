@@ -46,6 +46,16 @@ class DefaultPriorityTest {
         assertEquals(id("brewer"), roleFor(setOf("poison"), stand), "a pure Poison-type")
     }
 
+    /** Both leash-only roles fit a Create basin, which exposes a fluid and an item handler. Both have priority 0, and `pump` sorts first. */
+    @Test
+    fun `CD-LSH-16 with the default files a Slowbro on a basin gets the Pump, not Telekinesis`() {
+        val pump = BuiltInRoles.parse("pump")
+        val telekinesis = BuiltInRoles.parse("telekinesis")
+        assertEquals(pump.priority, telekinesis.priority)
+        val slowbro = listOf("water", "psychic")
+        assertEquals(pump, RoleSelection.best(listOf(telekinesis, pump).filter { RoleSelection.isEligible(it, slowbro) }))
+    }
+
     private companion object {
         const val BURNER_HEAT = "cobblemon_dynamics:burner_heat"
         const val BREWING_FUEL = "cobblemon_dynamics:brewing_fuel"

@@ -21,7 +21,7 @@ design of every task. This note holds what the plan does not.
   push per review round; no AI attribution or `Co-Authored-By` anywhere; stage explicit paths only; a
   commit with a `.md` file needs a ` [rag:N]` subject suffix (hook-enforced).
 
-## State at the time of writing (Phase 1 play-test in progress)
+## State at the time of writing (Phase 2: M6 done, M7 next)
 
 | Item | State |
 | --- | --- |
@@ -34,7 +34,9 @@ design of every task. This note holds what the plan does not.
 | M4 | Merged: PR #10, merge commit `f6adcec`. |
 | M5 | Merged: PR #11, merge commit `4aad0dd`. The gate report `docs/testing/phase-1-gate.md` is for the run on commit `0cddb71`: all 269 rows with automated tests pass, 35 rows have a play-test part, and 3 rows stay open after Phase 1. |
 | Play-test | The operator plays in the CurseForge instance `C:\Users\admin\curseforge\minecraft\Instances\Cobblemon Dynamics Play-test` (world `test1`, with the `cdtest` kit datapack: `/function cdtest:help`). The instance came from `run/testpack/cobblemon-dynamics-playtest-curseforge.zip`. Round 1 (2026-11-10) found five issues: the heal crash, a too-flashy Flamethrower, cut-off animation loops, work cries and workers standing on top of their targets. PR #12 (`69e4399`) fixed all five, and the instance runs that jar. After each session, read the instance's `logs/latest.log` and `crash-reports/`. Copy a new jar into its `mods/` only while the game is closed. |
-| Shared machine | The COHO-2 session runs large COHO server and client tests on this PC. It asks over cross-session messages to hold JVM runs when free memory is low. Run JVMs one at a time. |
+| Shared machine | The COHO-2 session runs large COHO server and client tests on this PC. It asks over cross-session messages to hold JVM runs when free memory is low. Run JVMs one at a time. Run `./gradlew --stop` when idle, and cap the GameTest JVM at 3 GB with an init script passed through `-I`. Never raise a heap setting. |
+| Phase 1 close | The approver play-tested Phase 1 GREEN (CD-REL-13, recorded in the gate report). Their rulings then merged: PR #13 (`62b75ca`) removes the Burner Keeper and adds the Charge Cell (50,000 FE) and the creative tab. PR #15 (`89918aa`) holds the 9 multiplayer audit fixes. The approver ruled "no multiplayer game tests", so the code is checked by reading it. |
+| Phase 2 | The plan is `docs/plans/2026-11-10-phase-2-plan.md` with M6, M7 and M8 files (PR #14, `1dccc06`). It holds rulings on its open questions and the approver's art scope: new pixel art only for items that are never placed, and blocks keep art that represents their 3D object. M6 (Telekinesis, Magnet, spots with a path) is on branch `m6-telekinesis-magnet`: 445 unit tests, 182 GameTests and 4 core tests, its pull request open. Next: M7 in two parts, then M8 and the Phase 2 gate with the approver's art review and play-test. |
 
 ## Environment
 

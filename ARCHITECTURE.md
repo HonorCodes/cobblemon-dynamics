@@ -226,7 +226,13 @@ Transition rules:
   next, then spots at other heights. Within each group, the spot nearest to the target center wins,
   then the one nearest to the worker. A spot that a worker cannot walk into on the level, because no
   cell beside it at its height has a floor and room for a body, comes after every open spot. A worker
-  may not reach such a pit, and the old rule, nearest to the worker, avoided it by chance.
+  may not reach such a pit, and the old rule, nearest to the worker, avoided it by chance. A spot also
+  needs a path from the worker: the claim asks the worker's own navigation for a whole path to at most
+  3 spots, best first, with the call that the walk makes later. With no path to any of them, the
+  worker skips the target for `retryWaitTicks`, as after a travel timeout. A spot beyond the worker's
+  follow range counts as reachable, because the pathfinder does not plan that far, and so does a spot
+  while the navigation cannot plan at all, for example while a swimmer is in the air. The travel
+  timeout still catches both.
 - **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
   worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
   stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.
@@ -607,6 +613,11 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
 - **Vanilla item handlers.** Chests, barrels and hoppers ignore the side, and a double chest is one
   54-slot handler. A real insert into an empty hopper sets an 8-tick cooldown. Sided containers such as
   furnaces use `SidedInvWrapper`, which is why Telekinesis uses the faces that the player clicked.
+- **One inventory of several blocks.** Telekinesis and the Magnet key a double chest, a Create item
+  vault or any other inventory of several blocks by one canonical position, the least of its blocks, as a
+  large water wheel has one (CD-CLM-04). Two blocks are one inventory when they are the halves of a double
+  chest, or when both give the same handler object. NeoForge wraps a chest in a new `InvWrapper` on every
+  query, so the chest halves are found through `ChestBlock.getConnectedDirection`.
 - **Dropped items.** The Magnet finds items with `level.getEntitiesOfClass(ItemEntity.class, box,
   predicate)` over the work area. It skips items with `hasPickUpDelay()`. It inserts a copy with
   `ItemHandlerHelper.insertItemStacked`, then discards the entity or keeps the remainder.

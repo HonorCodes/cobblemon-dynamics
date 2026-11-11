@@ -26,11 +26,12 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks
 import java.util.UUID
 
 /**
- * Clears a binding whose Pokémon or target is gone, and tells the binder why (CD-LSH-13). Cobblemon fires no pasture events, so
- * the index is checked every 10 ticks. A binding whose pasture and target are both unloaded waits for them (CD-LSH-09).
+ * Clears a binding whose Pokémon, target or destination is gone, and tells the binder why (CD-LSH-13). Cobblemon fires no pasture
+ * events, so the index is checked every 10 ticks. A binding whose pasture and target are both unloaded waits for them (CD-LSH-09).
  */
 object LeashResets {
     const val TARGET_GONE = "target_gone"
+    const val DESTINATION_GONE = "destination_gone"
     const val LEFT_PASTURE = "left_pasture"
     const val OTHER_PASTURE = "other_pasture"
     const val RELEASED = "released"
@@ -170,6 +171,16 @@ object LeashResets {
             }
             if (BindingStore.read(pokemon)?.target != target) return unindex(level, target, ref.pokemonId)
             if (!recheckRole(level.server, pokemon)) return
+            // CD-TLK-11: a two-target binding also ends when its destination is broken or replaced.
+            val destination = BindingStore.read(pokemon)?.destination
+            val handler = RoleRegistry.current.get(ref.roleId)?.handler
+            if (destination != null &&
+                handler != null &&
+                level.isLoaded(destination) &&
+                !guarded(handler, true) { handler.stillValid(level, destination) }
+            ) {
+                return lost(level, target, ref, DESTINATION_GONE, pokemon)
+            }
         }
         if (!level.isLoaded(target)) return
         val handler = RoleRegistry.current.get(ref.roleId)?.handler ?: return

@@ -16,7 +16,10 @@ import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import java.nio.file.Files
 
-/** A server with Cobblemon and KotlinForForge only: the mod loads, the roles that need Create are off, and the Crystal Tender works. */
+/**
+ * A server with Cobblemon and KotlinForForge only: the mod loads, the roles that need Create are off, the item roles are on, and the
+ * Crystal Tender works.
+ */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
 class CoreTests {
@@ -59,6 +62,15 @@ class CoreTests {
             val claim = TestKit.claimOf(helper, tender)
             helper.assertTrue(claim?.kind == ClaimKind.WORK && claim.key == key, "the Rockruff holds $claim, not the budding amethyst")
         }
+    }
+
+    /** Telekinesis and the Magnet name no Create class, so they work in a pack without Create (CD-PLAT-05, CD-CFG-10). */
+    @GameTest(template = "floor_9x5x9")
+    fun cdCfg10ItemRolesNeedNoCreate(helper: GameTestHelper) {
+        for (name in listOf("telekinesis", "magnet")) {
+            helper.assertTrue(RoleRegistry.current.get(id(name)) != null, "$name is off without Create")
+        }
+        helper.succeed()
     }
 
     @GameTest(template = "floor_9x5x9")

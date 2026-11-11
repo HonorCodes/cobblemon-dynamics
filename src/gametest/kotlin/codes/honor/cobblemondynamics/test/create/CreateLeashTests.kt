@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.test.create
 
 import codes.honor.cobblemondynamics.MOD_ID
+import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.test.TestKit
@@ -25,7 +26,10 @@ import net.minecraft.world.phys.AABB
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
-/** A bound target that Create takes out of the world loses its binding, as a broken one does (CD-LSH-08). */
+/**
+ * The Work Leash on Create blocks: a bound target that Create takes out of the world loses its binding, as a broken one does
+ * (CD-LSH-08), and a basin that two roles fit binds the role that sorts first (CD-LSH-16).
+ */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
 class CreateLeashTests {
@@ -98,6 +102,24 @@ class CreateLeashTests {
                 assertUnbound(helper, owner, fire, furnace.blockPos, "the assembly")
                 helper.succeed()
             }
+        }
+    }
+
+    /**
+     * A Water- and Psychic-type Slowbro clicks a Create basin, which both the Pump and Telekinesis match: the Pump binds with one click
+     * (CD-LSH-16).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 100)
+    fun cdLsh16SlowbroOnABasinBindsAsPump(helper: GameTestHelper) {
+        val basinRel = BlockPos(5, 2, 4)
+        CreateKit.basin(helper, basinRel)
+        val (owner, pasture) = owner(helper)
+        val slowbro = TestKit.tether(helper, pasture, owner, "slowbro level=30")
+        helper.runAfterDelay(1) {
+            helper.assertTrue(TestKit.items(helper, basinRel) != null, "the basin has no item handler, so Telekinesis does not fit it")
+            val binding = TestKit.bind(helper, owner, slowbro, basinRel)
+            helper.assertTrue(binding?.roleId == id("pump") && binding.destination == null, "CD-LSH-16: the click gave $binding")
+            helper.succeed()
         }
     }
 }

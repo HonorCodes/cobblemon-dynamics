@@ -159,7 +159,7 @@ class WorkModeTests {
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
         TestKit.furnace(helper, BlockPos(7, 1, 3), ItemStack(Items.RAW_IRON, 8))
         val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
-        TestKit.moveTo(helper, fire, BlockPos(7, 1, 5))
+        TestKit.moveTo(helper, fire, BlockPos(7, 2, 5))
         helper.onEachTick { helper.assertTrue(TestKit.claimOf(helper, fire) == null, "a Pokémon in a pasture that is off got a claim") }
         helper.runAtTickTime(400) { helper.succeed() }
     }

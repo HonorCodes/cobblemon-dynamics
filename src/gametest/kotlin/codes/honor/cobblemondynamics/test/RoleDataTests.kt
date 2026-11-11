@@ -82,7 +82,7 @@ class RoleDataTests {
         TestKit.testBattery(helper, BlockPos(7, 1, 11))
         val fire = TestKit.tether(helper, pasture, owner, "charmander level=10")
         val pikachu = TestKit.tether(helper, pasture, owner, "pikachu level=50")
-        TestKit.moveTo(helper, fire, BlockPos(7, 1, 5))
+        TestKit.moveTo(helper, fire, BlockPos(7, 2, 5))
         TestKit.moveTo(helper, pikachu, BlockPos(7, 2, 9))
         for (id in listOf(stokerId, generatorId)) helper.assertTrue(RoleRegistry.current.get(id) == null, "the disabled role $id is active")
         helper.onEachTick {

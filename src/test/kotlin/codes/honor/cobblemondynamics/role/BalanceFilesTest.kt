@@ -1,12 +1,11 @@
 package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
+import codes.honor.cobblemondynamics.handler.item.TransferParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.io.File
-import kotlin.math.ceil
 
 /** The balance rows over the mod's own role files (ADR-0010): each test parses the files and computes the bound that its row states. */
 class BalanceFilesTest {
@@ -44,21 +43,18 @@ class BalanceFilesTest {
         assertEquals(10, BuiltInRoles.parse("crystal_tender").params.get(INTERVAL_TICKS).asInt)
     }
 
-    /** ARCHITECTURE section 6: a worker moves up to ceil(items_per_second_at_level_100 × L ÷ 100) items per second. */
+    /** One batch every 20 ticks, so the items per batch are the items per second (R52). Both files must exist. */
     @Test
-    fun `CD-BAL-05 Telekinesis and Magnet move at most 64 items per second if their files exist`() {
+    fun `CD-BAL-05 Telekinesis and Magnet move at most 64 items per second`() {
         for (name in listOf("telekinesis", "magnet")) {
-            val file = File(BuiltInRoles.dir, "$name.json")
-            if (!file.exists()) continue
-            val atLevel100 = BuiltInRoles.parse(file).params.get(ITEMS_PER_SECOND_AT_LEVEL_100)
-            assertNotNull(atLevel100, "$name.json has no $ITEMS_PER_SECOND_AT_LEVEL_100")
-            val top = (1..100).maxOf { level -> ceil(atLevel100.asDouble * level / 100).toInt() }
+            val params = TransferParams.of(BuiltInRoles.parse(name).params)
+            val top = (1..100).maxOf(params::itemsPerBatch)
             assertTrue(top <= 64, "$name.json lets one worker move $top items per second")
+            assertEquals(64, params.itemsPerBatch(100), name)
         }
     }
 
     private companion object {
         const val INTERVAL_TICKS = "interval_ticks"
-        const val ITEMS_PER_SECOND_AT_LEVEL_100 = "items_per_second_at_level_100"
     }
 }

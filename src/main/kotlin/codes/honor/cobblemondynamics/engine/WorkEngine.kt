@@ -429,7 +429,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     private enum class Attempt { GRANTED, NO_SPOT, REFUSED }
 
-    /** A worker gets the claim only with a work spot. With none, it skips the target for `retryWaitTicks`. */
+    /**
+     * A worker gets the claim only with a work spot that its navigation reaches (CD-ASG-09). With none, it skips the target for
+     * `retryWaitTicks`, as after a travel timeout (CD-ASG-14).
+     */
     private fun claim(
         t: Tick,
         runtime: PastureRuntime,
@@ -449,7 +452,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val spot = guarded(role.handler, null) {
             // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
             val shape = TargetShape.around(target) { t.level.isLoaded(it) && role.handler.isPartOfTarget(t.level, target, it) }
-            WorkSpots.find(grid, area(t, runtime), shape, center, role.definition.range, slot.entity.position())
+            WorkSpots.findReachable(grid, area(t, runtime), shape, center, role.definition.range, entity.position(), Reach.of(entity))
         }
         if (spot == null) {
             worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
@@ -784,9 +787,32 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         removeFocus(slot)
     }
 
-    /** [memo] is the slot's for its own claim. A target that the engine only weighs for the worker gets an empty one. */
-    private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: ActiveRole, memo: ClaimMemo = ClaimMemo()) =
-        WorkContext(t.level, target, slot.entity, slot.pokemon, role.definition, t.now, memo = memo)
+    /**
+     * [memo] is the slot's for its own claim. A target that the engine only weighs for the worker gets an empty one. A binding gives its
+     * destination and faces only to its own target and role (CD-LSH-18).
+     */
+    private fun context(
+        t: Tick,
+        slot: PastureRuntime.Slot,
+        target: BlockPos,
+        role: ActiveRole,
+        memo: ClaimMemo = ClaimMemo(),
+    ): WorkContext {
+        val binding = slot.binding?.takeIf { it.target == target && it.roleId == role.definition.id }
+        return WorkContext(
+            t.level,
+            target,
+            slot.entity,
+            slot.pokemon,
+            role.definition,
+            t.now,
+            destination = binding?.destination,
+            sourceFace = binding?.face,
+            destinationFace = binding?.destinationFace,
+            pasture = BlockPos.of(slot.worker.pasture.pos),
+            memo = memo,
+        )
+    }
 
     private fun area(t: Tick, runtime: PastureRuntime): WorkArea = WorkArea.of(runtime.pos, t.settings, PastureAdapter.maxWanderDistance())
 

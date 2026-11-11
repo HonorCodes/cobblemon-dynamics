@@ -77,6 +77,9 @@ class TargetShape(blocks: Collection<BlockPos>) {
 }
 
 object WorkSpots {
+    /** At most this many spots get a path check in one claim, best first. Each check is one run of the worker's pathfinder. */
+    const val MAX_PATH_CHECKS = 3
+
     private const val EPSILON = 1e-9
 
     /** The preference of a spot (CD-ASG-09): beside the target at its base height, else at that height, else at another height. */
@@ -140,9 +143,18 @@ object WorkSpots {
      * play-test ruling, 2026-11-10). Within each, the spot nearest to the target wins, then the one nearest to the worker, then the
      * lowest `BlockPos.asLong()`. A spot that a worker cannot walk into on the level, such as a pit beside the target, comes after every
      * open spot, because the worker may not reach it. A spot is standable only with room for the worker's body ([SpotGrid.fitsBody]).
-     * The search asks for line of sight, openness and room only of a spot that could still be the best so far.
+     * The search asks for line of sight, openness and room only of a spot that could still be the best so far. It skips the cells in
+     * [excluded], as `BlockPos.asLong()`.
      */
-    fun find(grid: SpotGrid, area: WorkArea, target: TargetShape, targetCenter: Vec3, range: Double, from: Vec3): BlockPos? {
+    fun find(
+        grid: SpotGrid,
+        area: WorkArea,
+        target: TargetShape,
+        targetCenter: Vec3,
+        range: Double,
+        from: Vec3,
+        excluded: Set<Long> = emptySet(),
+    ): BlockPos? {
         val r = ceil(range).toInt()
         val cx = floor(targetCenter.x).toInt()
         val cy = floor(targetCenter.y).toInt()
@@ -152,6 +164,7 @@ object WorkSpots {
         for (x in cx - r..cx + r) {
             for (y in cy - r..cy + r) {
                 for (z in cz - r..cz + r) {
+                    if (excluded.isNotEmpty() && BlockPos.asLong(x, y, z) in excluded) continue
                     val pos = BlockPos(x, y, z)
                     if (!area.contains(pos) || target.standsOn(x, y, z) || !grid.isStandable(x, y, z)) continue
                     val c = Vec3.atCenterOf(pos)
@@ -174,6 +187,29 @@ object WorkSpots {
             }
         }
         return best
+    }
+
+    /**
+     * The best spot of [find] that [reachable] accepts. It checks at most [maxChecks] spots, best first, and returns null when none of
+     * them has a path, so the worker skips the target for `retryWaitTicks`, as after a timeout (CD-ASG-14).
+     */
+    fun findReachable(
+        grid: SpotGrid,
+        area: WorkArea,
+        target: TargetShape,
+        targetCenter: Vec3,
+        range: Double,
+        from: Vec3,
+        reachable: (BlockPos) -> Boolean,
+        maxChecks: Int = MAX_PATH_CHECKS,
+    ): BlockPos? {
+        val excluded = HashSet<Long>()
+        repeat(maxChecks) {
+            val spot = find(grid, area, target, targetCenter, range, from, excluded) ?: return null
+            if (reachable(spot)) return spot
+            excluded += spot.asLong()
+        }
+        return null
     }
 
     /** The work spot at a target of one block, the cell of [targetCenter]. */
