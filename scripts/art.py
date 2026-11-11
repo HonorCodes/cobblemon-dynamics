@@ -9,7 +9,7 @@ Sources, each mapped to src/main/resources/assets/cobblemon_dynamics/<textures|m
 
 Usage: py scripts/art.py build
        py scripts/art.py check [--references auto|JAR ...] [--release] [--record FILE]
-       py scripts/art.py review [--record FILE]
+       py scripts/art.py review [--record FILE] [--note TEXT]
        py scripts/art.py import PNG SOURCE
        py scripts/art.py --self-check
 Exit code 0 when every check passes, 1 when a check fails, and 2 when an input is missing or unreadable.
@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import html
 import json
 import os
 import pathlib
@@ -611,29 +610,205 @@ def check(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
-# The review page (CD-ART-10)
+# The review spritesheet (CD-ART-10)
+
+SHEET_WIDTH = 1700
+MARGIN = 24
+GAP = 8
+BIG = 8
+TEXT = 2
+PAGE = bytes.fromhex("ececef")
+INK = bytes.fromhex("18181b")
+MUTED = bytes.fromhex("50505a")
+LIGHT_SLOT = bytes.fromhex("8b8b8b")
+DARK_SLOT = bytes.fromhex("2e2e33")
+LABEL_CHARS = 25
+# The GUI textures by folder under textures/, with the name that the sheet gives each group, in the sheet's order.
+GUI_GROUPS = {
+    "gui/sprites/work_mode": "Work Mode button",
+    "gui/stamina_bar": "Work Stamina bar",
+    "gui/state": "State icon",
+}
+# The order of the sprites inside a group. A sprite that is not listed follows, in path order.
+SPRITE_ORDER = ("on", "off", "hover", "disabled", "panel_bar", "panel_fill", "head_bar", "head_fill",
+                "idle", "traveling", "working", "standby", "tired", "sleeping", "healing")
+TABS = ROOT / "src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsTabs.kt"
+# A 5 x 9 bitmap font for the labels: each glyph lists its rows from the top, with '#' for a lit pixel. Rows 7 and 8
+# hold the descenders, and the rows that a glyph leaves out are blank.
+FONT = {
+    " ": "",
+    "A": ".###. #...# #...# ##### #...# #...# #...#",
+    "B": "####. #...# #...# ####. #...# #...# ####.",
+    "C": ".###. #...# #.... #.... #.... #...# .###.",
+    "D": "####. #...# #...# #...# #...# #...# ####.",
+    "E": "##### #.... #.... ####. #.... #.... #####",
+    "F": "##### #.... #.... ####. #.... #.... #....",
+    "G": ".###. #...# #.... #.### #...# #...# .####",
+    "H": "#...# #...# #...# ##### #...# #...# #...#",
+    "I": ".###. ..#.. ..#.. ..#.. ..#.. ..#.. .###.",
+    "J": "..### ...#. ...#. ...#. ...#. #..#. .##..",
+    "K": "#...# #..#. #.#.. ##... #.#.. #..#. #...#",
+    "L": "#.... #.... #.... #.... #.... #.... #####",
+    "M": "#...# ##.## #.#.# #.#.# #...# #...# #...#",
+    "N": "#...# #...# ##..# #.#.# #..## #...# #...#",
+    "O": ".###. #...# #...# #...# #...# #...# .###.",
+    "P": "####. #...# #...# ####. #.... #.... #....",
+    "Q": ".###. #...# #...# #...# #.#.# #..#. .##.#",
+    "R": "####. #...# #...# ####. #.#.. #..#. #...#",
+    "S": ".#### #.... #.... .###. ....# ....# ####.",
+    "T": "##### ..#.. ..#.. ..#.. ..#.. ..#.. ..#..",
+    "U": "#...# #...# #...# #...# #...# #...# .###.",
+    "V": "#...# #...# #...# #...# #...# .#.#. ..#..",
+    "W": "#...# #...# #...# #.#.# #.#.# #.#.# .#.#.",
+    "X": "#...# #...# .#.#. ..#.. .#.#. #...# #...#",
+    "Y": "#...# #...# .#.#. ..#.. ..#.. ..#.. ..#..",
+    "Z": "##### ....# ...#. ..#.. .#... #.... #####",
+    "a": "..... ..... .###. ....# .#### #...# .####",
+    "b": "#.... #.... ####. #...# #...# #...# ####.",
+    "c": "..... ..... .###. #.... #.... #...# .###.",
+    "d": "....# ....# .#### #...# #...# #...# .####",
+    "e": "..... ..... .###. #...# ##### #.... .###.",
+    "f": "..##. .#..# .#... ###.. .#... .#... .#...",
+    "g": "..... ..... .#### #...# #...# #...# .#### ....# .###.",
+    "h": "#.... #.... #.##. ##..# #...# #...# #...#",
+    "i": "..#.. ..... .##.. ..#.. ..#.. ..#.. .###.",
+    "j": "...#. ..... ..##. ...#. ...#. ...#. ...#. #..#. .##..",
+    "k": "#.... #.... #..#. #.#.. ##... #.#.. #..#.",
+    "l": ".##.. ..#.. ..#.. ..#.. ..#.. ..#.. .###.",
+    "m": "..... ..... ##.#. #.#.# #.#.# #.#.# #.#.#",
+    "n": "..... ..... #.##. ##..# #...# #...# #...#",
+    "o": "..... ..... .###. #...# #...# #...# .###.",
+    "p": "..... ..... ####. #...# #...# #...# ####. #.... #....",
+    "q": "..... ..... .#### #...# #...# #...# .#### ....# ....#",
+    "r": "..... ..... #.##. ##..# #.... #.... #....",
+    "s": "..... ..... .#### #.... .###. ....# ####.",
+    "t": ".#... .#... ###.. .#... .#... .#..# ..##.",
+    "u": "..... ..... #...# #...# #...# #..## .##.#",
+    "v": "..... ..... #...# #...# #...# .#.#. ..#..",
+    "w": "..... ..... #...# #...# #.#.# #.#.# .#.#.",
+    "x": "..... ..... #...# .#.#. ..#.. .#.#. #...#",
+    "y": "..... ..... #...# #...# #...# #...# .#### ....# .###.",
+    "z": "..... ..... ##### ...#. ..#.. .#... #####",
+    "0": ".###. #...# #..## #.#.# ##..# #...# .###.",
+    "1": "..#.. .##.. ..#.. ..#.. ..#.. ..#.. .###.",
+    "2": ".###. #...# ....# ...#. ..#.. .#... #####",
+    "3": "##### ...#. ..#.. ...#. ....# #...# .###.",
+    "4": "...#. ..##. .#.#. #..#. ##### ...#. ...#.",
+    "5": "##### #.... ####. ....# ....# #...# .###.",
+    "6": "..##. .#... #.... ####. #...# #...# .###.",
+    "7": "##### ....# ...#. ..#.. .#... .#... .#...",
+    "8": ".###. #...# #...# .###. #...# #...# .###.",
+    "9": ".###. #...# #...# .#### ....# ...#. .##..",
+    ".": "..... ..... ..... ..... ..... .##.. .##..",
+    ",": "..... ..... ..... ..... ..... .##.. .##.. ..#.. .#...",
+    ":": "..... .##.. .##.. ..... .##.. .##.. .....",
+    ";": "..... .##.. .##.. ..... .##.. .##.. ..#.. .#...",
+    "/": "....# ....# ...#. ..#.. .#... #.... #....",
+    "_": "..... ..... ..... ..... ..... ..... ..... #####",
+    "-": "..... ..... ..... .###. ..... ..... .....",
+    "(": "...#. ..#.. .#... .#... .#... ..#.. ...#.",
+    ")": ".#... ..#.. ...#. ...#. ...#. ..#.. .#...",
+    "*": "..... ..#.. #.#.# .###. #.#.# ..#.. .....",
+    "+": "..... ..#.. ..#.. ##### ..#.. ..#.. .....",
+    "=": "..... ..... ##### ..... ##### ..... .....",
+    "%": "##..# ##..# ...#. ..#.. .#... #..## #..##",
+    "'": "..#.. ..#.. .#... ..... ..... ..... .....",
+    "!": "..#.. ..#.. ..#.. ..#.. ..#.. ..... ..#..",
+    "?": ".###. #...# ....# ...#. ..#.. ..... ..#..",
+    "#": ".#.#. .#.#. ##### .#.#. ##### .#.#. .#.#.",
+}
 
 
-def factor_for(width: int, height: int) -> int:
-    """The scale of a render: up to 16, and at most 512 pixels on its longer side."""
-    return max(1, min(16, 512 // max(width, height)))
+class Canvas:
+    """An opaque RGB image that the review sheet is drawn on."""
+
+    def __init__(self, width: int, height: int, color: bytes = PAGE):
+        self.width, self.height = width, height
+        self.pixels = bytearray(color * (width * height))
+
+    def fill(self, x: int, y: int, width: int, height: int, color: bytes) -> None:
+        x0, y0, x1, y1 = max(0, x), max(0, y), min(self.width, x + width), min(self.height, y + height)
+        if x1 > x0:
+            row = color * (x1 - x0)
+            for line in range(y0, y1):
+                start = (line * self.width + x0) * 3
+                self.pixels[start:start + len(row)] = row
+
+    def paste(self, x: int, y: int, other: Canvas) -> None:
+        stride = other.width * 3
+        for line in range(other.height):
+            start = ((y + line) * self.width + x) * 3
+            self.pixels[start:start + stride] = other.pixels[line * stride:(line + 1) * stride]
+
+    def sprite(self, x: int, y: int, width: int, height: int, rgba: bytes, scale: int, background: bytes) -> None:
+        """[rgba] scaled with no smoothing over [background], which shows 4 pixels around it."""
+        self.fill(x, y, width * scale + 8, height * scale + 8, background)
+        for sy in range(height):
+            for sx in range(width):
+                r, g, b, a = rgba[(sy * width + sx) * 4:(sy * width + sx + 1) * 4]
+                if a:
+                    color = bytes(round(c * a / 255 + k * (255 - a) / 255) for c, k in zip((r, g, b), background))
+                    self.fill(x + 4 + sx * scale, y + 4 + sy * scale, scale, scale, color)
+
+    def text(self, x: int, y: int, text: str, color: bytes, scale: int = TEXT) -> None:
+        for index, char in enumerate(text):
+            for row, bits in enumerate(FONT.get(char, FONT["?"]).split()):
+                for column, bit in enumerate(bits):
+                    if bit == "#":
+                        self.fill(x + (index * 6 + column) * scale, y + row * scale, scale, scale, color)
+
+    def png(self) -> bytes:
+        rgba = bytearray(self.width * self.height * 4)
+        for channel in range(3):
+            rgba[channel::4] = self.pixels[channel::3]
+        rgba[3::4] = b"\xff" * (self.width * self.height)
+        return encode_png(self.width, self.height, bytes(rgba))
 
 
-def scaled(width: int, height: int, rgba: bytes, factor: int) -> tuple[int, int, bytes]:
-    """[rgba] scaled up by [factor] with no smoothing, over a grey checkerboard, so that transparent pixels show."""
-    out = bytearray()
-    for y in range(height * factor):
-        for x in range(width * factor):
-            i = ((y // factor) * width + x // factor) * 4
-            r, g, b, a = rgba[i:i + 4]
-            bg = 200 if ((x // 8) + (y // 8)) % 2 else 160
-            out += bytes(round(c * a / 255 + bg * (255 - a) / 255) for c in (r, g, b)) + b"\xff"
-    return width * factor, height * factor, bytes(out)
+def text_width(text: str, scale: int = TEXT) -> int:
+    return max(0, len(text) * 6 - 1) * scale
 
 
-def isometric(textures: dict, elements: list, size: int = 192) -> bytes:
-    """A south-east view from above of a model's boxes, with the top, south and east faces shaded as the GUI shades
-    them."""
+def line_height(scale: int = TEXT) -> int:
+    return 11 * scale
+
+
+def wrap(text: str, limit: int) -> list[str]:
+    """[text] in lines of at most [limit] characters, broken after a '/' or at a space where it can be."""
+    lines = []
+    while len(text) > limit:
+        cut = max(text.rfind("/", 0, limit), text.rfind(" ", 0, limit + 1))
+        cut = cut + 1 if cut > 0 else limit
+        lines.append(text[:cut].rstrip())
+        text = text[cut:].lstrip()
+    return lines + [text]
+
+
+def card(images: Canvas, name: str, path: str) -> Canvas:
+    """[images] above a label: the name in dark ink, then the path in grey, each wrapped to LABEL_CHARS."""
+    lines = [(line, INK) for line in wrap(name, LABEL_CHARS)] + [(line, MUTED) for line in wrap(path, LABEL_CHARS)]
+    out = Canvas(max([images.width] + [text_width(text) for text, _ in lines]),
+                 images.height + GAP + len(lines) * line_height())
+    out.paste(0, 0, images)
+    for index, (text, color) in enumerate(lines):
+        out.text(0, images.height + GAP + index * line_height(), text, color)
+    return out
+
+
+def sprite_images(width: int, height: int, rgba: bytes) -> Canvas:
+    """A sprite at 8x and at 1x, on a light inventory slot (top) and on a dark one (bottom)."""
+    big_width, big_height, small_width, small_height = width * BIG + 8, height * BIG + 8, width + 8, height + 8
+    out = Canvas(big_width + GAP + small_width, 2 * big_height + GAP)
+    for row, background in enumerate((LIGHT_SLOT, DARK_SLOT)):
+        top = row * (big_height + GAP)
+        out.sprite(0, top, width, height, rgba, BIG, background)
+        out.sprite(big_width + GAP, top + (big_height - small_height) // 2, width, height, rgba, 1, background)
+    return out
+
+
+def isometric(textures: dict, elements: list, size: int) -> bytes:
+    """A south-east view from above of a model's boxes as RGBA, with the top, south and east faces shaded as the GUI
+    shades them."""
     canvas = bytearray(size * size * 4)
     unit, cx, cy = size / 40.0, size / 2.0, size * 0.58
 
@@ -675,64 +850,117 @@ def isometric(textures: dict, elements: list, size: int = 192) -> bytes:
             face((x0, y1, z1), (x1, y1, z1), (x0, y0, z1), faces["south"], 0.8)
         if "up" in faces:
             face((x0, y1, z0), (x1, y1, z0), (x0, y1, z1), faces["up"], 1.0)
-    return encode_png(size, size, bytes(canvas))
+    return bytes(canvas)
 
 
-def model_preview(model: pathlib.Path) -> bytes | None:
-    """A model with boxes from above, or the first layer of a generated item model scaled up, as PNG bytes."""
-    textures, elements = resolve_model(model)
-    if elements:
-        return isometric(textures, elements)
-    layer = texture_path(textures, textures.get("layer0", ""))
-    if layer is None or not layer.is_file():
-        return None
-    width, height, rgba = decode_png(layer.read_bytes(), layer.name)
-    return encode_png(*scaled(width, height, rgba, factor_for(width, height)))
+def texture_card(source: pathlib.Path, name: str, path: str) -> Canvas:
+    width, height, rgba = parse_pixels(source.read_text(encoding="utf-8"), source.name)
+    return card(sprite_images(width, height, rgba), name, path)
 
 
-def pictures_of(source: pathlib.Path, stem: str) -> str:
-    """Writes the images of one asset under build/art-review/ and returns their HTML."""
-    name = source.relative_to(ART).as_posix()
-    alt = html.escape(name)
-    if source.name.endswith(".pixels"):
-        width, height, rgba = parse_pixels(source.read_text(encoding="utf-8"), source.name)
-        factor = factor_for(width, height)
-        (REVIEW / f"{stem}-1x.png").write_bytes(encode_png(width, height, rgba))
-        (REVIEW / f"{stem}.png").write_bytes(encode_png(*scaled(width, height, rgba, factor)))
-        out = (f'<img src="{stem}.png" width="{width * factor}" height="{height * factor}" alt="{alt}, {factor}x">'
-               f'<img src="{stem}-1x.png" width="{width}" height="{height}" alt="{alt}, 1x">')
-        if name.startswith("textures/item/"):
-            # As an inventory slot shows the item at GUI scales 1, 2 and 3.
-            out += "".join(f'<span class="slot"><img src="{stem}-1x.png" width="{width * k}" height="{height * k}" '
-                           f'alt="{alt} in a slot, {k}x"></span>' for k in (1, 2, 3))
-        return out
-    if source.suffix == ".json":
-        preview = model_preview(output_of(source))
-        if preview is None:
-            return "<em>no preview</em>"
-        (REVIEW / f"{stem}.png").write_bytes(preview)
-        return f'<img src="{stem}.png" alt="{alt}">'
-    if source.suffix == ".png":
-        width, height, rgba = decode_png(source.read_bytes(), source.name)
-        (REVIEW / f"{stem}.png").write_bytes(encode_png(width, height, rgba))
-        return f'<img class="logo" src="{stem}.png" width="{min(width, 256)}" alt="{alt}">'
-    return f"<pre>{html.escape(source.read_text(encoding='utf-8'))}</pre>"
+def shipped_path(source: pathlib.Path) -> str:
+    """The path of a source's shipped file under assets/cobblemon_dynamics/."""
+    return output_of(source).relative_to(ASSETS).as_posix()
 
 
-PAGE_STYLE = (
-    ":root{--bg:#f5f5f2;--fg:#17171a;--muted:#5d5d66;--line:#d3d3d8;--card:#fff;--slot:#8b8b8b;"
-    "--pending:#a15c07;--approved:#16773a;--changes:#b42318}"
-    "@media (prefers-color-scheme:dark){:root{--bg:#151517;--fg:#ececef;--muted:#a3a3ad;--line:#3d3d45;--card:#1e1e22;"
-    "--pending:#f0a840;--approved:#4fc27a;--changes:#f2786b}}"
-    "body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif}"
-    "h1{font-size:22px;margin:0 0 4px}p{margin:4px 0 12px;color:var(--muted);max-width:900px}"
-    ".wrap{overflow-x:auto}table{border-collapse:collapse;background:var(--card)}"
-    "th,td{border:1px solid var(--line);padding:8px;vertical-align:middle;text-align:left}"
-    "th{font-size:13px;color:var(--muted)}code{font-size:12px}pre{margin:0;font-size:12px;white-space:pre-wrap}"
-    "img{image-rendering:pixelated;margin:4px;vertical-align:middle}img.logo{height:auto}"
-    ".slot{display:inline-block;background:var(--slot);padding:2px;margin:4px;line-height:0;vertical-align:middle}"
-    ".slot img{margin:0}.pending{color:var(--pending)}.approved{color:var(--approved)}.changes{color:var(--changes)}"
-)
+def gui_key(source: pathlib.Path) -> tuple:
+    folder, _, stem = source.relative_to(ART / "textures").as_posix().removesuffix(".pixels").rpartition("/")
+    groups = list(GUI_GROUPS)
+    return (groups.index(folder) if folder in groups else len(groups), folder,
+            SPRITE_ORDER.index(stem) if stem in SPRITE_ORDER else len(SPRITE_ORDER), stem)
+
+
+def tab_item() -> str | None:
+    """The id of the item that the creative tab shows as its icon, as DynamicsTabs names it."""
+    text = TABS.read_text(encoding="utf-8") if TABS.is_file() else ""
+    match = re.search(r"\.icon\(\s*Supplier\s*\{\s*ItemStack\(DynamicsItems\.(\w+)\.get\(\)\)", text)
+    return match.group(1).lower() if match else None
+
+
+def spritesheet(record: pathlib.Path, note: str) -> Canvas:
+    """The review sheet: the Work Leash, the creative tab's icon, the leash candidates, the UI sprites and, for
+    reference, the block items."""
+    names = json.loads((ASSETS / "lang/en_us.json").read_text(encoding="utf-8"))
+    textures = [source for source in sources() if source.name.endswith(".pixels")]
+    items = [source for source in textures if source.parent == ART / "textures/item"]
+    sections: list[tuple[str, list[Canvas]]] = []
+    item_name = {source: names.get(f"item.{NAMESPACE}.{source.stem}", source.stem) for source in items}
+    sections.append(("Items", [texture_card(source, item_name[source], shipped_path(source)) for source in items]))
+    tab = ART / f"textures/item/{tab_item()}.pixels"
+    if tab.is_file():
+        label = f"Creative tab icon: the {item_name.get(tab, tab.stem)} item"
+        sections.append(("Creative tab icon", [texture_card(tab, label, shipped_path(tab))]))
+    for folder in sorted(path for path in (ART / "candidates/textures").rglob("*") if path.is_dir()):
+        shipped = ART / "textures" / (folder.relative_to(ART / "candidates/textures").as_posix() + ".pixels")
+        candidates = sorted(folder.glob("*.pixels"))
+        if not candidates or not shipped.is_file():
+            continue
+        cards = []
+        for source in candidates:
+            first = source.read_text(encoding="utf-8").splitlines()[0]
+            cards.append(texture_card(source, first.lstrip("# ") if first.startswith("#") else source.stem.upper(),
+                                      rel(source)))
+        letter = chr(ord("A") + len(candidates))
+        cards.append(texture_card(shipped, f"{letter} *: the pick, which ships now", rel(shipped)))
+        title = item_name.get(shipped, shipped.stem)
+        sections.append((f"{title} candidates: * marks the pick", cards))
+    gui = sorted((source for source in textures if source.relative_to(ART / "textures").parts[0] == "gui"), key=gui_key)
+    for folder, group in GUI_GROUPS.items():
+        members = [source for source in gui if source.parent == ART / "textures" / folder]
+        cards = [texture_card(source, f"{group}: {source.stem.replace('_', ' ').capitalize()}", shipped_path(source))
+                 for source in members]
+        if cards:
+            sections.append((f"UI sprites: {group}", cards))
+    others = [source for source in gui if source.parent.relative_to(ART / "textures").as_posix() not in GUI_GROUPS]
+    if others:
+        sections.append(("UI sprites: other", [texture_card(source, source.stem, shipped_path(source))
+                                                for source in others]))
+    blocks = []
+    for source in sorted((ART / "models/item").glob("*.json")):
+        model_textures, elements = resolve_model(output_of(source))
+        if elements:
+            image = Canvas(128 + 8, 128 + 8, LIGHT_SLOT)
+            image.sprite(0, 0, 128, 128, isometric(model_textures, elements, 128), 1, LIGHT_SLOT)
+            name = names.get(f"block.{NAMESPACE}.{source.stem}", source.stem)
+            blocks.append(card(image, name, shipped_path(source)))
+    if blocks:
+        sections.append(("Blocks: representative 3D art, unchanged", blocks))
+    header = ["Each sprite shows at 8x and at 1x, on a light inventory slot (top) and on a dark one (bottom).",
+              f"Record each verdict in {rel(record)}. Made by py scripts/art.py review."]
+    return compose("Cobblemon Dynamics art review", header + ([note] if note else []), sections)
+
+
+def compose(title: str, header: list[str], sections: list[tuple[str, list[Canvas]]]) -> Canvas:
+    """Lays the sections out one below the other, each a heading over its cards in rows."""
+    limit = (SHEET_WIDTH - 2 * MARGIN) // (6 * TEXT)
+    placed: list[tuple[int, int, Canvas]] = []
+    texts: list[tuple[int, int, str, bytes, int]] = [(MARGIN, MARGIN, title, INK, 4)]
+    y = MARGIN + line_height(4) + GAP
+    for line in (part for text in header for part in wrap(text, limit)):
+        texts.append((MARGIN, y, line, MUTED, TEXT))
+        y += line_height()
+    rules = []
+    for heading, cards in sections:
+        y += 3 * GAP
+        texts.append((MARGIN, y, heading, INK, 3))
+        y += line_height(3)
+        rules.append(y)
+        y += 2 * GAP
+        x, row = MARGIN, 0
+        for item in cards:
+            if x > MARGIN and x + item.width > SHEET_WIDTH - MARGIN:
+                x, y, row = MARGIN, y + row + 3 * GAP, 0
+            placed.append((x, y, item))
+            x, row = x + item.width + 4 * GAP, max(row, item.height)
+        y += row
+    sheet = Canvas(SHEET_WIDTH, y + MARGIN)
+    for x, top, text, color, scale in texts:
+        sheet.text(x, top, text, color, scale)
+    for top in rules:
+        sheet.fill(MARGIN, top, SHEET_WIDTH - 2 * MARGIN, 2, MUTED)
+    for x, top, item in placed:
+        sheet.paste(x, top, item)
+    return sheet
 
 
 def review(args: argparse.Namespace) -> int:
@@ -740,31 +968,14 @@ def review(args: argparse.Namespace) -> int:
     if stale:
         raise ArtError("the shipped assets are not the build of their sources: " + "; ".join(stale))
     write_record(args.record)
-    rows = read_record(args.record)
+    sheet = spritesheet(args.record, args.note)
     REVIEW.mkdir(parents=True, exist_ok=True)
-    for old in REVIEW.glob("*.png"):
-        old.unlink()
-    cells, counts = [], {}
-    for source in manifest():
-        stem = re.sub(r"[^a-z0-9]+", "-", source.relative_to(ART).as_posix().lower()).strip("-")
-        _, verdict, date, note = rows.get(rel(source), ("", "pending", "", ""))
-        counts[verdict] = counts.get(verdict, 0) + 1
-        cells.append(f"<tr><td>{html.escape(title_of(source))}<br><code>{html.escape(rel(source))}</code></td>"
-                     f"<td><code>{sha256(source)[:12]}</code></td><td>{pictures_of(source, stem)}</td>"
-                     f'<td class="{html.escape(verdict)}">{html.escape(verdict)}<br>{html.escape(date)}</td>'
-                     f"<td>{html.escape(note)}</td></tr>")
-    summary = ", ".join(f"{count} {verdict}" for verdict, count in sorted(counts.items()))
-    page = ("<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
-            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-            f"<title>Art review</title><style>{PAGE_STYLE}</style></head><body>"
-            f"<h1>Cobblemon Dynamics art review</h1><p>{len(cells)} assets: {html.escape(summary)}. Each texture shows "
-            "scaled up with no smoothing over a checkerboard, then at 1x. An item texture also shows in an inventory "
-            "slot at GUI scales 1, 2 and 3. Each block model shows from above. Record each verdict in "
-            f"<code>{html.escape(rel(args.record))}</code>.</p><div class=\"wrap\"><table>"
-            "<tr><th>Asset</th><th>SHA-256</th><th>Images</th><th>Verdict</th><th>Note</th></tr>"
-            + "".join(cells) + "</table></div></body></html>\n")
-    (REVIEW / "index.html").write_text(page, encoding="utf-8", newline="\n")
-    print(f"REVIEW wrote {rel(REVIEW / 'index.html')} for {len(cells)} assets")
+    for old in REVIEW.iterdir():
+        if old.is_file():
+            old.unlink()
+    target = REVIEW / "spritesheet.png"
+    target.write_bytes(sheet.png())
+    print(f"REVIEW wrote {rel(target)} ({sheet.width} x {sheet.height} pixels)")
     return 0
 
 
@@ -808,7 +1019,16 @@ def self_check() -> int:
     assert title_of(on) == "textures/gui/sprites/work_mode/on"
     assert title_of(on.with_name("on.pixels.mcmeta")) == "textures/gui/sprites/work_mode/on.mcmeta"
     assert title_of(ART / "models/block/hay_bed.json") == "models/block/hay_bed"
-    assert scaled(1, 1, bytes.fromhex("ff000080"), 2)[:2] == (2, 2)
+    assert all(len(row) == 5 for glyph in FONT.values() for row in glyph.split())
+    assert all(len(glyph.split()) <= 9 for glyph in FONT.values())
+    path = "textures/gui/sprites/work_mode/disabled.png"
+    assert wrap(path, 32) == ["textures/gui/sprites/work_mode/", "disabled.png"]
+    assert wrap("a b", 5) == ["a b"] and text_width("ab") == 22
+    canvas = Canvas(12, 12, bytes(3))
+    canvas.sprite(0, 0, 1, 1, bytes.fromhex("ff000080"), 2, bytes.fromhex("0000ff"))
+    assert canvas.pixels[(4 * 12 + 4) * 3:(4 * 12 + 5) * 3] == bytes((128, 0, 127))
+    assert canvas.pixels[(6 * 12 + 6) * 3:(6 * 12 + 7) * 3] == bytes.fromhex("0000ff")
+    assert decode_png(canvas.png())[:2] == (12, 12)
     print("self-check passed")
     return 0
 
@@ -823,8 +1043,10 @@ def main() -> int:
                         help="'auto', or the jars of Minecraft, Cobblemon, Create and AE2")
     checks.add_argument("--release", action="store_true", help="also require the approver's approval of every asset")
     checks.add_argument("--record", type=pathlib.Path, default=RECORD)
-    reviews = commands.add_parser("review", help="write build/art-review/ and the rows of the review record")
+    reviews = commands.add_parser("review", help="write the review sheet build/art-review/spritesheet.png and the rows "
+                                  "of the review record")
     reviews.add_argument("--record", type=pathlib.Path, default=RECORD)
+    reviews.add_argument("--note", default="", help="a line to print under the sheet's title")
     imports = commands.add_parser("import", help="write a .pixels source from a PNG")
     imports.add_argument("png")
     imports.add_argument("source")

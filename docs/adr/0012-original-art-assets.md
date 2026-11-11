@@ -68,3 +68,9 @@ beds -- things like the work leash that you never place, are the only ones that 
 that represents their placed 3D object: an item model that renders the block model, as the beds have. That art is release
 art. The bed concepts above no longer bind. Original pixel art in Cobblemon's item style is for items that are never placed,
 which is the Work Leash. The UI sprites stay as decided. Every asset still goes through the approver's review.
+
+## Amendment (2026-11-11)
+
+The approver ruled: "for art review, can you just create a .png spritesheet and tell me the location? I'll review it that
+way". The review is one PNG spritesheet, `build/art-review/spritesheet.png`, which `py scripts/art.py review` writes. It
+replaces the screenshot review page of the rules above. The review record `docs/testing/art-review.md` keeps the verdicts.

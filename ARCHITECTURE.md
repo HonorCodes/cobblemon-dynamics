@@ -816,8 +816,8 @@ Rules:
 - Source files live under `art/`: a `.pixels` text source for each texture and the JSON model files.
   `py scripts/art.py build` writes the shipped models and textures under `assets/cobblemon_dynamics/`
   from them. Both are under the repository's MPL-2.0 license.
-- Claude drafts each asset. The operator approves each one on a screenshot review page before the
-  public release.
+- Claude drafts each asset. The operator approves each one on the review spritesheet
+  (`py scripts/art.py review`) before the public release.
 - Private builds may use placeholder art. The final art lands in milestone M8.
 
 ## 12. Milestones and phases
@@ -873,7 +873,7 @@ Rules:
   cannot see: animations, the pasture panel button and bars, head bars, sleep visuals, leash messages,
   fan particles on the client, and coexistence with Cobbleworkers and Cobblebase. The spec sheet's
   `Demo:` rows point to it.
-- **Art review.** The operator approves each asset on a screenshot review page in milestone M8.
+- **Art review.** The operator approves each asset on the review spritesheet in milestone M8.
 - **CI.** GitHub Actions runs the build, the unit tests and the GameTests on each push and pull request
   to `main`.
 

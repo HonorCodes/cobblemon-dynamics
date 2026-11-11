@@ -170,9 +170,9 @@ characters per pixel row. Edit a source, then run `py scripts/art.py build`, whi
 writes the shipped files under `src/main/resources/assets/`. `py scripts/art.py check`
 checks the sizes, the sources, the models and the license, and `--references auto`
 also compares every texture with the textures of Minecraft, Cobblemon, Create and
-AE2, tile by tile. `py scripts/art.py review` writes a review page to
-`build/art-review/index.html`. `py scripts/art.py import PNG SOURCE` turns a PNG into
-a source. The art is under the repository's MPL-2.0 license.
+AE2, tile by tile. `py scripts/art.py review` writes the review spritesheet
+`build/art-review/spritesheet.png`. `py scripts/art.py import PNG SOURCE` turns a PNG
+into a source. The art is under the repository's MPL-2.0 license.
 
 ## Compatibility
 
