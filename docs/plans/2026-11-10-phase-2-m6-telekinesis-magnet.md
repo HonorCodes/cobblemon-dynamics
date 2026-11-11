@@ -1874,7 +1874,10 @@ fun `CD-LSH-16 with the default files a Slowbro on a basin gets the Pump, not Te
 - [ ] **Step 4: GameTest** in `CreateLeashTests` (both handlers meet a real Create basin, so rule 6 keeps it):
 
 ```kotlin
-/** A Water- and Psychic-type Slowbro clicks a Create basin, which both the Pump and Telekinesis match: the Pump binds with one click (CD-LSH-16). */
+/**
+ * A Water- and Psychic-type Slowbro clicks a Create basin, which both the Pump and Telekinesis match: the Pump binds with one click
+ * (CD-LSH-16).
+ */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 100)
 fun cdLsh16SlowbroOnABasinBindsAsPump(helper: GameTestHelper) {
     val basinRel = BlockPos(5, 2, 4)
@@ -1882,12 +1885,15 @@ fun cdLsh16SlowbroOnABasinBindsAsPump(helper: GameTestHelper) {
     val (owner, pasture) = owner(helper)
     val slowbro = TestKit.tether(helper, pasture, owner, "slowbro level=30")
     helper.runAfterDelay(1) {
+        helper.assertTrue(TestKit.items(helper, basinRel) != null, "the basin has no item handler, so Telekinesis does not fit it")
         val binding = TestKit.bind(helper, owner, slowbro, basinRel)
         helper.assertTrue(binding?.roleId == id("pump") && binding.destination == null, "CD-LSH-16: the click gave $binding")
         helper.succeed()
     }
 }
 ```
+
+  The first assertion shows that the basin has the item handler that Telekinesis needs, so the scene has two fitting roles.
 
 - [ ] **Step 5: Run** `./gradlew build`, then `./gradlew runGameTestServer` twice in a row. Search the code for
   `test_transfer`: no file may name it.

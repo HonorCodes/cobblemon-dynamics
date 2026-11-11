@@ -13,7 +13,7 @@ import java.util.UUID
 
 class BindRulesTest {
     private val stoker = role("stoker", setOf("fire"))
-    private val transfer = role("test_transfer", setOf("psychic"), autoAssign = false)
+    private val transfer = role("telekinesis", setOf("psychic"), autoAssign = false)
     private val shape: (RoleDefinition) -> BindingShape = {
         if (it == transfer) BindingShape.SOURCE_AND_DESTINATION else BindingShape.SINGLE
     }

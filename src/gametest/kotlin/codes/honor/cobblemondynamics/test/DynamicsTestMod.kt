@@ -1,6 +1,5 @@
 package codes.honor.cobblemondynamics.test
 
-import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.alchemy.Potions
 import net.neoforged.bus.api.EventPriority
@@ -22,7 +21,6 @@ const val REACHED_ENTITY_INTERACTION = "cobblemon_dynamics_test:reached_entity_i
 @Mod(TEST_MOD_ID)
 class DynamicsTestMod(modBus: IEventBus) {
     init {
-        HandlerRegistry.register(TestTransferHandler)
         TestBattery.register(modBus)
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, PlayerInteractEvent.EntityInteract::class.java) {
             it.target.persistentData.putBoolean(REACHED_ENTITY_INTERACTION, true)

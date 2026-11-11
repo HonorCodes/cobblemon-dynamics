@@ -28,7 +28,7 @@ class BindingTest {
     @Test
     fun `CD-LSH-18 a source-and-destination binding keeps both targets and both faces`() {
         val binding = Binding(
-            roleId = ResourceLocation.parse("cobblemon_dynamics:test_transfer"),
+            roleId = ResourceLocation.parse("cobblemon_dynamics:telekinesis"),
             dimension = ResourceLocation.parse("minecraft:the_nether"),
             pasture = BlockPos(0, 70, 0),
             target = BlockPos(2, 70, 0),
