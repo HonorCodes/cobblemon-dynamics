@@ -4,34 +4,52 @@ import codes.honor.cobblemondynamics.OnceLogger
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
-/** The question of one claim mod: may [owner] right-click [pos] in [level] with an empty main hand (CD-QWK-26). */
-fun interface LandClaimCheck {
+/** The two questions of one claim mod. Each asks about the canonical block of a target, with an empty main hand. */
+interface LandClaimCheck {
+    /** Quick Work: may the online [owner] right-click [pos] (CD-QWK-26). The claim mod may show its own text. */
     fun mayUse(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean
+
+    /**
+     * A pasture: may the player [ownerId], online or not, use [pos] (CD-LND-05). Null is a pasture with no placer. The check sends no
+     * message and counts no attempt (CD-LND-10).
+     */
+    fun ownerMayUse(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean
 }
 
-/** Every check must allow, in order, and the first refusal ends the questions. A check that throws refuses (CD-QWK-30). */
+/** Who asks, for the warning of a check that throws (CD-QWK-30, CD-LND-11). */
+enum class ClaimAsker(val refusal: String) {
+    QUICK_WORK("Quick Work refuses orders"),
+    PASTURE("Pastures work no target"),
+}
+
+/**
+ * Every check must allow, in order, and the first refusal ends the questions. A check that throws refuses, with one warning for each
+ * asker, claim mod and class of error (CD-QWK-30, CD-LND-11).
+ */
 class LandClaimGate(private val warnings: OnceLogger) {
-    fun <C> allows(checks: List<Pair<String, C>>, ask: (C) -> Boolean): Boolean = checks.all { (id, check) ->
+    fun <C> allows(asker: ClaimAsker, checks: List<Pair<String, C>>, ask: (C) -> Boolean): Boolean = checks.all { (id, check) ->
         try {
             ask(check)
         } catch (e: Exception) {
-            refuse(id, e)
+            refuse(asker, id, e)
         } catch (e: LinkageError) {
-            refuse(id, e)
+            refuse(asker, id, e)
         }
     }
 
-    private fun refuse(id: String, e: Throwable): Boolean {
-        warnings.warn("$id:${e.javaClass.name}") { "Quick Work refuses orders while the claim check of $id fails: $e" }
+    private fun refuse(asker: ClaimAsker, id: String, e: Throwable): Boolean {
+        warnings.warn("$asker:$id:${e.javaClass.name}") { "${asker.refusal} while the claim check of $id fails: $e" }
         return false
     }
 }
 
 /**
- * The claim mods that Quick Work asks (CD-QWK-26, CD-QWK-29). Mod construction fills the list, as it fills HandlerRegistry, and
- * nothing changes it later, so it holds no state of a world. This file names no class of a claim mod.
+ * The claim mods that Quick Work and the pastures ask (CD-QWK-26, CD-QWK-29, CD-LND-01 to CD-LND-04). Mod construction fills the
+ * list, as it fills HandlerRegistry, and nothing changes it later, so it holds no state of a world. This file names no class of a
+ * claim mod.
  */
 object LandClaims {
     private val checks = CopyOnWriteArrayList<Pair<String, LandClaimCheck>>()
@@ -41,5 +59,10 @@ object LandClaims {
         checks += modId to check
     }
 
-    fun mayUse(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean = gate.allows(checks) { it.mayUse(owner, level, pos) }
+    fun mayUse(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean =
+        gate.allows(ClaimAsker.QUICK_WORK, checks) { it.mayUse(owner, level, pos) }
+
+    /** CD-LND-05: by the UUID of the pasture's placer, never a player, so an offline placer gets the answer of an online one. */
+    fun ownerMayUse(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean =
+        gate.allows(ClaimAsker.PASTURE, checks) { it.ownerMayUse(ownerId, level, pos) }
 }
