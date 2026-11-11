@@ -31,6 +31,13 @@ Corrections after agreement:
   to the art of M8.
 - 2026-11-10, approver's ruling after the play-test (R61): a creative tab. The new row CD-UI-16 lists every item of the
   mod in the tab `cobblemon_dynamics:main`, and in no vanilla tab.
+- 2026-11-10, approver's ruling after the multiplayer audit (R62): an operator command for a binding whose binder does not
+  come back. The new row CD-UI-17 gives `/cobblemondynamics unbind <pos>`, which clears every binding whose target or
+  Telekinesis source is that block and tells each binder.
+- 2026-11-10, approver's ruling after the multiplayer audit: CD-LSH-05 names a Pokémon of another player by its species,
+  as "Already assigned to another player's {species}", so a refusal never shows another player's nickname.
+- 2026-11-10, approver's ruling after the multiplayer audit: CD-LSH-13 gives an owner who is offline the message at the next
+  login. The server keeps up to the 10 newest such messages per owner in memory, so a server restart drops them.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -110,7 +117,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 
 ## Inputs
 
-Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 to R61 come from the approver's rulings after the Phase 1 play-test, on 2026-11-10.
+Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 to R61 come from the approver's rulings after the Phase 1 play-test, on 2026-11-10. R62 comes from the approver's rulings on the multiplayer audit, on 2026-11-10.
 
 | Input | Link |
 | --- | --- |
@@ -175,6 +182,7 @@ Rulings R1 to R58 come from the design session with the approver on 2026-11-09. 
 | R59. Ruling (2026-11-10, after the Phase 1 play-test): Fire-types do not heat Blaze Burners. Dragon-types alone heat them, `KINDLED` below level 50 and `SEETHING` from level 50. The Burner Keeper role goes. | none |
 | R60. Ruling (2026-11-10, after the Phase 1 play-test): a Charge Cell block, with an item, stores up to 50,000 FE behind NeoForge's energy capability on all six faces and takes FE on each. Every tick it pushes its FE into each adjacent block that takes FE, split fairly between the faces, and it never loops FE between two cells. A comparator reads its fill from 0 to 15. A broken cell keeps its FE on the item, and the tooltip shows it. A shaped recipe from copper ingots, redstone and a Cobblemon Thunder Stone makes it. | none |
 | R61. Ruling (2026-11-10, after the Phase 1 play-test): the mod's items get their own creative tab, `cobblemon_dynamics:main`, titled "Cobblemon Dynamics" with the Work Leash as its icon. It holds the Work Leash, the four beds and the Charge Cell, in that order, and the items leave the vanilla tabs. | none |
+| R62. Ruling (2026-11-10, after the multiplayer audit): operators get `/cobblemondynamics unbind <pos>`, at permission level 2. It clears every leash binding whose target or source is that block, through the leash resets with the reason `cleared_by_operator`, and tells each binder. | none |
 | RES1. Research: Cobblemon 1.8.4 integration points. | `docs/research/2026-11-09-integration-points.md` |
 | RES2. Research: Create 6.0.10 kinetic and heat hooks. | `docs/research/2026-11-09-integration-points.md` |
 | RES3. Research: AE2 19.2.19, NeoForge 21.1 and vanilla furnace facts. | `docs/research/2026-11-09-integration-points.md` |
@@ -324,7 +332,7 @@ and default priority. The default role files hold these values.
 | CD-LSH-02 | When the Work Leash acts on a Pokémon, the server MUST cancel the interaction before Cobblemon handles it. | MUST | R3, RES1, RES3 | Otherwise Cobblemon opens its interact wheel or puts the Pokémon on a shoulder. | Demo: a plain right-click and a sneak right-click with the leash on an owned pastured Pokémon. Fails if: either click opens Cobblemon's wheel or mounts the Pokémon. | content | agreed |
 | CD-LSH-03 | When a player right-clicks a block with a Work Leash that holds a selection, and the role that fits the block needs one target, the work engine MUST bind the selected Pokémon to that block if every bind rule passes. | MUST | R3, G5 | The binding is the player's exact assignment. | GameTest: select a pastured Vaporeon, then right-click a water wheel in its work area. Fails if: no binding exists 1 tick later. | work engine | agreed |
 | CD-LSH-04 | When the Work Leash binds a block, the server MUST stop that block from opening its own screen. | MUST | R3, RES3 | A furnace screen that opens on every bind gets in the way. | Demo: bind a Fire-type to a furnace. Fails if: the furnace screen opens. | content | agreed |
-| CD-LSH-05 | If a bind breaks a rule, then the work engine MUST refuse it and show the rule's message: `"Outside its pasture's work area"`, `"No role fits"`, `"Already assigned to {Pokémon}"` or `"Not in a Work Mode pasture"`. | MUST | R3, R24, misuse sweep, limits sweep | Each refusal tells the player what to fix. | GameTest: a target at horizontal offset 9 (offset 8 binds), a stone block, a target bound to Pikachu, and a selection whose Pokémon left the pasture. Fails if: a case binds, or shows the wrong message. | work engine | agreed |
+| CD-LSH-05 | If a bind breaks a rule, then the work engine MUST refuse it and show the rule's message: `"Outside its pasture's work area"`, `"No role fits"`, `"Already assigned to {Pokémon}"`, which names another player's Pokémon by its species as `"Already assigned to another player's {species}"`, or `"Not in a Work Mode pasture"`. | MUST | R3, R24, misuse sweep, limits sweep | Each refusal tells the player what to fix. A Pokémon's nickname is its owner's to show, so another player's Pokémon is named by its species (approver's multiplayer-audit ruling, 2026-11-10). | GameTest: a target at horizontal offset 9 (offset 8 binds), a stone block, a target bound to Pikachu, and a selection whose Pokémon left the pasture. Unit: a target bound to another player's Pikachu with the nickname Sparky. Fails if: a case binds, shows the wrong message, or the message for another player's Pikachu names Sparky. | work engine | agreed |
 | CD-LSH-06 | When a bind succeeds, the client MUST show `"Bound {Pokémon} to {target}"` in the action bar. | MUST | R24 | The player sees which machine the worker now owns. | Demo: bind Vaporeon to a water wheel. Fails if: the action bar does not read "Bound Vaporeon to Water Wheel". | client | agreed |
 | CD-LSH-07 | The work engine MUST save each leash binding in the bound Pokémon's `persistentData`. | MUST | R3, R24, RES1 | Bindings survive restarts, Cobblemon's PC sync and Work Mode toggles. | GameTest: bind a worker, restart the server, then turn Work Mode off and on. Fails if: the binding is missing after either step. | work engine | agreed |
 | CD-LSH-08 | When a bound Pokémon is recalled to the PC or the party, or its target is broken or replaced, the work engine MUST clear the binding. | MUST | R24, R58, entity lifecycle sweep | A binding to a missing Pokémon or block reserves nothing real. | GameTest: one bound Pokémon goes to the PC, a second goes to the party, a third one's target is broken, and a fourth one's target is replaced with stone. Fails if: a binding remains 20 ticks later. | work engine | agreed |
@@ -332,7 +340,7 @@ and default priority. The default role files hold these values.
 | CD-LSH-10 | When a player sneak-right-clicks a bound Pokémon that the player owns with the Work Leash, the work engine MUST clear its binding. | MUST | R3 | The player can undo a binding. | GameTest: sneak-right-click a bound Vaporeon with the leash. Fails if: the binding remains 1 tick later. | work engine | agreed |
 | CD-LSH-11 | When a player binds an already bound Pokémon to a new target, the work engine MUST replace the old binding. | MUST | R3, entity lifecycle sweep | A Pokémon holds one binding, so a new one replaces the old one. | GameTest: bind Vaporeon to wheel A, then to wheel B. Fails if: wheel A stays reserved, or Vaporeon is not bound to wheel B. | work engine | agreed |
 | CD-LSH-12 | While a bound Pokémon is Tired, the work engine MUST NOT start work on a new binding. | MUST NOT | R10, state × event sweep | Binding a sleeping worker must not cut its rest short. | GameTest: bind a Tired Pokémon to a furnace. Fails if: it works before it reaches 100%, or the binding is lost. | work engine | agreed |
-| CD-LSH-13 | When the work engine clears a binding for any reason except the owner's own leash action, the client MUST show the owner a chat message that names the Pokémon and the reason. | MUST | R24 | A silent loss of a binding looks like a bug. | Demo: evolve one bound Pokémon into a form that no role fits, and break another one's target. Fails if: an owner gets no message, or a message lacks the name or the reason. | client | agreed |
+| CD-LSH-13 | When the work engine clears a binding for any reason except the owner's own leash action, the client MUST show the owner a chat message that names the Pokémon and the reason, at once or, for an owner who is offline, at the owner's next login. The server keeps up to the 10 newest such messages per offline owner in memory only, so a server restart drops them. | MUST | R24 | A silent loss of a binding looks like a bug. An owner who was offline when a binding cleared still learns of it, and the queue stays small (approver's multiplayer-audit ruling, 2026-11-10). | Demo: evolve one bound Pokémon into a form that no role fits, and break another one's target. Unit: 12 messages for one offline owner, then a login, a second login and a server stop. Fails if: an owner gets no message, a message lacks the name or the reason, the login does not hand over the 10 newest messages oldest first, the second login gets them again, or a message survives the server stop. | client | agreed |
 | CD-LSH-14 | When a bound Pokémon evolves into a form that no role on its target fits, the work engine MUST clear the binding. | MUST | R24 | The new form cannot do the job. | GameTest: bind a Water-type to a wheel, then change its form to one with no Water type. Fails if: the binding remains 20 ticks later. | work engine | agreed |
 | CD-LSH-15 | Dynamics MUST register the Work Leash recipe from the Recipes table. | MUST | R24 | Players craft the leash in survival. | GameTest: craft a Lead and a Poké Ball in any two grid slots. Fails if: the result is not one Work Leash. | content | agreed |
 | CD-LSH-16 | When more than one role fits a clicked target, the work engine MUST pick the role with the higher priority, then the role id that sorts first. | MUST | R55 | One click must give one predictable role. | Unit: a Water/Psychic Slowbro clicks a Create basin, which exposes both a fluid and an item handler. Both roles have priority 0, so the Pump wins because `pump` sorts before `telekinesis`. Fails if: the Telekinesis role is picked. | work engine | agreed |
@@ -667,6 +675,7 @@ and default priority. The default role files hold these values.
 | CD-UI-14 | Dynamics MUST give operators the command `/cobblemondynamics claims`, which lists each claim and each leash binding with its target, worker and kind. | MUST | R24, quality sweep | Operators find stuck machines. | GameTest: run the command with a work claim, a bed claim, a heal claim and a leash binding. Fails if: the output lacks an entry or a field. | work engine | agreed |
 | CD-UI-15 | Dynamics MUST give operators the command `/cobblemondynamics stamina`, which shows a Pokémon's Work Stamina, state and recovery rule. | MUST | R24, quality sweep | Operators check the stamina math in play. | GameTest: run the command on a Lv50 healer at 40%. Fails if: the output lacks the value, the state, or "healer rule". | stamina | agreed |
 | CD-UI-16 | Dynamics MUST list every item of the mod in its own creative mode tab `cobblemon_dynamics:main`, titled "Cobblemon Dynamics" with the Work Leash as its icon, in this order: the Work Leash, the four beds by tier and the Charge Cell, and in no vanilla tab. | MUST | R61 | The approver's ruling of 2026-11-10: the approver did not find the items in the creative menu, and one tab holds them all in one place. | GameTest: build the tab and the vanilla Tools and Utilities and Functional Blocks tabs. Fails if: the tab is missing, its title or icon differs, it misses an item that the mod registers or lists the items in another order, or one of the vanilla tabs lists an item of the mod. | content | agreed |
+| CD-UI-17 | Dynamics MUST give operators the command `/cobblemondynamics unbind <pos>`, which clears every leash binding whose target or Telekinesis source is the block at that position in the operator's level, or the canonical block that the Work Leash finds from it, and sends each binder the chat message of CD-LSH-13 with the reason "an operator cleared it". | MUST | R62 | The approver's ruling of 2026-11-10, after the multiplayer audit: a player who binds a Pokémon in another player's pasture to that player's block and then leaves the server for good reserves the block forever, because Cobblemon 1.8.4 lets only a Pokémon's owner take it out of a pasture. | Demo: an operator binds a Charmander to a furnace and runs `/cobblemondynamics unbind` with the furnace's position. Fails if: the binding remains, `/cobblemondynamics claims` still lists it, the reply does not name the Charmander, or the chat lacks "Charmander lost its work binding: an operator cleared it". | work engine | agreed |
 
 ### CMP: compatibility
 
@@ -853,6 +862,7 @@ and default priority. The default role files hold these values.
 | R59 | CD-BRN-01 to CD-BRN-07, CD-SUP-02, CD-ASG-16 |
 | R60 | CD-GEN-08 to CD-GEN-12, CD-REL-08, CD-ART-01 |
 | R61 | CD-UI-16 |
+| R62 | CD-UI-17 |
 | RES1 | CD-PLAT-02, CD-AI-01, CD-AI-04, CD-AI-07, CD-AI-09, CD-FX-03, CD-HEAL-15, CD-UI-11, CD-REL-07, CD-CFG-14 |
 | RES2 | CD-WHL-02, CD-WHL-09, CD-BRN-02, CD-CRK-02, CD-CRK-04 |
 | RES3 | CD-PLAT-01, CD-GEN-04, CD-GEN-07, CD-STK-04, CD-CRY-02, CD-SEC-11 |
@@ -885,7 +895,7 @@ Output of `scripts/check_spec_sheet.py` (documentation-driven-design skill 1.2.1
 exit 0:
 
 ```text
-docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 348 rows
+docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 349 rows
   malformed row (cell count differs from the header): 0
   missing, malformed or duplicate ID: 0
   empty or placeholder cell: 0
@@ -898,6 +908,6 @@ docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 348 rows
   unknown Status value: 0
 ```
 
-- Trace-table lines mapped: 93 of 93 (11 goals + 82 inputs + 0 assumptions)
+- Trace-table lines mapped: 94 of 94 (11 goals + 83 inputs + 0 assumptions)
 - Sweeps recorded: 7 of 7
-- Rows by level: 293 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY
+- Rows by level: 294 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY

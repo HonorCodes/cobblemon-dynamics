@@ -70,7 +70,7 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   net/                   payload definitions and handlers
   compat/                Cobbleworkers and Cobblebase shims
   command/               /cobblemondynamics operator commands
-  client/                pasture panel hooks, head bars, client state cache
+  client/                payload handlers, pasture panel hooks, head bars, client state cache
 src/main/java/codes/honor/cobblemondynamics/
   MixinState.java        which mixins injected their handler call; outside the mixin package,
                          because Mixin refuses to load a class of that package
@@ -121,7 +121,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Work Leash | `leash` | Handles the two-click binding, the three-click Telekinesis binding, the pending selection, the clear gesture and the flip gesture. Sends action-bar feedback. | Claim registry, handlers |
 | Network | `net` | Defines our payloads and validates every client payload on the server. | Client, engine |
 | Compat | `compat` | Sets and clears the Cobbleworkers rest flag. Gates the Cobblebase mixins. | Cobbleworkers data, Cobblebase |
-| Commands | `command` | `/cobblemondynamics claims` and `/cobblemondynamics stamina` for operators. | Claim registry, stamina |
+| Commands | `command` | `/cobblemondynamics claims`, `/cobblemondynamics stamina` and `/cobblemondynamics unbind` for operators. `unbind <pos>` clears the bindings on a block through the leash resets, for a binding whose binder does not come back. | Claim registry, stamina, leash |
 | Client | `client` | Adds the Work Mode button to the pasture panel. Draws panel stamina bars and head bars. Outlines bound targets while the player holds the Work Leash. Answers the fan and windmill checks that Create runs on the client. | Cobblemon client GUI, payloads, Create client |
 
 ## 4. Data model
@@ -133,7 +133,8 @@ files live under `assets/cobblemon_dynamics/`.
 | Leash binding (per Pokémon) | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `binding`: role id, pasture position, target position and clicked face. A Telekinesis binding also holds the destination position and its clicked face. The dimension is the pasture's dimension. | Saved with the Pokémon in the PC and the party. Call `onChange()` after a change. | No |
 | Leash binding index | Level attachment `cobblemon_dynamics:leash_index`: target position to the bound Pokémon's UUID, its owner, its pasture position and the role id. For Telekinesis, the key is the source. Used to refuse a second binding on the same target, to reserve the target in the claim registry, and by the 10-tick reset check. | Saved with the level. | No |
 | Work claims, bed claims, heal claims | `ClaimRegistry` in server memory. | Not saved. Scans rebuild them after a restart, so no claim goes stale. | No |
-| Leash selection and pending source | Data components on the Work Leash stack: `cobblemon_dynamics:leash_selection` (the selected Pokémon's UUID and name) and `cobblemon_dynamics:pending_source` (for Telekinesis, the source position, its clicked face and the click tick). The server binds only from its own copy of the stack. | Saved with the stack. The pending source expires after 600 ticks (30 s) or on a right-click on air. | Yes, as item data |
+| Waiting chat messages | `Feedback`'s queue in server memory: the message of each binding that clears while its binder is offline, up to the 10 newest per player. | Not saved. A server stop drops them. | As chat, at the player's next login. |
+| Leash selection and pending source | Data components on the Work Leash stack: `cobblemon_dynamics:leash_selection` (the selected Pokémon's UUID and name) and `cobblemon_dynamics:pending_source` (for Telekinesis, the source's dimension and position, its clicked face and the click tick). The server binds only from its own copy of the stack. A pending source counts only in the level of its click, because in another level its position names a block that the player never clicked. | Saved with the stack. The pending source expires after 600 ticks (30 s), on a right-click on air, or on the first tick or click in another level. | Yes, as item data |
 | Worker runtime state | `WorkerState` in the work engine, keyed by Pokémon UUID: state, Tired flag, claim, work spot, timers, per-target skip list. | Not saved. | Through the stamina view below. |
 | Work Stamina | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `stamina`: `percent` (0.0 to 1.0), `tired` (boolean), `last_game_time` (long, overworld game time). | Saved with the Pokémon. The engine flushes it on each state change, every 600 ticks, on entity unload and on server stop. | Entity attachment `cobblemon_dynamics:stamina_view` (`percent` as 0 to 100, `state` as an enum ordinal), synced with NeoForge attachment sync. |
 | Fan worker mark | Entity attachment `cobblemon_dynamics:fan_worker`: the position of the fan that this Pokémon serves as a working catalyst, or none. | Not saved. The engine sets it while the Fan Catalyst works. | NeoForge attachment sync, so the client exempts the worker from the fan push. |
@@ -252,9 +253,11 @@ Transition rules:
   Pokémon that far from its goal.
 - **Healers.** A healer must have at least 25% Work Stamina and no machine claim. It picks a Tired ally
   first (nearest first), else the ally with the lowest Work Stamina under 25%. Allies are in the
-  same pasture and have no Fairy type. A healer never heals itself. One healer acts on one ally at a
-  time, through a heal claim on the ally's UUID. Healers choose after each scan pass. The heal completes
-  within 2 blocks of the ally's body, because a healer stops at the body of a wide ally.
+  same pasture and have no Fairy type. An ally may belong to another player: a shared pasture is
+  cooperative, so its healers heal every owner's workers. A healer never heals itself. One healer
+  acts on one ally at a time, through a heal claim on the ally's UUID. Healers choose after each scan
+  pass. The heal completes within 2 blocks of the ally's body, because a healer stops at the body of a
+  wide ally.
 
 ## 6. Per-tick flow
 
@@ -343,11 +346,26 @@ role parameters and, for Telekinesis, the destination and both faces. It also ca
 value that the handler keeps for the length of the work claim, such as the Generator's capability cache. The
 engine gives each claim an empty memo and drops it when the claim ends.
 
+A handler call that throws turns off every role of that handler, with one warning, and the next tick releases
+their claims. The roles come back when the server stops and when the role files load again, which `/reload`
+does. A dedicated server therefore keeps no role off for good, and in singleplayer the next world of the same
+game starts with every role.
+
 ## 7. Network
 
 Our payloads use NeoForge `CustomPacketPayload` with a `StreamCodec`, registered in
 `RegisterPayloadHandlersEvent`. The server validates every client payload: permission, distance,
 ownership and rate.
+
+Both sides register every payload in common code (`net/DynamicsPayloads`), so the server can encode what it
+sends. The client's handlers of the two server-to-client payloads live in `client/ClientPayloads`, which
+`DynamicsClient` installs on the client dist only. No common class names a client class.
+
+Every handler runs on the main thread. NeoForge 21.1's `PayloadRegistrar` starts with `HandlerThread.MAIN`
+and wraps each handler in `MainThreadPayloadHandler`, which passes it to `IPayloadContext.enqueueWork`. On
+the server, `ServerPayloadContext.enqueueWork` runs it on the server's main thread, at once when it is
+already there (checked with `javap` on NeoForge 21.1.265). No registrar of ours calls `executesOn`, so the
+server state that the handlers read needs no locks, and requests apply in the order they arrive (CD-SEC-06).
 
 | Payload id | Direction | Fields | When |
 |---|---|---|---|
@@ -355,8 +373,20 @@ ownership and rate.
 | `cobblemon_dynamics:pasture_panel_open` | client to server | none | The pasture panel opens. |
 | `cobblemon_dynamics:pasture_panel_close` | client to server | none | The pasture panel closes. |
 | `cobblemon_dynamics:pasture_panel_state` | server to client | `workMode`, `canToggle`, entries of (`pokemonId`, `percent`, `state`) | On open, after a toggle, and every 20 ticks while the panel is open. |
-| `cobblemon_dynamics:leash_overview_request` | client to server | none | The player selects the Work Leash. |
+| `cobblemon_dynamics:leash_overview_request` | client to server | none | The player takes the Work Leash in the main hand, and every 20 ticks while it stays there. |
 | `cobblemon_dynamics:leash_overview` | server to client | entries of (`entityId`, `targetPos`) | Reply to the request. The client outlines these targets. |
+
+The rate limits are per player and in server memory. The server forgets a player's times at logout, and all of
+them when it stops:
+
+- A Work Mode request within `engine.toggleCooldownTicks` (10) of the player's last accepted request changes
+  nothing (CD-SEC-03). A request that changes nothing, refused or ignored, gets the pasture's state back at most
+  once per that cooldown.
+- A `leash_overview_request` within 10 ticks of the player's last answered one gets no reply. The client asks
+  again 20 ticks later while it holds the leash. The reply reads only the player's own entries of the leash
+  binding index.
+- A `pasture_panel_open` within 10 ticks of the player's last one makes the player a viewer, but the pasture's
+  state follows with the first 20-tick refresh instead of at once.
 
 Built-in sync, with no payload of ours:
 
@@ -365,7 +395,10 @@ Built-in sync, with no payload of ours:
 - The drive direction, fan state and Tailwind bonus behaviours, through Create's block entity packets.
 - Action-bar feedback, through `ServerPlayer.displayClientMessage(component, true)`.
 
-Cobblemon packets that the effect player sends, to players within 64 blocks:
+Cobblemon packets that the effect player sends. Each one goes to the players that track the entity it names,
+within `engine.effectBroadcastRadius` (64) blocks of that entity, so a client never gets a packet for an
+entity that it does not have. The heal fallback sends the healer's pose to the healer's trackers and the
+ally's particles to the ally's.
 
 | Packet | Use |
 |---|---|
@@ -381,9 +414,14 @@ references. This section lists what the code uses.
 ### Cobblemon 1.8.4
 
 - **Pasture reads** (package `pasture`): `PokemonPastureBlockEntity.tetheredPokemon`,
-  `Tethering.getPokemon()`, `Tethering.pasturePos`, `Tethering.box`, `Tethering.playerId`, and the
-  block entity's `ownerId`. On the entity side: `PokemonEntity.tethering`. From a player:
-  `PastureLinkManager.getLinkByPlayer(player)`, valid within 10 blocks in the same dimension.
+  `Tethering.getPokemon()`, `Tethering.pasturePos`, `Tethering.box`, `Tethering.playerId`, and the block
+  entity's `ownerId`. On the entity side: `PokemonEntity.tethering`. From a player:
+  `PastureLinkManager.getLinkByPlayer(player)`. The link holds the dimension type of the pasture's level,
+  which `PastureBlock.useWithoutItem` records, and `getLinkByPlayer` drops it when the player's level has
+  another dimension type or the player is 10 blocks or more from the pasture's center. Vanilla's three
+  dimensions have three dimension types, so a dimension change drops the link. Two levels of one dimension
+  type keep it, but our toggle looks up the pasture in the player's own level, so it never reaches a pasture
+  of another level.
 - **Work Mode owner.** Cobblemon records the placer in `ownerId` but never enforces it. Our toggle
   accepts the recorded placer and operators (permission level 2 or higher). A pasture with no
   recorded placer accepts toggles from operators only. A player can break and place such a pasture
@@ -574,6 +612,9 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
   `ItemHandlerHelper.insertItemStacked`, then discards the entity or keeps the remainder.
 - **Attachments.** Block entity, entity and level attachments as listed in section 4. Attachment sync
   needs NeoForge 21.1.197 or later. Our floor of 21.1.219 covers it.
+- **Entity tracking.** NeoForge's `ChunkMap.getPlayersWatching(entity)` lists the players whose clients
+  track an entity, from the entity's own tracker. NeoForge added it to 21.1 with attachment sync, so our
+  floor covers it too. The effect player reads its recipients there (section 7).
 - **Interaction order.** `Item#onItemUseFirst` runs before the block opens its GUI, so the Work Leash
   handles each target click there. `Item#useOn` never runs when the block consumes the click.
 - **Furnace family.** Access transformer entries for `AbstractFurnaceBlockEntity.litTime`, `litDuration`

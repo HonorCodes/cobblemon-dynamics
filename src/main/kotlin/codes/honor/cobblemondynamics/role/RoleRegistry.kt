@@ -12,14 +12,13 @@ import net.minecraft.server.packs.resources.ResourceManager
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener
 import net.minecraft.util.profiling.ProfilerFiller
 import org.slf4j.Logger
-import java.util.concurrent.ConcurrentHashMap
 
 /** Loads `data/{namespace}/cobblemon_dynamics/roles/{role}.json` on every data pack load and `/reload`. */
 object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynamics/roles") {
     private val LOGGER: Logger = LogUtils.getLogger()
 
     private var parsed: Map<ResourceLocation, RoleDefinition> = emptyMap()
-    private val disabledHandlers = ConcurrentHashMap<ResourceLocation, String>()
+    private val disabledHandlers = DisabledHandlers()
 
     // Rebuilds after a config change repeat the lines of the last role file load, so each line logs once per load (CD-CFG-10).
     private val logged = HashSet<String>()
@@ -41,7 +40,7 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         synchronized(this) { replace(roles) }
     }
 
-    /** Replaces the parsed role files exactly as a data pack load does, and returns the previous ones. GameTests only. */
+    /** Replaces the parsed role files exactly as a data pack load does, and returns the previous ones. Tests only. */
     @Synchronized
     fun applyForTest(definitions: Map<ResourceLocation, RoleDefinition>): Map<ResourceLocation, RoleDefinition> {
         val previous = parsed
@@ -49,10 +48,18 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         return previous
     }
 
+    /** A role file load, which `/reload` also runs, gives each handler that threw another try. */
     private fun replace(roles: Map<ResourceLocation, RoleDefinition>) {
         parsed = roles
         logged.clear()
+        disabledHandlers.clear()
         rebuild()
+    }
+
+    /** On server stop: a handler that threw in this world works again in the next one, also in the same JVM. */
+    @Synchronized
+    fun reset() {
+        if (disabledHandlers.clear()) rebuild()
     }
 
     /** Applies the live `roles.disabled` list, the handler set and the mixin flags to the last parsed role files. */
@@ -62,12 +69,15 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         current = MixinGate.apply(roles, MixinState::applied) { if (mixinWarnings.add(it)) LOGGER.warn(it) }
     }
 
-    /** Turns off every role of [handlerId], for a handler whose hook failed. Logs one warning per handler. */
+    /**
+     * Turns off every role of [handlerId], for a handler whose hook failed, until the server stops or the role files load again. Logs one
+     * warning per handler in that time.
+     */
     fun disableHandler(handlerId: ResourceLocation, reason: String) {
-        if (disabledHandlers.putIfAbsent(handlerId, reason) != null) return
+        if (!disabledHandlers.disable(handlerId, reason)) return
         LOGGER.warn("Handler {} is disabled: {}", handlerId, reason)
         rebuild()
     }
 
-    private fun handlerFor(id: ResourceLocation): TargetHandler? = if (disabledHandlers.containsKey(id)) null else HandlerRegistry.get(id)
+    private fun handlerFor(id: ResourceLocation): TargetHandler? = if (disabledHandlers.isDisabled(id)) null else HandlerRegistry.get(id)
 }

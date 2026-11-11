@@ -31,6 +31,10 @@ class LeashIndex(private val entries: MutableMap<Long, Ref>) {
     /** A copy, so callers may change the index while they walk it. */
     fun all(): Map<BlockPos, Ref> = entries.entries.associate { (pos, ref) -> BlockPos.of(pos) to ref }
 
+    /** The entries of [owner]'s Pokémon, as a copy. It copies only those entries, where [all] copies the whole index. */
+    fun allOwnedBy(owner: UUID): Map<BlockPos, Ref> =
+        entries.entries.filter { it.value.owner == owner }.associate { (pos, ref) -> BlockPos.of(pos) to ref }
+
     companion object {
         private data class Entry(val target: Long, val ref: Ref)
 

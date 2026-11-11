@@ -701,3 +701,28 @@ listener now), `CobblemonDynamics.kt`, the lang entry `itemGroup.cobblemon_dynam
 - `CreativeModeTab.buildContents` is common code (checked with `javap`): it fires NeoForge's
   `BuildCreativeModeTabContentsEvent` and needs no client. So the GameTest builds the tab and the two vanilla tabs on the
   server and compares each with the items that the mod registers. A new item fails the test until the tab lists it.
+
+### Rulings after the multiplayer audit (R62)
+
+**Rows:** CD-UI-17, new. CD-LSH-05 and CD-LSH-13, amended. Each fix of the audit has its own commit on the branch
+`multiplayer-hardening`. By the approver's ruling there are no multiplayer GameTests: unit tests cover the pure logic, and
+the rest was checked against the Cobblemon 1.8.4 sources and, with `javap`, the NeoForge 21.1.265 and Minecraft 1.21.1
+classes.
+
+**Files:** `command/DynamicsCommands.kt` (the `unbind` literal with a `BlockPosArgument`), `leash/LeashResets.kt`
+(`clearAt` and the reason `cleared_by_operator`) and the lang entries. Tests: `PlayerGuideTest` (the guide names the
+command), `LangTest` (the reason has its lang entry) and manual check 51 for the Demo of CD-UI-17.
+
+- The command reads the leash index of the operator's level at the block and at the canonical block of each role whose
+  handler matches it, as `onSneakBlockClick` does, so any block of a large water wheel names the wheel. A binding whose
+  Pokémon its owner's PC or party holds clears through `LeashResets.clear`, which tells the engine and sends the binder the
+  chat message. An entry whose Pokémon is gone loses only its reservation.
+- The pasture's placer cannot take the other player's Pokémon out instead: Cobblemon 1.8.4's `UnpasturePokemonHandler`
+  releases a tethered Pokémon only for the player who tethered it, and `PasturePermissions.canUnpastureOthers` only shows the
+  button in the client.
+- The root literal needs permission level 2, so CD-SEC-09 covers the new command too.
+- CD-LSH-05: a target bound to another player's Pokémon refuses with "Already assigned to another player's {species}".
+  `BindRules` picks the message from whether the clicking player owns the bound Pokémon, which `LeashInteractions` reads
+  from the store that holds it. Test: `BindRulesTest`.
+- CD-LSH-13: `Feedback.chat` queues the message of an offline binder in `OfflineMessages`, which keeps the 10 newest per
+  player. `PlayerLoggedInEvent` delivers them and `ServerStoppedEvent` drops them. Test: `OfflineMessagesTest`.

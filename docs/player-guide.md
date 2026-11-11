@@ -108,7 +108,8 @@ Tired icon, so seven icons cover the eight states.
 A Working worker faces its target and plays its role's move. The move's animation plays to its end, and the
 worker then stands idle for 2 seconds before it plays the move again. A worker whose model has no animation
 for the move shows the move's particles every 2 seconds. The move's particles fly to the center of the
-target. Players within 64 blocks of the worker see the effects. Work effects play no sound.
+target. A player sees the effects while the player is within 64 blocks of the worker and the player's game shows
+the worker. Work effects play no sound.
 
 ## Work Leash
 
@@ -134,7 +135,8 @@ When a bind fails, the action bar shows why:
 | "Not in a Work Mode pasture" | The Pokémon is not in a pasture with Work Mode on. |
 | "No role fits" | None of the Pokémon's roles works on the block. |
 | "Outside its pasture's work area" | The block is outside the work area of the Pokémon's pasture. |
-| "Already assigned to {Pokémon}" | Another Pokémon has a binding on the block. |
+| "Already assigned to {Pokémon}" | Another of your Pokémon has a binding on the block. |
+| "Already assigned to another player's {species}" | A Pokémon of another player has a binding on the block. The message names its species, never its nickname. |
 | "Select a Pokémon first" | The selected Pokémon is no longer yours, for example after a trade or a release. |
 
 ### What a binding does
@@ -156,7 +158,8 @@ Sneak and right-click your bound Pokémon with the Work Leash. The action bar sh
 mounts the Pokémon.
 
 A binding also clears in the cases below. The player who bound the Pokémon then gets the chat message
-"{Pokémon} lost its work binding: {reason}".
+"{Pokémon} lost its work binding: {reason}". If that player is offline, the message waits for their next login. The
+server keeps up to 10 such messages per player, the newest, and a server restart drops them.
 
 | Case | Reason in the message |
 | --- | --- |
@@ -167,8 +170,13 @@ A binding also clears in the cases below. The player who bound the Pokémon then
 | The Pokémon goes to a new owner, for example in a trade. | it has a new owner |
 | The Pokémon evolves into a form that no role on its target fits. | its new form cannot do the job |
 | The pasture block breaks. | its pasture block is gone |
+| An operator runs [`/cobblemondynamics unbind`](#commands) on its target. | an operator cleared it |
 
 A binding stays when its target is in an unloaded chunk.
+
+In a shared pasture, another player can bind one of their own Pokémon to your block, and the binding then
+reserves that block. Cobblemon lets only a Pokémon's owner take it out of a pasture, so if that player does not
+come back, ask an operator to run `/cobblemondynamics unbind` on the block.
 
 ### Flip a water wheel or a hand crank
 
@@ -262,6 +270,8 @@ Work Stamina of the other workers in its pasture.
 ### How a healer picks an ally
 
 - It heals only Pokémon in its own pasture. It never heals itself or a Fairy-type.
+- In a pasture that several players share, it heals the other players' workers too, because a shared pasture
+  works as one team.
 - It picks the nearest Tired ally first.
 - When no ally is Tired, it picks the ally with the lowest Work Stamina under 25%.
 - A healer heals one ally at a time, and an ally gets one healer at a time.
@@ -563,15 +573,18 @@ Work is silent, so an effect has no sound key. A file whose effect names a `soun
 - `/reload` applies changed role files without a restart.
 - A file that does not parse is skipped. The log then holds one error that names the file.
 - A file that names an unknown handler turns its role off. The log then holds one line that names the role.
+- If a role's code fails in the game, the mod turns off every role that uses the same code, and the log holds
+  one warning. `/reload` or a server restart turns those roles on again.
 
 ## Commands
 
-Both commands need permission level 2 (operator).
+All three commands need permission level 2 (operator).
 
 | Command | Result |
 | --- | --- |
 | `/cobblemondynamics claims` | Lists each claim and each binding. A claim line reads `claim <kind> <target> <worker> (<UUID>)`, where the kind is `work`, `bed` or `heal`. A binding line reads `binding <target> <worker> (<UUID>)`. With neither, the reply is "No claims and no leash bindings". |
 | `/cobblemondynamics stamina <target>` | Shows one Pokémon's Work Stamina, state and recovery rule, for example "Charmander: 42.5% Work Stamina, Working, worker rule". |
+| `/cobblemondynamics unbind <pos>` | Clears every binding on the block at `<pos>` in your dimension. Any block of a large water wheel names the whole wheel, as with the Work Leash. Each line reads "Cleared the binding of {Pokémon} at {target}", and the player who bound the Pokémon gets the chat message "{Pokémon} lost its work binding: an operator cleared it". With no binding there, the reply is "No leash binding at {target}". |
 
 A claim gives one worker one target for now: a block to work, a bed or an ally to heal. Claims are never
 saved, so the workers make them again after a restart. In a line, a block target is its dimension and its
@@ -581,6 +594,10 @@ The `<target>` of the stamina command is one entity, for example
 `@e[type=cobblemon:pokemon,sort=nearest,limit=1]`. The percentage is rounded down to one decimal. For a
 Pokémon that is not a worker, the state reads "not in Work Mode". The value is then its saved value plus the
 recovery of its time away.
+
+The `<pos>` of the unbind command is a block position, for example the coordinates of the furnace that a worker
+is bound to. The command works in the dimension that it runs in, so from the server console a block in the
+Nether needs `/execute in minecraft:the_nether run cobblemondynamics unbind <pos>`.
 
 ## Compatibility
 

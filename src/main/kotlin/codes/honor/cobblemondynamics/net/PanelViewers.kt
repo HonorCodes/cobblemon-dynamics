@@ -26,11 +26,14 @@ object PanelViewers {
     private val views = LinkedHashMap<UUID, View>()
     private val lastSent = HashMap<UUID, PasturePanelStatePayload>()
 
-    /** [player] opened the panel of the pasture at [pos]: it views that pasture alone and gets its state now. */
-    fun open(player: ServerPlayer, level: ServerLevel, pos: BlockPos) {
+    /**
+     * [player] opened the panel of the pasture at [pos]: it views that pasture alone. It gets the state now when [sendNow], and else with
+     * the first 20-tick refresh.
+     */
+    fun open(player: ServerPlayer, level: ServerLevel, pos: BlockPos, sendNow: Boolean = true) {
         close(player)
         views[player.uuid] = View(player, level, pos.immutable(), player.server.tickCount.toLong())
-        send(player, level, pos)
+        if (sendNow) send(player, level, pos)
     }
 
     fun close(player: ServerPlayer) {

@@ -304,3 +304,12 @@ These checks show the changes that the approver ruled after the Phase 1 play-tes
     tabs. Expected: a tab named "Cobblemon Dynamics", with the Work Leash as its icon, holds the Work Leash, the Hay Bed, the
     Wool Bed, the Plush Bed, the Starlit Bed and the Charge Cell, in that order. The Tools and Utilities tab and the
     Functional Blocks tab hold none of them.
+
+## Multiplayer audit rulings (2026-11-10)
+
+These checks show the changes that the approver ruled after the multiplayer audit.
+
+51. **CD-UI-17.** Setup: cheats on, and a Work Mode pasture with a Charmander bound to a furnace. Action: run
+    `/cobblemondynamics unbind <x> <y> <z>` with the furnace's position, then `/cobblemondynamics claims`. Expected: the
+    reply reads "Cleared the binding of Charmander at" and the furnace's dimension and position, and the chat shows
+    "Charmander lost its work binding: an operator cleared it". The claims list holds no `binding` line for the furnace.

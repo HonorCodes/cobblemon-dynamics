@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.command
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkEngine
+import codes.honor.cobblemondynamics.leash.LeashResets
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.stamina.StaminaStore
 import codes.honor.cobblemondynamics.stamina.StaminaView
@@ -12,6 +13,8 @@ import com.mojang.brigadier.CommandDispatcher
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.commands.arguments.EntityArgument
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument
+import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
 import net.minecraft.world.entity.Entity
@@ -26,7 +29,10 @@ object DynamicsCommands {
     private const val BINDING = "cobblemon_dynamics.command.claims.binding"
     private const val NONE = "cobblemon_dynamics.command.claims.none"
     private const val KIND = "cobblemon_dynamics.command.claims.kind"
+    private const val UNBIND_CLEARED = "cobblemon_dynamics.command.unbind.cleared"
+    private const val UNBIND_NONE = "cobblemon_dynamics.command.unbind.none"
     private const val TARGET = "target"
+    private const val POS = "pos"
 
     fun register() {
         NeoForge.EVENT_BUS.addListener<RegisterCommandsEvent> { register(it.dispatcher) }
@@ -42,6 +48,13 @@ object DynamicsCommands {
                     Commands.literal("stamina").then(
                         Commands.argument(TARGET, EntityArgument.entity()).executes { context ->
                             stamina(context.source, EntityArgument.getEntity(context, TARGET))
+                        },
+                    ),
+                )
+                .then(
+                    Commands.literal("unbind").then(
+                        Commands.argument(POS, BlockPosArgument.blockPos()).executes { context ->
+                            unbind(context.source, BlockPosArgument.getBlockPos(context, POS))
                         },
                     ),
                 ),
@@ -82,6 +95,26 @@ object DynamicsCommands {
         val rule = Component.translatable(line.ruleKey)
         source.sendSuccess({ Component.translatable(StaminaReport.LINE, pokemon.getDisplayName(), line.percent, state, rule) }, false)
         return StaminaView.displayPercent(stamina.percent)
+    }
+
+    /**
+     * CD-UI-17: clears every leash binding whose target or Telekinesis source is the block at [pos] in the source's level, and tells each
+     * binder. Prints one line per cleared binding, or a failure when there is none. Returns the count.
+     */
+    private fun unbind(source: CommandSourceStack, pos: BlockPos): Int {
+        val level = source.level
+        val dimension = level.dimension().location()
+        val cleared = LeashResets.clearAt(level, pos)
+        if (cleared.isEmpty()) {
+            source.sendFailure(Component.translatable(UNBIND_NONE, ClaimsReport.blockText(TargetKey.block(dimension, pos))))
+            return 0
+        }
+        for (entry in cleared) {
+            val name: Any = entry.pokemon?.getDisplayName() ?: entry.ref.pokemonId.toString()
+            val target = ClaimsReport.blockText(TargetKey.block(dimension, entry.target))
+            source.sendSuccess({ Component.translatable(UNBIND_CLEARED, name, target) }, true)
+        }
+        return cleared.size
     }
 
     private fun render(server: MinecraftServer, engine: WorkEngine?, line: ClaimsReport.Line): Component = when (line) {

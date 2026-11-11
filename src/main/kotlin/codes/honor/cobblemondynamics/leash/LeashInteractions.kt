@@ -22,6 +22,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
@@ -95,10 +96,9 @@ object LeashInteractions {
     fun onBlockClick(player: ServerPlayer, stack: ItemStack, clicked: BlockPos, face: Direction) {
         val level = player.serverLevel()
         val now = level.gameTime
+        val dimension = level.dimension().location()
         val selection = stack.get(LeashComponents.SELECTION.get())
-        val pending = stack.get(LeashComponents.PENDING_SOURCE.get())?.takeUnless {
-            it.expired(now, WorkEngineSettings.current.pendingSelectionTicks)
-        }
+        val pending = livePending(stack, dimension, now)
         val pokemon = selection?.let { ownedPokemon(player, it.pokemonId) }
         val pasture = pokemon?.let { PastureAdapter.workModePastureOf(level, it) }
         val roles = fittingRoles(level, pokemon, clicked, pending)
@@ -115,23 +115,22 @@ object LeashInteractions {
             fittingRoles = roles.map { it.definition },
             canonical = canonical,
             insideWorkArea = area?.contains(source) == true,
-            boundToOther = other?.getDisplayName()?.string,
+            boundToOther = other?.seenBy(player.uuid),
             pending = pending,
             sameAsPending = pending?.pos == canonical,
         )
         val outcome = BindRules.evaluate(input) { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE }
         when (outcome) {
-            is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other)
+            is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other?.pokemon)
 
             is BindRules.Outcome.AwaitDestination -> {
                 val name = pokemon?.getDisplayName() ?: return
-                stack.set(LeashComponents.PENDING_SOURCE.get(), PendingSource(canonical, face, now))
+                stack.set(LeashComponents.PENDING_SOURCE.get(), PendingSource(dimension, canonical, face, now))
                 Feedback.actionBar(player, Component.translatable(SELECT_DESTINATION, name))
             }
 
             is BindRules.Outcome.Bind -> {
                 if (pokemon == null || pasture == null) return
-                val dimension = level.dimension().location()
                 val binding = if (pending == null) {
                     Binding(outcome.role.id, dimension, pasture, canonical, face, player.uuid)
                 } else {
@@ -145,8 +144,19 @@ object LeashInteractions {
     }
 
     /**
+     * The pending source of [stack], if it counts for a click in [dimension] at [now]. A source that expired, or that a click in another
+     * level left, is removed from the stack, and the click counts as a first click.
+     */
+    private fun livePending(stack: ItemStack, dimension: ResourceLocation, now: Long): PendingSource? {
+        val pending = stack.get(LeashComponents.PENDING_SOURCE.get()) ?: return null
+        if (pending.liveIn(dimension, now, WorkEngineSettings.current.pendingSelectionTicks)) return pending
+        stack.remove(LeashComponents.PENDING_SOURCE.get())
+        return null
+    }
+
+    /**
      * The roles that [pokemon]'s types make it eligible for, whose handler matches the clicked block. With a pending source, only
-     * source-and-destination roles that match the source and the clicked destination.
+     * source-and-destination roles whose handler still matches the source, in its own level, and the clicked destination.
      */
     private fun fittingRoles(level: ServerLevel, pokemon: Pokemon?, clicked: BlockPos, pending: PendingSource?): List<ActiveRole> {
         pokemon ?: return emptyList()
@@ -165,19 +175,28 @@ object LeashInteractions {
     private fun matches(level: ServerLevel, role: ActiveRole, pos: BlockPos): Boolean =
         guarded(role.handler, false) { role.handler.matches(level, pos, level.getBlockState(pos), level.getBlockEntity(pos)) }
 
+    /** A Pokémon bound to a target, and the player whose PC or party holds it. */
+    private class OtherBound(val pokemon: Pokemon, val owner: UUID) {
+        fun seenBy(player: UUID) = BindRules.Bound(pokemon.getDisplayName().string, pokemon.species.name, ownedByPlayer = owner == player)
+    }
+
     /** The Pokémon bound to [target], when it is not [selected]. An entry whose Pokémon is gone is LeashResets' to clear. */
-    private fun otherBound(level: ServerLevel, target: BlockPos, selected: UUID?): Pokemon? {
+    private fun otherBound(level: ServerLevel, target: BlockPos, selected: UUID?): OtherBound? {
         val ref = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.get(target) ?: return null
         if (ref.pokemonId == selected) return null
         val access = level.registryAccess()
-        return Cobblemon.storage.getPC(ref.owner, access)[ref.pokemonId] ?: Cobblemon.storage.getParty(ref.owner, access)[ref.pokemonId]
+        val pokemon = Cobblemon.storage.getPC(ref.owner, access)[ref.pokemonId]
+            ?: Cobblemon.storage.getParty(ref.owner, access)[ref.pokemonId]
+            ?: return null
+        return OtherBound(pokemon, ref.owner)
     }
 
+    /** CD-LSH-05: the refusal names a Pokémon of the player by its display name, and another player's Pokémon by its species only. */
     private fun refuse(player: ServerPlayer, stack: ItemStack, refusal: BindRules.Outcome.Refuse, other: Pokemon?) {
-        val message = if (refusal.messageKey == BindRules.ALREADY_ASSIGNED) {
-            Component.translatable(refusal.messageKey, other?.getDisplayName() ?: refusal.arg)
-        } else {
-            Component.translatable(refusal.messageKey)
+        val message = when (refusal.messageKey) {
+            BindRules.ALREADY_ASSIGNED -> Component.translatable(refusal.messageKey, other?.getDisplayName() ?: refusal.arg)
+            BindRules.ALREADY_ASSIGNED_OTHER -> Component.translatable(refusal.messageKey, other?.species?.translatedName ?: refusal.arg)
+            else -> Component.translatable(refusal.messageKey)
         }
         // A selection that the server no longer finds as the player's, for example after a trade, is stale.
         if (refusal.messageKey == BindRules.NO_SELECTION) stack.remove(LeashComponents.SELECTION.get())

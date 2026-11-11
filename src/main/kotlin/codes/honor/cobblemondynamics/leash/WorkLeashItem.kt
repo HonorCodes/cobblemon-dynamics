@@ -41,11 +41,14 @@ class WorkLeashItem(properties: Item.Properties) : Item(properties) {
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide)
     }
 
-    /** CD-LSH-19: a pending source expires `leash.pendingSelectionTicks` after its click. */
+    /**
+     * CD-LSH-19: a pending source expires `leash.pendingSelectionTicks` after its click. One that the player carried into another
+     * level goes on the first tick there, because its position names no block of that level.
+     */
     override fun inventoryTick(stack: ItemStack, level: Level, entity: Entity, slotId: Int, isSelected: Boolean) {
         if (level.isClientSide) return
         val pending = stack.get(LeashComponents.PENDING_SOURCE.get()) ?: return
-        if (pending.expired(level.gameTime, WorkEngineSettings.current.pendingSelectionTicks)) {
+        if (!pending.liveIn(level.dimension().location(), level.gameTime, WorkEngineSettings.current.pendingSelectionTicks)) {
             stack.remove(LeashComponents.PENDING_SOURCE.get())
         }
     }

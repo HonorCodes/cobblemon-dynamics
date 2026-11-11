@@ -23,7 +23,10 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
 
-/** Loops each role's move effect with Cobblemon's own packets, aimed at a focus entity on the target (ADR-0007). */
+/**
+ * Loops each role's move effect with Cobblemon's own packets, aimed at a focus entity on the target (ADR-0007). Each packet goes to the
+ * players that track the worker it names.
+ */
 object EffectPlayer {
     private val particles = CheckedParticles(JarParticleCatalog, OnceLogger())
 
@@ -81,13 +84,17 @@ object EffectPlayer {
             }
 
             HealEffect.Choice.Fallback -> {
-                val players = recipients(level, healer)
-                if (players.isEmpty()) return
-                animationOf(healer, HealEffect.FALLBACK_ANIMATIONS)?.let {
-                    PlayPosableAnimationPacket(healer.id, setOf(it.name), emptyList()).sendToPlayers(players)
+                // Each packet goes to the players that track the entity it names: the healer's pose, then the ally's particles.
+                val healerPlayers = recipients(level, healer)
+                if (healerPlayers.isNotEmpty()) {
+                    animationOf(healer, HealEffect.FALLBACK_ANIMATIONS)?.let {
+                        PlayPosableAnimationPacket(healer.id, setOf(it.name), emptyList()).sendToPlayers(healerPlayers)
+                    }
                 }
+                val allyPlayers = recipients(level, ally)
+                if (allyPlayers.isEmpty()) return
                 for (id in particles.filter(HealEffect.FALLBACK_PARTICLES)) {
-                    SpawnSnowstormEntityParticlePacket(id, ally.id, HealEffect.ALLY_LOCATORS).sendToPlayers(players)
+                    SpawnSnowstormEntityParticlePacket(id, ally.id, HealEffect.ALLY_LOCATORS).sendToPlayers(allyPlayers)
                 }
             }
         }
@@ -112,9 +119,14 @@ object EffectPlayer {
         )
     }
 
+    /**
+     * CD-FX-08: the players that track [entity], within `engine.effectBroadcastRadius` blocks of it. NeoForge's
+     * `ChunkMap.getPlayersWatching` reads the entity's own tracker, so a player whose client has no such entity gets no packet that
+     * names it.
+     */
     private fun recipients(level: ServerLevel, entity: PokemonEntity): List<ServerPlayer> {
-        val radius = WorkEngineSettings.current.effectBroadcastRadius
-        return level.players().filter { Recipients.inRange(it.distanceToSqr(entity), radius) }
+        val watchers = level.chunkSource.chunkMap.getPlayersWatching(entity)
+        return Recipients.of(watchers, WorkEngineSettings.current.effectBroadcastRadius) { it.distanceToSqr(entity) }
     }
 
     /**

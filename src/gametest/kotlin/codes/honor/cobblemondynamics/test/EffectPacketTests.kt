@@ -19,6 +19,8 @@ import net.minecraft.network.PacketSendListener
 import net.minecraft.network.protocol.Packet
 import net.minecraft.network.protocol.PacketFlow
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket
+import net.minecraft.server.level.ChunkMap
+import net.minecraft.server.level.ChunkTrackingView
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.network.CommonListenerCookie
@@ -32,8 +34,9 @@ import java.util.UUID
 
 /**
  * What the server sends a player beside the workers for two Demo rows, whose particles and poses only a person can judge. A fake
- * player never joins a level, so the test puts a recording fake player in the level's player list, where the effects component
- * finds its recipients. That list is global, so the test has its own batch.
+ * player never joins a level, so the test puts a recording fake player in the level's player list with a chunk tracking view, as a
+ * client has. The entities that spawn after it then pair with it, and the effects component sends to the players that track an
+ * entity. That list is global, so the test has its own batch.
  */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -64,19 +67,37 @@ class EffectPacketTests {
         }
     }
 
-    /** A recording player beside the pasture at (7,1,7), in the level's player list until the test ends. */
+    /**
+     * A recording player beside the pasture at (7,1,7), in the level's player list until the test ends. Its chunk tracking view lets
+     * each entity that spawns near it pair with it, because `ChunkMap.addEntity` offers a new entity to the level's players.
+     */
     private fun listener(helper: GameTestHelper): Listener {
         val uuid = UUID.randomUUID()
         val listener = Listener(helper.level, GameProfile(uuid, "listener_${uuid.toString().take(6)}"))
         val at = helper.absoluteVec(BlockPos(7, 2, 10).bottomCenter)
         listener.moveTo(at.x, at.y, at.z)
+        listener.setChunkTrackingView(ChunkTrackingView.of(listener.chunkPosition(), TRACKED_CHUNKS))
         val field = ServerLevel::class.java.getDeclaredField("players").apply { isAccessible = true }
 
         @Suppress("UNCHECKED_CAST")
         val players = field.get(helper.level) as MutableList<ServerPlayer>
         players += listener
-        TestKit.afterTest(helper) { players -= listener }
+        TestKit.afterTest(helper) {
+            players -= listener
+            untrack(helper.level, listener)
+        }
         return listener
+    }
+
+    /** Takes [player] out of every entity tracker, so that the entities of a finished test stop sending it packets. */
+    private fun untrack(level: ServerLevel, player: ServerPlayer) {
+        val field = ChunkMap::class.java.getDeclaredField("entityMap").apply { isAccessible = true }
+        val trackers = (field.get(level.chunkSource.chunkMap) as Map<*, *>).values.filterNotNull()
+        for (tracker in trackers) {
+            val remove = tracker.javaClass.getDeclaredMethod("removePlayer", ServerPlayer::class.java)
+            remove.isAccessible = true
+            remove.invoke(tracker, player)
+        }
     }
 
     private fun particlesOn(listener: Listener, entity: PokemonEntity): List<Pair<Long, SpawnSnowstormEntityParticlePacket>> =
@@ -211,5 +232,8 @@ class EffectPacketTests {
     private companion object {
         const val LISTENER_BATCH = "effect_listener"
         const val WATCH_TICKS = 400
+
+        /** Chunks around the listener that it tracks. Its view distance of 2 already caps entity tracking at 32 blocks. */
+        const val TRACKED_CHUNKS = 2
     }
 }
