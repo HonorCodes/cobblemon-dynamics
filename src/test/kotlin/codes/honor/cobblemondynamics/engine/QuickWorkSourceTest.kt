@@ -30,6 +30,9 @@ class QuickWorkSourceTest {
         assertTrue(missing.isEmpty(), "tickOrder does not run $missing")
         val found = SCAN_AND_SEARCH.filter { Regex("""\b""" + Regex.escape(it)).containsMatchIn(tick) }
         assertTrue(found.isEmpty(), "tickOrder runs $found")
+        // The amended row: the claim checks run only on every 20th tick of the order, and only for its own target (CD-QWK-29).
+        assertTrue(PERMISSION_CHECK in tick, "tickOrder does not ask `$PERMISSION_CHECK`")
+        assertEquals(1, Regex("""\bmayUse\(""").findAll(tick).count(), "tickOrder asks the permission more than once")
     }
 
     /**
@@ -49,6 +52,7 @@ class QuickWorkSourceTest {
     private companion object {
         const val ENGINE = "src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt"
         const val CHECK = "if (orders.isEmpty()) emptyList() else"
+        const val PERMISSION_CHECK = "QuickWorkRules.permissionDue(order.startedAt, t.now) && !mayUse(owner, t.level, order.canonical)"
 
         /** CD-QWK-23: the end checks of the order on its owner and its own claim, then the steps of a pasture worker's tick. */
         val OWN_STEPS = listOf("playerList.getPlayer(order.owner)", "claims.claimOf(worker.pokemonId)", "tickWorker(", "tickStamina(")

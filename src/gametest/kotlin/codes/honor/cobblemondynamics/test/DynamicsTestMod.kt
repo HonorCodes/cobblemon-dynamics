@@ -28,6 +28,7 @@ class DynamicsTestMod(modBus: IEventBus) {
         // A brew that a stand can repeat: water and a stick give water. No vanilla brew can follow itself.
         NeoForge.EVENT_BUS.addListener<RegisterBrewingRecipesEvent> { it.builder.addMix(Potions.WATER, Items.STICK, Potions.WATER) }
         ProtectedBlocks.register()
+        TestLandClaims.register()
         TestWorld.register()
     }
 }

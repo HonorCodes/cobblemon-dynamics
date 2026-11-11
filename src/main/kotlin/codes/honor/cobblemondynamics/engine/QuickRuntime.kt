@@ -22,6 +22,10 @@ class QuickRuntime(
     val owner: UUID,
     /** The block that the owner aimed at. The leash counts from its box (CD-QWK-13). */
     val aimed: BlockPos,
+    /** The target of the order's claim, which the permission checks ask about (CD-QWK-29). */
+    val canonical: BlockPos,
+    /** The game time of the start, from which the permission is asked again every 20 ticks (CD-QWK-29). */
+    val startedAt: Long,
     /** The target's name at the start, for a message after the target breaks. */
     val targetName: Component,
     val slot: WorkerSlot,
