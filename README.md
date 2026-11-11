@@ -20,7 +20,7 @@ Version 1.0 ships in three phases:
 
 | Phase | Scope | Gate |
 | --- | --- | --- |
-| 1, private | The 12 v1 roles, Work Stamina, beds and healers (milestones M0 to M5) | Every v1 requirement passes, and the author tests it in a private world |
+| 1, private | The 11 v1 roles, Work Stamina, beds and healers (milestones M0 to M5) | Every v1 requirement passes, and the author tests it in a private world |
 | 2, private | The 4 v2 roles and the final art (M6 to M8) | Every v2 requirement passes, and the author tests it again |
 | 3, public | Release on Modrinth and CurseForge (M9) | — |
 
@@ -76,9 +76,8 @@ with two types can do the roles of either type, one role at a time.
 | Water | Pump (leash only) | Fluid tanks, boilers, basins, cauldrons | Water Gun | 1 |
 | Electric | Generator | Any block that accepts Forge Energy, AE2 machines included | Thunder Shock | 1 |
 | Fire | Stoker | Furnace, smoker, blast furnace | Ember | 1 |
-| Fire | Burner Keeper | Create Blaze Burner (kindled heat) | Ember | 1 |
 | Fire | Brew Stoker | Brewing stand (fuel) | Ember | 1 |
-| Dragon | Superheater | Create Blaze Burner (superheated from level 50) | Dragon Breath | 1 |
+| Dragon | Superheater | Create Blaze Burner (kindled below level 50, superheated from level 50) | Dragon Breath | 1 |
 | Fighting, Normal | Cranker | Create hand crank | Pound | 1 |
 | Rock | Crystal Tender | Budding amethyst, AE2 budding certus quartz | Rock Throw | 1 |
 | Poison | Brewer | Brewing stand (speed) | Poison Gas | 1 |

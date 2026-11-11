@@ -4,8 +4,10 @@ Part of the [Phase 1 plan](2026-11-09-phase-1-plan.md). Read its Global Constrai
 `m3-create-roles`. Builds on M1 and M2.
 
 **Milestone goal:** Water-types turn dry water wheels, Fighting- and Normal-types turn hand cranks,
-Fire-types keep Blaze Burners kindled and Dragon-types of level 50 or higher superheat them, each at
-Create's own values, and each role switches itself off when Create or its mixin is missing.
+Dragon-types keep Blaze Burners kindled below level 50 and superheat them from level 50, each at
+Create's own values, and each role switches itself off when Create or its mixin is missing. (M3 also
+built a Burner Keeper role, with which Fire-types kept burners kindled. The approver's ruling after the
+Phase 1 play-test, R59 of 2026-11-10, removed it: see Task 5.)
 
 Before Task 1, open the Create 6.0.10 build 280 sources (the `-sources` jar from `maven.createmod.net`,
 or a decompile of the slim jar) and check every reference in the research note's "Create 6.0.10" section:
@@ -84,9 +86,9 @@ a mixin's state never changes while the game runs.
 class MixinGateTest {
     @Test fun `CD-WHL-10 CD-BRN-07 a missing mixin disables its roles and warns once`() {
         val wheel = role("wheel_driver", setOf("water"), handler = "cobblemon_dynamics:water_wheel")
-        val keeper = role("burner_keeper", setOf("fire"), handler = "cobblemon_dynamics:burner_heat")
         val superheater = role("superheater", setOf("dragon"), priority = 10, handler = "cobblemon_dynamics:burner_heat")
-        val set = RoleSet(listOf(wheel, keeper, superheater).associateBy { it.id }, { FakeHandler(it) }, emptySet()) { }
+        val packBurner = role("pack_burner", setOf("ice"), handler = "cobblemon_dynamics:burner_heat")   // a data pack's role
+        val set = RoleSet(listOf(wheel, superheater, packBurner).associateBy { it.id }, { FakeHandler(it) }, emptySet()) { }
         val warnings = mutableListOf<String>()
         val gated = MixinGate.apply(set, applied = { it != MixinState.WATER_WHEEL && it != MixinState.BLAZE_BURNER }, warn = warnings::add)
         assertTrue(gated.active.isEmpty())
@@ -143,8 +145,8 @@ the `coretest` package.
 `CoreTests`:
 
 ```kotlin
-// cdCfg10CreateRolesOffWithoutCreate: RoleRegistry.current.get(wheel_driver), get(burner_keeper), get(superheater) and
-//   get(cranker) are null; logs/latest.log of the run directory holds exactly one "Role <id> is disabled: handler" line for
+// cdCfg10CreateRolesOffWithoutCreate: RoleRegistry.current.get(wheel_driver), get(superheater) and get(cranker) are
+//   null; logs/latest.log of the run directory holds exactly one "Role <id> is disabled: handler" line for
 //   each Create role whose file is in the data (the server's resource manager has it), and none for the others, so the
 //   check counts each role file from the task that adds it.
 // cdPlat05LoadsWithoutCreateAndAe2: ModList has neither "create" nor "ae2", and the Stoker role is active.
@@ -395,17 +397,23 @@ crank's own `useItemOn`, which turns it as before. The crank role does not depen
 
 ---
 
-### Task 5: Burner Keeper and Superheater
+### Task 5: Superheater
 
 **Rows:** CD-BRN-01, CD-BRN-02, CD-BRN-03, CD-BRN-04, CD-BRN-05, CD-BRN-06, CD-SUP-01, CD-SUP-02, CD-SUP-03,
 CD-SUP-04.
+
+**Approver's ruling after the Phase 1 play-test (R59, 2026-11-10):** "Remove the fire ability to power burners; let's just
+have dragons do it at pre-50 kindled and post-50 seething." M3 built a second burner role, the Burner Keeper (Fire, params
+`{ "heat": "kindled" }`, priority 0). The ruling removed its role file, and the BRN rows now describe the Superheater, whose
+file already gives `kindled` below level 50 and `seething` from level 50. The tests that checked the Burner Keeper check a
+Lv10 Dratini, and `cdSup02FireTypeNeverClaimsABlazeBurner` checks that a Charmander never claims a burner. The text below
+describes the task as it stands after the ruling.
 
 **Files:**
 - Create: `src/main/java/codes/honor/cobblemondynamics/mixin/create/BlazeBurnerBlockEntityMixin.java`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/PokemonHeat.kt`
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/HeatGate.kt` (pure, no Create types)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/BurnerHeatHandler.kt`
-- Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/burner_keeper.json`
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/superheater.json`
 - Modify: `src/main/resources/cobblemon_dynamics.mixins.json`, `handler/create/CreateCompat.kt` (registers the handler)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/HeatGateTest.kt`, `role/BuiltInRoleFilesTest.kt`
@@ -446,36 +454,36 @@ on the burner's first tick after Working starts and ends on its first tick after
 `isValidBlockAbove()` (a `BasinBlockEntity` above, or a `FluidTankBlock`; checked with `javap`) (CD-BRN-03), and needs a heat:
 a role whose params give no heat at the worker's level has no demand. A creative burner (`isCreative()`) has no demand either:
 its `tick()` returns before it reads the heat level, so a worker's heat never reaches its block state. The end-of-phase pass
-found that a Burner Keeper Worked a creative burner for nothing, and added this check (`creativeBlazeBurnerHasNoDemand`). The
+found that a worker Worked a creative burner for nothing, and added this check (`creativeBlazeBurnerHasNoDemand`). The
 heat comes from the role params:
 `HeatGate.heatFor(params, level)` returns `params.heat` when `level >= params.min_level` (default 0) and
 `params.below_min_level_heat` otherwise, as Create's serialized heat name (`kindled`, `seething`), which the handler maps to
 `HeatLevel` by `getSerializedName()`. `HeatGate` names no Create type, so it has unit tests.
 
-`burner_keeper.json`: types `["fire"]`, `auto_assign` true, priority 0, range 6.0, params `{ "heat": "kindled" }`, effect
-Flamethrower (the Stoker's: actor `cobblemon:flamethrower_actor`, target `cobblemon:flamethrower_target`,
-`cobblemon:flamethrower_targetburst`; Ember since the play-test of 2026-11-10, as the Stoker: actor `cobblemon:ember_actor`,
-target `cobblemon:ember_target`). `superheater.json`: types `["dragon"]` (CD-SUP-02), `auto_assign` true, priority 10,
+`superheater.json`: types `["dragon"]` (CD-SUP-02), `auto_assign` true, priority 10,
 range 6.0, params `{ "heat": "seething", "min_level": 50, "below_min_level_heat": "kindled" }`, effect Dragon Breath
 (`dragonbreath`, `spray`, `special`, `cry`; actor `cobblemon:dragonbreath_actor`, which Cobblemon's timeline emits from the user
 toward the target, and target `cobblemon:dragonbreath_target`, which it emits on the target).
 
 - [ ] **Step 1: Failing tests** — `HeatGateTest`: Lv49 gives kindled and Lv50 gives seething (CD-SUP-01,
-  CD-SUP-04); the Burner Keeper gives kindled at every level; a Fire-type Charmander is not eligible for the
-  Superheater and a Dratini is (CD-SUP-02); params with no `min_level`, and with no heat below it. `BuiltInRoleFilesTest`: the
-  Role table rows (CD-FX-02) and the particle splits of Flamethrower and Dragon Breath (CD-FX-04). `BurnerTests`, each burner
-  filled and with no fuel:
+  CD-SUP-04); the Superheater gives kindled at every level below 50 (CD-BRN-01, CD-BRN-05); a Fire-type Charmander is not
+  eligible for the Superheater and a Dratini is (CD-SUP-02); params with no `min_level`, and with no heat below it. `BuiltInRoleFilesTest`: the
+  Role table rows (CD-FX-02) and the particle split of Dragon Breath (CD-FX-04). `DefaultPriorityTest`: a burner has the
+  Superheater as its only role, so a pure Fire-type gets no role there (CD-SUP-02). `BurnerTests`, each burner filled and
+  with no fuel:
 
 ```kotlin
-// cdBrn01Brn06KindledWhileWorkedSmoulderingAfterRelease: a basin above; 1 tick after a Charmander starts Working the burner reads KINDLED
-//   or hotter (CD-BRN-01); the test releases the claim, and 2 ticks later the burner reads SMOULDERING (CD-BRN-06).
-// cdBrn05BoilerCountsOneHeat: a fluid tank above; a Working Charmander: KINDLED, BoilerHeater.findHeat (the REGISTRY lookup) gives 1, and
+// cdBrn01Brn06KindledBelowLevel50SmoulderingAfterRelease: a basin above; 1 tick after a Lv10 Dratini starts Working the burner reads
+//   KINDLED (CD-BRN-01); the test releases the claim, and 2 ticks later the burner reads SMOULDERING (CD-BRN-06).
+// cdBrn05BoilerCountsOneHeatBelowLevel50: a fluid tank above; a Working Lv10 Dratini: KINDLED, BoilerHeater.findHeat (the REGISTRY lookup) gives 1, and
 //   the tank's BoilerData.updateTemperature counts activeHeat 1. FluidTankBlockEntity.updateBoilerTemperature only flags a boiler that has
 //   an engine, so the test runs the boiler's own heat count directly.
 // cdSup01Lv50Seething: a basin above; 1 tick after a Lv50 Dragonair starts Working the burner reads SEETHING.
 // cdSup03Sup04Lv49ThenLv50: a fluid tank above; a Lv49 Dragonair holds KINDLED with heater heat 1 and boiler heat 1 for 20 ticks, then
 //   levels up through Cobblemon (Pokemon.levelUp with a SidemodExperienceSource); within 5 ticks the burner reads SEETHING with heater
 //   heat 2 and boiler heat 2.
+// cdSup02FireTypeNeverClaimsABlazeBurner: a filled burner with a basin above; the Work Leash finds no role for a Charmander there, and
+//   in 400 ticks it never claims the burner; then a Lv10 Dratini joins the pasture and claims it (CD-SUP-02).
 ```
 
   The Dragonair tests found an engine bug that this task fixes in a commit of its own: a Dragonair is 1.1 blocks wide, and
@@ -484,7 +492,7 @@ toward the target, and target `cobblemon:dragonbreath_target`, which it emits on
   approaches in 10 the Dragonair stopped short of "arrived" until its travel timed out. `Arrival.isAt` now measures from
   where navigation stops the mob (M1 part 2, step 5), with `ArrivalTest`.
 
-  - CD-BRN-02 (`cdBrn02EmptyBurnerIsNeverClaimed`: an empty burner with a basin above and a Fire-type beside it for 400 ticks:
+  - CD-BRN-02 (`cdBrn02EmptyBurnerIsNeverClaimed`: an empty burner with a basin above and a Dratini beside it for 400 ticks:
     no claim; an empty burner has no block entity, so the block entity scan never offers it): GameTest deferred (high
     confidence): verified in the end-of-phase pass.
   - CD-BRN-03 (`cdBrn03NoBasinMeansStandby`: remove the basin above a worked burner: Standby within 20 ticks; demand is Create's
@@ -494,7 +502,8 @@ toward the target, and target `cobblemon:dragonbreath_target`, which it emits on
     `getRemainingBurnTime()`, which is public in 6.0.10; the mixin changes only a returned value, and the tick counts the burn
     time down whatever the heat): GameTest deferred (high confidence): verified in the end-of-phase pass.
 - [ ] **Step 2: Write the code, run, commit** —
-  `git commit -m "Kindle and superheat Blaze Burners with Fire- and Dragon-types"`.
+  `git commit -m "Kindle and superheat Blaze Burners with Fire- and Dragon-types"`. After the ruling:
+  `git commit -m "Remove the Burner Keeper: only Dragon-types heat Blaze Burners"`.
 
 ---
 

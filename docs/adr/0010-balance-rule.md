@@ -32,8 +32,7 @@ spare Pokémon to work in the meantime.
 - **Rules that follow from it:**
   - The Generator tops out at 5,000 FE/t, or 10,000 FE/t for a legendary or mythical Pokémon, below the
     benchmark reactor.
-  - The Stoker, Burner Keeper and Brew Stoker give free fuel only, at vanilla or Create speed, one
-    machine per worker.
+  - The Stoker and the Brew Stoker give free fuel only, at vanilla speed, one machine per worker.
   - The Superheater superheats only from level 50. Below level 50, a Dragon-type keeps a burner Kindled.
   - The Crystal Tender equals one AE2 Growth Accelerator, which is weaker than a powered accelerator
     array.

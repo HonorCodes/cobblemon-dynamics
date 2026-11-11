@@ -20,6 +20,11 @@ Corrections after agreement:
   spot that a worker cannot walk into on the level, such as a pit beside a water wheel, comes last.
 - 2026-11-10, approver's play-test result: the second play-test of the Phase 1 build, on the jar of PR #12, is GREEN.
   The play-test note in `docs/testing/phase-1-gate.md` records it, so CD-REL-13 is complete. No row changes.
+- 2026-11-10, approver's ruling after the play-test (R59): Fire-types do not heat Blaze Burners. The Burner Keeper role
+  and its role file are gone, so the Role table, G3, the M3 scope and R15 lose it. The BRN rows keep their ids and now
+  describe the Superheater: CD-BRN-01 holds `KINDLED` below level 50, and CD-BRN-05 counts 1 boiler heat from a
+  Superheater below level 50. CD-SUP-02 adds that a Fire-type never claims a Blaze Burner, and the burner case of
+  CD-ASG-16 now gives the Superheater as the burner's only role.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -72,7 +77,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 
 - G1: A player switches a Cobblemon pasture to Work Mode, and its owned Pokémon power and operate machines in the work area, with no stand block.
 - G2: Water-types turn Create water wheels with no water, Electric-types generate Forge Energy by level, and Fire-types fuel furnaces as if they burned coal.
-- G3: Thirteen types get sixteen roles across vanilla Minecraft, Create and Applied Energistics 2: twelve in Phase 1 and four in Phase 2.
+- G3: Thirteen types get fifteen roles across vanilla Minecraft, Create and Applied Energistics 2: eleven in Phase 1 and four in Phase 2.
 - G4: Only one worker acts on a target at a time, across all pastures and players, and wild Pokémon never work.
 - G5: A player binds a specific pastured Pokémon to a specific machine with the Work Leash.
 - G6: Work Stamina, four bed tiers and Fairy healers make worker uptime something that a player plans, as in Palworld.
@@ -99,7 +104,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 
 ## Inputs
 
-All rulings come from the design session with the approver on 2026-11-09.
+Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 comes from the approver's ruling after the Phase 1 play-test, on 2026-11-10.
 
 | Input | Link |
 | --- | --- |
@@ -117,7 +122,7 @@ All rulings come from the design session with the approver on 2026-11-09.
 | R12. Ruling: a Tired Pokémon claims the nearest unclaimed bed, walks to it, and loops the sleep effect silently. A bed takes a Pokémon of any size. | none |
 | R13. Ruling: a Fairy healer restores 100% of an ally for 25% of its own stamina, at any level. It heals in its own pasture only, never Fairy allies, Tired allies first, then the lowest ally under 25%. The heal shows sparkles on the ally. | ADR 0008 |
 | R14. Ruling: healer recovery time falls linearly from 1,200 min at level 1 to 120 min at level 100. | ADR 0008 |
-| R15. Ruling: the v1 roles are Wheel Driver, Pump, Generator, Stoker, Burner Keeper, Brew Stoker, Superheater, Cranker, Crystal Tender, Brewer, healer and Muse. | `docs/roles.md` |
+| R15. Ruling: the v1 roles are Wheel Driver, Pump, Generator, Stoker, Burner Keeper, Brew Stoker, Superheater, Cranker, Crystal Tender, Brewer, healer and Muse. R59 removes the Burner Keeper. | `docs/roles.md` |
 | R16. Ruling: the v2 roles Telekinesis, Fan Catalyst, Tailwind and Magnet ship in 1.0. Phase 1 tests v1 privately, Phase 2 builds and tests v2 privately, and then 1.0 goes public and joins the approver's pack. | `docs/roles.md` |
 | R17. Ruling: each water wheel stores its own spin direction. Sneak + right-click with the Work Leash flips it. | none |
 | R18. Ruling: Muse power is ceil(15 × level ÷ 100) bookshelves, capped at 15. Unleashed Fairy-types heal. A Fairy-type is a Muse only when leashed. | none |
@@ -161,6 +166,7 @@ All rulings come from the design session with the approver on 2026-11-09.
 | R56. Ruling (was A22): Phase 1 builds use tags of the form `vX.Y.Z-alpha.N`, Phase 2 builds use `vX.Y.Z-beta.N`, and only a tag with no suffix publishes. | none |
 | R57. Ruling (was A23): the action-bar messages read `"Select a destination for {Pokémon}"`, `"Destination must differ from the source"`, `"No room in front of the fan"`, `"{Pokémon} cannot reach {target}"`, `"Fan mode: Blasting"` and `"Fan mode: Smoking"`. | none |
 | R58. Ruling: a leash binding clears when its target is broken, replaced, picked up with a Create wrench or moved into a Create contraption. It also clears when its Pokémon is recalled to the PC or the party, moves to another pasture, is released or traded, or loses its pasture block. | none |
+| R59. Ruling (2026-11-10, after the Phase 1 play-test): Fire-types do not heat Blaze Burners. Dragon-types alone heat them, `KINDLED` below level 50 and `SEETHING` from level 50. The Burner Keeper role goes. | none |
 | RES1. Research: Cobblemon 1.8.4 integration points. | `docs/research/2026-11-09-integration-points.md` |
 | RES2. Research: Create 6.0.10 kinetic and heat hooks. | `docs/research/2026-11-09-integration-points.md` |
 | RES3. Research: AE2 19.2.19, NeoForge 21.1 and vanilla furnace facts. | `docs/research/2026-11-09-integration-points.md` |
@@ -197,7 +203,6 @@ and default priority. The default role files hold these values.
 | Wheel Driver | 1 | Water | Create water wheel, large water wheel | Water Gun | yes | 0 |
 | Generator | 1 | Electric | Blocks whose NeoForge energy capability can receive | Thunder Shock | yes | 0 |
 | Stoker | 1 | Fire | Block entities that extend `AbstractFurnaceBlockEntity` | Ember | yes | 0 |
-| Burner Keeper | 1 | Fire | Filled Create Blaze Burner | Ember | yes | 0 |
 | Superheater | 1 | Dragon | Filled Create Blaze Burner | Dragon Breath | yes | 10 |
 | Cranker | 1 | Fighting, Normal | Create hand crank | Pound | yes | 0 |
 | Crystal Tender | 1 | Rock | Blocks in `#c:budding_blocks` | Rock Throw | yes | 0 |
@@ -228,7 +233,7 @@ and default priority. The default role files hold these values.
 | M0 | 1 | Scaffold and CI |
 | M1 | 1 | Work engine, claims, Work Leash, Work Mode and the Stoker role |
 | M2 | 1 | Work Stamina, beds and healers |
-| M3 | 1 | Create roles: Wheel Driver, Burner Keeper, Superheater and Cranker |
+| M3 | 1 | Create roles: Wheel Driver, Superheater and Cranker |
 | M4 | 1 | Generator, Crystal Tender, Brew Stoker, Brewer, Muse and Pump |
 | M5 | 1 | UI bars, compatibility and polish. Ends at the Phase 1 gate. |
 | M6 | 2 | Telekinesis and Magnet |
@@ -282,7 +287,7 @@ and default priority. The default role files hold these values.
 | CD-ASG-13 | With the default config, if an auto-assigned worker has not reached its work spot 600 ticks (30 s) after its work claim, then the claim registry MUST release that claim. | MUST | R24, REV1, failure sweep, limits sweep | An unreachable target must not hold a worker forever. | GameTest: a target walled off from every spot. Fails if: the claim is not held at tick 599 after the claim, or is still held at tick 601. | claim registry | agreed |
 | CD-ASG-14 | With the default config, when an auto-assigned worker's travel times out, the work engine MUST NOT give that worker the same target for 6,000 ticks (5 min). | MUST NOT | R24, REV1, limits sweep | Repeated timeouts on one target waste every scan. | Unit: on a fake clock, the target is refused to that worker 5,999 ticks after the timeout and allowed at 6,000 ticks. Fails if: either result is wrong. | work engine | agreed |
 | CD-ASG-15 | When a worker leaves its pasture, the claim registry MUST release the worker's claim within 20 ticks. | MUST | R24, RES1, failure sweep | Cobblemon fires no unpasture event, so the pasture adapter polls every 20 ticks. | GameTest: move a Working worker to the PC and read the registry 20 ticks later. Fails if: the claim remains. | claim registry | agreed |
-| CD-ASG-16 | When a worker qualifies for two roles on one target, the work engine MUST give it the role whose role file has the higher `priority`. | MUST | R24, R42, REV1 | One worker per target means one role per target, and the stronger role wins. | Unit: with the default role files, a Fire/Dragon Turtonator on a Blaze Burner gets the Superheater role (priority 10 over 0), and a Poison/Fire Salazzle on a brewing stand gets the Brew Stoker role (10 over 0). Fails if: either gets the other role. | role registry | agreed |
+| CD-ASG-16 | When a worker qualifies for two roles on one target, the work engine MUST give it the role whose role file has the higher `priority`. | MUST | R24, R42, REV1 | One worker per target means one role per target, and the stronger role wins. | Unit: with the default role files, a Poison/Fire Salazzle on a brewing stand gets the Brew Stoker role (priority 10 over 0), and a Fire/Dragon Turtonator on a Blaze Burner gets the Superheater role, the burner's only role. Fails if: either gets another role. | role registry | agreed |
 | CD-ASG-17 | With the default config, if a leashed worker has not reached its work spot 600 ticks after its work claim, then the work engine MUST keep its leash binding and hold it in Standby for 6,000 ticks before it travels again. | MUST | R24, REV1, failure sweep, limits sweep | A leashed machine stays reserved for its own worker, and the worker tries again later. | Unit: on a fake clock, the binding stays, the worker is in Standby from tick 600 to tick 6,599 after the claim, and it is Traveling again at tick 6,600. Fails if: the binding clears, or the retry starts at another tick. | work engine | agreed |
 | CD-ASG-18 | The work engine MUST keep each worker in exactly one of the states Idle, Traveling, Working, Standby, ToBed, Sleeping, RestingInPlace and Healing. | MUST | REV1, state × event sweep | One state list drives the icons, the claims and the stamina rules. | Unit: run a scripted day of 24,000 ticks for a worker and a healer, and record the state set on every tick. Fails if: a tick has no state, two states, or a state outside the list. | work engine | agreed |
 | CD-ASG-19 | With the default config, when a scan finds an unclaimed target with demand for one of an auto-assigned worker's roles in its work area, and that worker has been in Standby for 200 ticks or more, the work engine MUST move the worker's work claim to that target. | MUST | R43, R44, limits sweep, state × event sweep | A worker must not wait at a machine with no work while another machine needs it, for example at a wheel that real water already turns. | Unit: on a fake clock, a Stoker in Standby at an empty furnace sees a second furnace with input. A scan at Standby tick 199 leaves its claim, and a scan at tick 200 moves it to the second furnace. GameTest: a Wheel Driver that has waited 400 ticks at a wheel that real water turns moves to a dry wheel in its work area within 80 ticks of the dry wheel's placement. Fails if: the claim moves at tick 199, it stays at tick 200, or the Wheel Driver does not move. | work engine | agreed |
@@ -464,24 +469,24 @@ and default priority. The default role files hold these values.
 | CD-STK-06 | When a Stoker stops Working, the handler MUST return the furnace to vanilla fuel rules within 2 ticks. | MUST | R24 | Players keep a normal furnace after the worker leaves. | GameTest: with no fuel, the furnace goes out within 2 ticks, and with 1 coal it burns that coal. Fails if: it stays lit with no fuel, or ignores the coal. | target handler (vanilla) | agreed |
 | CD-STK-07 | While a Stoker heats a furnace, the handler SHOULD set the burn duration to 1,600 ticks, so the flame gauge reads as a coal burn. | SHOULD | R6 | The gauge shows why the furnace runs. Acceptable to skip for a modded furnace that draws its own gauge. | Demo: watch the flame gauge of a worked furnace. Fails if: the gauge shows empty while the furnace cooks. | target handler (vanilla) | agreed |
 
-### BRN: Burner Keeper
+### BRN: Blaze Burner heat
 
 | ID | Requirement | Level | Source | Rationale | Acceptance test | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| CD-BRN-01 | While a Burner Keeper is Working, the handler MUST hold the Blaze Burner at `KINDLED` or hotter. | MUST | R15, RES2, G3 | The burner heats as if it had coal. | GameTest: a filled burner with no fuel and a basin above. Fails if: it reads lower than `KINDLED` 1 tick after Working starts. | target handler (Create) | agreed |
-| CD-BRN-02 | The Burner Keeper and Superheater handlers MUST NOT target an empty Blaze Burner. | MUST NOT | RES2, misuse sweep | Heat on an empty burner makes it drop a full burner, which duplicates a blaze. | GameTest: an empty burner with a basin above, and a Fire-type beside it for 400 ticks. Fails if: the burner is claimed. | target handler (Create) | agreed |
-| CD-BRN-03 | The Burner Keeper and Superheater handlers MUST report demand only while a basin or a fluid tank sits directly above the burner. | MUST | R24 | Heat with no consumer wastes stamina. | GameTest: remove the basin above a worked burner. Fails if: the worker is not in Standby within 20 ticks. | target handler (Create) | agreed |
-| CD-BRN-04 | The Burner Keeper and Superheater handlers MUST NOT change the burner's stored fuel. | MUST NOT | RES2, REV1 | The burner's own fuel burns down at its normal rate while a worker heats it, so the worker neither saves nor adds fuel. | GameTest: two burners with 1,000 ticks of coal fuel each, one worked for 400 ticks. Fails if: their remaining burn times differ. | target handler (Create) | agreed |
-| CD-BRN-05 | While a Burner Keeper heats a burner under a Create boiler, the boiler MUST count 1 heat from that burner. | MUST | R15, RES2 | Pokémon heat powers steam engines. | GameTest: a boiler on a worked burner. Fails if: the heat from that burner is not 1. | target handler (Create) | agreed |
-| CD-BRN-06 | When a Burner Keeper or Superheater stops Working, the handler MUST return the burner to the heat level of its own fuel within 2 ticks. | MUST | R24 | Heat ends with the work. | GameTest: release the claim on a worked burner with no fuel. Fails if: it does not read `SMOULDERING` 2 ticks later. | target handler (Create) | agreed |
-| CD-BRN-07 | If the Blaze Burner mixin fails to apply, then the role registry MUST disable the Burner Keeper and Superheater roles and log one warning. | MUST | RES2, failure sweep | A Create update must not crash the game. | Unit: start with the mixin's applied flag set to false. Fails if: either role stays enabled, or the game crashes. | role registry | agreed |
+| CD-BRN-01 | With the default Superheater role file, while a Superheater below level 50 is Working, the handler MUST hold the Blaze Burner at `KINDLED`, as coal does. | MUST | R26, R59, RES2 | A Dragon-type heats a burner from its first level, so a young dragon has a job before it can superheat. CD-SUP-04 covers the change at level 50. | GameTest: a Lv10 Dratini on a filled burner with no fuel and a basin above. Fails if: it reads anything but `KINDLED` 1 tick after Working starts. | target handler (Create) | agreed |
+| CD-BRN-02 | The Superheater handler MUST NOT target an empty Blaze Burner. | MUST NOT | RES2, misuse sweep | Heat on an empty burner makes it drop a full burner, which duplicates a blaze. | GameTest: an empty burner with a basin above, and a Dragon-type beside it for 400 ticks. Fails if: the burner is claimed. | target handler (Create) | agreed |
+| CD-BRN-03 | The Superheater handler MUST report demand only while a basin or a fluid tank sits directly above the burner. | MUST | R24 | Heat with no consumer wastes stamina. | GameTest: remove the basin above a worked burner. Fails if: the worker is not in Standby within 20 ticks. | target handler (Create) | agreed |
+| CD-BRN-04 | The Superheater handler MUST NOT change the burner's stored fuel. | MUST NOT | RES2, REV1 | The burner's own fuel burns down at its normal rate while a worker heats it, so the worker neither saves nor adds fuel. | GameTest: two burners with 1,000 ticks of coal fuel each, one worked for 400 ticks. Fails if: their remaining burn times differ. | target handler (Create) | agreed |
+| CD-BRN-05 | While a Superheater below level 50 heats a burner under a Create boiler, the boiler MUST count 1 heat from that burner. | MUST | R26, R59, RES2 | Pokémon heat powers steam engines from a Dragon-type's first level. | GameTest: a boiler on a burner that a Lv10 Dratini works. Fails if: the heat from that burner is not 1. | target handler (Create) | agreed |
+| CD-BRN-06 | When a Superheater stops Working, the handler MUST return the burner to the heat level of its own fuel within 2 ticks. | MUST | R24 | Heat ends with the work. | GameTest: release the claim on a worked burner with no fuel. Fails if: it does not read `SMOULDERING` 2 ticks later. | target handler (Create) | agreed |
+| CD-BRN-07 | If the Blaze Burner mixin fails to apply, then the role registry MUST disable the Superheater role and log one warning. | MUST | RES2, failure sweep | A Create update must not crash the game. | Unit: start with the mixin's applied flag set to false. Fails if: the role stays enabled, or the game crashes. | role registry | agreed |
 
 ### SUP: Superheater
 
 | ID | Requirement | Level | Source | Rationale | Acceptance test | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | CD-SUP-01 | With the default Superheater role file, while a Superheater of level 50 or higher is Working, the handler MUST hold the Blaze Burner at `SEETHING`. | MUST | R15, R26, RES2, G3 | Dragon-types superheat as a Blaze Cake does once they reach level 50. | GameTest: a Lv50 Dragonair on a filled burner with no fuel and a basin above. Fails if: it does not read `SEETHING` 1 tick after Working starts. | target handler (Create) | agreed |
-| CD-SUP-02 | The role registry MUST list only the Dragon type for the Superheater role. | MUST | R15 | Superheat is the Dragon role. | Unit: a Fire-type Charmander is not eligible, and a Dragon-type Dratini is. Fails if: either result is wrong. | role registry | agreed |
+| CD-SUP-02 | With the default role files, the role registry MUST give a Blaze Burner the Superheater as its only role, and list only the Dragon type for it. | MUST | R15, R59 | Superheat is the Dragon role, and the approver ruled that Fire-types do not heat Blaze Burners (2026-11-10). | Unit: a Fire-type Charmander is not eligible for the Superheater, a Dragon-type Dratini is, and the default role files give a burner no other role. GameTest: a Charmander stands beside a filled burner with a basin above for 400 ticks, then a Dratini joins its pasture. Fails if: a result is wrong, the Charmander claims the burner, or the Dratini does not claim it. | role registry | agreed |
 | CD-SUP-03 | While a Superheater of level 50 or higher heats a burner under a Create boiler, the boiler MUST count 2 heat from that burner. | MUST | R15, R26, RES2 | Superheat doubles the boiler heat. | GameTest: a boiler on a burner that a Lv50 Superheater works. Fails if: the heat from that burner is not 2. | target handler (Create) | agreed |
 | CD-SUP-04 | With the default Superheater role file, while a Superheater below level 50 is Working, the handler MUST hold the Blaze Burner at `KINDLED`. | MUST | R26, R25, limits sweep | Leveling pays off, and a blaze-cake chain stays the early answer to superheat. | GameTest: a Lv49 Dragonair works a filled burner with no fuel under a boiler, then levels to 50. Fails if: the burner reads anything but `KINDLED` with 1 boiler heat at Lv49, or anything but `SEETHING` with 2 boiler heat at Lv50. | target handler (Create) | agreed |
 
@@ -763,7 +768,7 @@ and default priority. The default role files hold these values.
 | --- | --- |
 | G1 | CD-WMD-01, CD-WMD-03, CD-ASG-03, CD-UI-01 |
 | G2 | CD-WHL-02, CD-GEN-02, CD-STK-02 |
-| G3 | CD-WHL-01, CD-GEN-01, CD-STK-01, CD-BRN-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRF-01, CD-BRW-01, CD-PMP-01, CD-MUS-01, CD-HEAL-01, CD-TLK-01, CD-MAG-01, CD-FAN-01, CD-TLW-01 |
+| G3 | CD-WHL-01, CD-GEN-01, CD-STK-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRF-01, CD-BRW-01, CD-PMP-01, CD-MUS-01, CD-HEAL-01, CD-TLK-01, CD-MAG-01, CD-FAN-01, CD-TLW-01 |
 | G4 | CD-CLM-01, CD-CLM-02, CD-ASG-01, CD-AI-06 |
 | G5 | CD-LSH-01, CD-LSH-03, CD-CLM-05 |
 | G6 | CD-STA-01, CD-BED-01, CD-BED-03, CD-HEAL-04, CD-HEAL-05 |
@@ -786,7 +791,7 @@ and default priority. The default role files hold these values.
 | R12 | CD-BED-05, CD-BED-07, CD-BED-09, CD-BED-10, CD-FX-10 |
 | R13 | CD-HEAL-01, CD-HEAL-04, CD-HEAL-05, CD-HEAL-06, CD-HEAL-07, CD-HEAL-08, CD-HEAL-15, CD-HEAL-16, CD-HEAL-17 |
 | R14 | CD-HEAL-12, CD-BED-03, CD-CFG-04 |
-| R15 | CD-WHL-01, CD-PMP-01, CD-GEN-01, CD-STK-01, CD-BRN-01, CD-BRF-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRW-01, CD-HEAL-01, CD-MUS-01 |
+| R15 | CD-WHL-01, CD-PMP-01, CD-GEN-01, CD-STK-01, CD-BRF-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRW-01, CD-HEAL-01, CD-MUS-01 |
 | R16 | CD-TLK-01, CD-MAG-01, CD-FAN-01, CD-TLW-01, CD-REL-12, CD-REL-13, CD-REL-14, CD-REL-15 |
 | R17 | CD-WHL-04, CD-WHL-05, CD-WHL-06, CD-WHL-07 |
 | R18 | CD-ASG-04, CD-MUS-02, CD-MUS-03, CD-MUS-04, CD-HEAL-13, CD-HEAL-14 |
@@ -797,7 +802,7 @@ and default priority. The default role files hold these values.
 | R23 | CD-AI-01, CD-AI-02, CD-AI-03, CD-AI-04 |
 | R24 | CD-ASG-06 to CD-ASG-16, CD-CLM-07, CD-STA-13, CD-UI-14, CD-PERF-01, CD-REL-01, CD-REL-05 |
 | R25 | CD-BAL-01 to CD-BAL-07, CD-SUP-04, CD-TLW-03 |
-| R26 | CD-SUP-01, CD-SUP-03, CD-SUP-04 |
+| R26 | CD-SUP-01, CD-SUP-03, CD-SUP-04, CD-BRN-01, CD-BRN-05 |
 | R27 | CD-TLK-01, CD-TLK-03, CD-TLK-05, CD-LSH-17, CD-LSH-18 |
 | R28 | CD-FAN-05, CD-FAN-06, CD-FAN-09, CD-FAN-10 |
 | R29 | CD-TLK-02, CD-MAG-02, CD-FAN-02, CD-TLW-02, CD-ASG-05 |
@@ -830,6 +835,7 @@ and default priority. The default role files hold these values.
 | R56 | CD-REL-04, CD-REL-12 |
 | R57 | CD-LSH-20, CD-LSH-21, CD-TLK-10, CD-FAN-04, CD-FAN-16 |
 | R58 | CD-LSH-08, CD-LSH-22, CD-LSH-23, CD-LSH-24, CD-LSH-25, CD-LSH-26, CD-LSH-27 |
+| R59 | CD-BRN-01 to CD-BRN-07, CD-SUP-02, CD-ASG-16 |
 | RES1 | CD-PLAT-02, CD-AI-01, CD-AI-04, CD-AI-07, CD-AI-09, CD-FX-03, CD-HEAL-15, CD-UI-11, CD-REL-07, CD-CFG-14 |
 | RES2 | CD-WHL-02, CD-WHL-09, CD-BRN-02, CD-CRK-02, CD-CRK-04 |
 | RES3 | CD-PLAT-01, CD-GEN-04, CD-GEN-07, CD-STK-04, CD-CRY-02, CD-SEC-11 |
@@ -875,6 +881,6 @@ docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 342 rows
   unknown Status value: 0
 ```
 
-- Trace-table lines mapped: 90 of 90 (11 goals + 79 inputs + 0 assumptions)
+- Trace-table lines mapped: 91 of 91 (11 goals + 80 inputs + 0 assumptions)
 - Sweeps recorded: 7 of 7
 - Rows by level: 287 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY

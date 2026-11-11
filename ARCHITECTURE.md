@@ -12,7 +12,7 @@ spec sheet disagree, the spec sheet wins.
 
 Cobblemon Dynamics lets pastured Pokémon work on blocks around a player's base. A Water-type turns
 a Create water wheel. An Electric-type pushes Forge Energy (FE) into a machine. A Fire-type keeps a
-furnace lit. Version 1.0 has 16 roles across 13 types, a Work Stamina cycle with four bed tiers, and
+furnace lit. Version 1.0 has 15 roles across 13 types, a Work Stamina cycle with four bed tiers, and
 Fairy-type healers. [docs/roles.md](docs/roles.md) lists every role.
 
 Constraints:
@@ -472,9 +472,9 @@ references. This section lists what the code uses.
       at = @At("RETURN"), cancellable = true)
   ```
 
-  It returns `KINDLED` for the Burner Keeper. It returns `SEETHING` for a Superheater at level 50 or
-  higher, and `KINDLED` for a Superheater below level 50. It changes the result only when ours is
-  hotter. The burner's own tick writes the block state every tick, so heat starts within one tick and
+  It returns `SEETHING` for a Superheater at level 50 or higher, and `KINDLED` for a Superheater
+  below level 50. The Superheater is the only role that heats a burner, so a Fire-type never works
+  one (the approver's ruling of 2026-11-10). It changes the result only when ours is hotter. The burner's own tick writes the block state every tick, so heat starts within one tick and
   ends one tick after release. The handler renews the heat of a burner on every tick that its worker
   Works, and the heat lapses one tick after the last renewal, so a release that never came leaves no
   burner hot. Empty burners (`HeatLevel.NONE`, no block entity) are never targets, because heating
@@ -747,7 +747,7 @@ Rules:
 | 1, private | M0 | Scaffold, CI, `security.yml` and `dependabot.yml` |
 | 1, private | M1 | Engine, claims, the Work Leash, Work Mode and the Stoker |
 | 1, private | M2 | Work Stamina, beds (placeholder art) and healers |
-| 1, private | M3 | Create roles: Wheel Driver, Burner Keeper, Superheater, Cranker |
+| 1, private | M3 | Create roles: Wheel Driver, Superheater, Cranker |
 | 1, private | M4 | Generator, Crystal Tender, Brew Stoker, Brewer, Muse and Pump |
 | 1, private | M5 | Panel and head bars, compatibility, polish and the manual checklist |
 | Gate 1 | | Every v1 MUST row passes, and the operator tests the mod in a private world. |

@@ -71,8 +71,8 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
   scan finds one.
 - If an auto-assigned worker cannot reach its target within 30 seconds, it gives the target up and skips
   it for 5 minutes.
-- When two roles fit one target, the role with the higher priority wins. The Superheater wins over the
-  Burner Keeper, and the Brew Stoker wins over the Brewer.
+- When two roles fit one target, the role with the higher priority wins. For example, the Brew Stoker wins
+  over the Brewer.
 - A Fairy-type never takes a target on its own. With no binding, it is a [healer](#healers). The
   [Pump](#pump) and the [Muse](#muse) work only through the Work Leash.
 
@@ -306,7 +306,6 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Stoker](#stoker) | `cobblemon_dynamics:stoker` | Fire | Furnace, smoker, blast furnace | Auto | |
 | [Wheel Driver](#wheel-driver) | `cobblemon_dynamics:wheel_driver` | Water | Water wheel, large water wheel | Auto | Create |
 | [Cranker](#cranker) | `cobblemon_dynamics:cranker` | Fighting, Normal | Hand crank | Auto | Create |
-| [Burner Keeper](#burner-keeper) | `cobblemon_dynamics:burner_keeper` | Fire | Blaze Burner with a blaze | Auto | Create |
 | [Superheater](#superheater) | `cobblemon_dynamics:superheater` | Dragon | Blaze Burner with a blaze | Auto | Create |
 | [Generator](#generator) | `cobblemon_dynamics:generator` | Electric | A block that accepts Forge Energy | Auto | |
 | [Crystal Tender](#crystal-tender) | `cobblemon_dynamics:crystal_tender` | Rock | Budding amethyst, AE2 budding certus quartz | Auto | |
@@ -355,29 +354,23 @@ blocks from the crank.
 A new crank turns in Create's positive direction. To reverse it, [flip it with the Work
 Leash](#flip-a-water-wheel-or-a-hand-crank).
 
-### Burner Keeper
+### Superheater
 
-**Types:** Fire. **Level:** any. **Move:** Ember. **Needs:** Create.
+**Types:** Dragon. **Level:** kindles below level 50, superheats from level 50. **Move:** Dragon Breath.
+**Needs:** Create.
 
 **Target:** a Blaze Burner that holds a blaze. An empty Blaze Burner is not a target.
 
-The Burner Keeper keeps the burner kindled, as coal does. It works only while a basin or a fluid tank sits
-directly on top of the burner. It never works a creative Blaze Burner, whose heat a worker cannot change.
-Under a boiler, the burner counts 1 heat. The Burner Keeper never changes the burner's own fuel. When it
+Below level 50, the Superheater keeps the burner kindled, as coal does. Under a boiler, the burner then
+counts 1 heat. From level 50, the Superheater keeps the burner superheated, as a Blaze Cake does. Under a
+boiler, the burner then counts 2 heat.
+
+The Superheater works only while a basin or a fluid tank sits directly on top of the burner. It never works
+a creative Blaze Burner, whose heat a worker cannot change. It never changes the burner's own fuel. When it
 stops, the burner goes back to the heat of its own fuel within 2 ticks.
 
-**Role file parameter:** `heat` (`kindled`).
-
-### Superheater
-
-**Types:** Dragon. **Level:** superheats from level 50. **Move:** Dragon Breath. **Needs:** Create.
-
-**Target:** a Blaze Burner that holds a blaze, as for the Burner Keeper.
-
-From level 50, the Superheater keeps the burner superheated, as a Blaze Cake does. Under a boiler, the
-burner then counts 2 heat. Below level 50, the Superheater keeps the burner kindled, as a Burner Keeper
-does. The other rules of the Burner Keeper apply. A Pokémon that fits both roles, for example a Fire and
-Dragon type, works a burner as a Superheater.
+Only Dragon-types heat Blaze Burners. A Fire-type with no Dragon type never works a burner, and the Work Leash
+cannot bind it to one.
 
 **Role file parameters:** `heat` (`seething`), `min_level` (50) and `below_min_level_heat` (`kindled`).
 

@@ -320,7 +320,8 @@ Design decisions (the plan gave steps only):
   `special` and `cry`, and `poisongas`, `spray`, `special` and `cry`. The range is 6.0.
 - **CD-ASG-16.** `DefaultPriorityTest` gives `Assigner.pickForIdle` each target with every default role whose
   handler matches it, as a scan does: `burner_heat` for a Blaze Burner, and `brewing_fuel` and `brewing_speed` for a
-  stand. A pure Fire-type on the burner and a pure Poison-type on the stand get the other role.
+  stand. A pure Poison-type on the stand gets the other role. Since the approver's ruling of 2026-11-10 (R59), the
+  Superheater is the burner's only role, so a pure Fire-type gets no role on the burner (CD-SUP-02).
 
 - [ ] **Step 1: Failing tests** — `DefaultPriorityTest` (CD-ASG-16 with the default files: Turtonator
   `fire`+`dragon` on a burner gets the Superheater; Salazzle `poison`+`fire` on a stand gets the Brew Stoker);

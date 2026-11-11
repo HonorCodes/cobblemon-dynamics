@@ -281,3 +281,14 @@ These checks repeat the findings of the approver's first play-test after their f
 44. **CD-ASG-09.** Setup: a Work Mode pasture with a Charmander, and a furnace with 64 raw iron on the floor 5
     blocks from the pasture block, with open floor around it. Action: watch the Charmander until it Works.
     Expected: it stands on the floor beside the furnace, not on top of it and not several blocks away.
+
+## Approver rulings (2026-11-10)
+
+These checks show the changes that the approver ruled after the Phase 1 play-test.
+
+45. **CD-BRN-01.** Setup: a Work Mode pasture with a level 10 Dratini, and a Blaze Burner with a blaze, no fuel and a
+    basin on top, 4 blocks from the pasture block. Action: watch the Dratini until it Works. Expected: the Dratini works
+    the burner with Dragon Breath, and the burner burns with kindled flames, not with the blue flames of superheat.
+46. **CD-SUP-02.** Setup: as in check 45, with a level 10 Charmander in place of the Dratini, and no furnace or brewing
+    stand in the work area. Action: watch for 30 seconds. Then select the Charmander with the Work Leash and click the
+    burner. Expected: the Charmander never walks to the burner, and the click shows "No role fits".
