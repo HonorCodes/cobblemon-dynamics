@@ -51,18 +51,33 @@ patched Minecraft sources:
   `ServerPlayer` and overrides neither `mayInteract` nor `isSpectator`. `PlayerEvent.PlayerLoggedOutEvent` exists.
 - Minecraft's translations take positional arguments such as `%1$s` (`TranslatableContents.java:61`).
 
-Inferred, and checked by the GameTests of Task 3:
+Inferred, and checked by the GameTests of Task 3 on 2026-11-11:
 
 - In the GameTest server, `POKEMON_SENT_POST` fires about 30 ticks after `SendOutPokemonHandler.handle`, because the entity
-  runs its scheduled tasks when it ticks.
+  runs its scheduled tasks when it ticks. Measured: the order's claim came 31 ticks after the key press.
 - A fake player in `PlayerList.playersByUUID`, and not in `PlayerList.players`, is found by `getPlayer` and gets no
-  broadcast, no spawns and no ticks. Cobblemon then makes a party Pokémon of that player follow it.
-- `raycastSafeSendout` puts the Charmander of the test scene in front of the furnace face that its owner looks at.
+  broadcast, no spawns and no ticks. Cobblemon then makes a party Pokémon of that player follow it. Shown by
+  `cdQwk13Qwk14Qwk15LeashEndsTheOrderForGood`.
+- `raycastSafeSendout` puts the Charmander of the test scene in front of the furnace face that its owner looks at. Measured:
+  the Charmander came out at (5.375, 2, 11.5) of the test, in front of the east face of furnace A, which spans x 4 to 5.
 - The work activity replaces the idle activity of a party Pokémon too, so `move_to_owner` does not run while the Pokémon holds
-  a work order, and the idle activity comes back when the work order clears.
+  a work order, and the idle activity comes back when the work order clears. Shown by CD-QWK-12 and CD-QWK-15.
 
-Inferred, and checked by the end-of-phase GameTests: setting `PokemonEntity.battleId` on a working entity makes `isBattling`
-true, and Cobblemon does not crash on a battle id with no battle (CD-QWK-21).
+Found by the GameTests of Task 3 on 2026-11-11:
+
+- The hold of a work order renews Cobblemon's `PATH_COOLDOWN` for 40 ticks on every tick (`WorkMoveTask`), and
+  `move_to_owner` runs only with no `PATH_COOLDOWN`. Then Cobblemon's `FollowWalkTargetTask` waits `20 + random(20)` ticks
+  before it plans the walk (Cobblemon sources, `entity/ai/FollowWalkTargetTask.kt`, `resetPathUpdateCountdownTicks`). In 8
+  runs the follow began 41 ticks after the end, and a Charmander came only 1.0 to 2.2 blocks closer to its owner within 100
+  ticks, so CD-QWK-15 failed in most runs. The end of an order now erases `PATH_COOLDOWN` (`BrainBridge.endHold`): in 8 runs the
+  follow began 1 tick after the end, and the Charmander came 3.6 to 4.6 blocks closer within 100 ticks.
+- A battle id that names no battle does not stay. Cobblemon's `PokemonServerDelegate.tick` clears it on the entity's next
+  tick when `BattleRegistry.getBattle` gives null or an ended battle (`entity/pokemon/PokemonServerDelegate.kt:315-321`). The
+  engine's level tick comes after the entity ticks, so it never sees `isBattling`, and a GameTest that only sets `battleId`
+  cannot pass. In a real battle, `BattleRegistry.startShowdown` gives each Pokémon of the actors that is out the battle's id
+  (`battles/BattleRegistry.kt:162-168`), and the id stays while the battle runs. A wild battle that `BattleBuilder.pve` started
+  for a listed fake owner had ended and left the registry 1 tick later, with no error in the log. So the CD-QWK-21 GameTest
+  needs a battle that stays in the GameTest server, and it waits for the end-of-phase pass (Task 3, Step 6).
 
 ---
 
@@ -99,6 +114,9 @@ object QuickWorkRules {
     sealed interface Pick          // Pick.Order(role), Pick.NeedsLeash or Pick.None
     data class Watch(/* what one tick of an order sees */)
 
+    fun isExpired(aimTick: Long, now: Long): Boolean
+    fun dropExpired(aims: MutableMap<UUID, QuickAim>, now: Long)
+    fun beyondLeash(ownerDistanceSqr: Double, leashRange: Int): Boolean
     fun traceRange(enabled: Boolean, ownerBattling: Boolean, targetRange: Int, leashRange: Int): Int?
     fun mayOrder(role: RoleDefinition, scanned: Boolean, shape: BindingShape): Boolean
     fun pick(fitting: List<RoleDefinition>, types: List<String>, hasFairyType: Boolean, orderable: (RoleDefinition) -> Boolean): Pick
@@ -189,8 +207,7 @@ class QuickWorkRulesTest {
         assertEquals(QuickWorkRules.Pick.None, pick(listOf(wheelDriver), listOf("water", "fairy"), fairy = true))
 
     @Test
-    fun `CD-QWK-03 a block that no role fits gives nothing`() =
-        assertEquals(QuickWorkRules.Pick.None, pick(emptyList(), listOf("fire")))
+    fun `CD-QWK-03 a block that no role fits gives nothing`() = assertEquals(QuickWorkRules.Pick.None, pick(emptyList(), listOf("fire")))
 
     @Test
     fun `CD-QWK-06 to CD-QWK-09 the refusals come in their order, and the demand is asked last`() {
@@ -330,6 +347,20 @@ object QuickWorkRules {
         val standbyLimit: Int,
     )
 
+    /** CD-QWK-01: an aim this old can no longer start an order. Game time is the overworld's in every level. */
+    fun isExpired(aimTick: Long, now: Long): Boolean = now - aimTick > AIM_TICKS
+
+    /**
+     * CD-QWK-25: drops every aim of [aims] that can no longer start an order, such as the aim of a send-out that a later subscriber
+     * cancelled, so that no aim waits for its owner's logout.
+     */
+    fun dropExpired(aims: MutableMap<UUID, QuickAim>, now: Long) {
+        aims.values.removeIf { isExpired(it.tick, now) }
+    }
+
+    /** CD-QWK-13: past the leash, from the owner's eye position to the box of the aimed block. The start and the end of an order ask it. */
+    fun beyondLeash(ownerDistanceSqr: Double, leashRange: Int): Boolean = ownerDistanceSqr > leashRange.toDouble() * leashRange
+
     /** CD-CFG-16, CD-CFG-18, CD-QWK-21: how far the trace of a send-out reaches, or null for no trace. */
     fun traceRange(enabled: Boolean, ownerBattling: Boolean, targetRange: Int, leashRange: Int): Int? =
         if (enabled && !ownerBattling) minOf(targetRange, leashRange) else null
@@ -363,7 +394,7 @@ object QuickWorkRules {
         w.entityGone -> QuickEnd.RECALLED
         w.battling -> QuickEnd.BATTLE
         !w.ownerPresent -> QuickEnd.OWNER_LEFT
-        w.ownerDistanceSqr > w.leashRange.toDouble() * w.leashRange -> QuickEnd.TOO_FAR
+        beyondLeash(w.ownerDistanceSqr, w.leashRange) -> QuickEnd.TOO_FAR
         !w.holdsClaim -> QuickEnd.TARGET
         w.status == WorkerStatus.STANDBY && w.ticksInStatus >= w.standbyLimit -> QuickEnd.NO_DEMAND
         else -> null
@@ -496,11 +527,14 @@ fun `CD-CLM-06 CD-QWK-07 a leash binding refuses a Quick Work claim`() {
     `PastureRuntime.Slot` with `WorkerSlot` in `WorkEngine`.
   - `Worker.pasture` and `Claim.pasture` become `PastureKey?`, and `ClaimRegistry.tryClaim` takes a `PastureKey?`. The KDoc of
     each says that null means a Quick Work order. `releaseAll { it.pasture == key }` needs no change.
-  - `LeashInteractions.mayFlip` reads the placer only for a claim with a pasture. With no binder and no placer, only an
-    operator flips a target that a Quick Worker drives (CD-SEC-10):
+  - `LeashInteractions.mayFlip` reads the binder and the placer only for a claim with a pasture. With no binder and no
+    placer, only an operator flips a target that a Quick Worker drives (CD-SEC-10). The binder needs the check too: a party
+    Pokémon can still carry a binding that `LeashResets` has not cleared yet, for example while its pasture is unloaded.
 
 ```kotlin
-val placer = claim.pasture?.let { PastureAdapter.pastureAt(level, BlockPos.of(it.pos)) }?.let(PastureAdapter::placer)
+val pasture = claim.pasture
+val binder = pasture?.let { engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder }
+val placer = pasture?.let { PastureAdapter.pastureAt(level, BlockPos.of(it.pos)) }?.let(PastureAdapter::placer)
 ```
 
   - `PastureRuntime` implements `WorkSite`: `override val level`, `override val pastureKey get() = key`,
@@ -556,7 +590,12 @@ fun isQuickWorker(pokemonId: UUID): Boolean = pokemonId in orders
 fun aimOf(pokemonId: UUID): QuickAim? = aims[pokemonId]
 
 fun keepAim(pokemonId: UUID, aim: QuickAim?) {
-    if (aim == null) aims.remove(pokemonId) else aims[pokemonId] = aim
+    if (aim == null) {
+        aims.remove(pokemonId)
+        return
+    }
+    QuickWorkRules.dropExpired(aims, aim.tick)
+    aims[pokemonId] = aim
 }
 
 fun forgetAims(owner: UUID) {
@@ -581,6 +620,7 @@ private fun dimensionOf(slot: WorkerSlot): ResourceLocation? =
 if (worker.tired && !worker.status.isResting) {
     when (site) {
         is PastureRuntime -> goToRest(t, site, slot)
+
         // CD-QWK-17: no pasture holds a Quick Worker, so it takes no bed. The end flushes its Work Stamina.
         is QuickRuntime -> return endOrder(t, site, QuickEnd.TIRED)
     }
@@ -616,11 +656,14 @@ fun tickLevel(level: ServerLevel) {
 fun onSentOut(level: ServerLevel, pokemon: Pokemon, entity: PokemonEntity) {
     val aim = aims.remove(pokemon.uuid) ?: return
     val t = tick(level)
-    if (!t.settings.quickWorkEnabled || t.now - aim.tick > QuickWorkRules.AIM_TICKS || aim.dimension != t.dimension) return
+    if (!t.settings.quickWorkEnabled || QuickWorkRules.isExpired(aim.tick, t.now) || aim.dimension != t.dimension) return
     if (entity.isRemoved || entity.isBattling || pokemon.uuid in slots || !BrainBridge.canHoldOrder(entity)) return
-    if (pokemon.isFainted() || pokemon.isBattleClone() || pokemon.storeCoordinates.get()?.store !is PlayerPartyStore) return
+    // CD-QWK-25: only the party Pokémon of the player who aimed, as at the key press.
+    val store = pokemon.storeCoordinates.get()?.store as? PlayerPartyStore
+    if (pokemon.isFainted() || pokemon.isBattleClone() || store?.playerUUID != aim.owner) return
     val owner = server.playerList.getPlayer(aim.owner)?.takeIf { it.level() === level } ?: return
-    if (!level.isLoaded(aim.pos)) return
+    // CD-QWK-21: an owner who entered a battle while the Pokémon came out gets no order.
+    if (BattleRegistry.getBattleByParticipatingPlayer(owner) != null || !level.isLoaded(aim.pos)) return
     val types = typesOf(pokemon)
     val state = level.getBlockState(aim.pos)
     val blockEntity = level.getBlockEntity(aim.pos)
@@ -650,6 +693,10 @@ private fun start(
     role: ActiveRole,
     name: Component,
 ) {
+    // CD-QWK-13: an owner who walked past the leash while the Pokémon came out gets the leash's message, and no order starts.
+    if (QuickWorkRules.beyondLeash(AABB(aim.pos).distanceToSqr(owner.eyePosition), t.settings.quickWorkLeashRange)) {
+        return tell(aim.owner, QuickEnd.TOO_FAR.messageKey, pokemon, name)
+    }
     val canonical = guarded(role.handler, aim.pos) { role.handler.canonical(t.level, aim.pos) }
     if (!guarded(role.handler, false) { role.handler.stillValid(t.level, canonical) }) return
     // CD-STA-11: a party Pokémon recovers for its time away when it loads.
@@ -672,8 +719,10 @@ private fun start(
             tell(aim.owner, QuickWorkRules.STARTED, pokemon, name)
         }
 
-        Attempt.NO_SPOT -> tell(aim.owner, QuickWorkRules.CANNOT_REACH, pokemon, name)
         Attempt.REFUSED -> tell(aim.owner, QuickWorkRules.CLAIMED, pokemon, name)
+
+        // No work spot that a path reaches (CD-QWK-10). An order never searches again, so the owner learns why now.
+        else -> tell(aim.owner, QuickWorkRules.CANNOT_REACH, pokemon, name)
     }
 }
 
@@ -682,6 +731,15 @@ private fun tell(owner: UUID, key: String, pokemon: Pokemon, target: Component) 
     Feedback.actionBar(owner, server, Component.translatable(key, pokemon.getDisplayName(), target))
 ```
 
+  - `start` gives every claim result other than `GRANTED` and `REFUSED` the "cannot reach" message, because an order never
+    tries again. So a result that `claim` gains later, such as the one for a navigation that cannot plan, needs no change
+    in `start`.
+  - The review of 2026-11-11 added three checks. An owner who entered a battle while the Pokémon came out gets no order
+    (CD-QWK-21). An owner who walked past the leash in that time gets the leash's message and no order (CD-QWK-13). A new aim
+    drops every aim that can no longer start an order, and a send-out that is cancelled when its event reaches Quick Work
+    leaves no aim (CD-QWK-25). Cobblemon's `CancelableObservable.emit` stops at the first subscriber after which the event is
+    cancelled (`api/reactive/EventObservables.kt`), so a later subscriber at `LOWEST` can still cancel a send-out after its
+    aim exists.
   - `WorkEngine`, one tick and the end of an order:
 
 ```kotlin
@@ -716,9 +774,13 @@ private fun tickOrder(t: Tick, order: QuickRuntime) {
 private fun endOrder(t: Tick, order: QuickRuntime, reason: QuickEnd) {
     drop(t, order, order.slot)
     orders.remove(order.slot.worker.pokemonId)
+    BrainBridge.endHold(order.slot.entity)
     tell(order.owner, reason.messageKey, order.slot.pokemon, order.targetName)
 }
 ```
+
+  `BrainBridge.endHold` (Task 3) erases Cobblemon's `PATH_COOLDOWN`, which the hold of the work order renews on every tick.
+  Without it, `move_to_owner` waits up to 40 ticks after the end (see the checked facts at the top of this file).
 
 - [ ] **Step 4: Run the unit tests and see them pass.** Then run `./gradlew build`, `./gradlew runGameTestServer` and
   `./gradlew runGameTestServerCore`. Every Phase 1 and Phase 2 GameTest still passes, which shows that pastures work as
@@ -740,6 +802,8 @@ CD-QWK-17 to CD-QWK-22.
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/engine/QuickWork.kt`
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt` (`QuickWork.register()` after
   `LeashResets.register()`)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/ai/BrainBridge.kt` (`endHold`) and `engine/WorkEngine.kt` (`endOrder`
+  calls it, CD-QWK-15)
 - Modify: `src/gametest/kotlin-shared/codes/honor/cobblemondynamics/test/TestKit.kt` (`listedOwner`, `lookAt`, `partyPokemon`,
   `pressSendOut`)
 - Create: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/QuickWorkTests.kt`
@@ -768,7 +832,9 @@ object TestKit {
 
 Rule 6 of the index keeps a GameTest where Cobblemon's behaviour is uncertain: its send-out events and their timing, the
 recall, the follow-owner task and navigation. This task writes three such tests. The refusals and the other ends run code
-whose pure parts Task 1 tests, so their GameTests wait for the end-of-phase pass. No test has two players.
+whose pure parts Task 1 tests, so their GameTests wait for the end-of-phase pass. No test has two players. A fourth test,
+for the inferred battle fact of CD-QWK-21, ran on 2026-11-11 and showed that the fact is wrong (see the checked facts at the
+top of this file). It waits for the end-of-phase pass, which needs a battle that stays in the GameTest server.
 
 - [ ] **Step 1: The test kit.**
 
@@ -961,12 +1027,19 @@ class QuickWorkTests {
 /** The Cobblemon and NeoForge events of Quick Work (ADR-0013). Server thread only. */
 object QuickWork {
     fun register() {
-        // LOWEST runs after the other subscribers, so an aim stays only for a send-out that none of them cancelled.
+        // Cobblemon stops the emission at the subscriber that cancels a send-out, and LOWEST runs after the other priorities. A
+        // send-out that is cancelled when it reaches this subscriber leaves no aim. One that a later LOWEST subscriber cancels leaves
+        // an aim that the next aim drops when it is too old to start an order (CD-QWK-25).
         CobblemonEvents.POKEMON_SENT_PRE.subscribe(Priority.LOWEST) { event ->
-            EngineTiming.time { WorkEngine.get()?.keepAim(event.pokemon.uuid, aimOf(event)) }
+            EngineTiming.time { WorkEngine.get()?.keepAim(event.pokemon.uuid, if (event.isCanceled) null else aimOf(event)) }
         }
         CobblemonEvents.POKEMON_SENT_POST.subscribe(Priority.NORMAL) { event ->
             EngineTiming.time { WorkEngine.get()?.onSentOut(event.level, event.pokemon, event.pokemonEntity) }
+        }
+        // CD-QWK-25: Cobblemon posts no POKEMON_SENT_POST for a send-out that a recall cut short, so the recall drops its aim. The
+        // entity tick that can call a recall runs on the client too, which must never touch the server's engine.
+        CobblemonEvents.POKEMON_RECALL_POST.subscribe(Priority.NORMAL) { event ->
+            WorkEngine.get()?.takeIf { it.server.isSameThread }?.keepAim(event.pokemon.uuid, null)
         }
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { event -> WorkEngine.get()?.forgetAims(event.entity.uuid) }
     }
@@ -998,6 +1071,13 @@ object QuickWork {
   `Entity.pick`, because a `LivingEntity` reads its head rotation there. `ClipContext.Block.OUTLINE` with `Fluid.NONE` hits
   what the crosshair outlines, so a machine behind water still counts.
 
+  The recall listener closes a gap of the design. When the owner recalls a Pokémon during its send-out animation, Cobblemon
+  completes the send-out with no `POKEMON_SENT_POST` (`Pokemon.kt:901-904`), and `Pokemon.recall` posts
+  `POKEMON_RECALL_POST` (`Pokemon.kt:977-983`, checked with `javap`: `PokemonRecallEvent.Post.getPokemon()`). Without the
+  listener, that aim would stay until the Pokémon's next send-out, its owner's logout or the server stop. Every caller of
+  `Pokemon.recall` is server code except the entity's tether check, which runs in the entity tick on both sides, so the
+  listener acts only on the server thread.
+
 - [ ] **Step 5: Run** `./gradlew runGameTestServer` twice in a row, and see the three tests pass both times. Check each
   inferred fact at the top of this file against what the tests show, and correct this file where one is wrong.
 
@@ -1024,8 +1104,13 @@ object QuickWork {
 
   Each deferred test uses the scene of this task and its row's acceptance test. A refusing owner for CD-QWK-06 is a
   `FakePlayer` subclass, as `TestKit.MenuCountingPlayer` is, whose `mayInteract` returns false. CD-QWK-08 and CD-QWK-17 save
-  the Work Stamina first with `StaminaStore.save`. CD-QWK-20 removes the owner from the player list's UUID map, and CD-QWK-21
-  sets `battleId` on the working entity.
+  the Work Stamina first with `StaminaStore.save`. CD-QWK-20 removes the owner from the player list's UUID map.
+
+  CD-QWK-21 is not a high-confidence deferral. Its test gives the working entity a battle id, which must name a battle that
+  `BattleRegistry` keeps for the whole check, because Cobblemon clears any other battle id on the entity's next tick (see the
+  checked facts at the top of this file). A wild battle that `BattleBuilder.pve` starts for a listed fake owner ended within 1
+  tick on 2026-11-11, so the end-of-phase pass must first find a battle that stays. The engine reads `entity.isBattling`, and
+  the unit test of the end rule covers the pure part.
 
 - [ ] **Step 7: Multiplayer check.** Read the Quick Work code against the eight multiplayer rules of the index, and record each
   point in the pull request body:
@@ -1035,7 +1120,8 @@ object QuickWork {
   - No new payload. Cobblemon's own send-out packet runs on the main thread, and both events fire there.
   - No client class: `QuickWork` and the engine name no `net.minecraft.client` class.
   - No new static mutable state: the orders and the aims live in the engine instance, which `ServerStoppedEvent` drops. A
-    logout drops the player's aims, and its orders end on the next tick.
+    logout drops the player's aims, and its orders end on the next tick. A recall drops the Pokémon's aim, on the server
+    thread only.
   - Every message goes through `tell` to the order's owner only. Effects, head bars and the work focus entity reach the
     players near the worker, as for a pasture worker.
   - The permission, the claim and the owner checks compare the owner's UUID and ask `mayInteract` of the owner, never of

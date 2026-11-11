@@ -39,7 +39,9 @@ import codes.honor.cobblemondynamics.stamina.RecoveryRule
 import codes.honor.cobblemondynamics.stamina.StaminaStore
 import codes.honor.cobblemondynamics.stamina.StaminaView
 import codes.honor.cobblemondynamics.stamina.ViewSync
+import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore
 import com.cobblemon.mod.common.api.types.ElementalTypes
+import com.cobblemon.mod.common.battles.BattleRegistry
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
@@ -50,25 +52,33 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 /**
- * The server's work engine: the workers of every pasture in Work Mode, their claims and their states. Runs on the server
- * thread only, and holds nothing that a restart keeps (CD-CLM-07).
+ * The server's work engine: the workers of every pasture in Work Mode and of every Quick Work order, their claims and their
+ * states. Runs on the server thread only, and holds nothing that a restart keeps (CD-CLM-07).
  */
 class WorkEngine private constructor(val server: MinecraftServer) {
     /** A block target that a leash binding reserves belongs to its bound worker, read from the target level's index (CD-CLM-06). */
     val claims = ClaimRegistry { key -> reservedFor(key) }
 
     private val pastures = LinkedHashMap<PastureKey, PastureRuntime>()
-    private val slots = HashMap<UUID, PastureRuntime.Slot>()
+    private val slots = HashMap<UUID, WorkerSlot>()
+
+    /** Quick Work orders by Pokémon UUID (ADR-0013). Empty most of the time, and then no Quick Work code runs per tick. */
+    private val orders = LinkedHashMap<UUID, QuickRuntime>()
+
+    /** The aim of each send-out by Pokémon UUID, from the key press until Cobblemon ends the send-out (CD-QWK-01). */
+    private val aims = HashMap<UUID, QuickAim>()
 
     /** One warning for each species whose Brain cannot hold a work order. */
     private val unbridged = OnceLogger()
@@ -94,11 +104,35 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         return slot.entity === entity && slot.worker.status != WorkerStatus.IDLE
     }
 
+    fun isQuickWorker(pokemonId: UUID): Boolean = pokemonId in orders
+
+    fun aimOf(pokemonId: UUID): QuickAim? = aims[pokemonId]
+
+    /**
+     * CD-QWK-01: a send-out replaces the Pokémon's aim, and one with no block in view ([aim] null) leaves none. A new aim drops every
+     * aim that can no longer start an order (CD-QWK-25).
+     */
+    fun keepAim(pokemonId: UUID, aim: QuickAim?) {
+        if (aim == null) {
+            aims.remove(pokemonId)
+            return
+        }
+        QuickWorkRules.dropExpired(aims, aim.tick)
+        aims[pokemonId] = aim
+    }
+
+    /** CD-QWK-25: a player who logs out leaves no aim. Its orders end on the next tick (CD-QWK-20). */
+    fun forgetAims(owner: UUID) {
+        aims.values.removeIf { it.owner == owner }
+    }
+
     /** One engine tick of [level], after the level ticked its block entities and entities. */
     fun tickLevel(level: ServerLevel) {
         val dimension = level.dimension().location()
         val indexed = level.getExistingDataOrNull(DynamicsAttachments.WORK_PASTURES)?.all().orEmpty()
-        if (indexed.isEmpty() && pastures.keys.none { it.dimension == dimension }) return
+        // CD-QWK-24: with no order, this check is all the Quick Work that a level tick does.
+        val quick = if (orders.isEmpty()) emptyList() else orders.values.filter { it.level === level }
+        if (indexed.isEmpty() && quick.isEmpty() && pastures.keys.none { it.dimension == dimension }) return
         val t = tick(level)
         for (pos in indexed) {
             val key = PastureKey(dimension, pos)
@@ -115,7 +149,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 if (runtime.slots[slot.worker.pokemonId] === slot) tickStamina(t, runtime, slot)
             }
         }
+        for (order in quick) tickOrder(t, order)
         for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) direct(t, slot)
+        for (order in quick) if (orders[order.slot.worker.pokemonId] === order) direct(t, order.slot)
     }
 
     fun onWorkModeChanged(level: ServerLevel, pasture: BlockPos, enabled: Boolean) {
@@ -143,8 +179,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /** Ends the claim of [pokemonId] through the release path: `onStop` if it is Working, then Idle. */
     fun release(pokemonId: UUID) {
         val slot = slots[pokemonId] ?: return
-        val runtime = pastures[slot.worker.pasture] ?: return
-        release(tick(runtime.level), slot)
+        val site = siteOf(slot) ?: return
+        release(tick(site.level), slot)
     }
 
     /**
@@ -166,6 +202,37 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val slot = slots[pokemonId] ?: return
         slot.binding = null
         slot.worker.leashed = false
+    }
+
+    /** CD-QWK-02 to CD-QWK-11: Cobblemon ended a send-out. Its aim, if it has one, becomes an order, a refusal or nothing. */
+    fun onSentOut(level: ServerLevel, pokemon: Pokemon, entity: PokemonEntity) {
+        val aim = aims.remove(pokemon.uuid) ?: return
+        val t = tick(level)
+        if (!t.settings.quickWorkEnabled || QuickWorkRules.isExpired(aim.tick, t.now) || aim.dimension != t.dimension) return
+        if (entity.isRemoved || entity.isBattling || pokemon.uuid in slots || !BrainBridge.canHoldOrder(entity)) return
+        // CD-QWK-25: only the party Pokémon of the player who aimed, as at the key press.
+        val store = pokemon.storeCoordinates.get()?.store as? PlayerPartyStore
+        if (pokemon.isFainted() || pokemon.isBattleClone() || store?.playerUUID != aim.owner) return
+        val owner = server.playerList.getPlayer(aim.owner)?.takeIf { it.level() === level } ?: return
+        // CD-QWK-21: an owner who entered a battle while the Pokémon came out gets no order.
+        if (BattleRegistry.getBattleByParticipatingPlayer(owner) != null || !level.isLoaded(aim.pos)) return
+        val types = typesOf(pokemon)
+        val state = level.getBlockState(aim.pos)
+        val blockEntity = level.getBlockEntity(aim.pos)
+        val fitting = t.roles.forTypes(types).filter { role ->
+            guarded(role.handler, false) { role.handler.matches(level, aim.pos, state, blockEntity) }
+        }
+        val byId = fitting.associateBy { it.definition.id }
+        val pick = QuickWorkRules.pick(fitting.map { it.definition }, types.toList(), hasFairyType(pokemon)) { def ->
+            val handler = byId.getValue(def.id).handler
+            QuickWorkRules.mayOrder(def, handler.scanKind != ScanKind.NONE, handler.bindingShape)
+        }
+        val name = state.block.name
+        when (pick) {
+            QuickWorkRules.Pick.None -> {}
+            QuickWorkRules.Pick.NeedsLeash -> tell(aim.owner, QuickWorkRules.NEEDS_LEASH, pokemon, name)
+            is QuickWorkRules.Pick.Order -> start(t, owner, pokemon, entity, aim, byId.getValue(pick.role.id), name)
+        }
     }
 
     /**
@@ -215,13 +282,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         flushAll()
         for (slot in slots.values) {
             // A real restart loses what a handler holds for a claim, such as an unsaved attachment, with the entity.
-            pastures[slot.worker.pasture]?.let { unclaim(tick(it.level), slot, slot.entity) }
+            siteOf(slot)?.let { unclaim(tick(it.level), slot, slot.entity) }
             BrainBridge.clear(slot.entity)
             removeFocus(slot)
         }
         claims.clear()
         pastures.clear()
         slots.clear()
+        orders.clear()
+        aims.clear()
     }
 
     private class Tick(val level: ServerLevel, val settings: EngineSettings, val roles: RoleSet) {
@@ -234,6 +303,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun tick(level: ServerLevel) = Tick(level, WorkEngineSettings.current, RoleRegistry.current)
 
     private fun runtimesOf(dimension: ResourceLocation): List<PastureRuntime> = pastures.values.filter { it.key.dimension == dimension }
+
+    private fun siteOf(slot: WorkerSlot): WorkSite? = slot.worker.pasture?.let { pastures[it] } ?: orders[slot.worker.pokemonId]
+
+    private fun dimensionOf(slot: WorkerSlot): ResourceLocation? =
+        slot.worker.pasture?.dimension ?: orders[slot.worker.pokemonId]?.dimension
 
     /** Step 1: workers join and leave with the pasture's tethered list (CD-ASG-01, CD-ASG-15). A pasture that is gone leaves. */
     private fun poll(t: Tick, runtime: PastureRuntime) {
@@ -260,7 +334,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 // CD-STA-05, CD-STA-11: a new worker starts at 100%, and a known one recovers for its time away.
                 worker.stamina = StaminaStore.load(pokemon, t.now, t.settings)
                 worker.staminaUntil = t.now
-                val joined = PastureRuntime.Slot(worker, entity, pokemon)
+                val joined = WorkerSlot(worker, entity, pokemon)
                 runtime.slots[tethered.pokemonId] = joined
                 slots[tethered.pokemonId] = joined
             }
@@ -282,7 +356,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * Cobblemon gave the worker a new entity, which [slot] holds now. Its work claim, if it holds one, leaves [old] and follows the
      * Pokémon, because [old] can outlive the change.
      */
-    private fun moveClaim(t: Tick, slot: PastureRuntime.Slot, old: PokemonEntity) {
+    private fun moveClaim(t: Tick, slot: WorkerSlot, old: PokemonEntity) {
         BrainBridge.clear(old)
         unclaim(t, slot, old)
         val role = slot.role ?: return
@@ -291,7 +365,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** A leashed worker claims its bound target and no other (CD-ASG-20). A Tired worker waits until it has rested (CD-STA-14). */
-    private fun claimBound(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot, taken: MutableSet<Long>) {
+    private fun claimBound(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
         val binding = slot.binding ?: return
         val worker = slot.worker
         val key = TargetKey.block(t.dimension, binding.target)
@@ -306,12 +380,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** The work spots that workers of this level hold, as `BlockPos.asLong()`. */
+    /** The work spots that workers of this level hold, as `BlockPos.asLong()`, Quick Workers' included. */
     private fun takenSpots(t: Tick): MutableSet<Long> =
-        slots.values.filter { it.worker.pasture.dimension == t.dimension }.mapNotNullTo(HashSet()) { it.worker.spot?.asLong() }
+        slots.values.filter { dimensionOf(it) == t.dimension }.mapNotNullTo(HashSet()) { it.worker.spot?.asLong() }
 
     /** CD-LSH-21: the owner of a leashed worker learns why its machine waits. */
-    private fun cannotReach(t: Tick, slot: PastureRuntime.Slot, target: BlockPos) {
+    private fun cannotReach(t: Tick, slot: WorkerSlot, target: BlockPos) {
         val owner = slot.pokemon.getOwnerUUID() ?: return
         val name = t.level.getBlockState(target).block.name
         Feedback.actionBar(owner, server, Component.translatable(CANNOT_REACH, slot.pokemon.getDisplayName(), name))
@@ -352,7 +426,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** After a reload, a worker keeps a claim only while its role still takes it. */
-    private fun mayKeep(slot: PastureRuntime.Slot, role: RoleDefinition): Boolean =
+    private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean =
         RoleSelection.isEligible(role, typesOf(slot.pokemon)) && (slot.worker.leashed || role.autoAssign)
 
     /** Steps 3 and 4: the pasture's scan pass, and the assignment when the pass completes. */
@@ -363,7 +437,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             if (!runtime.scheduler.shouldStart(t.now)) return
             val roles = scanRoles(t, runtime)
             val readsBlocks = roles.any { it.handler.scanKind == ScanKind.BLOCK }
-            pass = TargetScan(area(t, runtime), roles, readsBlocks, t.settings.maxBlockChecksPerTick)
+            pass = TargetScan(runtime.area(t.settings), roles, readsBlocks, t.settings.maxBlockChecksPerTick)
             runtime.scheduler.start(t.now)
             runtime.scan = pass
             pass.startPass(t.world)
@@ -395,7 +469,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    private fun allyView(slot: PastureRuntime.Slot): AllyView = AllyView(
+    private fun allyView(slot: WorkerSlot): AllyView = AllyView(
         slot.worker.pokemonId,
         slot.entity.position(),
         hasFairyType(slot.pokemon),
@@ -414,7 +488,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    private fun mayAutoAssign(slot: PastureRuntime.Slot): Boolean =
+    private fun mayAutoAssign(slot: WorkerSlot): Boolean =
         !slot.worker.leashed && !slot.worker.tired && !hasFairyType(slot.pokemon) && BrainBridge.canHoldOrder(slot.entity)
 
     private fun assign(t: Tick, runtime: PastureRuntime, found: List<FoundTarget>) {
@@ -445,7 +519,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    private fun candidate(t: Tick, slot: PastureRuntime.Slot, types: Set<String>, key: TargetKey, target: FoundTarget): CandidateView {
+    private fun candidate(t: Tick, slot: WorkerSlot, types: Set<String>, key: TargetKey, target: FoundTarget): CandidateView {
         val center = target.roles.first().handler.targetCenter(target.pos)
         return CandidateView(key, center, target.roles.map { it.definition }) {
             target.roles.any { role ->
@@ -464,8 +538,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      */
     private fun claim(
         t: Tick,
-        runtime: PastureRuntime,
-        slot: PastureRuntime.Slot,
+        site: WorkSite,
+        slot: WorkerSlot,
         target: BlockPos,
         role: ActiveRole,
         taken: MutableSet<Long>,
@@ -477,7 +551,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val entity = slot.entity
         val others = if (own == null) taken else taken - own
         val reach = Reach.of(entity)
-        val spot = guarded(role.handler, null) { spotFor(t.level, area(t, runtime), entity, role, target, others, reach) }
+        val spot = guarded(role.handler, null) { spotFor(t.level, site.area(t.settings), entity, role, target, others, reach) }
         if (spot == null) {
             if (reach.cannotPlan) return Attempt.NOT_NOW
             worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
@@ -487,7 +561,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             release(t, slot)
             own?.let(taken::remove)
         }
-        if (claims.tryClaim(worker.pokemonId, key, ClaimKind.WORK, runtime.key, t.now) !is ClaimResult.Granted) return Attempt.REFUSED
+        if (claims.tryClaim(worker.pokemonId, key, ClaimKind.WORK, site.pastureKey, t.now) !is ClaimResult.Granted) return Attempt.REFUSED
         taken += spot.asLong()
         worker.target = target
         worker.spot = spot
@@ -517,41 +591,43 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         return WorkSpots.findReachable(grid, area, shape, center, role.definition.range, entity.position(), reachable, allowed = allowed)
     }
 
-    /** Step 5: arrival, the worker's state, and the handler calls of that state. */
-    private fun tickWorker(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+    /** Step 5: arrival, the worker's state, and the handler calls of that state. Returns the event that the worker's machine gave. */
+    private fun tickWorker(t: Tick, site: WorkSite, slot: WorkerSlot): MachineEvent? {
         val worker = slot.worker
         if (slot.entity.isRemoved) {
-            drop(t, runtime, slot)
-            return
+            drop(t, site, slot)
+            return null
         }
         if (worker.status.isResting) {
             tickRest(t, slot)
-            return
+            return null
         }
         if (worker.status == WorkerStatus.HEALING) {
-            tickHeal(t, runtime, slot)
-            return
+            if (site is PastureRuntime) tickHeal(t, site, slot)
+            return null
         }
         val claim = claims.claimOf(worker.pokemonId)
         if (claim == null) {
             // Another part of the mod released the claim, so the worker follows.
             if (worker.status != WorkerStatus.IDLE || worker.target != null) release(t, slot)
-            return
+            return null
         }
-        if (claim.kind != ClaimKind.WORK) return
+        if (claim.kind != ClaimKind.WORK) return null
         val role = slot.role
         val target = worker.target
         val spot = worker.spot
         if (role == null || target == null || spot == null) {
             release(t, slot)
-            return
+            return null
         }
         val handler = role.handler
         val ctx = context(t, slot, target, role, slot.memo)
         val arrived = isArrived(slot.entity, spot)
         val before = worker.status
+        var event: MachineEvent? = null
         val ok = guarded(handler, false) {
-            when (val event = t.machine.onTick(worker, t.now, arrived, { handler.hasDemand(ctx) }, claim.key)) {
+            event = t.machine.onTick(worker, t.now, arrived, { handler.hasDemand(ctx) }, claim.key)
+            when (val e = event) {
                 MachineEvent.StartedWorking -> {
                     handler.onStart(ctx)
                     snap(slot.entity, spot, handler.targetCenter(target))
@@ -565,7 +641,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
                 is MachineEvent.ReleaseClaim -> {
                     claims.release(worker.pokemonId)
-                    event.skip?.let { worker.skipUntil[it] = event.until }
+                    e.skip?.let { worker.skipUntil[it] = e.until }
                     clear(t, slot)
                 }
 
@@ -577,6 +653,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             true
         }
         if (!ok) release(t, slot, callHandler = false)
+        return event
     }
 
     /**
@@ -585,7 +662,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * makes Tired stops in the same tick (CD-STA-13), and one that this fills gets up in the same tick (CD-BED-12). Then Work Stamina
      * is flushed when due, and the view follows (CD-STA-15).
      */
-    private fun tickStamina(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+    private fun tickStamina(t: Tick, site: WorkSite, slot: WorkerSlot) {
         val worker = slot.worker
         val ticks = t.now + 1 - worker.staminaUntil
         if (ticks > 0) {
@@ -600,9 +677,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
         // A worker that joins Tired, after a restart for example, takes a bed on its first tick too (CD-BED-14).
         if (worker.tired && !worker.status.isResting) {
-            goToRest(t, runtime, slot)
-        } else if (!worker.tired && worker.status.isResting) {
-            wake(t, runtime, slot)
+            when (site) {
+                is PastureRuntime -> goToRest(t, site, slot)
+
+                // CD-QWK-17: no pasture holds a Quick Worker, so it takes no bed. The end flushes its Work Stamina.
+                is QuickRuntime -> return endOrder(t, site, QuickEnd.TIRED)
+            }
+        } else if (!worker.tired && worker.status.isResting && site is PastureRuntime) {
+            wake(t, site, slot)
         }
         if (FlushRule.isDue(slot.flushedStatus, worker.status, slot.flushedAt, t.now, t.settings)) flush(slot, t.now)
         syncView(slot)
@@ -612,7 +694,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * The work claim ends at once, through the release path, and a leash binding stays (CD-STA-13, CD-CLM-09). The worker then
      * claims the nearest free bed in its pasture's work area (CD-BED-05, CD-BED-07), or rests where it stands (CD-BED-08).
      */
-    private fun goToRest(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+    private fun goToRest(t: Tick, runtime: PastureRuntime, slot: WorkerSlot) {
         val worker = slot.worker
         release(t, slot)
         val bed = nearestFreeBed(t, runtime, slot)
@@ -622,8 +704,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** Beds have block entities, so the chunks' block entity maps hold every bed of the work area. Any size of Pokémon fits (CD-BED-09). */
-    private fun nearestFreeBed(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot): BedCandidate? {
-        val beds = t.world.blockEntitiesIn(area(t, runtime)).mapNotNull { (pos, blockEntity) ->
+    private fun nearestFreeBed(t: Tick, runtime: PastureRuntime, slot: WorkerSlot): BedCandidate? {
+        val beds = t.world.blockEntitiesIn(runtime.area(t.settings)).mapNotNull { (pos, blockEntity) ->
             val bed = blockEntity as? BedBlockEntity ?: return@mapNotNull null
             BedCandidate(TargetKey.block(t.dimension, pos), BedCandidate.sleepPoint(pos), bed.tier.tier)
         }.toList()
@@ -631,7 +713,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** ToBed and Sleeping: the walk to the bed, and the bed under the sleeper, which may break (CD-BED-11). */
-    private fun tickRest(t: Tick, slot: PastureRuntime.Slot) {
+    private fun tickRest(t: Tick, slot: WorkerSlot) {
         val worker = slot.worker
         val bed = worker.bed
         if (worker.status == WorkerStatus.RESTING_IN_PLACE || bed == null) return
@@ -658,7 +740,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * becomes a Fairy-type, and a healer that gets a binding, cancel the heal at no cost (CD-HEAL-11). The ally gets up, and a spent
      * healer lies down, in their stamina steps (CD-BED-12, CD-HEAL-17).
      */
-    private fun tickHeal(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+    private fun tickHeal(t: Tick, runtime: PastureRuntime, slot: WorkerSlot) {
         val worker = slot.worker
         val claim = claims.claimOf(worker.pokemonId)?.takeIf { it.kind == ClaimKind.HEAL }
         val allyId = (claim?.key as? TargetKey.Entity)?.uuid
@@ -683,7 +765,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * rest's hold stops the worker's body with no fall, so the navigation of most species cannot plan in this tick, and the next poll
      * claims instead (CD-ASG-09).
      */
-    private fun wake(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+    private fun wake(t: Tick, runtime: PastureRuntime, slot: WorkerSlot) {
         val worker = slot.worker
         if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
         worker.restSpot = null
@@ -698,14 +780,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** To the instance that the last poll read from the PC, which is the PC's own until Cobblemon reloads the store. */
-    private fun flush(slot: PastureRuntime.Slot, now: Long) {
+    private fun flush(slot: WorkerSlot, now: Long) {
         StaminaStore.save(slot.pokemon, slot.worker.stamina, slot.worker.staminaUntil)
         slot.flushedStatus = slot.worker.status
         slot.flushedAt = now
     }
 
     /** A new entity has no view yet, so it gets one at once. */
-    private fun syncView(slot: PastureRuntime.Slot) {
+    private fun syncView(slot: WorkerSlot) {
         val entity = slot.entity
         if (entity.isRemoved) return
         val stamina = slot.worker.stamina
@@ -721,7 +803,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * Step 6: the work order goes into the Brain on every tick, because Cobblemon rebuilds Brains (CD-AI-04). A Working worker
      * has its focus entity and its effect loop, and any other worker has no focus entity, from this tick on (CD-FX-07).
      */
-    private fun direct(t: Tick, slot: PastureRuntime.Slot) {
+    private fun direct(t: Tick, slot: WorkerSlot) {
         val worker = slot.worker
         if (worker.status.isResting) {
             removeFocus(slot)
@@ -763,7 +845,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * A worker in ToBed walks to its bed. One that sleeps or rests in place holds its sleep point with the sleep pose and never
      * Cobblemon's battle sleep status (CD-BED-10, CD-AI-07), and loops the sleep effect (CD-FX-10).
      */
-    private fun directRest(t: Tick, slot: PastureRuntime.Slot) {
+    private fun directRest(t: Tick, slot: WorkerSlot) {
         val worker = slot.worker
         val entity = slot.entity
         if (entity.isRemoved) return
@@ -777,7 +859,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** A healer's order is an approach to its ally, which it looks at. */
-    private fun directHeal(slot: PastureRuntime.Slot) {
+    private fun directHeal(slot: WorkerSlot) {
         val entity = slot.entity
         val allyId = (claims.claimOf(slot.worker.pokemonId)?.key as? TargetKey.Entity)?.uuid ?: return
         val ally = slots[allyId]?.entity?.takeUnless { it.isRemoved } ?: return
@@ -785,7 +867,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** CD-PERF-04: a focus entity lives only while its worker is Working. */
-    private fun removeFocus(slot: PastureRuntime.Slot) {
+    private fun removeFocus(slot: WorkerSlot) {
         slot.focus?.let(EffectPlayer::removeFocus)
         slot.focus = null
     }
@@ -801,19 +883,101 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
+    /** CD-QWK-06 to CD-QWK-11: the refusals, then a normal work claim through the engine's own spot search and path check. */
+    private fun start(
+        t: Tick,
+        owner: ServerPlayer,
+        pokemon: Pokemon,
+        entity: PokemonEntity,
+        aim: QuickAim,
+        role: ActiveRole,
+        name: Component,
+    ) {
+        // CD-QWK-13: an owner who walked past the leash while the Pokémon came out gets the leash's message, and no order starts.
+        if (QuickWorkRules.beyondLeash(AABB(aim.pos).distanceToSqr(owner.eyePosition), t.settings.quickWorkLeashRange)) {
+            return tell(aim.owner, QuickEnd.TOO_FAR.messageKey, pokemon, name)
+        }
+        val canonical = guarded(role.handler, aim.pos) { role.handler.canonical(t.level, aim.pos) }
+        if (!guarded(role.handler, false) { role.handler.stillValid(t.level, canonical) }) return
+        // CD-STA-11: a party Pokémon recovers for its time away when it loads.
+        val worker = Worker(pokemon.uuid, pasture = null)
+        worker.stamina = StaminaStore.load(pokemon, t.now, t.settings)
+        worker.staminaUntil = t.now
+        val slot = WorkerSlot(worker, entity, pokemon)
+        val center = guarded(role.handler, Vec3.atCenterOf(canonical)) { role.handler.targetCenter(canonical) }
+        val order = QuickRuntime(t.level, aim.owner, aim.pos, name, slot, QuickRuntime.areaAround(center, role.definition.range))
+        val refusal = QuickWorkRules.refusal(
+            mayUse = !owner.isSpectator && owner.mayInteract(t.level, canonical),
+            tired = worker.tired,
+            targetFree = claims.isFree(TargetKey.block(t.dimension, canonical), pokemon.uuid),
+        ) { guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, canonical, role)) } }
+        if (refusal != null) return tell(aim.owner, refusal, pokemon, name)
+        when (claim(t, order, slot, canonical, role, takenSpots(t), moving = false)) {
+            Attempt.GRANTED -> {
+                orders[pokemon.uuid] = order
+                slots[pokemon.uuid] = slot
+                tell(aim.owner, QuickWorkRules.STARTED, pokemon, name)
+            }
+
+            Attempt.REFUSED -> tell(aim.owner, QuickWorkRules.CLAIMED, pokemon, name)
+
+            // No work spot that a path reaches (CD-QWK-10). An order never searches again, so the owner learns why now.
+            else -> tell(aim.owner, QuickWorkRules.CANNOT_REACH, pokemon, name)
+        }
+    }
+
+    /** Every Quick Work message goes to the order's owner only, with the Pokémon's name and the target's name (CD-QWK-25). */
+    private fun tell(owner: UUID, key: String, pokemon: Pokemon, target: Component) =
+        Feedback.actionBar(owner, server, Component.translatable(key, pokemon.getDisplayName(), target))
+
+    /** One tick of an order: its end checks, then its worker's own steps, as a pasture worker's (CD-QWK-13 to CD-QWK-23). */
+    private fun tickOrder(t: Tick, order: QuickRuntime) {
+        val slot = order.slot
+        val worker = slot.worker
+        val entity = slot.entity
+        val owner = server.playerList.getPlayer(order.owner)
+        val watch = QuickWorkRules.Watch(
+            entityGone = !entity.isAlive || entity.beamMode == QuickWorkRules.RECALL_BEAM || slot.pokemon.entity !== entity,
+            battling = entity.isBattling,
+            ownerPresent = owner != null && owner.level() === t.level,
+            ownerDistanceSqr = owner?.let { AABB(order.aimed).distanceToSqr(it.eyePosition) } ?: Double.MAX_VALUE,
+            leashRange = t.settings.quickWorkLeashRange,
+            holdsClaim = claims.claimOf(worker.pokemonId)?.kind == ClaimKind.WORK,
+            status = worker.status,
+            ticksInStatus = t.now - worker.statusSince,
+            standbyLimit = t.settings.standbyMoveTicks,
+        )
+        QuickWorkRules.endReason(watch)?.let { return endOrder(t, order, it) }
+        // CD-QWK-22: the machine released the claim of a worker whose travel timed out, so the order ends, and it never tries again.
+        if (tickWorker(t, order, slot) is MachineEvent.ReleaseClaim) return endOrder(t, order, QuickEnd.UNREACHABLE)
+        if (orders[worker.pokemonId] === order) tickStamina(t, order, slot)
+    }
+
+    /**
+     * The order ends for good (CD-QWK-14): the release path, with `onStop` for a Working worker, a flush of Work Stamina into the party
+     * Pokémon's data, and no slot, order or view left. The Brain bridge cleared the work order, so Cobblemon's follow-owner task takes
+     * over (CD-QWK-15).
+     */
+    private fun endOrder(t: Tick, order: QuickRuntime, reason: QuickEnd) {
+        drop(t, order, order.slot)
+        orders.remove(order.slot.worker.pokemonId)
+        BrainBridge.endHold(order.slot.entity)
+        tell(order.owner, reason.messageKey, order.slot.pokemon, order.targetName)
+    }
+
     /** The worker leaves: its Work Stamina is saved, which covers entity unload, and a Pokémon that no longer works shows no bar. */
-    private fun drop(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
+    private fun drop(t: Tick, site: WorkSite, slot: WorkerSlot) {
         release(t, slot)
         flush(slot, t.now)
         WorkerEvents.left(slot.pokemon)
         val entity = slot.entity
         if (!entity.isRemoved && entity.hasData(DynamicsAttachments.STAMINA_VIEW)) entity.removeData(DynamicsAttachments.STAMINA_VIEW)
-        runtime.slots.remove(slot.worker.pokemonId)
+        site.slots.remove(slot.worker.pokemonId)
         slots.remove(slot.worker.pokemonId)
     }
 
     /** The release path: `onStop` when the worker is Working, then Idle with no target, spot or role. */
-    private fun release(t: Tick, slot: PastureRuntime.Slot, callHandler: Boolean = true) {
+    private fun release(t: Tick, slot: WorkerSlot, callHandler: Boolean = true) {
         val worker = slot.worker
         claims.release(worker.pokemonId)
         val role = slot.role
@@ -829,7 +993,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * The worker has no order any more, and a worker that lay down has its own pose back (CD-AI-08). Every end of a work claim comes
      * here: a release, a drop, a timeout, a Tired worker and a failed handler. So the handler hears of each end once.
      */
-    private fun clear(t: Tick, slot: PastureRuntime.Slot) {
+    private fun clear(t: Tick, slot: WorkerSlot) {
         unclaim(t, slot, slot.entity)
         slot.worker.target = null
         slot.worker.spot = null
@@ -841,7 +1005,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** `onUnclaim` for [entity], while [slot] holds a work claim. */
-    private fun unclaim(t: Tick, slot: PastureRuntime.Slot, entity: PokemonEntity) {
+    private fun unclaim(t: Tick, slot: WorkerSlot, entity: PokemonEntity) {
         val role = slot.role ?: return
         val target = slot.worker.target ?: return
         guarded(role.handler, Unit) { role.handler.onUnclaim(context(t, slot, target, role, slot.memo, entity)) }
@@ -854,7 +1018,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      */
     private fun context(
         t: Tick,
-        slot: PastureRuntime.Slot,
+        slot: WorkerSlot,
         target: BlockPos,
         role: ActiveRole,
         memo: ClaimMemo = ClaimMemo(),
@@ -871,12 +1035,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             destination = binding?.destination,
             sourceFace = binding?.face,
             destinationFace = binding?.destinationFace,
-            pasture = BlockPos.of(slot.worker.pasture.pos),
+            // Only the Magnet reads it, and the Magnet is leash only, so no Quick Worker needs it.
+            pasture = slot.worker.pasture?.let { BlockPos.of(it.pos) },
             memo = memo,
         )
     }
-
-    private fun area(t: Tick, runtime: PastureRuntime): WorkArea = WorkArea.of(runtime.pos, t.settings, PastureAdapter.maxWanderDistance())
 
     private fun reservedFor(key: TargetKey): UUID? {
         val block = key as? TargetKey.Block ?: return null

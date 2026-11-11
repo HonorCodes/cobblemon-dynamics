@@ -11,6 +11,7 @@ import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.EngineEvents
+import codes.honor.cobblemondynamics.engine.QuickWork
 import codes.honor.cobblemondynamics.engine.WorkerPush
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.capability.FePushHandler
@@ -90,6 +91,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         WorkerPush.warnIfMissing()
         LeashInteractions.register()
         LeashResets.register()
+        QuickWork.register()
         EnchantingMenus.register()
         DynamicsCommands.register()
     }

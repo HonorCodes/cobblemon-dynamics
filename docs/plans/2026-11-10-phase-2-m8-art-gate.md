@@ -1298,6 +1298,20 @@ its end-of-phase test. Test names are `Class.method` in `src/gametest/kotlin/`, 
   - CD-FAN-11: `FanTests.cdFan11SmokingSurvivesARestart`.
 - M7 Task 3:
   - CD-FAN-04: `FanCatalystTests.cdFan04StoneInFrontRefusesTheBind`.
+- Quick Work Task 3:
+  - CD-QWK-04: `QuickWorkTests.cdQwk04ChestAndCauldronNeedTheLeash`.
+  - CD-QWK-05: `QuickWorkTests.cdQwk05FairyTypeGetsNoOrder`.
+  - CD-QWK-06: `QuickWorkTests.cdQwk06RefusedOwnerAndSpectatorGetNoOrder`.
+  - CD-QWK-07: `QuickWorkTests.cdQwk07ClaimedFurnaceGivesNoOrder`.
+  - CD-QWK-08: `QuickWorkTests.cdQwk08TiredPokemonGetsNoOrder`.
+  - CD-QWK-09: `QuickWorkTests.cdQwk09EmptyFurnaceGivesNoOrder`.
+  - CD-QWK-10: `QuickWorkTests.cdQwk10FurnaceWithNoSpotGivesNoOrder`.
+  - CD-QWK-17: `QuickWorkTests.cdQwk17TiredWorkerStops`.
+  - CD-QWK-18: `QuickWorkTests.cdQwk18BrokenFurnaceEndsTheOrder`.
+  - CD-QWK-19: `QuickWorkTests.cdQwk19StandbyTimeEndsTheOrder`.
+  - CD-QWK-20: `QuickWorkTests.cdQwk20OwnerWhoLeavesEndsTheOrder`.
+  - CD-QWK-21: `QuickWorkTests.cdQwk21BattleEndsTheOrder`.
+  - CD-QWK-22: `QuickWorkTests.cdQwk22TrappedWorkerTimesOut`.
 
 The same pass checked that every Phase 2 role has its section in the player guide (`PlayerGuideTest`, CD-REL-08), and
 that the manual checklist lists every Demo test of the spec sheet (CD-REL-09). The gate report's parser ends the list at

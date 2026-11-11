@@ -1,47 +1,22 @@
 package codes.honor.cobblemondynamics.engine
 
-import codes.honor.cobblemondynamics.fx.WorkFocusEntity
-import codes.honor.cobblemondynamics.handler.ClaimMemo
-import codes.honor.cobblemondynamics.leash.Binding
+import codes.honor.cobblemondynamics.config.EngineSettings
+import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.PastureKey
-import codes.honor.cobblemondynamics.role.ActiveRole
-import codes.honor.cobblemondynamics.stamina.RecoveryRule
-import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
-import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import java.util.UUID
 
 /** The engine's state of one pasture in Work Mode: its workers, its scan schedule and its running scan pass. */
-class PastureRuntime(val level: ServerLevel, val key: PastureKey, now: Long, scanIntervalTicks: Int) {
-    /**
-     * One worker with the live objects that its tick needs. [role] and [memo] belong to the worker's current work claim, and
-     * [focus] is set while it is Working. [binding] is the leash binding that each poll reads from the Pokémon, when it names this
-     * pasture.
-     */
-    class Slot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pokemon) {
-        var role: ActiveRole? = null
-        var memo: ClaimMemo = ClaimMemo()
-        var focus: WorkFocusEntity? = null
-        var binding: Binding? = null
-
-        /** How the worker recovers, from its types and its binding at each poll (CD-HEAL-13). */
-        var rule: RecoveryRule = RecoveryRule.WORKER
-
-        /** The state and tick of the last flush of Work Stamina, null before the first one. */
-        var flushedStatus: WorkerStatus? = null
-        var flushedAt: Long = 0
-
-        /** The last `stamina_view` that the engine set, and the entity it set it on. A new entity has none yet. */
-        var viewEntity: PokemonEntity? = null
-        var viewPercent: Double = 0.0
-        var viewStatus: WorkerStatus = WorkerStatus.IDLE
-    }
-
+class PastureRuntime(override val level: ServerLevel, val key: PastureKey, now: Long, scanIntervalTicks: Int) : WorkSite {
     val pos: BlockPos = BlockPos.of(key.pos)
 
-    /** In the order the workers joined. */
-    val slots = LinkedHashMap<UUID, Slot>()
+    override val pastureKey: PastureKey get() = key
+
+    override val slots = LinkedHashMap<UUID, WorkerSlot>()
+
+    /** Centered on the pasture block and clamped to Cobblemon's `pastureMaxWanderDistance` (CD-CFG-14). */
+    override fun area(settings: EngineSettings): WorkArea = WorkArea.of(pos, settings, PastureAdapter.maxWanderDistance())
 
     var scan: TargetScan? = null
     var scheduler: ScanScheduler = scheduler(scanIntervalTicks, now)

@@ -24,7 +24,9 @@ Constraints:
 - **Both sides.** The mod must be on the client and on the server. It registers items, blocks, an
   entity type, payloads and screen additions.
 - **Work sites.** A Cobblemon Pasture Block becomes a work site only while its Work Mode is on
-  ([ADR-0001](docs/adr/0001-pasture-work-mode-instead-of-work-stand.md)).
+  ([ADR-0001](docs/adr/0001-pasture-work-mode-instead-of-work-stand.md)). A party Pokémon that its owner
+  sends out at a block also works that block, on a Quick Work order
+  ([ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md)).
 - **Exclusivity.** One Pokémon acts on a given block or entity at a time, across all pastures
   ([ADR-0005](docs/adr/0005-global-claim-registry.md)). Wild Pokémon never work.
 - **Balance.** No single Pokémon solves an engineering problem that the player is meant to manage.
@@ -108,7 +110,7 @@ files live under `assets/cobblemon_dynamics/`.
 |---|---|---|---|
 | Content | `registry` | Registers the blocks, the items, the block entity types, the Charge Cell's data component, the work focus entity type and the attachments. Registers the creative tab `cobblemon_dynamics:main`, which lists every item of the mod, and no vanilla tab lists them. | NeoForge registries |
 | Pasture adapter | `pasture` | Reads tethered Pokémon, the pasture's `ownerId` and the player-to-pasture link. Stores Work Mode as a NeoForge data attachment on Cobblemon's pasture block entity. Keeps an index of Work Mode pastures per level. Polls each loaded Work Mode pasture every 20 ticks, because Cobblemon fires no pasture events. | Cobblemon internals, work engine |
-| Work engine | `engine` | Owns the authoritative state of every worker. Schedules scans, runs assignment, runs each worker's state machine, applies work through handlers and drains or restores Work Stamina. Runs on the server thread only. | All server components |
+| Work engine | `engine` | Owns the authoritative state of every worker. Schedules scans, runs assignment, runs each worker's state machine, applies work through handlers and drains or restores Work Stamina. Also runs each Quick Work order, which has one sent-out party Pokémon and no scan. Runs on the server thread only. | All server components |
 | Claim registry | `claim` | Holds work claims, bed claims and heal claims: one claim per key and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, or an entity UUID. Holds the leash bindings as reservations, at most one per worker, and their persistent index. | Work engine, leash, heal, beds |
 | Role registry | `role` | Loads role JSON from data packs on server start and on `/reload`. Rejects invalid files with one log error per file. Matches a worker to roles by its types. Orders roles on one target by `priority`. | Work engine, handler registry |
 | Handler registry | `handler` | Maps a handler id to a `TargetHandler`. Create handlers register only when Create is loaded. | Role registry, work engine |
@@ -146,6 +148,8 @@ files live under `assets/cobblemon_dynamics/`.
 | Charge Cell FE | The Charge Cell block entity, field `energy` (0 to 50,000). The item of a broken cell holds it as the data component `cobblemon_dynamics:stored_energy`. | Saved in the block entity NBT, and with the item stack. | The item component syncs as item data. The block entity sends nothing. |
 | Work focus entity | Entity type `cobblemon_dynamics:work_focus`, one per Working claim on a block target, at the target's center. It is invisible and has no collision. | Never saved to disk. | Vanilla entity tracking. |
 | Brain work order | Memory `cobblemon_dynamics:work_order` in the Pokémon's Brain. | Not saved. The engine rewrites it every tick, because Cobblemon rebuilds the Brain when it swaps the Pokémon instance. | No |
+| Quick Work order | `QuickRuntime` in the work engine, keyed by the Pokémon's UUID: the owner's UUID, the aimed block, the target's name, one worker slot and a work area around the target. | Not saved. The order ends for good, and its end leaves no slot, claim or order. A server stop drops it. | Through the stamina view of its worker. |
+| Quick Work aim | `QuickAim` in the work engine, keyed by the Pokémon's UUID: the owner's UUID, the dimension, the aimed block and the tick of the key press. It lives from the key press to the end of the send-out. | Not saved. A recall, the owner's logout and a server stop drop it. A cancelled send-out leaves none, and each new aim drops the aims that are too old to start an order. | No |
 
 Work Stamina rules, from [ADR-0008](docs/adr/0008-work-stamina-model.md):
 
@@ -167,6 +171,7 @@ flag, not a state. While it is set, the worker is in ToBed, Sleeping or RestingI
 ```mermaid
 stateDiagram-v2
     [*] --> Idle: tethered to a Work Mode pasture
+    [*] --> Traveling: Quick Work order (a party Pokémon sent out at its target)
     Idle --> Traveling: work claim taken (auto, or for a leash binding)
     Traveling --> Working: at the work spot, target has demand
     Traveling --> Standby: at the work spot, no demand
@@ -214,8 +219,14 @@ State icons, for head bars and panel bars:
 
 Transition rules:
 
-- **Who enters.** Only a Pokémon tethered to a Work Mode pasture enters the machine. It must be
-  player-owned, not fainted and not a battle clone.
+- **Who enters.** Only a Pokémon tethered to a Work Mode pasture, or a party Pokémon on a Quick Work
+  order, enters the machine. It must be player-owned, not fainted and not a battle clone.
+- **Quick Work.** A Quick Worker enters the machine at Traveling, through a normal work claim with the
+  spot and path checks. It takes no bed, no heal claim and no other target. Its order ends where a
+  pasture worker would release its claim, rest or move: after a travel timeout, when it gets Tired, and
+  after `engine.standbyMoveTicks` in Standby. The order also ends when its owner goes past the leash,
+  leaves the level or logs out, and when the Pokémon is recalled or battles. After the end, Cobblemon's
+  follow-owner task takes over, and no Quick Work code runs for that Pokémon.
 - **Auto claims.** On each scan, every Idle worker takes the nearest unclaimed target of an
   auto-assign role it can do. A Fairy-type never takes a machine through an auto claim, so with no
   binding it acts as a healer. The Pump, the Muse and the four Phase 2 roles are leash-only.
@@ -278,10 +289,13 @@ writes are safe in any order against block entity ticks (see section 8).
 2. Every tick, each non-Working worker gains one tick of recovery at its current rate. The rate
    depends on the worker kind (worker or healer) and on the bed, if the worker sleeps on one.
 3. Every tick, the engine writes each worker's work order into its Brain memory.
-4. Every 20 ticks per loaded Work Mode pasture, staggered by position, the pasture adapter compares
+4. Every tick, after the pasture workers, each Quick Work order checks whether it ends (CD-QWK-13 to
+   CD-QWK-21). An order that goes on ticks its worker as steps 1 to 3 do. With no order, a level tick
+   runs only one Quick Work check: whether an order exists (CD-QWK-24).
+5. Every 20 ticks per loaded Work Mode pasture, staggered by position, the pasture adapter compares
    the tethered Pokémon with the known workers. It adds new workers and releases departed ones. The
    compat layer sets or clears the Cobbleworkers rest flag at the same time.
-5. Scans run per pasture:
+6. Scans run per pasture:
    - A scan pass reads the block entity maps of the chunks that overlap the work area. That finds every
      machine target. A worker that gets Tired reads the same maps for the beds of its work area at that
      moment, so it claims a bed in the same tick, also on its first tick after a restart.
@@ -290,18 +304,18 @@ writes are safe in any order against block entity ticks (see section 8).
    - A pass can span several 40-tick intervals. The next pass starts at the first 40-tick boundary
      after the previous pass completes. Pasture start ticks are staggered by a position hash.
    - Leash-only roles need no scan. Their targets come from bindings.
-6. When a scan pass completes, the assigner runs. Idle workers take targets, and healers choose allies.
-7. The effect player sends the role's effect when a worker starts Working. It sends the next one when the
+7. When a scan pass completes, the assigner runs. Idle workers take targets, and healers choose allies.
+8. The effect player sends the role's effect when a worker starts Working. It sends the next one when the
    worker's animation has ended and the role's `idle_ticks` (40) have passed, so that the model returns to
    its idle pose first. A worker whose model has none of the role's animations gets the particles every
    `loop_ticks` (40).
-8. Every 20 ticks per Working Telekinesis or Magnet worker, the handler moves up to
+9. Every 20 ticks per Working Telekinesis or Magnet worker, the handler moves up to
    ceil(64 × L ÷ 100) items. That gives the rate in items per second.
-9. When a worker's displayed Work Stamina changes by 1 percentage point, or its state changes, the
-   engine updates its `stamina_view` attachment.
-10. On a state change, every 600 ticks, on entity unload and on server stop, the engine flushes Work
+10. When a worker's displayed Work Stamina changes by 1 percentage point, or its state changes, the
+    engine updates its `stamina_view` attachment.
+11. On a state change, every 600 ticks, on entity unload and on server stop, the engine flushes Work
     Stamina to `persistentData` and calls `onChange()`. A flush every tick would be too costly.
-11. On server stop, before the levels save, the engine calls `onStop` for every Working worker, as a
+12. On server stop, before the levels save, the engine calls `onStop` for every Working worker, as a
     release does. The saved world then keeps no fuel, heat or drive that a worker gave (CD-BRF-05).
 
 Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that tick:
@@ -314,7 +328,9 @@ Cobblemon ticks each Pokémon's Brain in `customServerAiStep`. Our part of that 
 3. Our own look task sets `LOOK_TARGET` to the target's center and turns the Pokémon toward it.
    Cobblemon's `look_at_target` runs only in the idle activity, which the work activity replaces.
 4. At the work spot, a hold task keeps `PATH_COOLDOWN` set. Cobblemon's wander task needs both
-   `WALK_TARGET` and `PATH_COOLDOWN` to be absent, so wandering stays paused.
+   `WALK_TARGET` and `PATH_COOLDOWN` to be absent, so wandering stays paused. Cobblemon's `move_to_owner`
+   also waits while `PATH_COOLDOWN` is set. So the end of a Quick Work order erases it, and the Pokémon
+   follows its owner from the next tick (CD-QWK-15).
 5. On a bed, a task snaps the Pokémon to the bed center every tick, and a worker that rests in place to
    where it stood. It then sets `enablePoseTypeRecalculation=false` and `POSE_TYPE=SLEEP`. It never sets
    the battle SLEEP status, because that status persists. It marks the pose in the entity's NeoForge
@@ -461,6 +477,15 @@ references. This section lists what the code uses.
   `onChange()`, `getOwnerUUID()`, `isWild()`, `isPlayerOwned()`, `isFainted()` and `uuid`.
 - **Events.** `CobblemonEvents.POKEMON_FAINTED`, `EVOLUTION_COMPLETE`, `LEVEL_UP_EVENT` and
   `POKEMON_RELEASED_EVENT_POST`. Cobblemon has no pasture events.
+- **Quick Work** ([ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md)). `POKEMON_SENT_PRE` fires
+  inside `SendOutPokemonHandler.handle`, Cobblemon's server handler of the R key, before the entity
+  exists. `POKEMON_SENT_POST` fires when the send-out animation ends, 30 ticks later. A recall during the
+  animation skips it, and `Pokemon.recall` posts `POKEMON_RECALL_POST`. The behaviour
+  `pokemon_follows_owner` adds `move_to_owner` to the idle activity of a party Pokémon. That task walks the
+  Pokémon to an owner more than 5 blocks away, and teleports it to an owner more than 32 blocks away. The
+  work activity replaces the idle activity, so a Quick Worker stays at its work spot.
+  `PokemonServerDelegate.tick` clears an entity's battle id on the next tick when `BattleRegistry` holds
+  no running battle with that id.
 - **Interaction.** The Work Leash listens to NeoForge `PlayerInteractEvent.EntityInteract` at HIGH
   priority. It acts only on a Pokémon that the player owns: the server reads the owner from the
   Pokémon's store, and the client from the entity's synced owner. It cancels the event on both sides with
@@ -686,6 +711,9 @@ The CFG rows in the spec sheet are normative.
 | `engine.effectBroadcastRadius` | 64 | 16 to 128 |
 | `workMode.toggleCooldownTicks` | 10 | 0 to 200 |
 | `leash.pendingSelectionTicks` | 600 | 100 to 6,000 |
+| `quickWork.enabled` | `true` | boolean |
+| `quickWork.targetRange` | 16 | 2 to 24, and the trace never reaches past `quickWork.leashRange` |
+| `quickWork.leashRange` | 16 | 2 to 24 |
 | `stamina.ticksPerLevel` | 3,600 | 20 to 72,000 |
 | `stamina.healerRecoveryMinutesAtLevel1` | 1,200 | 1 to 10,000 |
 | `stamina.healerRecoveryMinutesAtLevel100` | 120 | 1 to 10,000 |
@@ -857,6 +885,11 @@ Rules:
   - a 32-sail windmill turns at 8 RPM with a level-100 Tailwind bonus.
 - **Engine GameTests.** A test spawns a real `PokemonEntity`, tethers it to a pasture block for a test
   player UUID, and checks the full flow: assignment, travel, work, Tired, bed and heal.
+- **Quick Work GameTests.** `QuickWorkTests` sends out a party Charmander through Cobblemon's own
+  `SendOutPokemonHandler.handle`, for a fake owner who looks at a furnace. `TestKit.listedOwner` puts
+  that owner into the player list's UUID map for the test, because Cobblemon and Quick Work find an
+  owner through `PlayerList.getPlayer`. The tests run in their own batch, `quick_work`, and read the
+  owner's action-bar messages from `Feedback.recorded`.
 - **GameTest mechanics.** Test classes carry `@GameTestHolder("cobblemon_dynamics")`. Kotlin test
   methods must be `@JvmStatic` or sit in a class with a public no-argument constructor, because vanilla
   calls them by reflection. Structures live in `data/cobblemon_dynamics/structure/` or come from a

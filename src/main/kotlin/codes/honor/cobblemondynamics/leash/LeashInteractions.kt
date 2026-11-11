@@ -259,9 +259,11 @@ object LeashInteractions {
         return false
     }
 
+    /** A Quick Work claim names no pasture, so no binder and no placer stand behind it, and only an operator flips (CD-SEC-10). */
     private fun mayFlip(player: ServerPlayer, level: ServerLevel, engine: WorkEngine, claim: Claim): Boolean {
-        val binder = engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder
-        val placer = PastureAdapter.pastureAt(level, BlockPos.of(claim.pasture.pos))?.let(PastureAdapter::placer)
+        val pasture = claim.pasture
+        val binder = pasture?.let { engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder }
+        val placer = pasture?.let { PastureAdapter.pastureAt(level, BlockPos.of(it.pos)) }?.let(PastureAdapter::placer)
         return FlipRules.mayFlip(player.uuid, player.hasPermissions(PERMISSION_OPERATOR), binder, placer)
     }
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Writes the Phase 1 gate report: each Phase 1 MUST and MUST NOT row of the spec sheet with its tests, result and commit.
 
-Phase 1 rows are every row outside the TLK, MAG, FAN, TLW and ART areas. The script reads the spec sheet, the JUnit XML
+Phase 1 rows are every row outside the TLK, MAG, FAN, TLW, QWK and ART areas, except CD-CFG-16 to CD-CFG-18, which are
+Phase 2 work in a Phase 1 area. The script reads the spec sheet, the JUnit XML
 reports of `./gradlew build`, the GameTest sources with the log of each GameTest run, the deferred list of M5 Task 9, the
 manual checklist, the test pack's README and the output of each test pack command. It rewrites only the generated blocks
 of docs/testing/phase-1-gate.md and keeps the text around them.
@@ -40,7 +41,9 @@ PINS = ROOT / "scripts/testpack/mods.json"
 CLIENT_MODS = ROOT / "run/testpack/client/mods"
 BUILD_LIBS = ROOT / "build/libs"
 PERF_TEST = ROOT / "src/gametest/kotlin/codes/honor/cobblemondynamics/test/PerfTests.kt"
-PHASE_2_AREAS = {"TLK", "MAG", "FAN", "TLW", "ART"}
+PHASE_2_AREAS = {"TLK", "MAG", "FAN", "TLW", "QWK", "ART"}
+# The Quick Work keys sit in the CFG area but are Phase 2 work, as in scripts/check_plan_coverage.py.
+PHASE_2_ROWS = {"CD-CFG-16", "CD-CFG-17", "CD-CFG-18"}
 LEVELS = ("MUST", "MUST NOT")
 PASS = "pass"
 FINISHED = "finished"
@@ -229,7 +232,7 @@ def read_spec() -> tuple[dict[str, SpecRow], set[str], set[str]]:
             raise InputError(f"{match.group(1)} has {len(cells)} cells in {rel(SPEC)}, not 8")
         every.add(match.group(1))
         areas.add(match.group(2))
-        if match.group(2) not in PHASE_2_AREAS and cells[2] in LEVELS:
+        if match.group(2) not in PHASE_2_AREAS and match.group(1) not in PHASE_2_ROWS and cells[2] in LEVELS:
             rows[match.group(1)] = SpecRow(match.group(1), frozenset(PART.findall(cells[5])))
     if not rows:
         raise InputError(f"no Phase 1 MUST or MUST NOT row in {rel(SPEC)}")

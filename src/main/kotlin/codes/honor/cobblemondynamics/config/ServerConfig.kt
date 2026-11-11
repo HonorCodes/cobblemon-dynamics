@@ -27,6 +27,9 @@ object ServerConfig {
     private val disabledRoles: ModConfigSpec.ConfigValue<List<String>>
     private val compatCobbleworkers: ModConfigSpec.BooleanValue
     private val compatCobblebase: ModConfigSpec.BooleanValue
+    private val quickWorkEnabled: ModConfigSpec.BooleanValue
+    private val quickWorkTargetRange: ModConfigSpec.IntValue
+    private val quickWorkLeashRange: ModConfigSpec.IntValue
 
     val SPEC: ModConfigSpec
 
@@ -103,6 +106,23 @@ object ServerConfig {
             d.pendingSelectionTicks,
             ConfigRanges.PENDING_SELECTION,
             "Ticks that a Work Leash keeps a pending selection before it clears it.",
+        )
+        b.pop()
+
+        b.comment("Quick Work: a party Pokémon that its owner sends out at a block works that block.").push("quickWork")
+        quickWorkEnabled = b.comment("Start Quick Work orders. With false, a send-out never starts one.")
+            .define("enabled", d.quickWorkEnabled)
+        quickWorkTargetRange = b.int(
+            "targetRange",
+            d.quickWorkTargetRange,
+            ConfigRanges.QUICK_WORK_RANGE,
+            "Blocks that the view of a player who sends out a Pokémon reaches to find its target. Never more than leashRange.",
+        )
+        quickWorkLeashRange = b.int(
+            "leashRange",
+            d.quickWorkLeashRange,
+            ConfigRanges.QUICK_WORK_RANGE,
+            "Blocks from the owner's eyes to the target at which a Quick Work order ends.",
         )
         b.pop()
 
@@ -198,6 +218,9 @@ object ServerConfig {
         disabledRoles = disabledRoles.get().mapNotNull { ResourceLocation.tryParse(it) }.toSet(),
         compatCobbleworkers = compatCobbleworkers.get(),
         compatCobblebase = compatCobblebase.get(),
+        quickWorkEnabled = quickWorkEnabled.get(),
+        quickWorkTargetRange = quickWorkTargetRange.get(),
+        quickWorkLeashRange = quickWorkLeashRange.get(),
     )
 
     fun hasKey(path: String): Boolean = SPEC.spec.contains(path)

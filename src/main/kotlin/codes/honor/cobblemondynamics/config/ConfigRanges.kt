@@ -10,6 +10,7 @@ object ConfigRanges {
     val EFFECT_RADIUS = 16..128
     val TOGGLE_COOLDOWN = 0..200
     val PENDING_SELECTION = 100..6_000
+    val QUICK_WORK_RANGE = 2..24
     val TICKS_PER_LEVEL = 20..72_000
     val HEALER_MINUTES = 1..10_000
     val FLUSH_INTERVAL = 20..12_000
