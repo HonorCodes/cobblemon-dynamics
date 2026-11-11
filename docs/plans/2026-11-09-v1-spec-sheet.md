@@ -31,6 +31,9 @@ Corrections after agreement:
   to the art of M8.
 - 2026-11-10, approver's ruling after the play-test (R61): a creative tab. The new row CD-UI-16 lists every item of the
   mod in the tab `cobblemon_dynamics:main`, and in no vanilla tab.
+- 2026-11-10, approver's ruling after the multiplayer audit (R62): an operator command for a binding whose binder does not
+  come back. The new row CD-UI-17 gives `/cobblemondynamics unbind <pos>`, which clears every binding whose target or
+  Telekinesis source is that block and tells each binder.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -110,7 +113,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 
 ## Inputs
 
-Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 to R61 come from the approver's rulings after the Phase 1 play-test, on 2026-11-10.
+Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 to R61 come from the approver's rulings after the Phase 1 play-test, on 2026-11-10. R62 comes from the approver's rulings on the multiplayer audit, on 2026-11-10.
 
 | Input | Link |
 | --- | --- |
@@ -175,6 +178,7 @@ Rulings R1 to R58 come from the design session with the approver on 2026-11-09. 
 | R59. Ruling (2026-11-10, after the Phase 1 play-test): Fire-types do not heat Blaze Burners. Dragon-types alone heat them, `KINDLED` below level 50 and `SEETHING` from level 50. The Burner Keeper role goes. | none |
 | R60. Ruling (2026-11-10, after the Phase 1 play-test): a Charge Cell block, with an item, stores up to 50,000 FE behind NeoForge's energy capability on all six faces and takes FE on each. Every tick it pushes its FE into each adjacent block that takes FE, split fairly between the faces, and it never loops FE between two cells. A comparator reads its fill from 0 to 15. A broken cell keeps its FE on the item, and the tooltip shows it. A shaped recipe from copper ingots, redstone and a Cobblemon Thunder Stone makes it. | none |
 | R61. Ruling (2026-11-10, after the Phase 1 play-test): the mod's items get their own creative tab, `cobblemon_dynamics:main`, titled "Cobblemon Dynamics" with the Work Leash as its icon. It holds the Work Leash, the four beds and the Charge Cell, in that order, and the items leave the vanilla tabs. | none |
+| R62. Ruling (2026-11-10, after the multiplayer audit): operators get `/cobblemondynamics unbind <pos>`, at permission level 2. It clears every leash binding whose target or source is that block, through the leash resets with the reason `cleared_by_operator`, and tells each binder. | none |
 | RES1. Research: Cobblemon 1.8.4 integration points. | `docs/research/2026-11-09-integration-points.md` |
 | RES2. Research: Create 6.0.10 kinetic and heat hooks. | `docs/research/2026-11-09-integration-points.md` |
 | RES3. Research: AE2 19.2.19, NeoForge 21.1 and vanilla furnace facts. | `docs/research/2026-11-09-integration-points.md` |
@@ -667,6 +671,7 @@ and default priority. The default role files hold these values.
 | CD-UI-14 | Dynamics MUST give operators the command `/cobblemondynamics claims`, which lists each claim and each leash binding with its target, worker and kind. | MUST | R24, quality sweep | Operators find stuck machines. | GameTest: run the command with a work claim, a bed claim, a heal claim and a leash binding. Fails if: the output lacks an entry or a field. | work engine | agreed |
 | CD-UI-15 | Dynamics MUST give operators the command `/cobblemondynamics stamina`, which shows a Pokémon's Work Stamina, state and recovery rule. | MUST | R24, quality sweep | Operators check the stamina math in play. | GameTest: run the command on a Lv50 healer at 40%. Fails if: the output lacks the value, the state, or "healer rule". | stamina | agreed |
 | CD-UI-16 | Dynamics MUST list every item of the mod in its own creative mode tab `cobblemon_dynamics:main`, titled "Cobblemon Dynamics" with the Work Leash as its icon, in this order: the Work Leash, the four beds by tier and the Charge Cell, and in no vanilla tab. | MUST | R61 | The approver's ruling of 2026-11-10: the approver did not find the items in the creative menu, and one tab holds them all in one place. | GameTest: build the tab and the vanilla Tools and Utilities and Functional Blocks tabs. Fails if: the tab is missing, its title or icon differs, it misses an item that the mod registers or lists the items in another order, or one of the vanilla tabs lists an item of the mod. | content | agreed |
+| CD-UI-17 | Dynamics MUST give operators the command `/cobblemondynamics unbind <pos>`, which clears every leash binding whose target or Telekinesis source is the block at that position in the operator's level, or the canonical block that the Work Leash finds from it, and sends each binder the chat message of CD-LSH-13 with the reason "an operator cleared it". | MUST | R62 | The approver's ruling of 2026-11-10, after the multiplayer audit: a player who binds a Pokémon in another player's pasture to that player's block and then leaves the server for good reserves the block forever, because Cobblemon 1.8.4 lets only a Pokémon's owner take it out of a pasture. | Demo: an operator binds a Charmander to a furnace and runs `/cobblemondynamics unbind` with the furnace's position. Fails if: the binding remains, `/cobblemondynamics claims` still lists it, the reply does not name the Charmander, or the chat lacks "Charmander lost its work binding: an operator cleared it". | work engine | agreed |
 
 ### CMP: compatibility
 
@@ -853,6 +858,7 @@ and default priority. The default role files hold these values.
 | R59 | CD-BRN-01 to CD-BRN-07, CD-SUP-02, CD-ASG-16 |
 | R60 | CD-GEN-08 to CD-GEN-12, CD-REL-08, CD-ART-01 |
 | R61 | CD-UI-16 |
+| R62 | CD-UI-17 |
 | RES1 | CD-PLAT-02, CD-AI-01, CD-AI-04, CD-AI-07, CD-AI-09, CD-FX-03, CD-HEAL-15, CD-UI-11, CD-REL-07, CD-CFG-14 |
 | RES2 | CD-WHL-02, CD-WHL-09, CD-BRN-02, CD-CRK-02, CD-CRK-04 |
 | RES3 | CD-PLAT-01, CD-GEN-04, CD-GEN-07, CD-STK-04, CD-CRY-02, CD-SEC-11 |
@@ -885,7 +891,7 @@ Output of `scripts/check_spec_sheet.py` (documentation-driven-design skill 1.2.1
 exit 0:
 
 ```text
-docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 348 rows
+docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 349 rows
   malformed row (cell count differs from the header): 0
   missing, malformed or duplicate ID: 0
   empty or placeholder cell: 0
@@ -898,6 +904,6 @@ docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 348 rows
   unknown Status value: 0
 ```
 
-- Trace-table lines mapped: 93 of 93 (11 goals + 82 inputs + 0 assumptions)
+- Trace-table lines mapped: 94 of 94 (11 goals + 83 inputs + 0 assumptions)
 - Sweeps recorded: 7 of 7
-- Rows by level: 293 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY
+- Rows by level: 294 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY

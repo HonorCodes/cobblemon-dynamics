@@ -121,7 +121,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Work Leash | `leash` | Handles the two-click binding, the three-click Telekinesis binding, the pending selection, the clear gesture and the flip gesture. Sends action-bar feedback. | Claim registry, handlers |
 | Network | `net` | Defines our payloads and validates every client payload on the server. | Client, engine |
 | Compat | `compat` | Sets and clears the Cobbleworkers rest flag. Gates the Cobblebase mixins. | Cobbleworkers data, Cobblebase |
-| Commands | `command` | `/cobblemondynamics claims` and `/cobblemondynamics stamina` for operators. | Claim registry, stamina |
+| Commands | `command` | `/cobblemondynamics claims`, `/cobblemondynamics stamina` and `/cobblemondynamics unbind` for operators. `unbind <pos>` clears the bindings on a block through the leash resets, for a binding whose binder does not come back. | Claim registry, stamina, leash |
 | Client | `client` | Adds the Work Mode button to the pasture panel. Draws panel stamina bars and head bars. Outlines bound targets while the player holds the Work Leash. Answers the fan and windmill checks that Create runs on the client. | Cobblemon client GUI, payloads, Create client |
 
 ## 4. Data model

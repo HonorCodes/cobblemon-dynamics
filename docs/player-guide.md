@@ -167,8 +167,13 @@ A binding also clears in the cases below. The player who bound the Pokémon then
 | The Pokémon goes to a new owner, for example in a trade. | it has a new owner |
 | The Pokémon evolves into a form that no role on its target fits. | its new form cannot do the job |
 | The pasture block breaks. | its pasture block is gone |
+| An operator runs [`/cobblemondynamics unbind`](#commands) on its target. | an operator cleared it |
 
 A binding stays when its target is in an unloaded chunk.
+
+In a shared pasture, another player can bind one of their own Pokémon to your block, and the binding then
+reserves that block. Cobblemon lets only a Pokémon's owner take it out of a pasture, so if that player does not
+come back, ask an operator to run `/cobblemondynamics unbind` on the block.
 
 ### Flip a water wheel or a hand crank
 
@@ -568,12 +573,13 @@ Work is silent, so an effect has no sound key. A file whose effect names a `soun
 
 ## Commands
 
-Both commands need permission level 2 (operator).
+All three commands need permission level 2 (operator).
 
 | Command | Result |
 | --- | --- |
 | `/cobblemondynamics claims` | Lists each claim and each binding. A claim line reads `claim <kind> <target> <worker> (<UUID>)`, where the kind is `work`, `bed` or `heal`. A binding line reads `binding <target> <worker> (<UUID>)`. With neither, the reply is "No claims and no leash bindings". |
 | `/cobblemondynamics stamina <target>` | Shows one Pokémon's Work Stamina, state and recovery rule, for example "Charmander: 42.5% Work Stamina, Working, worker rule". |
+| `/cobblemondynamics unbind <pos>` | Clears every binding on the block at `<pos>` in your dimension. Any block of a large water wheel names the whole wheel, as with the Work Leash. Each line reads "Cleared the binding of {Pokémon} at {target}", and the player who bound the Pokémon gets the chat message "{Pokémon} lost its work binding: an operator cleared it". With no binding there, the reply is "No leash binding at {target}". |
 
 A claim gives one worker one target for now: a block to work, a bed or an ally to heal. Claims are never
 saved, so the workers make them again after a restart. In a line, a block target is its dimension and its
@@ -583,6 +589,10 @@ The `<target>` of the stamina command is one entity, for example
 `@e[type=cobblemon:pokemon,sort=nearest,limit=1]`. The percentage is rounded down to one decimal. For a
 Pokémon that is not a worker, the state reads "not in Work Mode". The value is then its saved value plus the
 recovery of its time away.
+
+The `<pos>` of the unbind command is a block position, for example the coordinates of the furnace that a worker
+is bound to. The command works in the dimension that it runs in, so from the server console a block in the
+Nether needs `/execute in minecraft:the_nether run cobblemondynamics unbind <pos>`.
 
 ## Compatibility
 

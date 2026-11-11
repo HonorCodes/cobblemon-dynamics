@@ -37,6 +37,7 @@ object LeashResets {
     const val TRADED = "traded"
     const val NO_ROLE = "no_role"
     const val PASTURE_GONE = "pasture_gone"
+    const val CLEARED_BY_OPERATOR = "cleared_by_operator"
 
     private const val CHECK_TICKS = 10L
     private const val LOST = "cobblemon_dynamics.binding.lost"
@@ -70,6 +71,44 @@ object LeashResets {
             Feedback.chat(binding.binder, server, message)
         }
         return binding
+    }
+
+    /** One binding that [clearAt] removed: its key in the index, the index entry, and its Pokémon when the owner's PC or party holds it. */
+    data class Unbound(val target: BlockPos, val ref: LeashIndex.Ref, val pokemon: Pokemon?)
+
+    /**
+     * CD-UI-17: clears every binding whose target, or Telekinesis source, is the block at [pos] in [level], as the Work Leash finds that
+     * block: [pos] itself and the canonical block of each role whose handler matches it, such as the centre of a large water wheel. Each
+     * binder gets the chat message with the reason [CLEARED_BY_OPERATOR]. An entry whose Pokémon is gone loses only its reservation.
+     */
+    fun clearAt(level: ServerLevel, pos: BlockPos): List<Unbound> {
+        val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return emptyList()
+        val dimension = level.dimension().location()
+        return keysAt(level, pos).mapNotNull { key ->
+            val ref = index.get(key) ?: return@mapNotNull null
+            val pokemon = find(level.server, ref)
+            val binding = pokemon?.let(BindingStore::read)
+            if (pokemon != null && binding?.dimension == dimension && binding.target == key) {
+                clear(level.server, pokemon, CLEARED_BY_OPERATOR)
+            } else {
+                unindex(level, key, ref.pokemonId)
+            }
+            Unbound(key, ref, pokemon)
+        }
+    }
+
+    /** [pos] and the canonical block of each role whose handler matches it: the index keys that a binding on that block can have. */
+    private fun keysAt(level: ServerLevel, pos: BlockPos): Set<BlockPos> {
+        val keys = linkedSetOf(pos.immutable())
+        if (!level.isLoaded(pos)) return keys
+        val state = level.getBlockState(pos)
+        val blockEntity = level.getBlockEntity(pos)
+        for (role in RoleRegistry.current.active) {
+            val handler = role.handler
+            val matches = guarded(handler, false) { handler.matches(level, pos, state, blockEntity) }
+            if (matches) guarded(handler, null) { handler.canonical(level, pos) }?.let { keys += it.immutable() }
+        }
+        return keys
     }
 
     /** CD-LSH-26: binding data never travels to a new owner. */
