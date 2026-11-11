@@ -633,6 +633,9 @@ GUI_GROUPS = {
 SPRITE_ORDER = ("on", "off", "hover", "disabled", "panel_bar", "panel_fill", "head_bar", "head_fill",
                 "idle", "traveling", "working", "standby", "tired", "sleeping", "healing")
 TABS = ROOT / "src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsTabs.kt"
+STAMINA_BAR = ROOT / "src/main/kotlin/codes/honor/cobblemondynamics/client/StaminaBar.kt"
+# The Work Stamina bar at the stamina of manual checklist check 49, with the tint that StaminaBar.color gives it there.
+BAR_SAMPLES = ((100, "GREEN"), (40, "YELLOW"), (10, "RED"))
 # A 5 x 9 bitmap font for the labels: each glyph lists its rows from the top, with '#' for a lit pixel. Rows 7 and 8
 # hold the descenders, and the rows that a glyph leaves out are blank.
 FONT = {
@@ -870,6 +873,26 @@ def gui_key(source: pathlib.Path) -> tuple:
             SPRITE_ORDER.index(stem) if stem in SPRITE_ORDER else len(SPRITE_ORDER), stem)
 
 
+def bar_tints() -> dict[str, bytes]:
+    """The colours of StaminaBar.kt, by constant name."""
+    text = STAMINA_BAR.read_text(encoding="utf-8") if STAMINA_BAR.is_file() else ""
+    return {name: bytes.fromhex(value) for name, value in re.findall(r"const val (\w+) = 0xFF([0-9A-Fa-f]{6})", text)}
+
+
+def drawn_bar(bar: pathlib.Path, fill: pathlib.Path, percent: int, tint: bytes) -> tuple[int, int, bytes]:
+    """[bar] with [fill] over its inside, cropped to [percent] as StaminaBar.fillWidth crops it and tinted, as the game
+    draws a Work Stamina bar."""
+    width, height, base = parse_pixels(bar.read_text(encoding="utf-8"), bar.name)
+    fill_width, fill_height, pixels = parse_pixels(fill.read_text(encoding="utf-8"), fill.name)
+    out = bytearray(base)
+    shown = 0 if percent <= 0 else max(1, fill_width * min(percent, 100) // 100)
+    for y in range(fill_height):
+        for x in range(shown):
+            i, j = (y * fill_width + x) * 4, ((y + 1) * width + x + 1) * 4
+            out[j:j + 4] = bytes(c * t // 255 for c, t in zip(pixels[i:i + 3], tint)) + pixels[i + 3:i + 4]
+    return width, height, bytes(out)
+
+
 def tab_item() -> str | None:
     """The id of the item that the creative tab shows as its icon, as DynamicsTabs names it."""
     text = TABS.read_text(encoding="utf-8") if TABS.is_file() else ""
@@ -878,8 +901,8 @@ def tab_item() -> str | None:
 
 
 def spritesheet(record: pathlib.Path, note: str) -> Canvas:
-    """The review sheet: the Work Leash, the creative tab's icon, the leash candidates, the UI sprites and, for
-    reference, the block items."""
+    """The review sheet: the Work Leash, the creative tab's icon, the leash candidates, the UI sprites, the bars as the
+    game draws them and, for reference, the block items."""
     names = json.loads((ASSETS / "lang/en_us.json").read_text(encoding="utf-8"))
     textures = [source for source in sources() if source.name.endswith(".pixels")]
     items = [source for source in textures if source.parent == ART / "textures/item"]
@@ -911,6 +934,15 @@ def spritesheet(record: pathlib.Path, note: str) -> Canvas:
                  for source in members]
         if cards:
             sections.append((f"UI sprites: {group}", cards))
+    tints, drawn = bar_tints(), []
+    for kind, name in (("panel", "Panel bar"), ("head", "Head bar")):
+        bar, fill = (ART / f"textures/gui/stamina_bar/{kind}_{part}.pixels" for part in ("bar", "fill"))
+        for percent, tint in BAR_SAMPLES:
+            if bar.is_file() and fill.is_file() and tint in tints:
+                images = sprite_images(*drawn_bar(bar, fill, percent, tints[tint]))
+                drawn.append(card(images, f"{name} at {percent}% in game", f"the fill tinted {tint.lower()}"))
+    if drawn:
+        sections.append(("UI sprites: Work Stamina bar as the game draws it", drawn))
     others = [source for source in gui if source.parent.relative_to(ART / "textures").as_posix() not in GUI_GROUPS]
     if others:
         sections.append(("UI sprites: other", [texture_card(source, source.stem, shipped_path(source))

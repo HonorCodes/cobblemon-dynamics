@@ -1198,6 +1198,11 @@ SHA-256. The release workflow runs it for every public tag (CD-ART-12).
 - [ ] **Step 3: Run** the test, `./gradlew build`, and `py scripts/art.py check --release`. The last prints `CASE cd-art-10:
   FAIL` until the approver's review at the gate stop (Task 8).
 
+  **As built (2026-11-11).** The review sheet also shows each Work Stamina bar as the game draws it, at the 100%, 40% and
+  10% of manual checklist check 49: the fill cropped as `StaminaBar.fillWidth` crops it and tinted with the colour that
+  `StaminaBar.kt` declares for that stamina (`bar_tints`, `drawn_bar`). The approver judges the bars from these, because
+  the fill sprite alone is a grey strip.
+
 - [ ] **Step 4: Multiplayer check.** The record and the sheet are files outside the game.
 
 - [ ] **Step 5: Commit:** `git commit -m "Add the art review record, and check the approvals of a public release [rag:2]"`.
