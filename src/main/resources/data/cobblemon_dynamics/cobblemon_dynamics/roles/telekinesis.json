@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:telekinesis",
+  "types": ["psychic"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {
+    "items_per_second_at_level_100": 64,
+    "destination_range": 32
+  },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["kinesis", "status"],
+    "actor_particles": ["cobblemon:kinesis_actorspiral"]
+  }
+}

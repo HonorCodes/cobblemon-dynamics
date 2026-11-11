@@ -16,6 +16,7 @@ import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.capability.FePushHandler
 import codes.honor.cobblemondynamics.handler.capability.FluidFillHandler
 import codes.honor.cobblemondynamics.handler.create.CreateCompat
+import codes.honor.cobblemondynamics.handler.item.TelekinesisHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BrewingFuelHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BrewingSpeedHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BuddingHandler
@@ -77,6 +78,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(BrewingSpeedHandler)
         HandlerRegistry.register(FluidFillHandler)
         HandlerRegistry.register(EnchantingHandler)
+        HandlerRegistry.register(TelekinesisHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
         if (ModList.get().isLoaded("create")) CreateCompat.register()
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }

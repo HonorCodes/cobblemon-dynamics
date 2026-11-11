@@ -60,13 +60,26 @@ Inferred (check before the task that uses it):
 
 - `Path.canReach()` with accuracy 0 is true for every spot that a Phase 1 GameTest worker reaches. The whole GameTest suite
   is the check, because a false negative leaves a worker without a claim (Task 1).
-- A Create chute with no inventory below it holds one stack and refuses more, and Create's vault, depot and chute drop
-  their contents when they break (Task 4).
-- Adjacent AE2 devices form one ad-hoc network with no controller. The interface sends its buffer to the ME chest's cell on
-  its grid tick (Task 4).
+
+Checked for Task 4 on 2026-11-11, with `javap -c` on the Create 6.0.10, AE2 19.2.19 and merged NeoForge jars, and in the
+GameTests of Task 4:
+
+- Create's chute takes an insert only while it is empty (`canAcceptItem` returns `item.isEmpty()`), so a chute on the floor
+  holds one stack and refuses more. It keeps the stack object that it gets (`ChuteItemHandler.insertItem` calls `setItem`
+  with it). Create's vault drops its contents in `ItemVaultBlock.onRemove`
+  (`ItemHelper.dropContents`), the depot in `DepotBehaviour.destroy` and the chute in `ChuteBlockEntity.destroy`
+  (`Containers.dropItemStack`). `GameTestHelper.destroyBlock` calls `ServerLevel.destroyBlock(pos, false, null)`, so the
+  block itself drops nothing, but `onRemove` still drops what its block entity holds. A depot and a chute take the stack of
+  an item entity that lands on them (`SharedDepotBlockMethods.onLanded`, `AbstractChuteBlock.updateEntityAfterFallOn`).
+- Adjacent AE2 devices form one ad-hoc network with no controller, and the interface sends its buffer to the ME chest's cell
+  (`cdTlk08ItemsReachTheNetworkThroughBothInterfaces` passes).
 - `ColoredItemDefinition.item(AEColor)` gives the glass cable part item, and `PartHelper.setPart` with a `null` side places
-  the cable in the center. `BlockDefinition.block()`, `ItemDefinition.stack()`, `ItemDefinition.asItem()` and
-  `KeyCounter.get(AEKey)` exist with these names (Task 4).
+  the cable in the center (it calls `IPartHost.addPart(item, side, player)`). `BlockDefinition.block()`,
+  `ItemDefinition.stack()`, `ItemDefinition.asItem()` and `KeyCounter.get(AEKey)` exist with these names.
+- NeoForge's item handler of a vanilla chest is a new `InvWrapper(ChestBlock.getContainer(block, state, level, pos, true))`
+  on every query, so two queries never give the same object. Every block of a Create item vault gives its controller's one
+  handler object (`ItemVaultBlockEntity.initCapability`). `ChestBlock.getConnectedDirection(BlockState)`, `ChestBlock.TYPE`,
+  `ChestBlock.FACING` and `ChestType.getOpposite()` are public. These facts carry ruling 5 of the plan index (Task 4).
 
 `TestKit` additions (shared, no Create class):
 
@@ -102,15 +115,22 @@ fun doubleChest(helper: GameTestHelper, rel: BlockPos, facing: Direction): IItem
 fun items(helper: GameTestHelper, rel: BlockPos): IItemHandler? =
     helper.level.getCapability(Capabilities.ItemHandler.BLOCK, helper.absolutePos(rel), null)
 
-/** How many of [item] the block at [rel] holds, and how many lie on the ground of the test, as item entities. */
-fun countIn(helper: GameTestHelper, rel: BlockPos, item: Item): Int =
-    items(helper, rel)?.let { h -> (0 until h.slots).sumOf { h.getStackInSlot(it).takeIf { s -> s.`is`(item) }?.count ?: 0 } } ?: 0
+/** How many of [item] the block at [rel] holds. */
+fun countIn(helper: GameTestHelper, rel: BlockPos, item: Item): Int {
+    val handler = items(helper, rel) ?: return 0
+    return (0 until handler.slots).sumOf { slot -> handler.getStackInSlot(slot).takeIf { it.`is`(item) }?.count ?: 0 }
+}
 
+/**
+ * How many of [item] lie on the ground of the test, as item entities. Only the test's own structure counts, with a margin for
+ * items that fly out of it, because the tests of one batch run side by side.
+ */
 fun countOnTheGround(helper: GameTestHelper, item: Item): Int =
-    helper.level.getEntitiesOfClass(ItemEntity::class.java, AABB(helper.absolutePos(BlockPos.ZERO)).inflate(48.0)) {
-        it.item.`is`(item)
-    }.sumOf { it.item.count }
+    helper.level.getEntitiesOfClass(ItemEntity::class.java, helper.bounds.inflate(2.0)) { it.item.`is`(item) }.sumOf { it.item.count }
 ```
+
+`countOnTheGround` reads the test's own bounds (`GameTestHelper.getBounds()`), not 48 blocks around its origin: a box that
+large reaches the tests that run beside it, and the Magnet's tests drop cobblestone too.
 
 ---
 
@@ -850,16 +870,21 @@ if (destination != null &&
 
 ### Task 4: Telekinesis
 
-**Rows:** CD-TLK-01, CD-TLK-02, CD-TLK-03, CD-TLK-04, CD-TLK-05, CD-TLK-06, CD-TLK-07, CD-TLK-08, CD-FX-02 (the Kinesis
-row), CD-FX-09 (no particle with a sound), CD-ASG-05 (leash only), CD-REL-08 (the guide section).
+**Rows:** CD-TLK-01, CD-TLK-02, CD-TLK-03, CD-TLK-04, CD-TLK-05, CD-TLK-06, CD-TLK-07, CD-TLK-08, CD-TLK-10 (the blocks of
+one inventory, ruling 5 of the plan index), CD-CLM-04 (one canonical position for an inventory of several blocks), CD-FX-02
+(the Kinesis row), CD-FX-09 (no particle with a sound), CD-ASG-05 (leash only), CD-REL-08 (the guide section).
 
 **Files:**
-- Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/item/ItemPorts.kt` (`ItemPorts`, `ItemCapability`)
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/item/InventoryBlocks.kt`
+- Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/item/ItemPorts.kt` (`ItemPorts`, `ItemFace`, `ItemCapability`)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/item/TelekinesisHandler.kt`
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/telekinesis.json`
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt` (registers the handler)
-- Modify: `docs/player-guide.md` (`### Telekinesis`)
+- Modify: `docs/player-guide.md` (`### Telekinesis`, its row of the role table, and the Telekinesis refusals and reset reason
+  in the tables of the Work Leash section)
+- Modify: `ARCHITECTURE.md` (section 8, "One inventory of several blocks")
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt`
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/item/InventoryBlocksTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/TelekinesisTests.kt`
 - Modify: `src/gametest/kotlin-shared/codes/honor/cobblemondynamics/test/TestKit.kt` (the additions at the top of this file)
 
@@ -869,6 +894,15 @@ row), CD-FX-09 (no particle with a sound), CD-ASG-05 (leash only), CD-REL-08 (th
 - Produces:
 
 ```kotlin
+/** The blocks of one inventory that spans several blocks, such as a double chest or a Create item vault (ruling 5). */
+internal object InventoryBlocks {
+    /** A search stops after this many blocks. Create's largest item vault has 81. */
+    const val MAX_BLOCKS = 256
+
+    /** The least position, in [BlockPos] order, of [start] and the blocks that [joined] links to it through their faces. */
+    fun canonical(start: BlockPos, maxBlocks: Int = MAX_BLOCKS, joined: (from: BlockPos, to: BlockPos) -> Boolean): BlockPos
+}
+
 /** NeoForge's item handlers as the two ends of a batch. NeoForge 21.9 replaces `IItemHandler`, so only this file names it. */
 internal object ItemPorts {
     fun source(handler: IItemHandler): ItemSource<ItemStack>
@@ -877,10 +911,23 @@ internal object ItemPorts {
     fun sink(handler: IItemHandler): ItemSink<ItemStack>
 }
 
+/** One face of a container, in a `BlockCapabilityCache`. A new binding on the same claim, with another block or face, needs a new one. */
+internal class ItemFace(level: ServerLevel, val pos: BlockPos, val face: Direction?) {
+    fun isAt(pos: BlockPos, face: Direction?): Boolean
+    fun source(): ItemSource<ItemStack>?
+    fun sink(): ItemSink<ItemStack>?
+}
+
 internal object ItemCapability {
-    /** CD-TLK-01, CD-MAG-01: an item handler on one of the six faces. AE2's cable parts answer only on their own face. */
+    /** CD-TLK-01, CD-MAG-01: an item handler with no side or on one of the six faces. AE2's cable parts answer only on their own face. */
     fun exposes(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean
     fun exposes(level: ServerLevel, pos: BlockPos): Boolean
+
+    /** Ruling 5: the least position of the inventory's blocks. */
+    fun canonical(level: ServerLevel, pos: BlockPos): BlockPos
+
+    /** Whether [pos] belongs to the inventory at [canonical], with no search. */
+    fun isPart(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean
 }
 
 object TelekinesisHandler : TargetHandler   // id cobblemon_dynamics:telekinesis
@@ -932,7 +979,10 @@ fun `CD-FX-04 Telekinesis's Kinesis spirals from the worker, with no sound`() {
 @Test
 fun `CD-TLK-02 the Telekinesis role file sets auto_assign to false`() {
     val key = autoAssignKey("telekinesis")
-    assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "telekinesis.json has auto_assign $key")
+    assertTrue(
+        key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+        "telekinesis.json has auto_assign $key",
+    )
 }
 
 @Test
@@ -942,11 +992,84 @@ fun `CD-TLK-03 the default Telekinesis file moves 1, 16, 32 and 64 items per bat
 }
 ```
 
-  `ParticleFilesTest` (Phase 1) then checks that no particle of the new file plays a sound.
+  `ParticleFilesTest` (Phase 1) then checks that no particle of the new file plays a sound. Ruling 5 of the plan index makes
+  a double chest, a Create vault or any other inventory of several blocks one source or destination, at its canonical
+  position, so the two halves of one chest trigger Task 3's "same as source" refusal. `InventoryBlocksTest` covers the
+  search with plain sets of positions:
 
-- [ ] **Step 2: Run them and see them fail:** the role file does not exist.
+```kotlin
+/** Two blocks are joined when one of [inventories] holds both. */
+private fun joinedWithin(vararg inventories: Set<BlockPos>): (BlockPos, BlockPos) -> Boolean =
+    { from, to -> inventories.any { from in it && to in it } }
+
+private fun box(min: BlockPos, max: BlockPos): Set<BlockPos> = BlockPos.betweenClosed(min, max).map(BlockPos::immutable).toSet()
+
+@Test
+fun `CD-TLK-10 CD-CLM-04 both halves of a double chest give the same canonical position`() {
+    val left = BlockPos(4, 64, 3)
+    val right = BlockPos(3, 64, 3)
+    val joined = joinedWithin(setOf(left, right))
+    assertEquals(right, InventoryBlocks.canonical(left, joined = joined))
+    assertEquals(right, InventoryBlocks.canonical(right, joined = joined))
+}
+
+@Test
+fun `CD-CLM-04 every block of a 3 by 3 by 9 item vault gives the same canonical position`() {
+    val vault = box(BlockPos(10, 60, -5), BlockPos(12, 62, 3))
+    val joined = joinedWithin(vault)
+    assertEquals(81, vault.size)
+    assertEquals(setOf(BlockPos(10, 60, -5)), vault.map { InventoryBlocks.canonical(it, joined = joined) }.toSet())
+}
+
+@Test
+fun `CD-TLK-10 a single chest beside another, and each of two vaults that touch, stay targets of their own`() {
+    assertEquals(BlockPos(4, 64, 3), InventoryBlocks.canonical(BlockPos(4, 64, 3)) { _, _ -> false })
+    val joined = joinedWithin(box(BlockPos(0, 0, 0), BlockPos(1, 1, 1)), box(BlockPos(2, 0, 0), BlockPos(3, 1, 1)))
+    assertEquals(BlockPos(0, 0, 0), InventoryBlocks.canonical(BlockPos(1, 1, 1), joined = joined))
+    assertEquals(BlockPos(2, 0, 0), InventoryBlocks.canonical(BlockPos(2, 1, 1), joined = joined))
+}
+
+/** A world where every block joins its neighbours has no end, so only the bound stops the search. */
+@Test
+fun `the search asks about the neighbours of at most MAX_BLOCKS blocks`() {
+    var asked = 0
+    InventoryBlocks.canonical(BlockPos.ZERO) { _, _ ->
+        asked++
+        true
+    }
+    assertTrue(asked <= 6 * InventoryBlocks.MAX_BLOCKS, "the search asked $asked times")
+}
+```
+
+- [ ] **Step 2: Run them and see them fail:** `InventoryBlocksTest` does not compile, and once `InventoryBlocks` exists, the
+  role file does not exist.
 
 - [ ] **Step 3: Write the code.**
+
+```kotlin
+internal object InventoryBlocks {
+    const val MAX_BLOCKS = 256
+
+    fun canonical(start: BlockPos, maxBlocks: Int = MAX_BLOCKS, joined: (from: BlockPos, to: BlockPos) -> Boolean): BlockPos {
+        val first = start.immutable()
+        val found = hashSetOf(first)
+        val queue = ArrayDeque(listOf(first))
+        var least = first
+        while (queue.isNotEmpty() && found.size < maxBlocks) {
+            val from = queue.removeFirst()
+            for (direction in Direction.entries) {
+                val to = from.relative(direction)
+                if (to in found || !joined(from, to)) continue
+                found += to
+                queue += to
+                if (to < least) least = to
+                if (found.size >= maxBlocks) break
+            }
+        }
+        return least
+    }
+}
+```
 
 ```kotlin
 internal object ItemPorts {
@@ -971,14 +1094,69 @@ internal object ItemPorts {
     private fun ItemStack.toLot(): Lot<ItemStack>? = if (isEmpty) null else Lot(copy(), count)
 }
 
+internal class ItemFace(level: ServerLevel, val pos: BlockPos, val face: Direction?) {
+    private val cache: BlockCapabilityCache<IItemHandler, Direction?> =
+        BlockCapabilityCache.create(Capabilities.ItemHandler.BLOCK, level, pos, face)
+
+    fun isAt(pos: BlockPos, face: Direction?): Boolean = this.pos == pos && this.face == face
+
+    fun source(): ItemSource<ItemStack>? = cache.capability?.let(ItemPorts::source)
+
+    fun sink(): ItemSink<ItemStack>? = cache.capability?.let(ItemPorts::sink)
+}
+
 internal object ItemCapability {
+    private val FACES: List<Direction?> = listOf(null) + Direction.entries
+
     fun exposes(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
-        Direction.entries.any { level.getCapability(Capabilities.ItemHandler.BLOCK, pos, state, blockEntity, it) != null }
+        FACES.any { level.getCapability(Capabilities.ItemHandler.BLOCK, pos, state, blockEntity, it) != null }
 
     fun exposes(level: ServerLevel, pos: BlockPos): Boolean =
-        Direction.entries.any { level.getCapability(Capabilities.ItemHandler.BLOCK, pos, it) != null }
+        FACES.any { level.getCapability(Capabilities.ItemHandler.BLOCK, pos, it) != null }
+
+    /** Two blocks are one inventory when they are the halves of a double chest, or when both give the same handler object. */
+    fun canonical(level: ServerLevel, pos: BlockPos): BlockPos {
+        val handler = unsided(level, pos)
+        return InventoryBlocks.canonical(pos) { from, to ->
+            chestPartner(level, from) == to || (handler != null && unsided(level, to) === handler)
+        }
+    }
+
+    fun isPart(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean {
+        if (pos == canonical) return true
+        if (!level.isLoaded(pos)) return false
+        if (chestPartner(level, canonical) == pos) return true
+        val handler = unsided(level, canonical) ?: return false
+        return unsided(level, pos) === handler
+    }
+
+    /** The unsided item handler of [pos], when it has a slot. An unloaded block has none, and no chunk loads. */
+    private fun unsided(level: ServerLevel, pos: BlockPos): IItemHandler? {
+        if (!level.isLoaded(pos)) return null
+        return level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null)?.takeIf { it.slots > 0 }
+    }
+
+    /** The other half of the double chest at [pos], where vanilla joins the two into one container, or null. */
+    private fun chestPartner(level: ServerLevel, pos: BlockPos): BlockPos? {
+        if (!level.isLoaded(pos)) return null
+        val state = level.getBlockState(pos)
+        if (state.block !is ChestBlock || !state.hasProperty(ChestBlock.TYPE) || !state.hasProperty(ChestBlock.FACING)) return null
+        val type = state.getValue(ChestBlock.TYPE)
+        if (type == ChestType.SINGLE) return null
+        val other = pos.relative(ChestBlock.getConnectedDirection(state))
+        if (!level.isLoaded(other)) return null
+        val partner = level.getBlockState(other)
+        val joined = partner.`is`(state.block) &&
+            partner.getValue(ChestBlock.TYPE) == type.opposite &&
+            partner.getValue(ChestBlock.FACING) == state.getValue(ChestBlock.FACING)
+        return other.takeIf { joined }
+    }
 }
 ```
+
+  NeoForge wraps a chest in a new `InvWrapper` on every query, so the halves of a double chest are found through their block
+  states, as vanilla's `ChestBlock.combine` joins them. Every block of a Create vault gives its controller's one handler
+  object, so the identity test finds a vault without naming a Create class.
 
 ```kotlin
 /**
@@ -996,6 +1174,12 @@ object TelekinesisHandler : TargetHandler {
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         ItemCapability.exposes(level, pos, state, blockEntity)
 
+    /** A double chest or a Create item vault is one source or destination (ruling 5 of the Phase 2 plan). */
+    override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos = ItemCapability.canonical(level, pos)
+
+    override fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean =
+        ItemCapability.isPart(level, canonical, pos)
+
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = ItemCapability.exposes(level, canonical)
 
     override fun destinationInReach(role: RoleDefinition, pasture: BlockPos, destination: BlockPos): Boolean =
@@ -1003,7 +1187,7 @@ object TelekinesisHandler : TargetHandler {
 
     /** CD-TLK-06: the source holds an item that the destination takes. */
     override fun hasDemand(ctx: WorkContext): Boolean {
-        if (TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level) <= 0) return false
+        if (itemsPerBatch(ctx) <= 0) return false
         val (source, sink) = ports(ctx) ?: return false
         return ItemBatch.canMove(source, sink)
     }
@@ -1016,30 +1200,34 @@ object TelekinesisHandler : TargetHandler {
     override fun applyWork(ctx: WorkContext) {
         if (!TickClock.every(TransferParams.BATCH_TICKS, memo(ctx).startedAt, ctx.now)) return
         val (source, sink) = ports(ctx) ?: return
-        ItemBatch.move(source, sink, TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level)) { lot -> spill(ctx, lot) }
+        ItemBatch.move(source, sink, itemsPerBatch(ctx)) { lot -> spill(ctx, lot) }
     }
 
-    /** The claim's two capability caches, which NeoForge clears when a block or its capabilities change, and its batch start. */
+    private fun itemsPerBatch(ctx: WorkContext): Int = TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level)
+
+    /** The claim's batch start and the faces of its two ends. */
     private class Memo(var startedAt: Long) {
-        var source: BlockCapabilityCache<IItemHandler, Direction?>? = null
-        var destination: BlockCapabilityCache<IItemHandler, Direction?>? = null
+        var source: ItemFace? = null
+        var destination: ItemFace? = null
     }
 
     private fun memo(ctx: WorkContext): Memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
 
-    /** A destination that is not loaded takes nothing. */
+    /**
+     * The two ends of the binding. A rebind that keeps the source keeps the claim and its memo, so each face is checked against the
+     * binding. A destination that is not loaded takes nothing.
+     */
     private fun ports(ctx: WorkContext): Pair<ItemSource<ItemStack>, ItemSink<ItemStack>>? {
         val destination = ctx.destination ?: return null
         if (!ctx.level.isLoaded(destination)) return null
         val memo = memo(ctx)
-        val sourceCache = memo.source ?: BlockCapabilityCache.create(Capabilities.ItemHandler.BLOCK, ctx.level, ctx.target, ctx.sourceFace)
-            .also { memo.source = it }
-        val destinationCache = memo.destination ?: BlockCapabilityCache.create(
-            Capabilities.ItemHandler.BLOCK, ctx.level, destination, ctx.destinationFace,
-        ).also { memo.destination = it }
-        val from = sourceCache.capability ?: return null
-        val to = destinationCache.capability ?: return null
-        return ItemPorts.source(from) to ItemPorts.sink(to)
+        val from = memo.source?.takeIf { it.isAt(ctx.target, ctx.sourceFace) }
+            ?: ItemFace(ctx.level, ctx.target, ctx.sourceFace).also { memo.source = it }
+        val to = memo.destination?.takeIf { it.isAt(destination, ctx.destinationFace) }
+            ?: ItemFace(ctx.level, destination, ctx.destinationFace).also { memo.destination = it }
+        val source = from.source() ?: return null
+        val sink = to.sink() ?: return null
+        return source to sink
     }
 
     /** What fits neither the destination nor its own slot drops at the source, so no item is lost (CD-TLK-07). */
@@ -1050,16 +1238,23 @@ object TelekinesisHandler : TargetHandler {
 }
 ```
 
+  A rebind with a new destination and the same source keeps the claim, and so its memo (`claimBound` releases a claim only
+  for another target). `ItemFace.isAt` makes such a rebind use its new destination and faces.
+
   Register it in `CobblemonDynamics`: `HandlerRegistry.register(TelekinesisHandler)`.
 
 - [ ] **Step 4: Run the unit tests and see them pass.**
 
 - [ ] **Step 5: GameTests** in `TelekinesisTests` (`@GameTestHolder(MOD_ID)`, `@PrefixGameTestTemplate(false)`). Its
   `scene(helper, spec)` places a Work Mode pasture at (7, 1, 9) with one Pokémon of `spec` and stands the owner beside it,
-  as `LeashTests.scene` does. Each test needs real item handlers or a real worker, so rule 6 keeps it:
+  as `LeashTests.scene` does. The tests place Create's blocks by id, as `PumpTests` does, so they name no Create class. Each
+  test needs real item handlers or a real worker, so rule 6 keeps it:
 
 ```kotlin
-/** A chest of coal is the source, and a furnace clicked on its east side is the destination: all coal lands in the fuel slot (CD-TLK-04). */
+/**
+ * A chest of coal is the source, and a furnace clicked on its east side is the destination: all coal lands in the fuel slot
+ * (CD-TLK-04).
+ */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 400)
 fun cdTlk04CoalGoesIntoTheFuelSlot(helper: GameTestHelper) {
     val chestRel = BlockPos(5, 2, 4)
@@ -1071,50 +1266,71 @@ fun cdTlk04CoalGoesIntoTheFuelSlot(helper: GameTestHelper) {
     val binding = TestKit.bindTransfer(helper, scene.owner, scene.worker, chestRel, furnaceRel, destinationFace = Direction.EAST)
     helper.assertTrue(binding?.destinationFace == Direction.EAST, "the clicks gave $binding")
     helper.succeedWhen {
-        helper.assertTrue(furnace.getItem(0).isEmpty && furnace.getItem(2).isEmpty, "CD-TLK-04: coal reached the input or the output slot")
-        helper.assertTrue(furnace.getItem(1).`is`(Items.COAL) && furnace.getItem(1).count == 16, "CD-TLK-04: the fuel slot holds ${furnace.getItem(1)}")
+        val elsewhere = !furnace.getItem(0).isEmpty || !furnace.getItem(2).isEmpty
+        helper.assertFalse(elsewhere, "CD-TLK-04: coal reached the input or the output slot")
+        val fuel = furnace.getItem(1)
+        helper.assertTrue(fuel.`is`(Items.COAL) && fuel.count == 16, "CD-TLK-04: the fuel slot holds $fuel")
     }
 }
 
 /**
  * 2,000 cobblestone in a double chest. A Lv100 Alakazam moves them into a Create item vault, then a depot, then a chute, one
- * destination at a time, and each destination breaks on a batch tick. After each break, the cobblestone in the chest, in the
- * destination and on the ground still adds up to 2,000 (CD-TLK-07). The depot and the chute keep the stack object that they
- * get, so a missed copy shows up here.
+ * destination at a time, and each destination breaks three batches after the worker starts on it. After each break, the
+ * cobblestone in the chest, in the destination and on the ground still adds up to 2,000 (CD-TLK-07). The depot and the chute keep
+ * the stack object that they get, so a missed copy shows up here. Each destination has its own place, because a depot or a chute
+ * takes the items that land on it, so one in the drops of the last destination would start full.
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 1600)
 fun cdTlk07NoItemIsLostOrMade(helper: GameTestHelper) {
     val chestRel = BlockPos(3, 2, 3)
     val chest = TestKit.doubleChest(helper, chestRel, Direction.NORTH)
-    var left = 2_000
-    while (left > 0) {
-        val n = minOf(64, left)
-        left -= n - ItemHandlerHelper.insertItemStacked(chest, ItemStack(Items.COBBLESTONE, n), false).count
+    for (n in List(31) { 64 } + 16) {
+        val rest = ItemHandlerHelper.insertItemStacked(chest, ItemStack(Items.COBBLESTONE, n), false)
+        if (!rest.isEmpty) throw GameTestAssertException("the double chest took only ${n - rest.count} of $n cobblestone")
     }
-    val destinationRel = BlockPos(10, 2, 3)
+    val destinations = listOf(
+        "create:item_vault" to BlockPos(11, 2, 3),
+        "create:depot" to BlockPos(11, 2, 7),
+        "create:chute" to BlockPos(11, 2, 11),
+    )
     val scene = scene(helper, "alakazam level=100")
-    fun total(): Int = TestKit.countIn(helper, chestRel, Items.COBBLESTONE) + TestKit.countIn(helper, destinationRel, Items.COBBLESTONE) +
+    fun total(): Int = TestKit.countIn(helper, chestRel, Items.COBBLESTONE) +
+        destinations.sumOf { (_, rel) -> TestKit.countIn(helper, rel, Items.COBBLESTONE) } +
         TestKit.countOnTheGround(helper, Items.COBBLESTONE)
+    fun isWorking(): Boolean = TestKit.workerOf(helper, scene.worker)?.status == WorkerStatus.WORKING
+    helper.assertTrue(total() == 2_000, "the scene holds ${total()} cobblestone, not 2,000")
     var sequence = helper.startSequence()
-    for (state in listOf(AllBlocks.ITEM_VAULT.defaultState, AllBlocks.DEPOT.defaultState, AllBlocks.CHUTE.defaultState)) {
+    for ((id, destinationRel) in destinations) {
         sequence = sequence
-            .thenExecute { helper.setBlock(destinationRel, state) }
+            .thenExecute { helper.setBlock(destinationRel, TestKit.ae2Block(id)) }
             .thenIdle(1)
-            .thenExecute { TestKit.bindTransfer(helper, scene.owner, scene.worker, chestRel, destinationRel) ?: throw GameTestAssertException("no binding to ${state.block}") }
-            .thenWaitUntil { helper.assertTrue(TestKit.workerOf(helper, scene.worker)?.status == WorkerStatus.WORKING, "the Alakazam does not Work") }
+            .thenExecute {
+                TestKit.bindTransfer(helper, scene.owner, scene.worker, chestRel, destinationRel)
+                val reply = TestKit.lastMessage(scene.owner)
+                helper.assertTrue(reply?.startsWith("Bound ") == true, "the bind to $id answered '$reply'")
+            }
+            .thenWaitUntil {
+                val status = TestKit.workerOf(helper, scene.worker)?.status
+                val held = TestKit.countIn(helper, destinationRel, Items.COBBLESTONE)
+                helper.assertTrue(isWorking(), "the Alakazam does not Work on the $id, which holds $held cobblestone: $status")
+            }
             .thenIdle(3 * TransferParams.BATCH_TICKS)
-            .thenExecute { helper.destroyBlock(destinationRel) }
+            .thenExecute {
+                val moved = TestKit.countIn(helper, destinationRel, Items.COBBLESTONE)
+                helper.assertTrue(moved > 0, "the $id holds no cobblestone before it breaks, so the scene proves nothing")
+                helper.destroyBlock(destinationRel)
+            }
             .thenIdle(2)
-            .thenExecute { helper.assertTrue(total() == 2_000, "CD-TLK-07: after the ${state.block} broke, ${total()} cobblestone are left") }
+            .thenExecute { helper.assertTrue(total() == 2_000, "CD-TLK-07: after the $id broke, ${total()} cobblestone are left") }
     }
     sequence.thenSucceed()
 }
 
 /**
  * A creative energy cell, an ME chest with a 1k item cell and an ME Interface block touch, so they form one network with no
- * controller. 64 coal from a chest reach the cell through the interface block, clicked on its top. Then 64 more reach it
- * through an interface cable part on the south side of a cable bus that touches the energy cell, clicked on the bus's south
- * face (CD-TLK-08).
+ * controller. 64 coal from a chest reach the cell through the interface block, clicked on its top. Then 64 more reach it through
+ * an interface cable part on the south side of a cable bus that touches the energy cell, clicked on the bus's south face. Each
+ * time the coal reaches the network's storage within 40 ticks of the batch that takes it from the chest (CD-TLK-08).
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
 fun cdTlk08ItemsReachTheNetworkThroughBothInterfaces(helper: GameTestHelper) {
@@ -1130,22 +1346,70 @@ fun cdTlk08ItemsReachTheNetworkThroughBothInterfaces(helper: GameTestHelper) {
     helper.setBlock(cellRel, AEBlocks.CREATIVE_ENERGY_CELL.block())
     helper.setBlock(storageRel, AEBlocks.ME_CHEST.block())
     helper.getBlockEntity<MEChestBlockEntity>(storageRel).setCell(AEItems.ITEM_CELL_1K.stack())
-    PartHelper.setPart(helper.level, helper.absolutePos(busRel), null, null, AEParts.GLASS_CABLE.item(AEColor.TRANSPARENT))
-    PartHelper.setPart(helper.level, helper.absolutePos(busRel), Direction.SOUTH, null, AEParts.INTERFACE.asItem())
-    fun stored(): Long = helper.getBlockEntity<MEChestBlockEntity>(storageRel).getCellInventory(0)?.availableStacks
-        ?.get(AEItemKey.of(Items.COAL)) ?: 0L
+    val bus = helper.absolutePos(busRel)
+    val cable = PartHelper.setPart(helper.level, bus, null, null, AEParts.GLASS_CABLE.item(AEColor.TRANSPARENT))
+    val part = PartHelper.setPart(helper.level, bus, Direction.SOUTH, null, AEParts.INTERFACE.asItem())
+    helper.assertTrue(cable != null && part != null, "AE2 placed the cable $cable and the interface part $part")
+    fun stored(): Long =
+        helper.getBlockEntity<MEChestBlockEntity>(storageRel).getCellInventory(0)?.availableStacks?.get(AEItemKey.of(Items.COAL)) ?: 0L
     val scene = scene(helper, "alakazam level=100")
+    fun bind(rel: BlockPos, face: Direction) {
+        val binding = TestKit.bindTransfer(helper, scene.owner, scene.worker, chestRel, rel, destinationFace = face)
+        val bound = binding?.destination == helper.absolutePos(rel) && binding.destinationFace == face
+        helper.assertTrue(bound, "the bind to the ${helper.getBlockState(rel).block} gave $binding")
+    }
+    var movedAt = -1L
+    fun reached(expected: Long, through: String) {
+        if (movedAt < 0) {
+            helper.assertTrue(chest.isEmpty, "the Alakazam has not taken the coal for the $through yet")
+            movedAt = helper.tick
+        }
+        val waited = helper.tick - movedAt
+        helper.assertTrue(waited <= 40, "CD-TLK-08: the cell holds ${stored()} coal $waited ticks after the batch to the $through")
+        helper.assertTrue(stored() == expected, "the cell holds ${stored()} coal through the $through")
+    }
     helper.startSequence()
-        .thenExecute { TestKit.bindTransfer(helper, scene.owner, scene.worker, chestRel, interfaceRel) }
-        .thenWaitUntil { helper.assertTrue(stored() == 64L, "CD-TLK-08: the cell holds ${stored()} coal through the interface block") }
-        .thenExecute { chest.setItem(0, ItemStack(Items.COAL, 64)) }
-        .thenExecute { TestKit.bindTransfer(helper, scene.owner, scene.worker, chestRel, busRel, destinationFace = Direction.SOUTH) }
-        .thenWaitUntil { helper.assertTrue(stored() == 128L, "CD-TLK-08: the cell holds ${stored()} coal through the interface part") }
+        .thenExecute { bind(interfaceRel, Direction.UP) }
+        .thenWaitUntil { reached(64L, "interface block") }
+        .thenExecute {
+            movedAt = -1L
+            chest.setItem(0, ItemStack(Items.COAL, 64))
+            bind(busRel, Direction.SOUTH)
+        }
+        .thenWaitUntil { reached(128L, "interface part") }
         .thenSucceed()
+}
+
+/**
+ * Ruling 5 of the Phase 2 plan: a double chest and a Create item vault of two blocks are each one container. A click on one half
+ * of the chest as the source, then on its other half as the destination, is refused as the same container, and so is a click on
+ * each block of the vault (CD-TLK-10).
+ */
+@GameTest(template = "floor_15x6x15", timeoutTicks = 100)
+fun cdTlk10TheBlocksOfOneInventoryAreOneContainer(helper: GameTestHelper) {
+    val left = BlockPos(3, 2, 3)
+    TestKit.doubleChest(helper, left, Direction.NORTH)
+    val vault = listOf(BlockPos(9, 2, 3), BlockPos(10, 2, 3))
+    for (rel in vault) helper.setBlock(rel, TestKit.ae2Block("create:item_vault"))
+    val scene = scene(helper, "alakazam level=40")
+    helper.runAfterDelay(5) {
+        val handlers = vault.map { TestKit.items(helper, it) }
+        helper.assertTrue(handlers[0] != null && handlers[0] === handlers[1], "the two vault blocks did not form one vault: $handlers")
+        for ((what, pair) in listOf("double chest" to (left to left.east()), "item vault" to (vault[0] to vault[1]))) {
+            val binding = TestKit.bindTransfer(helper, scene.owner, scene.worker, pair.first, pair.second)
+            helper.assertTrue(binding == null, "CD-TLK-10: the two blocks of one $what were bound: $binding")
+            val reply = TestKit.lastMessage(scene.owner)
+            helper.assertTrue(reply == "Destination must differ from the source", "CD-TLK-10: the $what answered '$reply'")
+        }
+        helper.succeed()
+    }
 }
 ```
 
-  Deferred, because the claim and demand paths are Phase 1 engine code that the tests above run too:
+  CD-TLK-08's 40 ticks count from the batch, the first tick that the chest is empty, because the worker walks to its source
+  first. `cdTlk10TheBlocksOfOneInventoryAreOneContainer` does not replace the single chest of
+  `cdTlk10SameChestTwiceIsRefused` (Task 3, deferred). Deferred, because the claim and demand paths are Phase 1 engine code
+  that the tests above run too:
   - CD-TLK-01 is the bind of `LeashTests.cdLsh17Lsh18Lsh20SourceThenDestination` (Task 6), from a chest to a barrel.
   - CD-TLK-05 (`cdTlk05TwoSourcesFeedOneBarrel`: one owner's Alakazam and Espeon, with different chests as sources, bind to
     one barrel. Both binds succeed, and the barrel holds no claim): GameTest deferred (high confidence): verified in the
@@ -1154,33 +1418,47 @@ fun cdTlk08ItemsReachTheNetworkThroughBothInterfaces(helper: GameTestHelper) {
     the source holds dirt. Standby within 20 ticks in each case): GameTest deferred (high confidence): verified in the
     end-of-phase pass.
 
+  With `telekinesis.json` in the data, an Alakazam's chest click takes the real role, whose id sorts before `test_transfer`.
+  `LeashTests.cdLsh17Lsh18Lsh20SourceThenDestination` therefore fails from this task until Task 6 switches it to the real
+  role.
+
 - [ ] **Step 6: The guide section.** Add `### Telekinesis` under `## Roles` in `docs/player-guide.md`, in the style of the
-  Phase 1 role sections:
+  Phase 1 role sections, and its row in the role table. The Work Leash section's tables gain the refusals "Destination must
+  differ from the source" and "Too far from its pasture", and the reset reason "its destination was broken or replaced":
 
 ```markdown
 ### Telekinesis
 
-A Psychic-type moves items from one container to another. Telekinesis is leash only, so a worker never starts it on its own.
+**Types:** Psychic. **Level:** the rate grows with level. **Move:** Kinesis. **Assignment:** Work Leash only.
+
+**Target:** a source and a destination: two containers that hold items through NeoForge's item capability,
+such as chests, barrels, furnaces, hoppers, Create's item vaults, depots and chutes, and AE2's ME Interfaces.
+A double chest or a Create item vault is one container.
+
+A Psychic-type moves items from one container to another. Telekinesis is leash only, so a worker never starts
+it on its own. Its binding takes three clicks:
 
 1. Select the Pokémon with the Work Leash.
-2. Right-click the source container on the face to take items from. The source must sit inside the pasture's work area.
-3. Right-click the destination container on the face to put items into. The destination may sit anywhere within 32 blocks
-   of the pasture block on each axis.
+2. Right-click the source container on the face to take items from. The source must sit inside the pasture's
+   work area.
+3. Right-click the destination container on the face to put items into. The destination may sit anywhere
+   within 32 blocks of the pasture block on each axis. It must be another container than the source.
 
-The action bar asks for the destination after the first click. A right-click on air, or 30 seconds, clears the first
-click. The worker stands at the source and moves ceil(64 × level ÷ 100) items every second: 1 at level 1, 32 at level 50
-and 64 at level 100. Only the source is reserved, so several workers can fill one destination, such as an AE2 ME Interface.
-The faces count: a furnace takes fuel through its sides and input through its top. A worker waits in Standby while the
-source is empty or the destination is full. The binding clears when the source or the destination is broken or replaced.
+The action bar asks for the destination after the first click. A right-click on air, or 30 seconds, clears
+the first click. The worker stands at the source and moves ceil(64 × L ÷ 100) items every second, where L is
+its level: 1 at level 1, 32 at level 50 and 64 at level 100. Only the source is reserved, so several workers
+can fill one destination, such as an AE2 ME Interface. The faces count: a furnace takes fuel through its
+sides and input through its top. A worker waits in Standby while the source is empty or the destination is
+full. The binding clears when the source or the destination is broken or replaced.
 
-Role file parameters: `items_per_second_at_level_100` (64) and `destination_range` (32).
+**Role file parameters:** `items_per_second_at_level_100` (64) and `destination_range` (32).
 ```
 
 - [ ] **Step 7: Run** `./gradlew build` and `./gradlew runGameTestServer`.
 
 - [ ] **Step 8: Multiplayer check.** The handler reads only server state through the work context. The batch runs on the
   server thread in the engine tick. Item entities from a spill go into the level, which every tracking client sees. The memo
-  belongs to one claim.
+  belongs to one claim. The canonical search reads loaded blocks only, on the server thread of the click.
 
 - [ ] **Step 9: Commit:** `git commit -m "Move items between two containers with leashed Psychic-types [rag:1]"`.
 

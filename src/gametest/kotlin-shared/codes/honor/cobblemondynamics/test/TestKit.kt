@@ -36,16 +36,22 @@ import net.minecraft.world.MenuProvider
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.Brain
 import net.minecraft.world.entity.ai.behavior.BehaviorControl
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.entity.schedule.Activity
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.ChestBlock
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
+import net.minecraft.world.level.block.state.properties.ChestType
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.common.util.FakePlayer
 import net.neoforged.neoforge.common.util.FakePlayerFactory
+import net.neoforged.neoforge.items.IItemHandler
 import java.util.OptionalInt
 import java.util.UUID
 import java.util.function.Consumer
@@ -141,6 +147,50 @@ object TestKit {
         clickBlock(helper, player, rel)
         return BindingStore.read(entity.pokemon)
     }
+
+    /** Selects [entity] with a new Work Leash, clicks [source], then [destination]. Returns the binding that the clicks made. */
+    fun bindTransfer(
+        helper: GameTestHelper,
+        player: ServerPlayer,
+        entity: PokemonEntity,
+        source: BlockPos,
+        destination: BlockPos,
+        sourceFace: Direction = Direction.UP,
+        destinationFace: Direction = Direction.UP,
+    ): Binding? {
+        leash(player)
+        clickEntity(player, entity)
+        clickBlock(helper, player, source, sourceFace)
+        clickBlock(helper, player, destination, destinationFace)
+        return BindingStore.read(entity.pokemon)
+    }
+
+    /** A double chest whose left half sits at [rel], facing [facing]: one 54-slot item handler. */
+    fun doubleChest(helper: GameTestHelper, rel: BlockPos, facing: Direction): IItemHandler {
+        val chest = Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, facing)
+        helper.setBlock(rel, chest.setValue(ChestBlock.TYPE, ChestType.LEFT))
+        helper.setBlock(rel.relative(facing.clockWise), chest.setValue(ChestBlock.TYPE, ChestType.RIGHT))
+        val handler = items(helper, rel) ?: throw GameTestAssertException("no item handler at the double chest")
+        if (handler.slots != 54) throw GameTestAssertException("the double chest has ${handler.slots} slots, not 54")
+        return handler
+    }
+
+    /** The unsided item handler of the block at [rel], or null. */
+    fun items(helper: GameTestHelper, rel: BlockPos): IItemHandler? =
+        helper.level.getCapability(Capabilities.ItemHandler.BLOCK, helper.absolutePos(rel), null)
+
+    /** How many of [item] the block at [rel] holds. */
+    fun countIn(helper: GameTestHelper, rel: BlockPos, item: Item): Int {
+        val handler = items(helper, rel) ?: return 0
+        return (0 until handler.slots).sumOf { slot -> handler.getStackInSlot(slot).takeIf { it.`is`(item) }?.count ?: 0 }
+    }
+
+    /**
+     * How many of [item] lie on the ground of the test, as item entities. Only the test's own structure counts, with a margin for
+     * items that fly out of it, because the tests of one batch run side by side.
+     */
+    fun countOnTheGround(helper: GameTestHelper, item: Item): Int =
+        helper.level.getEntitiesOfClass(ItemEntity::class.java, helper.bounds.inflate(2.0)) { it.item.`is`(item) }.sumOf { it.item.count }
 
     /** Every message that the mod sent [player], action bar and chat, in order, as text. Fake players drop the messages themselves. */
     fun messages(player: ServerPlayer): List<String> = Feedback.recorded[player.uuid].orEmpty().map { it.string }

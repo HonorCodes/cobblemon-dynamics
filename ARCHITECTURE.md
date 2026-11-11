@@ -613,6 +613,11 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
 - **Vanilla item handlers.** Chests, barrels and hoppers ignore the side, and a double chest is one
   54-slot handler. A real insert into an empty hopper sets an 8-tick cooldown. Sided containers such as
   furnaces use `SidedInvWrapper`, which is why Telekinesis uses the faces that the player clicked.
+- **One inventory of several blocks.** Telekinesis keys a double chest, a Create item vault or any other
+  inventory of several blocks by one canonical position, the least of its blocks, as a large water wheel
+  has one (CD-CLM-04). Two blocks are one inventory when they are the halves of a double chest, or when
+  both give the same handler object. NeoForge wraps a chest in a new `InvWrapper` on every query, so the
+  chest halves are found through `ChestBlock.getConnectedDirection`.
 - **Dropped items.** The Magnet finds items with `level.getEntitiesOfClass(ItemEntity.class, box,
   predicate)` over the work area. It skips items with `hasPickUpDelay()`. It inserts a copy with
   `ItemHandlerHelper.insertItemStacked`, then discards the entity or keeps the remainder.
