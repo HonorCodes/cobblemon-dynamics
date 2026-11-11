@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.build
 
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -16,6 +18,12 @@ class ArtFilesTest {
 
     private fun shipped(kind: String): List<File> = File(assets, kind).walk().filter { it.isFile }.toList()
 
+    private fun json(path: String): JsonObject {
+        val file = File(assets, path)
+        assertTrue(file.isFile, "missing $path")
+        return JsonParser.parseString(file.readText()).asJsonObject
+    }
+
     /** The source of a shipped texture, mcmeta or model. */
     private fun sourceOf(file: File): File {
         val path = file.relativeTo(assets).invariantSeparatorsPath
@@ -27,6 +35,31 @@ class ArtFilesTest {
                 else -> path
             },
         )
+    }
+
+    /**
+     * Each block that the mod adds, the four beds and the Charge Cell, ships a block model, the textures of the mod that the model
+     * names, and an item model whose parent is that block model, so that the item shows the placed block and is no flat sprite
+     * (CD-ART-01).
+     */
+    @Test
+    fun `CD-ART-01 each block ships a block model, its textures and an item model that renders the block model`() {
+        val blocks = File(assets, "blockstates").listFiles { f -> f.extension == "json" }.orEmpty().map { it.nameWithoutExtension }
+        assertTrue(blocks.containsAll(BLOCKS), "the blockstates are $blocks, not the four beds and the Charge Cell")
+        for (id in blocks) {
+            val textures = json("models/block/$id.json").getAsJsonObject("textures")?.entrySet().orEmpty().map { it.value.asString }
+            assertTrue(textures.isNotEmpty(), "the block model of $id names no texture")
+            for (texture in textures.filterNot { it.startsWith("#") }) {
+                assertTrue(texture.startsWith("$NAMESPACE:"), "the block model of $id names a texture of another mod: $texture")
+                val png = File(assets, "textures/${texture.removePrefix("$NAMESPACE:")}.png")
+                assertTrue(png.isFile, "the block model of $id names $texture, which has no file")
+            }
+            val item = json("models/item/$id.json")
+            val parent = item.get("parent")?.asString
+            val flat = parent in FLAT_SPRITES || item.getAsJsonObject("textures")?.has("layer0") == true
+            assertFalse(flat, "the item model of $id is a flat sprite")
+            assertEquals("$NAMESPACE:block/$id", parent, "the item model of $id does not render its block model")
+        }
     }
 
     @Test
@@ -59,6 +92,13 @@ class ArtFilesTest {
     }
 
     private companion object {
+        const val NAMESPACE = "cobblemon_dynamics"
         val TEXT_EXTENSIONS = setOf("json", "mcmeta", "pixels", "md", "txt")
+
+        /** The blocks of CD-ART-01. */
+        val BLOCKS = listOf("hay_bed", "wool_bed", "plush_bed", "starlit_bed", "charge_cell")
+
+        /** The vanilla parents of an item model that draws its texture as a flat sprite. */
+        val FLAT_SPRITES = setOf("minecraft:item/generated", "item/generated", "minecraft:item/handheld", "item/handheld")
     }
 }

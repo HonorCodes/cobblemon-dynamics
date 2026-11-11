@@ -1110,7 +1110,8 @@ object QuickWork {
   `BattleRegistry` keeps for the whole check, because Cobblemon clears any other battle id on the entity's next tick (see the
   checked facts at the top of this file). A wild battle that `BattleBuilder.pve` starts for a listed fake owner ended within 1
   tick on 2026-11-11, so the end-of-phase pass must first find a battle that stays. The engine reads `entity.isBattling`, and
-  the unit test of the end rule covers the pure part.
+  the unit test of the end rule covers the pure part. The coordinator ruled on 2026-11-11 that CD-QWK-21 has no GameTest:
+  its unit tests and a Demo, manual checklist check 59, check it (M8 Task 7).
 
 - [ ] **Step 7: Multiplayer check.** Read the Quick Work code against the eight multiplayer rules of the index, and record each
   point in the pull request body:
@@ -1134,7 +1135,7 @@ object QuickWork {
 ### Task 4: Cost, docs and the pull request
 
 **Rows:** CD-QWK-23 (the order's tick, by inspection), CD-QWK-24 (the cost with no order), CD-QWK-25 (by inspection),
-CD-REL-08 (the Quick Work section of the player guide), CD-REL-09 (no Quick Work row has a Demo test), CD-PERF-01 (the
+CD-REL-08 (the Quick Work section of the player guide), CD-REL-09 (no Quick Work row had a Demo test then), CD-PERF-01 (the
 reference world with no order).
 
 **Files:**
@@ -1171,7 +1172,8 @@ reference world with no order).
   - `PlayerGuideTest`: the first test's list of sections gains "Quick Work" (CD-REL-08).
   - `docs/player-guide.md`: check the Quick Work section and the three config rows against the code and the lang file, and fix
     any difference in the same commit.
-  - The manual checklist needs no change, because no QWK row has a Demo test (CD-REL-09).
+  - The manual checklist needed no change, because no QWK row had a Demo test then (CD-REL-09). M8 Task 7 added check 59
+    for CD-QWK-21.
 
 - [ ] **Step 4: Tools.** `ManualChecklistTest.PHASE_2_AREAS` and `PHASE_2_AREAS` in `scripts/gate_report.py` gain `QWK`.
   `gate_report.py` also leaves CD-CFG-16 to CD-CFG-18 out of its Phase 1 rows, as `scripts/check_plan_coverage.py` does
