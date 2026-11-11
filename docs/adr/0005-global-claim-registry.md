@@ -1,6 +1,7 @@
 # ADR-0005: Global claim registry
 
-Status: Accepted (2026-11-09)
+Status: Accepted (2026-11-09). [Amendment 1](#amendment-1-shared-logistics-claims-2026-11-11) lets the logistics roles share
+their containers.
 
 ## Context
 
@@ -83,3 +84,41 @@ has eight structural blocks around its controller.
 - **Claims per pasture.** Simpler, but it breaks the operator's rule across pastures.
 - **One ledger per handler** (Cobblebase). It allows two different roles on one block, and nothing
   spans beds and heals.
+
+## Amendment 1: shared logistics claims (2026-11-11)
+
+Status: Accepted (2026-11-11)
+
+### Context of the amendment
+
+The approver's ruling of 2026-11-11 found a bug in the one-claim rule. The ideal flow for item transfer needs at least
+two claims on one chest: a Steel-type Magnet collects ground loot into the chest, and a Psychic-type Telekinesis worker
+moves it from the same chest to another container. The approver added that a logistics container needs no claim cap, or
+a cap of 3 to 5 that a container does not reach in practice. The coordinator ruled the details under the approver's
+delegation. Input R66 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) holds the ruling and the rulings on it.
+
+### Decision of the amendment
+
+- A handler marks its targets as shared. The Magnet and Telekinesis handlers do, so every role file that names one of
+  them is a logistics role. Every other role is an exclusive role, as before.
+- The work claim of a logistics role is a shared claim. One canonical target holds up to
+  `logistics.maxWorkersPerContainer` shared claims (default 5, 1 to 16), counted across the logistics roles together.
+  The next worker gets no claim.
+- Exclusive claims block only exclusive claims. A shared claim never blocks an exclusive claim, and an exclusive claim
+  never blocks a shared claim. A binding of an exclusive role reserves its target only against exclusive claims.
+- A binding of a logistics role reserves nothing. It takes one place at each container that it names: the Magnet's
+  container, or the Telekinesis source and destination. The Work Leash refuses a bind when another binding already
+  takes every place of a container, with "{target} already has {N} workers". A destination holds no claim, so it counts
+  only at bind time.
+- A worker still holds at most one claim, and each worker still needs its own free work spot.
+
+### Consequences of the amendment
+
+- One worker per block still holds for every machine. A logistics container takes up to the cap of logistics workers,
+  and the one exclusive worker of the same block works beside them. For example, a Stoker heats a furnace while a
+  Telekinesis worker empties it, and a Pump fills a Create basin while a Telekinesis worker moves its items.
+- Quick Work starts on a block that only logistics workers hold, because their shared claims never block its claim.
+- Many Telekinesis workers can still feed one destination, such as an ME Interface, up to the cap.
+- A lower `logistics.maxWorkersPerContainer` clears no binding. A shared claim that a worker already holds stays, and a
+  worker above the new cap waits for a free place before it claims again. Bindings at a destination above the new cap
+  keep working, because a destination counts only at bind time.

@@ -27,8 +27,10 @@ Constraints:
   ([ADR-0001](docs/adr/0001-pasture-work-mode-instead-of-work-stand.md)). A party Pokémon that its owner
   sends out at a block also works that block, on a Quick Work order
   ([ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md)).
-- **Exclusivity.** One Pokémon acts on a given block or entity at a time, across all pastures
-  ([ADR-0005](docs/adr/0005-global-claim-registry.md)). Wild Pokémon never work.
+- **Exclusivity.** One Pokémon acts on a given machine, bed or ally at a time, across all pastures
+  ([ADR-0005](docs/adr/0005-global-claim-registry.md)). The logistics roles, the Magnet and Telekinesis, share their
+  containers: up to `logistics.maxWorkersPerContainer` of their workers (default 5) hold shared claims on one container,
+  and shared claims and exclusive claims never block each other (Amendment 1 of ADR-0005). Wild Pokémon never work.
 - **Balance.** No single Pokémon solves an engineering problem that the player is meant to manage.
   Top-tier engineering always does better ([ADR-0010](docs/adr/0010-balance-rule.md)).
 - **Isolation.** Cobblemon has no pasture API and fires no pasture events. One package (`pasture`)
@@ -111,7 +113,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Content | `registry` | Registers the blocks, the items, the block entity types, the Charge Cell's data component, the work focus entity type and the attachments. Registers the creative tab `cobblemon_dynamics:main`, which lists every item of the mod, and no vanilla tab lists them. | NeoForge registries |
 | Pasture adapter | `pasture` | Reads tethered Pokémon, the pasture's `ownerId` and the player-to-pasture link. Stores Work Mode as a NeoForge data attachment on Cobblemon's pasture block entity. Keeps an index of Work Mode pastures per level. Polls each loaded Work Mode pasture every 20 ticks, because Cobblemon fires no pasture events. | Cobblemon internals, work engine |
 | Work engine | `engine` | Owns the authoritative state of every worker. Schedules scans, runs assignment, runs each worker's state machine, applies work through handlers and drains or restores Work Stamina. Also runs each Quick Work order, which has one sent-out party Pokémon and no scan. Runs on the server thread only. | All server components |
-| Claim registry | `claim` | Holds work claims, bed claims and heal claims: one claim per key and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, or an entity UUID. Holds the leash bindings as reservations, at most one per worker, and their persistent index. | Work engine, leash, heal, beds |
+| Claim registry | `claim` | Holds work claims, bed claims and heal claims: one exclusive claim per key, up to the cap of shared claims of logistics roles per key, and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, or an entity UUID. Holds the leash bindings as reservations, at most one per worker, and their persistent index. Only a binding of an exclusive role reserves its target. | Work engine, leash, heal, beds |
 | Role registry | `role` | Loads role JSON from data packs on server start and on `/reload`. Rejects invalid files with one log error per file. Matches a worker to roles by its types. Orders roles on one target by `priority`. | Work engine, handler registry |
 | Handler registry | `handler` | Maps a handler id to a `TargetHandler`. Create handlers register only when Create is loaded. | Role registry, work engine |
 | Target handlers | `handler.*` | One per machine family. Each one finds targets, canonicalizes them, checks demand, applies work and cleans up on release. | Vanilla blocks, NeoForge capabilities, Create |
@@ -134,7 +136,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Work Mode flag | Data attachment `cobblemon_dynamics:work_mode` on Cobblemon's `PokemonPastureBlockEntity`. Field: `enabled` (default `false`). Ownership comes from Cobblemon's `ownerId` only. | Saved in the block entity NBT under `neoforge:attachments`. Call `setChanged()` after a change. | Not through the block entity, because Cobblemon's pasture sends no update tag. The `pasture_panel_state` payload carries it. |
 | Work Mode pasture index | Level attachment `cobblemon_dynamics:work_pastures` on each `ServerLevel`: the set of positions of pastures with Work Mode on. | Saved in the level's `neoforge_data_attachments` SavedData. | No |
 | Leash binding (per Pokémon) | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `binding`: role id, pasture position, target position and clicked face. A Telekinesis binding also holds the destination position and its clicked face. The dimension is the pasture's dimension. | Saved with the Pokémon in the PC and the party. Call `onChange()` after a change. | No |
-| Leash binding index | Level attachment `cobblemon_dynamics:leash_index`: target position to the bound Pokémon's UUID, its owner, its pasture position and the role id. For Telekinesis, the key is the source. Used to refuse a second binding on the same target, to reserve the target in the claim registry, and by the 10-tick reset check. | Saved with the level. | No |
+| Leash binding index | Level attachment `cobblemon_dynamics:leash_index`: target position to the bindings on it, each with the bound Pokémon's UUID, its owner, its pasture position, the role id and, for Telekinesis, the destination. For Telekinesis, the key is the source. A target holds one binding of an exclusive role and any bindings of logistics roles. Used to refuse a second binding of an exclusive role on the same target, to count the places of a container for a logistics bind, to reserve the target in the claim registry, and by the 10-tick reset check. | Saved with the level. | No |
 | Work claims, bed claims, heal claims | `ClaimRegistry` in server memory. | Not saved. Scans rebuild them after a restart, so no claim goes stale. | No |
 | Waiting chat messages | `Feedback`'s queue in server memory: the message of each binding that clears while its binder is offline, up to the 10 newest per player. | Not saved. A server stop drops them. | As chat, at the player's next login. |
 | Leash selection and pending source | Data components on the Work Leash stack: `cobblemon_dynamics:leash_selection` (the selected Pokémon's UUID and name) and `cobblemon_dynamics:pending_source` (for Telekinesis, the source's dimension and position, its clicked face and the click tick). The server binds only from its own copy of the stack. A pending source counts only in the level of its click, because in another level its position names a block that the player never clicked. A client in creative mode can write the stack, so the destination click checks the pending source before it reads the source block. A source outside the work area is refused with "Outside its pasture's work area", and a source in a chunk that is not loaded counts as absent. So the click never loads a chunk. | Saved with the stack. The pending source expires after 600 ticks (30 s), on a right-click on air, or on the first tick or click in another level. A click also removes a pending source that it finds outside the work area or in a chunk that is not loaded. | Yes, as item data |
@@ -247,9 +249,11 @@ Transition rules:
   in the air, the worker takes no claim and skips no target, and its next scan or poll tries again.
   A rest holds the worker still with no fall, which the navigation counts as not on the ground, so a
   leashed worker that wakes usually claims its bound target at its next poll, within 20 ticks.
-- **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
-  worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
-  stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.
+- **Leash bindings.** A binding of an exclusive role is a reservation. It takes its target away from an
+  auto-assigned worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
+  stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker. A binding of a
+  logistics role reserves nothing. It takes one place at each container that it names, and the Work Leash refuses a
+  bind when other bindings take every place of a container.
 - **Leash resets.** A binding clears when its target is broken, replaced, picked up with a Create
   wrench or moved into a Create contraption. It also clears when its Pokémon is recalled to the PC or
   the party, moves to another pasture, is released or traded, or loses its pasture block. It clears
@@ -257,7 +261,7 @@ Transition rules:
   data. The LSH rows of the spec sheet list each case.
 - **Telekinesis bindings.** Only the source must sit inside the work area. The destination may sit
   anywhere within 32 blocks of the pasture block on each axis, the same box as Cobblemon's default
-  roam limit. The destination is never claimed.
+  roam limit. The destination is never claimed, but its binding takes a place there at bind time.
 - **Timeouts.** An auto-assigned worker that has not arrived 600 ticks after its claim releases the
   claim and skips that target for 6,000 ticks. A leashed worker keeps its binding, waits in Standby for
   6,000 ticks, sends its owner a message, and then tries again.
@@ -870,8 +874,9 @@ Rules:
 ## 13. Test architecture
 
 - **Unit tests** (`src/test/kotlin`, JUnit 5). Pure logic with no game runtime: the FE curve, Work Stamina
-  capacity, drain and recovery, the healer recovery formula, bed speed factors, claim rules (one claim
-  per key, one active claim per worker, a binding as a reservation, dimension-keyed keys),
+  capacity, drain and recovery, the healer recovery formula, bed speed factors, claim rules (one exclusive
+  claim per key, shared claims up to the cap, one active claim per worker, a binding as a reservation,
+  dimension-keyed keys),
   eligibility (no wild Pokémon, Fairy-types skip machine auto claims), heal target choice, work spot
   selection, the Tailwind and transfer formulas, and the Superheater gate.
 - **Handler GameTests** (`src/gametest/kotlin`). A test builds real blocks and calls the handler

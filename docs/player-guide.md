@@ -61,7 +61,8 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
   target that one of its roles fits.
 - A Cobblemon fits a role through its first or its second type. A Cobblemon with two types can do the roles of
   both types, one role at a time.
-- Only one worker can work a target at a time, across all pastures and all players.
+- Only one worker can work a machine at a time, across all pastures and all players. The [Magnet](#magnet) and
+  [Telekinesis](#telekinesis) share their containers instead, as [What a binding does](#what-a-binding-does) explains.
 - The worker walks to a work spot. A work spot is a cell in the work area where the worker can stand and
   see the center of the target. The spot is at most 6 blocks from the target, or 2 blocks for the Cranker.
 - A worker stands beside its target, on the floor that the target stands on, when it has room there and can
@@ -136,17 +137,24 @@ When a bind fails, the action bar shows why:
 | "Not in a Work Mode pasture" | The Cobblemon is not in a pasture with Work Mode on. |
 | "No role fits" | None of the Cobblemon's roles works on the block. |
 | "Outside its pasture's work area" | The block is outside the work area of the Cobblemon's pasture. |
-| "Already assigned to {Cobblemon}" | Another of your Cobblemon has a binding on the block. |
-| "Already assigned to another player's {species}" | A Cobblemon of another player has a binding on the block. The message names its species, never its nickname. |
+| "Already assigned to {Cobblemon}" | Another of your Cobblemon has a binding of a machine role on the block. Bindings of the Magnet and Telekinesis never cause this message. |
+| "Already assigned to another player's {species}" | A Cobblemon of another player has a binding of a machine role on the block. The message names its species, never its nickname. |
+| "{target} already has 5 workers" | The container already has as many Magnet and Telekinesis Cobblemon as `logistics.maxWorkersPerContainer` allows, 5 by default. With the key set to 1, the message is "{target} already has a worker". |
 | "Select a Cobblemon first" | The selected Cobblemon is no longer yours, for example after a trade or a release. |
 | "Destination must differ from the source" | The second click of a [Telekinesis](#telekinesis) binding is on its source container. |
 | "Too far from its pasture" | The destination of a Telekinesis binding is more than 32 blocks from the pasture block on an axis. |
 
 ### What a binding does
 
-- The binding reserves the target for its worker. The reservation holds while the worker sleeps and while
-  Work Mode is off.
-- A new binding takes the target away from an auto-assigned worker at once.
+- The binding of a machine reserves the target for its worker. The reservation holds while the worker sleeps
+  and while Work Mode is off.
+- A new binding of a machine takes the target away from an auto-assigned worker at once.
+- The [Magnet](#magnet) and [Telekinesis](#telekinesis) share their containers. Up to 5 Cobblemon of these two
+  roles together can use one container, for example a Magnet that fills a chest and a Telekinesis worker that
+  empties it. Each binding keeps its own source and destination, and it takes one place at each container
+  that it names. Such a binding reserves nothing, and it never blocks the worker of a machine on the same
+  block. For example, a Stoker heats a furnace while a Telekinesis worker empties it. Each worker still needs
+  its own free work spot. The server config key `logistics.maxWorkersPerContainer` changes the 5.
 - A bound worker never moves to another target.
 - The binding stays with the Cobblemon through server restarts.
 - A bound worker that is Tired starts on its target after it has recovered. After each rest, a bound worker
@@ -608,9 +616,11 @@ it on its own. Its binding takes three clicks:
 
 The action bar asks for the destination after the first click. A right-click on air, or 30 seconds, clears
 the first click. The worker stands at the source and moves ceil(64 × L ÷ 100) items every second, where L is
-its level: 1 at level 1, 32 at level 50 and 64 at level 100. Only the source is reserved, so several workers
-can fill one destination, such as an AE2 ME Interface. The faces count: a furnace takes fuel through its
-sides and input through its top. A worker waits in Standby while the source is empty or the destination is
+its level: 1 at level 1, 32 at level 50 and 64 at level 100. Several workers can share a source or a
+destination, up to 5 Cobblemon of the Magnet and Telekinesis roles on each container. So several workers can
+fill one AE2 ME Interface, and a worker can empty the chest that a [Magnet](#magnet) fills. Each worker keeps
+its own source and destination. The faces count: a furnace takes fuel through its sides and input through
+its top. A worker waits in Standby while the source is empty or the destination is
 full. The binding clears when the source or the destination is broken or replaced.
 
 **Role file parameters:** `items_per_second_at_level_100` (64) and `destination_range` (32).
@@ -629,6 +639,10 @@ work area of its pasture, ceil(64 × L ÷ 100) items every second, where L is it
 level 50 and 64 at level 100. It leaves an item alone while the item still has a pickup delay, so a drop that
 a player just threw stays theirs for a moment. What does not fit stays on the ground. A worker waits in
 Standby while no item lies in range or the container is full.
+
+Up to 5 Cobblemon of the Magnet and Telekinesis roles can share one container. Bind a second Magnet to the
+same chest to collect faster, or bind a [Telekinesis](#telekinesis) worker with that chest as its source to
+move the loot on to another container. Each Cobblemon needs its own free work spot beside the container.
 
 **Role file parameter:** `items_per_second_at_level_100` (64).
 
@@ -709,8 +723,8 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `engine.standbyMoveTicks` | 200 | 20 to 6,000 | Ticks that an auto-assigned worker stays in Standby before it can move to a target that needs work. |
 | `engine.effectBroadcastRadius` | 64 | 16 to 128 | Blocks around a worker within which players receive its work effects. |
 | `workMode.toggleCooldownTicks` | 10 | 0 to 200 | Ticks after a player's accepted Work Mode change during which the server ignores that player's next change. |
-| `leash.pendingSelectionTicks` | 600 | 100 to 6,000 | Ticks that the Work Leash keeps a pending source before it clears it. No role in this guide uses a pending source. |
-| `logistics.maxWorkersPerContainer` | 5 | 1 to 16 | Most Cobblemon of the [Magnet](#magnet) and [Telekinesis](#telekinesis) roles that use one container at once, together. A double chest or a Create item vault is one container. |
+| `leash.pendingSelectionTicks` | 600 | 100 to 6,000 | Ticks that the Work Leash keeps a pending source before it clears it. A [Telekinesis](#telekinesis) binding has a pending source between its source click and its destination click. |
+| `logistics.maxWorkersPerContainer` | 5 | 1 to 16 | Most Cobblemon of the [Magnet](#magnet) and [Telekinesis](#telekinesis) roles that use one container at once, together. A double chest or a Create item vault is one container. A Telekinesis destination counts only when you bind. A lower value clears no binding: a Cobblemon above the new limit keeps its binding, and it waits for a free place before it starts again. |
 | `quickWork.enabled` | `true` | `true`, `false` | Turns [Quick Work](#quick-work) on or off. With `false`, a send-out never starts Quick Work. |
 | `quickWork.targetRange` | 16 | 2 to 24 | Blocks that your view reaches to find the block for Quick Work. Never more than `quickWork.leashRange`. |
 | `quickWork.leashRange` | 16 | 2 to 24 | Blocks between your eyes and the block at which Quick Work stops. |

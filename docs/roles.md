@@ -20,8 +20,10 @@ the Wheel Driver, and does not repeat its numbers.
   their own output are exempt: the Wheel Driver, the Cranker, Tailwind and the Fan
   Catalyst. See [ADR 0010](adr/0010-balance-rule.md) and the spec sheet area BAL.
 - **One claimable block per role.** Every role works on one specific block that a
-  worker can claim. Only one worker can claim a block, across all pastures. See
-  [ADR 0005](adr/0005-global-claim-registry.md).
+  worker can claim. Only one worker can claim a machine, across all pastures. The
+  logistics roles, the Magnet and Telekinesis, share their containers instead: up to 5
+  of their workers together on one container. See
+  [ADR 0005](adr/0005-global-claim-registry.md) and its Amendment 1.
 - **No loot from nothing.** No role makes items or loot out of nothing. Cobbleworkers,
   Cobblebase and Cobblemon Pasture Loot already cover produce and loot.
 - **Level.** Level changes the output of the Generator, the Pump, the Muse,
@@ -85,8 +87,8 @@ behaves.
 
 | Role | Type | Targets | What it does | Move effect | Spec area |
 | --- | --- | --- | --- | --- | --- |
-| Telekinesis | Psychic | A source container and a destination container, including Create vaults and the AE2 ME Interface | Moves items from the source to the destination. The rate scales with level. It uses the faces that the player clicked. It claims the source only, so many workers can feed one destination. The source sits in the work area, and the destination can sit anywhere within 32 blocks of the pasture block. | Kinesis | TLK |
-| Magnet | Steel | A container | Collects dropped items from the pasture's work area into the container. The rate scales with level. It skips items that still have a pickup delay. | Special pose, metal sparks | MAG |
+| Telekinesis | Psychic | A source container and a destination container, including Create vaults and the AE2 ME Interface | Moves items from the source to the destination. The rate scales with level. It uses the faces that the player clicked. It claims the source only, with a shared claim. Up to 5 workers of the logistics roles share each source or destination, so several can feed one ME Interface. The source sits in the work area, and the destination can sit anywhere within 32 blocks of the pasture block. | Kinesis | TLK |
+| Magnet | Steel | A container | Collects dropped items from the pasture's work area into the container. The rate scales with level. It skips items that still have a pickup delay. It shares its container with other Magnets and Telekinesis workers, up to 5 together. | Special pose, metal sparks | MAG |
 | Fan Catalyst | Fire, Water, Ghost | A Create encased fan that faces sideways | Stands in the block in front of the fan and acts as its catalyst. Fire gives blasting, or smoking after a flip with the Work Leash. Water gives washing. Ghost gives haunting. The fan never pushes or harms its own worker. | Fire Spin, Bubble, Will-O-Wisp | FAN |
 | Tailwind | Flying | A Create windmill bearing | Adds virtual sails, based on the windmill's real sails and the worker's level, up to the windmill's own cap. A windmill still needs its minimum real sails to assemble. | Gust | TLW |
 
@@ -117,8 +119,11 @@ behaves.
   Stoker.
 - A large water wheel is one target. The claim sits on the wheel's controller, and a
   click on any block of the wheel's ring maps to the controller.
-- A Telekinesis binding holds its source only. Its destination stays open to other
-  workers.
+- The Magnet and Telekinesis share their containers. Up to
+  `logistics.maxWorkersPerContainer` of their workers (default 5) work one container at
+  once, in any mix: Magnet containers, Telekinesis sources and Telekinesis destinations.
+  They never block the one worker of a machine on the same block, so a Stoker heats a
+  furnace while a Telekinesis worker empties it.
 
 A Blaze Burner that a Superheater heats also counts as a blasting
 catalyst for a Create encased fan. Create applies this rule itself, so it needs no

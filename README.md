@@ -33,8 +33,12 @@ Version 1.0 ships in three phases:
 
 Rules that always apply:
 
-- **One worker per block.** Only one Cobblemon can work a given block, across all
-  pastures.
+- **One worker per block, except for logistics.** Only one Cobblemon can work a given
+  machine, across all pastures. The logistics roles share their containers: up to 5
+  Cobblemon of the Magnet and Telekinesis roles can use one chest at once, for example a
+  Magnet that fills it and a Telekinesis worker that empties it. They never block the
+  machine's own worker on the same block. The server config key
+  `logistics.maxWorkersPerContainer` changes the 5.
 - **Only pastured Cobblemon work, with one exception.** A Cobblemon works only while it is in
   a pasture with Work Mode on. The exception is Quick Work: a party Cobblemon that you send
   out with R while you look at a machine works that machine. The

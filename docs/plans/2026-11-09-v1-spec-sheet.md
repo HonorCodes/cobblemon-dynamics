@@ -92,6 +92,12 @@ Corrections after agreement:
   Telekinesis claim a shared claim, and the Terms add logistics role and place. Machines keep one worker per block.
   CD-CLM-10, CD-CLM-11, CD-LSH-28, CD-LSH-29 and CD-CFG-19 are Phase 2 work in Phase 1 areas, as CD-CFG-16 to CD-CFG-18
   are, so the coverage script counts them as Phase 2 rows.
+- 2026-11-11, the coordinator's rulings on the open points of R66, under the approver's delegation: a Telekinesis
+  destination takes a place at bind time only, and a lower `logistics.maxWorkersPerContainer` clears no binding.
+  CD-TLK-05's many workers that feed one destination stop at the cap, under the approver's cap of 3 to 5. By CD-CLM-11,
+  a Stoker and a Telekinesis worker that empties the same furnace work side by side, and a Quick Work order starts on
+  a block that only logistics workers hold (CD-QWK-07). Amendment 1 of ADR-0005 records the shared logistics claims.
+  No row changes.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
