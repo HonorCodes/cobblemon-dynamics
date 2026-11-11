@@ -156,7 +156,8 @@ class RestTests {
      * A leashed Lv10 Charmander with no bed in the work area works its furnace until Tired (200 ticks in this batch). It rests in
      * place: it holds where it stood, in the sleep pose, and keeps its binding while its target stays reserved (CD-BED-08, CD-LSH-12,
      * CD-CLM-06, CD-CLM-09). It reaches 100% after its capacity at the base rate, 200 ticks here and 36,000 at the default, and
-     * travels to its bound target at once (CD-STA-14).
+     * claims its bound target again within 20 ticks (CD-STA-14). The rest's hold leaves its navigation unable to plan on the tick that
+     * it wakes, so its next poll claims (CD-ASG-09). It rested on its work spot, so it may be Working in the tick of that claim.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 1_200, batch = FAST_BATCH)
     fun cdBed08LeashedWorkerRestsInPlaceAndGoesBack(helper: GameTestHelper) {
@@ -172,6 +173,7 @@ class RestTests {
         val furnaceKey = TestKit.keyOf(helper, furnace)
         val capacity = StaminaMath.capacityTicks(10, WorkEngineSettings.current)
         var tiredAt = -1L
+        var wokeAt = -1L
         var restSpot: Vec3? = null
         helper.onEachTick {
             helper.assertFalse(hasBattleSleep(fire), "CD-AI-07: the worker has the battle sleep status")
@@ -195,11 +197,17 @@ class RestTests {
                 if (helper.tick > tiredAt) helper.assertTrue(isSleepPose(fire), "CD-BED-08: the resting worker shows no sleep pose")
                 return@onEachTick
             }
-            val rested = helper.tick - tiredAt
-            helper.assertTrue(abs(rested - capacity) <= 1.0, "CD-BED-08: full $rested ticks after Tired, not ${capacity.toLong()}")
-            helper.assertTrue(worker.status == WorkerStatus.TRAVELING, "CD-STA-14: the rested worker is ${worker.status}")
-            helper.assertTrue(claim?.key == furnaceKey, "CD-STA-14: the rested worker claims ${claim?.key}")
-            helper.assertTrue(fire.enablePoseTypeRecalculation, "CD-AI-08: pose recalculation is off after the wake")
+            if (wokeAt < 0) {
+                wokeAt = helper.tick
+                val rested = wokeAt - tiredAt
+                helper.assertTrue(abs(rested - capacity) <= 1.0, "CD-BED-08: full $rested ticks after Tired, not ${capacity.toLong()}")
+                helper.assertTrue(fire.enablePoseTypeRecalculation, "CD-AI-08: pose recalculation is off after the wake")
+            }
+            if (claim?.key != furnaceKey) {
+                helper.assertTrue(helper.tick - wokeAt < 20, "CD-STA-14: the rested worker claims ${claim?.key} 20 ticks after the wake")
+                return@onEachTick
+            }
+            helper.assertTrue(worker.status != WorkerStatus.IDLE, "CD-STA-14: the rested worker claims its furnace and is IDLE")
             helper.succeed()
         }
     }

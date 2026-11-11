@@ -191,8 +191,8 @@ object WorkSpots {
     }
 
     /**
-     * The best spot of [find] that [reachable] accepts. It checks at most [maxChecks] spots, best first, and returns null when none of
-     * them has a path, so the worker skips the target for `retryWaitTicks`, as after a timeout (CD-ASG-14).
+     * The best spot of [find] that [reachable] accepts. It checks at most [maxChecks] spots, best first, and returns null when it
+     * accepts none of them.
      */
     fun findReachable(
         grid: SpotGrid,

@@ -231,9 +231,11 @@ Transition rules:
   needs a path from the worker: the claim asks the worker's own navigation for a whole path to at most
   3 spots, best first, with the call that the walk makes later. With no path to any of them, the
   worker skips the target for `retryWaitTicks`, as after a travel timeout. A spot beyond the worker's
-  follow range counts as reachable, because the pathfinder does not plan that far, and so does a spot
-  while the navigation cannot plan at all, for example while a swimmer is in the air. The travel
-  timeout still catches both.
+  follow range counts as reachable, because the pathfinder does not plan that far, and the travel
+  timeout still catches it. While the navigation cannot plan at all, for example while the worker is
+  in the air, the worker takes no claim and skips no target, and its next scan or poll tries again.
+  A rest holds the worker still with no fall, which the navigation counts as not on the ground, so a
+  leashed worker that wakes usually claims its bound target at its next poll, within 20 ticks.
 - **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
   worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
   stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.
