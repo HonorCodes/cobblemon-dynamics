@@ -146,6 +146,8 @@ def fetch(url: str, dest: pathlib.Path, sha512: str) -> pathlib.Path:
 
 
 def pin_name(pin: dict) -> str:
+    if pin.get("source") == "maven":
+        return pin["filename"]
     return f"{pin.get('project', 'neoforge')} {pin['version']}"
 
 
@@ -210,6 +212,10 @@ def resolve() -> None:
     """Fill the file name, URL and SHA-512 of every pin in mods.json and write the file back."""
     versions: dict[str, list[dict]] = {}
     for pin in [PINS["neoforge"], *PINS["mods"].values(), *PINS["demo_versions"].values(), *PINS["compat"].values()]:
+        if pin.get("source") == "maven":
+            # FTB and LDTTeam publish on their own Maven repositories, not on Modrinth, so such a pin stays as written.
+            say(f"{pin_name(pin)}: a Maven pin, left as it is")
+            continue
         if "project" not in pin:
             say(resolve_neoforge(pin))
             continue
@@ -530,11 +536,45 @@ class Server:
 # pinned mod set, after start() and before stop().
 
 
+COBBLEBASE_MIXINS = ("AmbientBehaviorMixin", "BaseManagerMixin", "NavigationHelperMixin", "PassiveXpMixin")
+# The three INFO lines at load of the pinned set, each exactly once (CD-CMP-08 to CD-CMP-10).
+LOAD_LINES = (
+    # CD-CMP-08: the 3 vanilla and the 5 Create mixins applied, and the 4 Cobblebase mixins skipped because cobblebase is absent.
+    re.escape("Mixins: 8 applied [create.AirCurrentMixin, create.BlazeBurnerBlockEntityMixin, create.ItemUseOverridesMixin, "
+              "create.WaterWheelBlockEntityMixin, create.WindmillBearingBlockEntityMixin, vanilla.EnchantmentMenuAccess, "
+              "vanilla.EnchantmentMenuMixin, vanilla.WorkerPushMixin], 4 skipped [")
+    + re.escape(", ".join(f"compat.cobblebase.{name} (cobblebase absent)" for name in COBBLEBASE_MIXINS))
+    + re.escape("], 0 applied with no injection [], 0 not applied yet []"),
+    # CD-CMP-09: the payload version and the six payloads by direction.
+    re.escape("Payloads, version 3: 2 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview], "
+              "4 to the server [cobblemon_dynamics:work_mode_toggle, cobblemon_dynamics:pasture_panel_open, "
+              "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request]"),
+    # CD-CMP-10: every role file loads and is active.
+    re.escape("Roles: 16 loaded, 16 active, 0 disabled []"),
+)
+# CD-CMP-10: without Create and AE2, the 7 roles of Create's handlers are disabled, each with its reason.
+CREATE_ROLES = ("cranker", "fan_catalyst_fire", "fan_catalyst_ghost", "fan_catalyst_water", "superheater", "tailwind",
+                "wheel_driver")
+ROLES_WITHOUT_CREATE = (re.escape("Roles: 16 loaded, 9 active, 7 disabled [")
+                        + ", ".join(re.escape(f"cobblemon_dynamics:{role} (handler ") + r"[a-z_:]+ is not registered\)"
+                                    for role in CREATE_ROLES)
+                        + re.escape("]"))
+
+
+def once(server: Server, pattern: str) -> str | None:
+    """None when exactly one line of the log matches pattern, or the problem."""
+    count = server.count_log(pattern)
+    return None if count == 1 else f"{count} lines of {rel(server.log)} match {pattern!r}, not 1"
+
+
 def scenario_smoke(server: Server) -> None:
-    """The built jar loads beside the pinned mods and the server answers commands over RCON."""
+    """The built jar loads beside the pinned mods, logs its three load lines once, and the server answers over RCON."""
     server.wait_log(DONE, BOOT_TIMEOUT)
     if server.find_log(OUR_MOD_LOADING) is None:
         raise TestpackError(f"no {OUR_MOD_LOADING!r} line in {rel(server.log)}")
+    problems = [problem for pattern in LOAD_LINES if (problem := once(server, pattern)) is not None]
+    if problems:
+        raise TestpackError("; ".join(problems))
     reply = server.rcon("list")
     if "players online" not in reply:
         raise TestpackError(f"unexpected reply to list: {reply!r}")
@@ -680,13 +720,15 @@ class Case(NamedTuple):
 
     swap maps a mod key of mods.json to a demo_versions key to install instead, or to None to leave the
     mod out. neoforge is the demo_versions key of another NeoForge version. reject is the mod id and
-    range that FML must reject, or None when the server must load.
+    range that FML must reject, or None when the server must load. log is a pattern that one line of a
+    loaded server's log must match, such as the roles line of CD-CMP-10.
     """
 
     name: str
     swap: dict[str, str | None]
     neoforge: str | None = None
     reject: tuple[str, str] | None = None
+    log: str | None = None
 
 
 DEPS_CASES = [
@@ -696,7 +738,7 @@ DEPS_CASES = [
     Case("cobblemon-below-floor", {"cobblemon": "cobblemon_below_floor"}, reject=("cobblemon", "[1.8.4,1.9)")),
     Case("create-below-floor", {"create": "create_below_floor"}, reject=("create", "[6.0.10,6.1)")),
     Case("ae2-below-floor", {"ae2": "ae2_below_floor"}, reject=("ae2", "[19.2,20)")),
-    Case("without-create-ae2", {"create": None, "ae2": None, "guideme": None}),
+    Case("without-create-ae2", {"create": None, "ae2": None, "guideme": None}, log=ROLES_WITHOUT_CREATE),
     Case("kff-floor", {}),  # the pinned set already uses kotlinforforge 5.10.0, the floor of [5.10,)
 ]
 
@@ -721,6 +763,8 @@ def run_case(case: Case) -> tuple[str, str]:
             return "FAIL", f"FML rejected the set: {first.strip()}"
         if server.find_log(OUR_MOD_LOADING) is None:
             return "FAIL", f"server loaded without a {OUR_MOD_LOADING!r} line"
+        if case.log is not None and (problem := once(server, case.log)) is not None:
+            return "FAIL", problem
         return "PASS", f"loaded: {first.split(']: ', 1)[-1].strip()}"
     mod, version_range = case.reject
     if loaded:
@@ -768,12 +812,21 @@ class CompatCase(NamedTuple):
 
 
 OUR_PACKAGE = "codes.honor.cobblemondynamics."
+FTB_CHUNKS = OUR_PACKAGE + "compat.ftbchunks."
+OPAC = OUR_PACKAGE + "compat.opac."
+MINECOLONIES = OUR_PACKAGE + "compat.minecolonies."
 COMPAT_CASES = [
     # Cobblebase 2.0.1 needs Cloth Config at run time, although its neoforge.mods.toml does not list it.
     CompatCase("compat_cobblebase", ("cobblebase", "cloth_config"), OUR_PACKAGE + "compat.CobblebaseHooks",
-               (OUR_PACKAGE + "compat.Cobbleworkers",)),
+               (OUR_PACKAGE + "compat.Cobbleworkers", FTB_CHUNKS, OPAC, MINECOLONIES)),
     CompatCase("compat_cobbleworkers", ("cobbleworkers",), OUR_PACKAGE + "compat.CobbleworkersCompat",
-               (OUR_PACKAGE + "compat.Cobblebase", OUR_PACKAGE + "mixin.compat.cobblebase.")),
+               (OUR_PACKAGE + "compat.Cobblebase", OUR_PACKAGE + "mixin.compat.cobblebase.", FTB_CHUNKS, OPAC, MINECOLONIES)),
+    # CD-QWK-33, CD-LND-13: each claim mod loads only its own compat package.
+    CompatCase("compat_ftbchunks", ("ftbchunks", "ftbteams", "ftblibrary", "architectury"), FTB_CHUNKS + "FtbChunksCompat",
+               (OPAC, MINECOLONIES)),
+    CompatCase("compat_opac", ("openpartiesandclaims",), OPAC + "OpacCompat", (FTB_CHUNKS, MINECOLONIES)),
+    CompatCase("compat_minecolonies", ("minecolonies", "structurize", "blockui", "domum_ornamentum", "multipiston"),
+               MINECOLONIES + "MineColoniesCompat", (FTB_CHUNKS, OPAC)),
 ]
 CLASS_LOG = "classload.log"
 # CobblebaseHooks logs this once when a Cobblebase hook did not apply (CD-CMP-05).
