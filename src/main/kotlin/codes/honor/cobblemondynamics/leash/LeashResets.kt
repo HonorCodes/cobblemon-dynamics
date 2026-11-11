@@ -128,7 +128,7 @@ object LeashResets {
         val bound = roles.get(binding.roleId) ?: return true
         val types = pokemon.types.map { it.showdownId }
         if (RoleSelection.isEligible(bound.definition, types)) return true
-        val next = RoleSelection.best(roles.forTypes(types).map { it.definition }.filter { it.handler == bound.definition.handler })
+        val next = RoleSelection.best(roles.forTypes(types).map { it.definition }.filter { it.handler == bound.definition.handler }, types)
         if (next == null) {
             clear(server, pokemon, NO_ROLE)
             return false

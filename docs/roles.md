@@ -87,7 +87,7 @@ behaves.
 | --- | --- | --- | --- | --- | --- |
 | Telekinesis | Psychic | A source container and a destination container, including Create vaults and the AE2 ME Interface | Moves items from the source to the destination. The rate scales with level. It uses the faces that the player clicked. It claims the source only, so many workers can feed one destination. The source sits in the work area, and the destination can sit anywhere within 32 blocks of the pasture block. | Kinesis | TLK |
 | Magnet | Steel | A container | Collects dropped items from the pasture's work area into the container. The rate scales with level. It skips items that still have a pickup delay. | Special pose, metal sparks | MAG |
-| Fan Catalyst | Fire, Water, Ghost | A Create encased fan | Stands in the block in front of the fan and acts as its catalyst. Fire gives blasting, or smoking after a flip with the Work Leash. Water gives washing. Ghost gives haunting. The fan never pushes or harms its own worker. | Fire Spin, Bubble, Will-O-Wisp | FAN |
+| Fan Catalyst | Fire, Water, Ghost | A Create encased fan that faces sideways | Stands in the block in front of the fan and acts as its catalyst. Fire gives blasting, or smoking after a flip with the Work Leash. Water gives washing. Ghost gives haunting. The fan never pushes or harms its own worker. | Fire Spin, Bubble, Will-O-Wisp | FAN |
 | Tailwind | Flying | A Create windmill bearing | Adds virtual sails, based on the windmill's real sails and the worker's level, up to the windmill's own cap. A windmill still needs its minimum real sails to assemble. | Gust | TLW |
 
 ### Assignment

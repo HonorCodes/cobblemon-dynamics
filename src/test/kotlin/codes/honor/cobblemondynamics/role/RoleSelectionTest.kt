@@ -42,4 +42,26 @@ class RoleSelectionTest {
         val telekinesis = role("telekinesis", setOf("psychic"), autoAssign = false)
         assertEquals(pump, RoleSelection.best(listOf(telekinesis, pump)))
     }
+
+    private val fanFire = role("fan_fire", setOf("fire"), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+    private val fanGhost = role("fan_ghost", setOf("ghost"), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+
+    /** Ruling 1 of the Phase 2 plan: between roles of one handler, the Pokémon's primary type wins, then its secondary type. */
+    @Test
+    fun `CD-LSH-16 with ruling 1 the primary type picks between roles of one handler`() {
+        assertEquals(fanFire, RoleSelection.best(listOf(fanGhost, fanFire), listOf("fire", "ghost")))
+        assertEquals(fanGhost, RoleSelection.best(listOf(fanFire, fanGhost), listOf("ghost", "fire")))
+        assertEquals(fanGhost, RoleSelection.best(listOf(fanFire, fanGhost), listOf("ghost")))
+        // A caller that names no types gets the id order.
+        assertEquals(fanFire, RoleSelection.best(listOf(fanGhost, fanFire)))
+    }
+
+    @Test
+    fun `CD-LSH-16 the type order never beats a higher priority or the id order between handlers`() {
+        val fanWater = role("fan_water", setOf("water"), priority = 5, autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+        assertEquals(fanWater, RoleSelection.best(listOf(fanFire, fanWater), listOf("fire", "water")))
+        val pump = role("pump", setOf("water"), autoAssign = false, handler = "cobblemon_dynamics:fluid_fill")
+        val telekinesis = role("telekinesis", setOf("psychic"), autoAssign = false, handler = "cobblemon_dynamics:telekinesis")
+        assertEquals(pump, RoleSelection.best(listOf(telekinesis, pump), listOf("psychic", "water")))
+    }
 }

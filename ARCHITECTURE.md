@@ -543,7 +543,11 @@ references. This section lists what the code uses.
     `CreateBuiltInRegistries.FAN_PROCESSING_TYPE`, with a priority above 400. Each type hands the
     processing to Create's built-in `BLASTING`, `SMOKING`, `SPLASHING` or `HAUNTING` type.
   - The worker stands in the block in front of the fan's face, so its catalyst covers the whole air
-    current downstream.
+    current downstream. Only a fan that faces sideways has such a spot: a worker in an up or down
+    current would block it, so a bind to a vertical fan is refused with "No room in front of the fan".
+  - Each catalyst kind has its own role file on the one `fan_catalyst` handler. Between the roles of
+    one handler and priority, `RoleSelection.best` takes the role of the Pokémon's primary type, then
+    of its secondary type, so a Ghost and Fire type haunts.
   - `isValidAt(level, pos)` checks the 6 neighbours of `pos` for an encased fan whose front is `pos`
     and whose fan state behaviour holds an active catalyst of that kind. The check works on the client,
     because the behaviour syncs through Create's packets.

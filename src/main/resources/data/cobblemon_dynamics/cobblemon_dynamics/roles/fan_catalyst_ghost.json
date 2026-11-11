@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:fan_catalyst",
+  "types": ["ghost"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {
+    "catalyst": "ghost"
+  },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["willowisp", "fire", "special"],
+    "actor_particles": ["cobblemon:willowisp_actor"],
+    "target_particles": ["cobblemon:willowisp_target"]
+  }
+}

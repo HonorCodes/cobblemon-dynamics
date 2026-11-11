@@ -64,13 +64,21 @@ class ParticleFilesTest {
             if (!seen.add(id)) continue
             val file = files[id]
             if (file == null) {
-                problems += "$id has no particle file in Cobblemon's jar"
+                if (id !in MISNAMED_SPAWNS || id in sent) problems += "$id has no particle file in Cobblemon's jar"
                 continue
             }
             if (NO_ARGUMENT_RANDOM.containsMatchIn(file.text)) problems += "$id (${file.path}) calls math.random() with no arguments"
             queue += file.spawns
         }
         assertTrue(problems.isEmpty(), problems.joinToString("\n"))
+    }
+
+    @Test
+    fun `each misnamed spawn is one that a particle file spawns and that no file defines`() {
+        for (id in MISNAMED_SPAWNS) {
+            assertTrue(files[id] == null, "$id has a file now, so it needs no exception")
+            assertTrue(files.values.any { id in it.spawns }, "no particle file spawns $id")
+        }
     }
 
     /** A particle event can play a sound, as Cobblemon's `bite_target` does. Work is silent (the approver's play-test ruling, 2026-11-10). */
@@ -111,5 +119,13 @@ class ParticleFilesTest {
         val NO_ARGUMENT_RANDOM = Regex("""math\.random\(\s*\)""", RegexOption.IGNORE_CASE)
 
         val PARSED_ID = Regex("""ResourceLocation\.parse\("([a-z0-9_.-]+:[a-z0-9_/.-]+)"\)""")
+
+        /**
+         * Spawns that Cobblemon 1.8.4's own files name wrong. Its `firespin_targetburst` spawns `firespin_targetcinder`, but the file
+         * `firespin_targetcinder.particle.json` declares the id `cobblemon:firespin_actorcinder`. Cobblemon's `ParticleEvent` skips a
+         * spawn whose effect it does not know, so the burst shows without its cinders, as in Cobblemon's own Fire Spin. The mod never
+         * sends such an id itself.
+         */
+        val MISNAMED_SPAWNS = setOf(ResourceLocation.parse("cobblemon:firespin_targetcinder"))
     }
 }

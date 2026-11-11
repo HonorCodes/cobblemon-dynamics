@@ -312,3 +312,15 @@ These checks show the changes that the approver ruled after the multiplayer audi
     `/cobblemondynamics unbind <x> <y> <z>` with the furnace's position, then `/cobblemondynamics claims`. Expected: the
     reply reads "Cleared the binding of Charmander at" and the furnace's dimension and position, and the chat shows
     "Charmander lost its work binding: an operator cleared it". The claims list holds no `binding` line for the furnace.
+
+## Fan Catalyst
+
+These checks show the Phase 2 Fan Catalyst on a client. Record their results in the play-test note of the
+Phase 2 gate report, `docs/testing/phase-2-gate.md`.
+
+52. **CD-FAN-14.** Setup: three encased fans at 64 RPM in a row, each facing sideways with a depot of items in its air
+    current, and a bound Charmander, Squirtle and Gastly, one at each fan. Action: watch the air of each fan while its
+    worker Works. Expected: flame particles in the Charmander's current, water drops in the Squirtle's and soul particles
+    in the Gastly's, as Create shows for lava, water and soul fire.
+53. **CD-FAN-16.** Setup: a Charmander Working at a fan. Action: sneak and right-click the fan with the Work Leash twice.
+    Expected: the action bar shows "Fan mode: Smoking", then "Fan mode: Blasting".

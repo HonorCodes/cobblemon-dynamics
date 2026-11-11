@@ -102,7 +102,8 @@ object LeashInteractions {
         val pokemon = selection?.let { ownedPokemon(player, it.pokemonId) }
         val pasture = pokemon?.let { PastureAdapter.workModePastureOf(level, it) }
         val roles = fittingRoles(level, pokemon, clicked, pending)
-        val best = RoleSelection.best(roles.map { it.definition })?.let { def -> roles.first { it.definition == def } }
+        val types = pokemon?.types?.map { it.showdownId }.orEmpty()
+        val best = RoleSelection.best(roles.map { it.definition }, types)?.let { def -> roles.first { it.definition == def } }
         val canonical = best?.let { role -> guarded(role.handler, clicked) { role.handler.canonical(level, clicked) } } ?: clicked
         // The checks of a source-and-destination binding are the source's, and the destination is the clicked block.
         val source = pending?.pos ?: canonical
@@ -127,6 +128,7 @@ object LeashInteractions {
                     pasture != null &&
                     WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
             },
+            types = types,
         )
         val outcome = BindRules.evaluate(input) { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE }
         when (outcome) {

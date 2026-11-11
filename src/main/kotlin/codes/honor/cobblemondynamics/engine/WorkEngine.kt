@@ -899,7 +899,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         /** Where navigation stops [entity] for [spot], by the rule of [Arrival]. */
         fun isArrived(entity: Entity, spot: BlockPos): Boolean = Arrival.isAt(entity.x, entity.y, entity.z, entity.bbWidth.toDouble(), spot)
 
-        private fun typesOf(pokemon: Pokemon): Set<String> = pokemon.types.mapTo(HashSet()) { it.showdownId }
+        /** Primary first, which [RoleSelection.best] reads between the roles of one handler. */
+        private fun typesOf(pokemon: Pokemon): Set<String> = pokemon.types.mapTo(LinkedHashSet()) { it.showdownId }
 
         private fun hasFairyType(pokemon: Pokemon): Boolean = pokemon.types.any { it == ElementalTypes.FAIRY }
 

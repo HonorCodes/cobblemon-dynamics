@@ -29,6 +29,7 @@ class BindRulesTest {
         same: Boolean = false,
         reach: Boolean = true,
         noSpot: String? = null,
+        types: List<String> = emptyList(),
     ) = BindRules.Input(
         selection,
         owned,
@@ -41,6 +42,7 @@ class BindRulesTest {
         same,
         destinationInReach = reach,
         noSpotRefusal = noSpot,
+        types = types,
     )
 
     /** A source click that waits for its destination, at a block other than the clicked one. */
@@ -162,6 +164,15 @@ class BindRulesTest {
         BindRules.ALREADY_ASSIGNED,
         refusal(input(boundTo = own("Charmander"), noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
     )
+
+    /** Ruling 1 of the Phase 2 plan: a Chandelure, Ghost and Fire, is a ghost Fan Catalyst, though `fire` sorts first. */
+    @Test
+    fun `CD-LSH-16 with ruling 1 a Ghost and Fire type binds the ghost Fan Catalyst`() {
+        val fire = role("fan_catalyst_fire", setOf("fire"), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+        val ghost = role("fan_catalyst_ghost", setOf("ghost"), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+        val outcome = BindRules.evaluate(input(roles = listOf(fire, ghost), types = listOf("ghost", "fire")), shape)
+        assertEquals(ghost, assertInstanceOf(BindRules.Outcome.Bind::class.java, outcome).role)
+    }
 
     private companion object {
         val OVERWORLD: ResourceLocation = ResourceLocation.withDefaultNamespace("overworld")

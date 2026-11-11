@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.handler.create
 
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -32,5 +34,15 @@ class FanNbtTest {
     fun `CD-FAN-10 a flip switches between blasting and smoking`() {
         assertEquals(FireMode.SMOKING, FireMode.BLASTING.flipped())
         assertEquals(FireMode.BLASTING, FireMode.SMOKING.flipped())
+    }
+
+    /** Ruling 2 of the Phase 2 plan: a worker in an up or down current would block it, so only a fan that faces sideways has a spot. */
+    @Test
+    fun `CD-FAN-03 a catalyst stands in front of a fan that faces sideways, and an up or down fan has no such block`() {
+        val fan = BlockPos(3, 64, 7)
+        assertEquals(BlockPos(4, 64, 7), FanFront.of(fan, Direction.EAST))
+        assertEquals(BlockPos(3, 64, 6), FanFront.of(fan, Direction.NORTH))
+        assertNull(FanFront.of(fan, Direction.UP))
+        assertNull(FanFront.of(fan, Direction.DOWN))
     }
 }

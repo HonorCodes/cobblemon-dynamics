@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.handler.create
 
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
 
 /** What a Fan Catalyst puts in front of a fan, in place of Create's lava or fire, water or soul fire. */
@@ -45,4 +47,12 @@ object FanNbt {
     /** A client packet names the catalyst, or none. A save never does, so a load keeps [current]. */
     fun catalyst(tag: CompoundTag, clientPacket: Boolean, current: FanCatalyst?): FanCatalyst? =
         if (clientPacket) FanCatalyst.parse(tag.getString(CATALYST)) else current
+}
+
+/**
+ * CD-FAN-03: a catalyst stands in the block in front of a fan's face, where it covers the whole air current. Only a fan that faces
+ * sideways has such a block (ruling 2 of the Phase 2 plan): a worker in an up or down current would block it.
+ */
+object FanFront {
+    fun of(fan: BlockPos, facing: Direction): BlockPos? = if (facing.axis.isHorizontal) fan.relative(facing) else null
 }

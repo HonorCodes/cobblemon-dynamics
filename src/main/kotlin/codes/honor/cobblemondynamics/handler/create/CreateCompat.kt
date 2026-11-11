@@ -40,6 +40,7 @@ object CreateCompat {
         HandlerRegistry.register(WaterWheelHandler)
         HandlerRegistry.register(HandCrankHandler)
         HandlerRegistry.register(BurnerHeatHandler)
+        HandlerRegistry.register(FanCatalystHandler)
     }
 
     /**

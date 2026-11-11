@@ -79,9 +79,18 @@ Checked in Task 2 on 2026-11-11, with `javap` and the `FanTests` GameTests:
 - `GameTestHelper.onEachTick` adds one callback for each tick that is left to the map that the test's tick walks. A call
   from inside a callback changes that map during the walk, so `CreateKit.catalyse` registers it when the test starts.
 
+Checked in Task 3 on 2026-11-11, with `javap` on Create and the Cobblemon 1.8.4 sources:
+
+- `handleProcessingOnAllItems` with `doNothing()` changes nothing. `TransportedResult.doNothing()` has no outputs, so
+  `didntChangeFrom` is true, and both `DepotBehaviour.applyToAllItems` and `BeltInventory.applyToEachWithin` return or go
+  on to the next item on such a result before they change anything.
+- `DepotBlockEntity.setHeldItem(ItemStack.EMPTY)` holds a `TransportedItemStack` of an empty stack, not null, so
+  `FanItems` counts only a stack that is not empty.
+- `Pokemon.types` lists the primary type first: `FormData.types` is `listOf(primaryType, secondaryType)`, or the primary
+  type alone.
+
 Inferred (check before the task that uses it):
 
-- `handleProcessingOnAllItems` with `doNothing()` changes nothing (Task 3).
 - A sheet of sails whose `FACING` is the bearing's facing assembles as one windmill, and a speed change reaches a shaft
   behind the bearing within 1 tick (Task 4).
 - `MixinState`'s handler-call check sees the call that `@ModifyExpressionValue` injects, as it does for `@ModifyArg`
@@ -810,7 +819,8 @@ Checked with `javap` on sponge-mixin 0.16.4+mixin.0.8.7, which NeoForge 21.1.265
 
 **Rows:** CD-FAN-01, CD-FAN-02, CD-FAN-03, CD-FAN-04, CD-FAN-10, CD-FAN-12, CD-FAN-14 (the Demo), CD-FAN-15, CD-FAN-16,
 CD-SEC-10 (the fan part), CD-FX-02 (the three Fan Catalyst rows), CD-CFG-10 (off without Create), CD-REL-08 (the guide
-section), CD-REL-09 (the checklist entries).
+section), CD-REL-09 (the checklist entries), CD-LSH-16 (rulings 1 and 2 of the plan index: the role of a two-type catalyst
+and the fan's facing).
 
 **Files:**
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/FanCatalystHandler.kt` (`FanCatalystHandler`,
@@ -818,10 +828,17 @@ section), CD-REL-09 (the checklist entries).
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/fan_catalyst_fire.json`,
   `fan_catalyst_water.json`, `fan_catalyst_ghost.json`
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CreateCompat.kt` (registers the handler)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/FanNbt.kt` (`FanFront`: the spot rule of ruling 2)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleSelection.kt` (`best` takes the Pokémon's types, ruling 1),
+  and its callers `leash/BindRules.kt` (`Input.types`), `leash/LeashInteractions.kt`, `leash/LeashResets.kt`,
+  `engine/Assigner.kt` and `engine/WorkEngine.kt` (`typesOf` keeps the primary type first)
 - Modify: `src/main/resources/assets/cobblemon_dynamics/lang/en_us.json`
 - Modify: `docs/player-guide.md` (`### Fan Catalyst`), `docs/testing/manual-checklist.md` (checks for CD-FAN-14 and CD-FAN-16)
 - Task 2 made the `ARCHITECTURE.md` fixes and the ADR-0011 amendment, in the commit that adds the mixin.
-- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt`
+- Modify: `ARCHITECTURE.md` (section 8: the sideways fan of ruling 2 and the type order of ruling 1), `docs/roles.md`
+  (the fan faces sideways)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt`, `role/RoleSelectionTest.kt`,
+  `leash/BindRulesTest.kt`, `handler/create/FanNbtTest.kt`, `fx/ParticleFilesTest.kt` (one spawn that Cobblemon misnames)
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/FanCatalystTests.kt`
 - Test: `src/gametestCore/kotlin/codes/honor/cobblemondynamics/coretest/CoreTests.kt` (`createRoles` gains the three files)
 
@@ -910,7 +927,38 @@ fun `CD-FX-04 the Water Fan Catalyst blows Bubble from the worker`() {
 }
 ```
 
-- [ ] **Step 2: Run them and see them fail:** the role files do not exist.
+  Rulings 1 and 2 of the plan index each get a unit test. Ruling 1: a two-type catalyst follows its primary type, then its
+  secondary type, not the id order of the files, which CD-LSH-16 alone would give. Ruling 2: only a fan that faces sideways
+  takes a worker.
+
+```kotlin
+// BuiltInRoleFilesTest, with the real files
+@Test
+fun `CD-LSH-16 with ruling 1 a two-type Fan Catalyst takes the role of its primary type`() {
+    val roles = fanCatalysts.map { BuiltInRoles.parse(it) }
+    fun pick(vararg types: String): String? =
+        RoleSelection.best(roles.filter { RoleSelection.isEligible(it, types.toList()) }, types.toList())?.id?.path
+    assertEquals("fan_catalyst_fire", pick("fire", "ghost"), "Ceruledge")
+    assertEquals("fan_catalyst_ghost", pick("ghost", "fire"), "Chandelure")
+    assertEquals("fan_catalyst_water", pick("water", "ghost"), "Jellicent")
+}
+
+// RoleSelectionTest: between roles of one handler the type order picks, and it never beats a priority or another
+// handler's id (`pump` still wins a basin for a Psychic and Water type). BindRulesTest: a Ghost and Fire type binds
+// `fan_catalyst_ghost`.
+
+// FanNbtTest
+@Test
+fun `CD-FAN-03 a catalyst stands in front of a fan that faces sideways, and an up or down fan has no such block`() {
+    val fan = BlockPos(3, 64, 7)
+    assertEquals(BlockPos(4, 64, 7), FanFront.of(fan, Direction.EAST))
+    assertNull(FanFront.of(fan, Direction.UP))
+    assertNull(FanFront.of(fan, Direction.DOWN))
+}
+```
+
+- [ ] **Step 2: Run them and see them fail:** `FanFront` and the `types` parameter do not compile, then, with those in place,
+  the role files do not exist.
 
 - [ ] **Step 3: Write the code.**
 
@@ -938,7 +986,7 @@ object FanCatalystHandler : TargetHandler {
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = level.getBlockEntity(canonical) is EncasedFanBlockEntity
 
-    /** CD-FAN-03: only the block in front of the fan's face. A fan that faces up or down has no such spot (CD-ASG-09). */
+    /** CD-FAN-03: only the block in front of the face of a fan that faces sideways (ruling 2 of the Phase 2 plan). */
     override fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean =
         spot == front(level, canonical)
 
@@ -977,8 +1025,11 @@ object FanCatalystHandler : TargetHandler {
 
     private fun fanAt(ctx: WorkContext): EncasedFanBlockEntity? = ctx.level.getBlockEntity(ctx.target) as? EncasedFanBlockEntity
 
-    private fun front(level: ServerLevel, canonical: BlockPos): BlockPos? = (level.getBlockEntity(canonical) as? EncasedFanBlockEntity)
-        ?.let { canonical.relative(it.blockState.getValue(EncasedFanBlock.FACING)) }
+    private fun front(level: ServerLevel, canonical: BlockPos): BlockPos? {
+        val fan = level.getBlockEntity(canonical) as? EncasedFanBlockEntity ?: return null
+        val facing = fan.blockState.getOptionalValue(DirectionalKineticBlock.FACING).orElse(null) ?: return null
+        return FanFront.of(canonical, facing)
+    }
 
     private fun kind(ctx: WorkContext): FanCatalyst? {
         val name = ctx.role.params.get(CATALYST)?.takeIf { it.isJsonPrimitive }?.asString
@@ -992,18 +1043,45 @@ object FanItems {
     /** Whether [fan]'s air current holds an item: an item entity that it caught, or an item on a belt or a depot under it. */
     fun any(fan: EncasedFanBlockEntity): Boolean {
         val current = (fan.airCurrent as Any) as? AirCurrentAccess ?: return false
-        if (current.`cobblemon_dynamics$caughtEntities`().any { it is ItemEntity && it.isAlive }) return true
+        if (current.`cobblemon_dynamics$caughtEntities`().any { it is ItemEntity && it.isAlive && !it.item.isEmpty }) return true
         return current.`cobblemon_dynamics$affectedHandlers`().any { holdsItem(it.left) }
     }
 
+    /** A visit that returns `doNothing()` leaves the items as they are: depots and belts skip a result that changed nothing. */
     private fun holdsItem(handler: TransportedItemStackHandlerBehaviour): Boolean {
         var found = false
-        handler.handleProcessingOnAllItems {
-            found = true
-            TransportedItemStackHandlerBehaviour.TransportedResult.doNothing()
+        handler.handleProcessingOnAllItems { transported ->
+            if (!transported.stack.isEmpty) found = true
+            TransportedResult.doNothing()
         }
         return found
     }
+}
+
+// FanNbt.kt, with no Create class
+object FanFront {
+    fun of(fan: BlockPos, facing: Direction): BlockPos? = if (facing.axis.isHorizontal) fan.relative(facing) else null
+}
+```
+
+  The first draft took the block in front of any fan. A fan that faces down over a 1-block gap leaves room for a small
+  worker below it, so the spot rule refuses a vertical fan itself, as ruling 2 asks. `FanItems` counts only a stack that is
+  not empty, because a depot set to an empty stack still holds a `TransportedItemStack` (see the checked facts above).
+
+  Ruling 1 lives in `RoleSelection.best`, which every role choice calls with the Pokémon's types, primary first: a bind
+  (`BindRules`, `LeashInteractions`), a change of form (`LeashResets.recheckRole`) and auto-assignment (`Assigner`).
+
+```kotlin
+/**
+ * CD-ASG-16, CD-LSH-16: the higher priority wins, then the role id that sorts first. Between the roles of the winner's handler and
+ * priority, such as the Fan Catalyst files, the role of the Pokémon's primary type wins, then that of its secondary type (ruling 1
+ * of the Phase 2 plan), so [types] go primary first. With no types, the id order decides there too.
+ */
+fun best(candidates: Collection<RoleDefinition>, types: List<String> = emptyList()): RoleDefinition? {
+    val first = candidates.minWithOrNull(ORDER) ?: return null
+    val rank = { role: RoleDefinition -> types.indexOfFirst { it.lowercase() in role.types }.takeIf { it >= 0 } ?: types.size }
+    return candidates.filter { it.handler == first.handler && it.priority == first.priority }
+        .minWithOrNull(compareBy(rank).thenBy { it.id.toString() })
 }
 ```
 
@@ -1014,7 +1092,12 @@ object FanItems {
 "cobblemon_dynamics.leash.no_room_in_front": "No room in front of the fan",
 ```
 
-- [ ] **Step 4: Run the unit tests and see them pass.**
+- [ ] **Step 4: Run the unit tests and see them pass.** `ParticleFilesTest` failed on the Fire file at first: Cobblemon
+  1.8.4's `firespin_targetburst` spawns `cobblemon:firespin_targetcinder`, but the file `firespin_targetcinder.particle.json`
+  declares the id `cobblemon:firespin_actorcinder`. Cobblemon's `ParticleEvent` (line 80 of its 1.8.4 sources) skips a spawn
+  whose effect it does not know, so the burst shows without its cinders, as it does in Cobblemon's own Fire Spin. The Fire file
+  keeps the burst, as the timeline has it (CD-FX-04), and the test lists that one id in `MISNAMED_SPAWNS`: a spawned id, never
+  a sent one, with a test that the exception is still needed.
 
 - [ ] **Step 5: GameTests** in `create/FanCatalystTests` (a real worker in a fan's current, so rule 6 keeps them). Each
   places a Work Mode pasture at (11, 1, 5) with the owner beside it, and fans at x = 3, facing east, over a stone floor.
@@ -1101,12 +1184,13 @@ fun cdFan10Fan16Sec10TheBinderFlipsOnlyADrivenFan(helper: GameTestHelper) {
 }
 
 /**
- * Three fans at 256 RPM, with a bound Charmander, Squirtle and Gastly, each with 64 items on a depot downstream. For 1,200
- * ticks of their claims, no worker moves more than 0.5 blocks from its spot, takes damage, burns, or gains Blindness or
- * Slowness (CD-FAN-12).
+ * Three fans at 256 RPM, with a bound Charmander, Squirtle and Gastly, each with 64 items on a depot downstream. Over 1,200 ticks
+ * of Working each, no worker moves more than 0.5 blocks from its spot, takes damage, burns, or gains Blindness or Slowness
+ * (CD-FAN-12). The test counts each worker's Working ticks, so a worker that never Works fails it.
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 1800)
 fun cdFan12ThreeWorkersStayPutAt256Rpm(helper: GameTestHelper) {
+    helper.assertTrue(MixinState.applied(MixinState.AIR_CURRENT), "the air current mixin did not apply")
     val scene = scene(helper)
     val workers = listOf(
         Triple("charmander level=20", 3, ItemStack(Items.RAW_IRON, 64)),
@@ -1117,22 +1201,34 @@ fun cdFan12ThreeWorkersStayPutAt256Rpm(helper: GameTestHelper) {
         CreateKit.depot(helper, BlockPos(6, 1, z), stack)
         BlockPos(3, 2, z) to TestKit.tether(helper, scene.pasture, scene.owner, spec)
     }
+    val working = IntArray(workers.size)
     helper.runAfterDelay(1) { for ((fanRel, worker) in workers) TestKit.bind(helper, scene.owner, worker, fanRel) }
     helper.onEachTick {
-        for ((fanRel, worker) in workers) {
-            val spot = TestKit.workerOf(helper, worker)?.takeIf { it.status == WorkerStatus.WORKING || it.status == WorkerStatus.STANDBY }
-                ?.spot ?: continue
+        workers.forEachIndexed { i, (fanRel, worker) ->
+            val state = TestKit.workerOf(helper, worker)
+            val spot = state?.takeIf { it.status == WorkerStatus.WORKING || it.status == WorkerStatus.STANDBY }?.spot
+                ?: return@forEachIndexed
             val name = worker.pokemon.species.name
             helper.assertTrue(spot == helper.absolutePos(fanRel.east()), "$name has the spot $spot")
             helper.assertTrue(worker.position().distanceTo(Vec3.atBottomCenterOf(spot)) <= 0.5, "CD-FAN-12: the fan moved $name")
             helper.assertTrue(worker.health >= worker.maxHealth && worker.remainingFireTicks <= 0, "CD-FAN-12: $name took damage or burns")
             val effects = worker.hasEffect(MobEffects.BLINDNESS) || worker.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)
             helper.assertFalse(effects, "CD-FAN-12: $name gained Blindness or Slowness")
+            if (state.status == WorkerStatus.WORKING) working[i]++
         }
     }
-    helper.runAfterDelay(1300) { helper.succeed() }
+    helper.succeedWhen {
+        for ((i, pair) in workers.withIndex()) {
+            val name = pair.second.pokemon.species.name
+            helper.assertTrue(working[i] >= 1200, "CD-FAN-12: $name has Worked ${working[i]} of 1,200 ticks")
+        }
+    }
 }
 ```
+
+  The exemption scene keeps every assertion of the first draft. The draft succeeded after 1,300 ticks whatever the workers
+  did, so a worker that never reached Working passed it. The count of Working ticks, the end on 1,200 of them and the mixin
+  check are new.
 
   `scene(helper)` returns the owner and the pasture. Deferred:
   - CD-FAN-04 (`cdFan04StoneInFrontRefusesTheBind`: stone in front of the fan, then a bind with "No room in front of the
@@ -1149,17 +1245,31 @@ fun cdFan12ThreeWorkersStayPutAt256Rpm(helper: GameTestHelper) {
 ```markdown
 ### Fan Catalyst
 
-A Fire-, Water- or Ghost-type stands in the block in front of a Create encased fan and takes the place of the lava, the
-water or the soul fire there. The fan then processes the items in its air current as Create does, at Create's own speed.
-The Fan Catalyst is leash only: select the Pokémon with the Work Leash, then right-click the fan. The block in front of
-the fan must hold the Pokémon, so a fan that faces up or down cannot take one ("No room in front of the fan"). The fan
-does not push, burn or harm its own worker. A worker waits in Standby while the fan stands still or no item is in its
-air current.
+**Types:** Fire, Water or Ghost. **Level:** any. **Move:** Fire Spin, Bubble or Will-O-Wisp. **Assignment:**
+Work Leash only. **Needs:** Create.
+
+**Target:** an encased fan that faces sideways. A fan that faces up or down cannot take a worker, because a
+worker in its air current would block it.
+
+A Fire-, Water- or Ghost-type stands in the block in front of the fan and takes the place of the lava, the
+water or the soul fire there. The fan then processes the items in its air current as Create does, at
+Create's own speed. Select the Pokémon with the Work Leash, then right-click the fan. The block in front of
+the fan must have room for the Pokémon. If it has none, or if the fan faces up or down, the action bar shows
+"No room in front of the fan". No fan pushes, burns or harms the worker while it holds its claim. A worker
+waits in Standby while the fan stands still or no item is in its air current.
+
+Each type has its own role file. A Pokémon with two of these types works as the catalyst of its primary
+type: a Fire and Ghost type blasts or smokes, and a Ghost and Fire type haunts. A role file with a higher
+`priority` wins before the type order.
+
+**Role file parameter:** `catalyst` (`fire`, `water` or `ghost`).
 
 #### Fan Catalyst Fire
 
-Blasting by default. Sneak and right-click the worked fan with the Work Leash to switch it to smoking, and again to switch
-it back. The action bar shows the new mode. Each fan keeps its own mode, also after a restart.
+Blasting by default. To switch the fan to smoking, hold the Work Leash, then sneak and right-click the fan
+while its worker Works. Do it again to switch it back. The action bar shows the new mode. The player who
+bound the worker, the owner of the worker's pasture and operators can switch it. Each fan keeps its own
+mode, also through restarts.
 
 #### Fan Catalyst Water
 
@@ -1168,21 +1278,28 @@ Washing, as Create's bulk washing does.
 #### Fan Catalyst Ghost
 
 Haunting, as Create's bulk haunting does.
-
-A Pokémon with two of these types takes the role whose name sorts first: Fire, then Ghost, then Water.
-
-Role file parameter: `catalyst` (`fire`, `water` or `ghost`).
 ```
+
+  The first draft said that a two-type Pokémon takes the role whose name sorts first. Ruling 1 replaced that with the
+  primary type. The roles table gains a row for each file, and the flip section of the Work Leash points at the fan.
 
   - The manual checklist, after the last check:
 
 ```markdown
-44. **CD-FAN-14.** Setup: three fans at 64 RPM in a row, with a bound Charmander, Squirtle and Gastly, each with items on
-    a depot in its air current. Action: watch the air of each fan. Expected: flame particles in the Charmander's current,
-    water drops in the Squirtle's and soul particles in the Gastly's, as Create shows for lava, water and soul fire.
-45. **CD-FAN-16.** Setup: a Charmander Working at a fan. Action: sneak and right-click the fan with the Work Leash twice.
+## Fan Catalyst
+
+These checks show the Phase 2 Fan Catalyst on a client. Record their results in the play-test note of the
+Phase 2 gate report, `docs/testing/phase-2-gate.md`.
+
+52. **CD-FAN-14.** Setup: three encased fans at 64 RPM in a row, each facing sideways with a depot of items in its air
+    current, and a bound Charmander, Squirtle and Gastly, one at each fan. Action: watch the air of each fan while its
+    worker Works. Expected: flame particles in the Charmander's current, water drops in the Squirtle's and soul particles
+    in the Gastly's, as Create shows for lava, water and soul fire.
+53. **CD-FAN-16.** Setup: a Charmander Working at a fan. Action: sneak and right-click the fan with the Work Leash twice.
     Expected: the action bar shows "Fan mode: Smoking", then "Fan mode: Blasting".
 ```
+
+  The checklist held 51 checks when this task ran, so the new checks are 52 and 53, in a section of their own.
 
   - Task 2 already fixed ARCHITECTURE sections 2, 4 and 8 and added the amendment at the end of ADR-0011: Phase 2 adds two
     Create mixins, the air current's `tickAffectedEntities` and the windmill speed. The fan worker mark lasts for the
