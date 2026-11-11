@@ -21,6 +21,8 @@ NeoForge checks these dependencies when the game loads:
 | Applied Energistics 2 | no | `[19.2,20)` |
 | Cobbleworkers | no | any |
 | Cobblebase | no | any |
+| FTB Chunks (`ftbchunks`) | no | any |
+| Open Parties and Claims (`openpartiesandclaims`) | no | any |
 
 Without Create, the roles that need it turn off: the Wheel Driver, the Cranker, the Superheater, the Fan Catalyst and
 Tailwind. Each of their role files logs one line, and the other roles work as before. Without AE2, no role turns off. The
@@ -49,8 +51,9 @@ mod uses no AE2 class: it reaches AE2 blocks through NeoForge's energy and item 
 
 ## Claim mods
 
-FTB Chunks and Open Parties and Claims are optional. `neoforge.mods.toml` names neither of them, so NeoForge checks no
-version of them. The mod was tested with these versions:
+FTB Chunks and Open Parties and Claims are optional. `neoforge.mods.toml` lists both as optional dependencies with any
+version, as it lists Cobbleworkers and Cobblebase, so NeoForge checks no version of them. The mod was tested with these
+versions:
 
 | Mod | Tested version |
 | --- | --- |
@@ -58,9 +61,23 @@ version of them. The mod was tested with these versions:
 | Open Parties and Claims | 0.33.0 for NeoForge 1.21.1 |
 
 Another version works as long as it keeps the calls that
-[Amendment 1 of ADR-0013](adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11) names. If a call
-is gone or has changed, the check fails, and the server then refuses every Quick Work order. The log then holds one warning
-that names the claim mod.
+[Amendment 1 of ADR-0013](adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11) names.
+
+**When a check fails.** A check that throws an error counts as a refusal. If a call is gone or has changed, every check of
+that claim mod throws, so the server refuses every Quick Work order, also outside claims. The log holds one warning for
+each claim mod and each kind of error, in this form:
+
+```text
+Quick Work refuses orders while the claim check of ftbchunks fails: java.lang.NoSuchMethodError: ...
+```
+
+The warning means that this build of Cobblemon Dynamics cannot read the installed claim mod. Install a tested version of
+the claim mod, or a release of Cobblemon Dynamics that supports the installed one. Until then, the sent-out Pokémon come out
+as normal, with "You may not use {target}" on the action bar, and the rest of the mod works as before. A server can also
+set `quickWork.enabled = false`.
+
+Each claim mod applies its own rules. By default, the allies of an FTB Chunks team can Quick Work in its claims, and the
+allies of an Open Parties and Claims party cannot.
 
 - **FTB Chunks.** The check is the one that FTB Chunks runs for a right-click on a block. The team's block interaction
   setting decides, with `ally_mode`, `disable_protection`, `no_wilderness` and the admin bypass of FTB Chunks. The value
@@ -146,12 +163,14 @@ holds one INFO line that starts with `Payloads, version 3:` and names each paylo
 ## What is tested
 
 - **Tested on every push and pull request to `main`.** CI runs the build with its unit tests and jar checks. GameTests
-  then run on a GameTest server, once with Create and AE2 and once without them, followed by a perf run. Two more runs
-  test Quick Work against the real claim mods, one with FTB Chunks and one with Open Parties and Claims. The release
-  workflow runs the build, the unit tests and the jar checks again for each tag.
+  then run on a GameTest server, once with Create and AE2 and once without them, followed by a perf run. The run with
+  Create and AE2 also tests the claim checks of Quick Work with a test claim mod. The release workflow runs the build, the
+  unit tests and the jar checks again for each tag.
 - **Tested at each phase gate.** The isolated test pack runs clean dedicated servers with only this mod and its pinned
   dependencies. It checks the dependency ranges, including the NeoForge floor, plus servers with only one of Cobbleworkers,
-  Cobblebase, FTB Chunks and Open Parties and Claims, `/reload` and restarts.
+  Cobblebase, FTB Chunks and Open Parties and Claims, `/reload` and restarts. Two GameTest runs test Quick Work against
+  the real claim mods, one with FTB Chunks and one with Open Parties and Claims. CI does not run them. They run at each
+  phase gate and in each pull request that changes the claim checks.
 - **Not tested automatically:**
   - Play with two or more players. The approver ruled out multiplayer GameTests, so an audit checks the code instead,
     in [the multiplayer audit](testing/multiplayer-audit.md).

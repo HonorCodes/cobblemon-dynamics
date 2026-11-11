@@ -256,6 +256,9 @@ rules:
   members of an allied party can only if the owner sets `claims.protection.exceptions.fullAccess` to `A` in the owner's
   player config.
 
+Each claim mod applies its own rules, so allies differ between the two. By default, an ally can Quick Work in a land
+claim of FTB Chunks, but not in a land claim of Open Parties and Claims.
+
 A refused send-out stays a normal one, and the action bar shows a message such as "You may not use Furnace". While the
 Pokémon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops when the right is gone.
 

@@ -100,6 +100,8 @@ Checked in the same jars:
   same SHA-1 as the research jars.
 - The mods.toml of FTB Chunks requires `architectury` `[13.0.11,)`, `ftblibrary` `[2101.1.39,)` and `ftbteams`
   `[2101.1.9,)`. Neither claim mod declares the other one as incompatible.
+- The `[[mods]]` entries of the two jars name the mod ids `ftbchunks` (`modId = "ftbchunks"`) and
+  `openpartiesandclaims` (`modId="openpartiesandclaims"`).
 - FTB Chunks' `FTBChunks.blockRightClick` asks `shouldPreventInteraction` with the protection of
   `FTBChunksExpected.getBlockInteractProtection()` and no entity, so the check of this plan is the check of a right-click.
 
@@ -377,10 +379,11 @@ if (owner != null && QuickWorkRules.permissionDue(order.startedAt, t.now) && !ma
 
 **Rows:** CD-QWK-27 and CD-QWK-28 (the checks of the two claim mods), CD-QWK-31 (each check passes on the owner that the
 engine gives it), CD-QWK-32 (no message from Open Parties and Claims), CD-QWK-33 (the compat classes load only with their
-mod), CD-QWK-34 (no required dependency).
+mod), CD-QWK-34 (optional entries with any version in `neoforge.mods.toml`).
 
 **Files:**
-- Modify: `gradle.properties`, `build.gradle` (two repositories, four compile-only dependencies)
+- Modify: `gradle.properties`, `build.gradle` (two repositories, four compile-only dependencies),
+  `src/main/templates/META-INF/neoforge.mods.toml` (two optional dependencies)
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/compat/ftbchunks/FtbChunksCompat.kt`,
   `src/main/kotlin/codes/honor/cobblemondynamics/compat/opac/OpacCompat.kt`
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt`
@@ -396,11 +399,14 @@ mod), CD-QWK-34 (no required dependency).
 ```kotlin
 // ModMetadataTest
 @Test
-fun `CD-QWK-34 the claim mods are never required`() {
-    for (id in listOf("ftbchunks", "ftbteams", "openpartiesandclaims")) {
-        val d = dependency(id)
-        if (d != null) assertNotEquals("required", d.getString("type"), id)
+fun `CD-QWK-34 the claim mods are optional with any version`() {
+    for (id in listOf("ftbchunks", "openpartiesandclaims")) {
+        val d = requireDependency(id)
+        assertEquals("optional", d.getString("type"), id)
+        assertEquals("*", d.getString("versionRange"), id)
+        assertEquals("BOTH", d.getString("side"), id)
     }
+    assertNull(dependency("ftbteams"), "FTB Teams is a dependency of FTB Chunks, not of this mod")
 }
 ```
 
@@ -430,10 +436,31 @@ class CompatImportsTest {
 }
 ```
 
-- [ ] **Step 2: Run** `./gradlew test --tests "codes.honor.cobblemondynamics.build.CompatImportsTest"`. It fails: the mod
-  has no `register` call for either claim mod. `ModMetadataTest` passes already and guards CD-QWK-34.
+- [ ] **Step 2: Run** `./gradlew test --tests "codes.honor.cobblemondynamics.build.CompatImportsTest"` and
+  `./gradlew test --tests "codes.honor.cobblemondynamics.build.ModMetadataTest"`. Both fail: the mod has no `register`
+  call for either claim mod, and `neoforge.mods.toml` has no entry for either one.
 
-- [ ] **Step 3: Build files.** `gradle.properties` gains:
+- [ ] **Step 3: Build files.** `src/main/templates/META-INF/neoforge.mods.toml` gains two entries after the one of
+  `cobblebase`, as the coordinator ruled on 2026-11-11. They match the entries of Cobbleworkers and Cobblebase, and the
+  mod ids are those of the jars:
+
+```toml
+[[dependencies.${mod_id}]]
+modId="ftbchunks"
+type="optional"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="openpartiesandclaims"
+type="optional"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
+```
+
+  `gradle.properties` gains:
 
 ```properties
 ftb_chunks_version=2101.1.23
@@ -520,8 +547,8 @@ if (ModList.get().isLoaded("ftbchunks")) FtbChunksCompat.register()
 if (ModList.get().isLoaded("openpartiesandclaims")) OpacCompat.register()
 ```
 
-- [ ] **Step 5: Run** `./gradlew build`. `CompatImportsTest` passes, and `verifyJar` shows that the jar holds no FTB or Open
-  Parties and Claims class. `./gradlew runGameTestServer` and `./gradlew runGameTestServerCore` load neither claim mod, so
+- [ ] **Step 5: Run** `./gradlew build`. `CompatImportsTest` and `ModMetadataTest` pass, and `verifyJar` shows that the jar
+  holds no FTB or Open Parties and Claims class. `./gradlew runGameTestServer` and `./gradlew runGameTestServerCore` load neither claim mod, so
   neither compat class loads there (CD-QWK-33).
 
 - [ ] **Step 6: Commit:** `git commit -m "Ask FTB Chunks and Open Parties and Claims before Quick Work [rag:1]"`.
@@ -543,8 +570,7 @@ action-bar packet, and no chat from Open Parties and Claims).
   `FtbChunksClaimTests.kt`, and `src/gametestFtbChunks/resources/META-INF/neoforge.mods.toml`
 - Create: `src/gametestOpac/kotlin/codes/honor/cobblemondynamics/opactest/OpacTestMod.kt`, `OpacFixture.kt`,
   `OpacClaimTests.kt`, and `src/gametestOpac/resources/META-INF/neoforge.mods.toml`
-- Modify: `.github/workflows/build.yml`, `src/test/kotlin/codes/honor/cobblemondynamics/build/RepositoryFilesTest.kt`,
-  `CLAUDE.md`
+- Modify: `CLAUDE.md`. Do not modify `.github/workflows/build.yml`: CI does not run the two claim runs.
 
 **Interfaces:**
 - Consumes: the fixture calls of the checked list above, `TestKit.listed`, `TestKit.pressSendOut`, `TestWorld.register`.
@@ -718,9 +744,9 @@ object OpacFixture {
     empty hand must be false for A and B and true for D.
 
 - [ ] **Step 2: Run** `./gradlew runGameTestServerFtbChunks` and `./gradlew runGameTestServerOpac`, one JVM at a time. Read
-  `run/gametest-ftbchunks/logs/latest.log` and `run/gametest-opac/logs/latest.log`. The fixture tests must pass before Step
-  3. If a fixture test fails, fix the fixture first, and record each fact of the "Inferred" list above that the run proved
-  or disproved. If the GameTest server cannot host a claim mod at all, stop and report it: the fallback is the test claim
+  `run/gametest-ftbchunks/logs/latest.log` and `run/gametest-opac/logs/latest.log`. The fixture tests must pass before
+  Step 3. If a fixture test fails, fix the fixture first, and record each fact of the "Inferred" list above that the run
+  proved or disproved. If the GameTest server cannot host a claim mod at all, stop and report it: the fallback is the test claim
   provider of Task 2 for the engine path, plus the test pack's dedicated servers of Task 6.
 
 - [ ] **Step 3: Failing Quick Work tests.** Each test sends out a Charmander at furnace A with `ClaimScenes.sendOutAt`, in its
@@ -750,16 +776,25 @@ object OpacFixture {
   Run both runs again. The Quick Work tests pass only with the code of Tasks 2 and 3. Check that each test fails when you
   comment out the `register` call of its claim mod in `CobblemonDynamics`, then restore the call.
 
-- [ ] **Step 4: CI.** `.github/workflows/build.yml` runs `./gradlew runGameTestServerFtbChunks --stacktrace` and
-  `./gradlew runGameTestServerOpac --stacktrace` after the core run, and uploads `run/gametest-ftbchunks/logs/` and
-  `run/gametest-opac/logs/` with the other logs. `RepositoryFilesTest` gains
-  `CD-QWK-27 CD-QWK-28 build workflow runs the GameTests with each claim mod`, which checks both commands and both log
-  folders. The artifact holds logs only, never a jar: the FTB jars are "All Rights Reserved".
+- [ ] **Step 4: Where the claim runs run.** By the coordinator's ruling of 2026-11-11, CI does not run
+  `runGameTestServerFtbChunks` or `runGameTestServerOpac`, so `.github/workflows/build.yml` does not change. The two runs
+  run in these places:
+  - the pull request of this plan, which records both results in its body
+  - each later pull request that touches the claims code: `compat/LandClaims.kt`, `compat/ftbchunks/`, `compat/opac/`,
+    the permission checks of `WorkEngine` (`mayUse`, `start` and `tickOrder`), `src/gametest/kotlin-claims/`,
+    `src/gametestFtbChunks/` and `src/gametestOpac/`. The rule list of the
+    [rehydration note](2026-11-09-phase-1-rehydration.md#how-to-open-a-pull-request-here) holds this rule.
+  - each phase gate, whose report lists both commands (Task 7 Step 2)
 
-- [ ] **Step 5: Gotchas.** Add to `CLAUDE.md` what the runs showed, at least these two lines:
+  The test claim provider of Task 2 stays in the full run, which CI runs, so CI still tests the engine path of the claim
+  checks. The FTB jars never go into a CI artifact or a log upload, because they are "All Rights Reserved".
+
+- [ ] **Step 5: Gotchas.** Add to `CLAUDE.md` what the runs showed, at least these three lines:
   - Architectury's `PlayerHooks.isFake` is true for every subclass of `ServerPlayer`, so FTB Chunks treats each
     `FakePlayer` and test player subclass as a fake player. Claim tests use `TestKit.plainOwner`.
   - FTB Teams gives a player a team only at login. Claim tests call `TeamManagerImpl.INSTANCE.playerLoggedIn` first.
+  - CI does not run `runGameTestServerFtbChunks` or `runGameTestServerOpac`, so a green CI says nothing about the real
+    claim mods. A pull request that touches the claims code runs both.
 
 - [ ] **Step 6: Commit:** `git commit -m "Test the claim checks against FTB Chunks and Open Parties and Claims [rag:2]"`.
 
@@ -914,8 +949,9 @@ on the new commit), and the coverage of CD-QWK-23, CD-QWK-26 to CD-QWK-35 and CD
 - [ ] **Step 1: Docs.**
   - `ARCHITECTURE.md`: section 2, the packages `compat/ftbchunks/` and `compat/opac/` and the file `compat/LandClaims.kt`.
     Section 3, Quick Work asks the land claim gate. Section 6, the order's tick asks its permission on every 20th tick.
-    Section 8, the claim APIs of RES6. Section 10, the five artifacts of the ADR amendment and the two repositories.
-    Section 13, the two claim runs, `TestKit.plainOwner` and the test claim provider.
+    Section 8, the claim APIs of RES6. Section 10, the five artifacts of the ADR amendment, the two repositories and the
+    optional entries of `ftbchunks` and `openpartiesandclaims` in `neoforge.mods.toml`. Section 13, the two claim runs,
+    which CI does not run, `TestKit.plainOwner` and the test claim provider.
   - `README.md`: the compatibility list names FTB Chunks and Open Parties and Claims.
   - `docs/player-guide.md` and `docs/modpack-integration.md`: check the Quick Work texts, the tested versions and the three
     INFO lines against the code, and fix any difference in the same commit.
@@ -923,9 +959,9 @@ on the new commit), and the coverage of CD-QWK-23, CD-QWK-26 to CD-QWK-35 and CD
 
 - [ ] **Step 2: Tools.** `RUNS` in `scripts/gate_report.py` gains two runs: `Run("ftbchunks", "GameTests with FTB Chunks",
   "runGameTestServerFtbChunks", ROOT / "run/gametest-ftbchunks/logs/latest.log", ("src/gametestFtbChunks/kotlin",
-  "src/gametest/kotlin-claims", "src/gametest/kotlin-shared"), "cobblemon_dynamics")`, and the same for `opac`.
-  `PHASE_2_ROWS` gains CD-CMP-08 to CD-CMP-10, as `scripts/check_plan_coverage.py` has them since 2026-11-11, and the
-  docstring names them.
+  "src/gametest/kotlin-claims", "src/gametest/kotlin-shared"), "cobblemon_dynamics")`, and the same for `opac`. So the
+  run summary of each gate report lists both commands and their results. `PHASE_2_ROWS` gains CD-CMP-08 to CD-CMP-10, as
+  `scripts/check_plan_coverage.py` has them since 2026-11-11, and the docstring names them.
 
 - [ ] **Step 3: Run** `./gradlew build`, `./gradlew runGameTestServer`, `./gradlew runGameTestServerCore`,
   `./gradlew runGameTestServerPerf`, `./gradlew runGameTestServerFtbChunks`, `./gradlew runGameTestServerOpac`,
@@ -938,32 +974,52 @@ on the new commit), and the coverage of CD-QWK-23, CD-QWK-26 to CD-QWK-35 and CD
 
 - [ ] **Step 5: Commit and hand over.** `git commit -m "Document the claim checks and run the Phase 2 gate again [rag:2]"`.
   The coordinator opens the pull request. Its body holds the readings of Task 2 Step 5, the multiplayer check of Task 2
-  Step 6 and the facts that Task 4 Step 2 proved. After the merge, the coordinator sends COHO-2 the SHA-1 of the new jar,
-  so COHO can set `quickWork.enabled = true`.
+  Step 6, the facts that Task 4 Step 2 proved, and the results of `runGameTestServerFtbChunks` and
+  `runGameTestServerOpac` on the tip of the branch, because CI does not run them. After the merge, the coordinator sends
+  COHO-2 the SHA-1 of the new jar, so COHO can set `quickWork.enabled = true`.
 
 ---
 
 ## Design decisions for the approver
 
-The rulings of R64 and R65 settle the feature. This plan makes these further calls:
+The rulings of R64 and R65 settle the feature. This plan makes these further calls. On 2026-11-11, under the approver's
+delegation, the coordinator ruled on calls 2, 3, 4, 7, 8 and 9. Calls 4 and 7 changed, and the list below holds their
+new form. Calls 1, 5 and 6 got no ruling of their own.
 
 1. **An empty main hand.** Each check asks about a right-click with an empty main hand. The Pokémon works the block, so the
    item in the owner's hand plays no part. For FTB Chunks this is the full check of a right-click. For Open Parties and
    Claims an empty hand skips its item rules.
 2. **The whole permission every 20 ticks.** The second check asks the spectator check and `mayInteract` again, not only the
-   claim mods, so the start and the second check share one function.
+   claim mods, so the start and the second check share one function. Kept by the coordinator.
 3. **The message of FTB Chunks.** FTB Chunks shows "Interaction prevented here by claim protection!" when its check
    prevents, and it has no silent form. The engine's own message follows in the same tick and replaces it. The other way, a
-   mixin into FTB Chunks or a copy of its rules, breaks when FTB Chunks changes.
-4. **No entry in `neoforge.mods.toml`.** NeoForge checks no version of either claim mod. A check that throws refuses, so an
-   untested version cannot open claims to strangers. `docs/modpack-integration.md` lists the tested versions.
+   mixin into FTB Chunks or a copy of its rules, breaks when FTB Chunks changes. Kept by the coordinator, as it is.
+4. **Optional entries with any version.** `neoforge.mods.toml` declares `ftbchunks` and `openpartiesandclaims` as optional
+   dependencies with `versionRange="*"`, as it declares Cobbleworkers and Cobblebase (Task 3, CD-QWK-34). NeoForge
+   checks no version of either claim mod. A check that throws refuses, so an untested version cannot open claims to
+   strangers, and `docs/modpack-integration.md` lists the tested versions. The coordinator changed this call: the plan
+   first declared no entry.
 5. **The canonical block.** The checks ask about the canonical block, as `mayInteract` does. A large water wheel across a
    chunk border counts as the chunk of its canonical block.
 6. **Test owners of the exact class `ServerPlayer`.** FTB Chunks treats every subclass as a fake player. The tests of the
    claim runs use such owners, so they test the path of a real player.
-7. **Two GameTest runs in CI.** One run per claim mod, each on the core mod set, so a fault of one mod cannot hide a result of
-   the other one. The core run took 28 s of server time on 2026-11-10, so the two runs add a few minutes to each CI run.
+7. **Two GameTest runs outside CI.** One run per claim mod, each on the core mod set, so a fault of one mod cannot hide a
+   result of the other one. CI does not run them. They run in the pull request of this plan, in each later pull request
+   that touches the claims code, and at each phase gate, whose report lists them (Task 4 Step 4). The coordinator changed
+   this call: the plan first ran them in CI, which would add a few minutes to each CI run.
 8. **A test claim provider in the full run.** It tests the engine path, the second check and a check that throws, with no
-   claim mod.
+   claim mod. CI runs it with the full run.
 9. **When the lines log.** The mixin line logs when mod loading completes, the payload line when the payloads register, and
-   the role line on each role file load and on each config change that changes it.
+   the role line on each role file load and on each config change that changes it. The coordinator kept the line formats
+   of Task 5 as written.
+
+The coordinator also ruled on three points outside this list:
+
+- **Fail closed.** When a claim mod changes its API, every Quick Work order on the server is refused, with one warning per
+  cause. `docs/modpack-integration.md` explains the warning to a pack maintainer.
+- **The rules of each claim mod.** Each claim mod applies its own rules, so allies of an FTB Chunks team can Quick Work in
+  its claims by default, and allies of an Open Parties and Claims party cannot. The player guide and the integration page
+  say so.
+- **Pasture work areas.** They are not a non-goal of the spec sheet. The Phase 2 gate report lists them as a known issue,
+  and the spec sheet's open question Q9 holds them as an open decision for Phase 3, because the approver has not ruled on
+  this part of the scope of 1.0.

@@ -127,12 +127,13 @@ These items stay open at the gate. Each item names its source.
   COHO can then set `quickWork.enabled = true`. Source:
   [Amendment 1 of ADR-0013](../adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11) and input
   R64 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md).
-- **Pasture work areas and land claims.** The workers of a Work Mode pasture do not ask claim mods. The work area of a
-  pasture can reach into the land claim of another player, and its workers then work the machines there, as in Phase 1.
-  The Work Leash obeys a cancelled click (CD-SEC-11), so a binding still needs the binder's own click on the block. By the
-  coordinator's ruling of 2026-11-11, under the approver's delegation, the work areas of pastures stay out of the scope of
-  the land claim work. The spec sheet lists them among its non-goals. Source: ruling 6 of input R64 of the
-  [spec sheet](../plans/2026-11-09-v1-spec-sheet.md).
+- **Pasture work areas and land claims (open decision for Phase 3).** The workers of a Work Mode pasture do not ask claim
+  mods. The work area of a pasture can reach into the land claim of another player, and its workers then work the
+  machines there, as in Phase 1. The Work Leash obeys a cancelled click (CD-SEC-11), so a binding still needs the
+  binder's own click on the block. By the coordinator's ruling of 2026-11-11, under the approver's delegation, the work
+  areas of pastures stay out of the scope of the land claim work. The approver has not ruled on this part of the scope of
+  1.0, so it stays an open decision for Phase 3, and no spec row changes. Source: ruling 6 of input R64 and open question
+  Q9 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md).
 - **CD-QWK-21 has no GameTest.** Cobblemon 1.8.4 clears a battle id that names no live battle on the entity's next tick,
   and a test battle against a fake owner ends in one tick. By the coordinator's ruling of 2026-11-11, under the approver's
   delegation, the unit tests of the trace range rule and the end rule in `QuickWorkRulesTest` check the row. Check 59 of

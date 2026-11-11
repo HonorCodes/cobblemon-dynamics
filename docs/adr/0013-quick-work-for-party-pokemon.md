@@ -338,7 +338,9 @@ Modrinth artifact. FTB Chunks and FTB Teams are not on Modrinth.
    Parties and Claims in `compat/opac/`. Only `FtbChunksCompat.register()` and `OpacCompat.register()` load them, behind
    `ModList.get().isLoaded("ftbchunks")` and `ModList.get().isLoaded("openpartiesandclaims")`, as for Create. Each
    `register` adds a check to `LandClaims`, which names no class of either mod. The build compiles against both APIs as
-   compile-only dependencies, and `neoforge.mods.toml` names neither mod.
+   compile-only dependencies. `neoforge.mods.toml` declares `ftbchunks` and `openpartiesandclaims` as optional
+   dependencies with `versionRange="*"`, as it declares Cobbleworkers and Cobblebase, so NeoForge checks no version of
+   them (CD-QWK-34). These are the mod ids of the two jars.
 2. **The question.** Each check asks whether the owner may right-click the canonical block of the target with an empty main
    hand. The Pokémon works the block, so the item in the owner's hand plays no part. The owner is the `ServerPlayer` that
    `PlayerList.getPlayer` returns for the owner's UUID, never a fake player.
@@ -359,11 +361,14 @@ Modrinth artifact. FTB Chunks and FTB Teams are not on Modrinth.
 7. **No switch.** No config key turns the checks off (CD-QWK-35). `quickWork.enabled` stays the switch for all of Quick
    Work.
 8. **Pastures do not change.** The work area of a Work Mode pasture can still reach into the land claim of another player,
-   as in Phase 1. The Phase 2 gate report lists this as a known issue, and the spec sheet lists it as a non-goal.
+   as in Phase 1. The Phase 2 gate report lists this as a known issue. The approver has not ruled on this part of the
+   scope of 1.0, so it is an open decision for Phase 3 (open question Q9 of the spec sheet).
 9. **Tests.** A test claim provider of the full test mod tests the engine path. Two new GameTest runs,
    `runGameTestServerFtbChunks` and `runGameTestServerOpac`, each load the mod set of the core run and one claim mod. The
-   test owners of those runs are of the exact class `ServerPlayer`. The test pack starts a dedicated server with each claim
-   mod and checks that the compat classes of the other one never load.
+   test owners of those runs are of the exact class `ServerPlayer`. The two runs do not run in CI. They run in the pull
+   request of the build, in each later pull request that touches the claims code, and at each phase gate, and the gate
+   report lists them. The full run, which CI runs, keeps the test claim provider. The test pack starts a dedicated server
+   with each claim mod and checks that the compat classes of the other one never load.
 10. **Load lines (R65).** At load, the mod logs one INFO line for its mixins, one for its payloads and one for its roles
     (CD-CMP-08 to CD-CMP-10).
 
@@ -375,8 +380,11 @@ Modrinth artifact. FTB Chunks and FTB Teams are not on Modrinth.
   use {target}". The notifier of FTB Chunks then waits 2 s before it shows its own text again for that player's clicks.
 - Each order costs one more lookup every 20 ticks. With no order, Quick Work still costs one check per level tick
   (CD-QWK-24).
-- An update of a claim mod that changes its API refuses every Quick Work order on that server, with one warning per cause,
-  until a release of Dynamics follows the change. The tested versions are those of RES6.
+- An update of a claim mod that changes its API refuses every Quick Work order on that server, also outside claims, with
+  one warning per cause, until a release of Dynamics follows the change. The warning names the claim mod and the error.
+  The tested versions are those of RES6.
+- CI does not test the real claim mods. A pull request that touches the claims code runs the two claim runs before it
+  merges.
 - The jars of FTB are "All Rights Reserved". The build uses them only as compile-only dependencies and in test runs, and no
   jar or artifact of Dynamics holds them.
 - The pasture issue of Decision 8 of the amendment stays open.
@@ -394,5 +402,7 @@ Modrinth artifact. FTB Chunks and FTB Teams are not on Modrinth.
 - **A mixin into `PlayerNotifier`.** It would silence FTB Chunks, but a mixin into the internals of another mod breaks when
   that mod changes.
 - **Version ranges in `neoforge.mods.toml`.** A floor at the tested version stops a pack with an older version from loading,
-  and a ceiling stops a newer one. The checks fail closed instead.
+  and a ceiling stops a newer one. The entries use `*`, and the checks fail closed instead.
+- **The claim runs in CI.** They would catch a change to the claims code on each push, but each push would pay for two more
+  GameTest runs. The coordinator ruled them out of CI on 2026-11-11.
 - **A config switch for the checks.** Ruling 5 of R64 rules it out.
