@@ -36,7 +36,7 @@ class ManualChecklistTest {
         const val ACCEPTANCE_TEST = 5
 
         /** The spec sheet's Phase 2 areas. Every other row belongs to Phase 1. */
-        val PHASE_2_AREAS = setOf("TLK", "MAG", "FAN", "TLW", "ART")
+        val PHASE_2_AREAS = setOf("TLK", "MAG", "FAN", "TLW", "QWK", "ART")
         val ROW_ID = Regex("""\bCD-[A-Z]+-\d{2}\b""")
     }
 }

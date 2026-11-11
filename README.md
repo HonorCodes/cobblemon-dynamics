@@ -35,8 +35,11 @@ Rules that always apply:
 
 - **One worker per block.** Only one Pokémon can work a given block, across all
   pastures.
-- **Only pastured Pokémon work.** A Pokémon works only while it is in a pasture with
-  Work Mode on. Wild Pokémon never work.
+- **Only pastured Pokémon work, with one exception.** A Pokémon works only while it is in
+  a pasture with Work Mode on. The exception is Quick Work: a party Pokémon that you send
+  out with R while you look at a machine works that machine. The
+  [player guide](docs/player-guide.md#quick-work) explains when it stops. Wild Pokémon
+  never work.
 - **The pasture owner controls Work Mode.** Only the player who placed the pasture, or
   an operator, can turn Work Mode on or off.
 
@@ -193,7 +196,7 @@ The spec sheet area CMP holds the exact compatibility rules.
 
 | Document | Contents |
 | --- | --- |
-| [docs/player-guide.md](docs/player-guide.md) | How to play: Work Mode, the Work Leash, Work Stamina, beds, healers, every role, config and commands |
+| [docs/player-guide.md](docs/player-guide.md) | How to play: Work Mode, the Work Leash, Quick Work, Work Stamina, beds, healers, every role, config and commands |
 | [docs/testing/manual-checklist.md](docs/testing/manual-checklist.md) | The manual play-test checklist for the Demo rows |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Components, data flow, integration points, art and milestones |
 | [docs/roles.md](docs/roles.md) | Role catalog for all 18 types: Phase 1, Phase 2 and later ideas |
