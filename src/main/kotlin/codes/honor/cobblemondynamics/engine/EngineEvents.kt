@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.ai.BrainBridge
+import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.net.PanelViewers
 import codes.honor.cobblemondynamics.pasture.WorkModeService
 import codes.honor.cobblemondynamics.role.RoleRegistry
@@ -34,11 +35,14 @@ object EngineEvents {
             WorkEngine.stop()
             WorkModeService.reset()
             PanelViewers.reset()
+            DynamicsPayloads.reset()
             RoleRegistry.reset()
             EngineTiming.stopRecording()
         }
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { event ->
-            (event.entity as? ServerPlayer)?.let(PanelViewers::forget)
+            val player = event.entity as? ServerPlayer ?: return@addListener
+            PanelViewers.forget(player)
+            DynamicsPayloads.forget(player.uuid)
         }
         NeoForge.EVENT_BUS.addListener<LevelTickEvent.Post> { event ->
             val level = event.level as? ServerLevel ?: return@addListener

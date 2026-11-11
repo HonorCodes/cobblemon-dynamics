@@ -29,6 +29,17 @@ class LeashIndexTest {
     }
 
     @Test
+    fun `CD-UI-09 the entries of one owner are only that owner's`() {
+        val index = LeashIndex(HashMap())
+        val other = UUID.randomUUID()
+        val own = LeashIndex.Ref(UUID.randomUUID(), owner, pasture, stoker)
+        index.put(BlockPos(1, 64, 1), own)
+        index.put(BlockPos(2, 64, 2), LeashIndex.Ref(UUID.randomUUID(), other, pasture, stoker))
+        assertEquals(mapOf(BlockPos(1, 64, 1) to own), index.allOwnedBy(owner))
+        assertEquals(emptyMap<BlockPos, LeashIndex.Ref>(), index.allOwnedBy(UUID.randomUUID()))
+    }
+
+    @Test
     fun `CD-CLM-06 reservations survive the codec that saves them with the level`() {
         val index = LeashIndex(HashMap())
         index.put(BlockPos(1, 64, 1), LeashIndex.Ref(UUID.randomUUID(), owner, pasture, stoker))

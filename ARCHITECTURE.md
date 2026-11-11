@@ -360,8 +360,20 @@ ownership and rate.
 | `cobblemon_dynamics:pasture_panel_open` | client to server | none | The pasture panel opens. |
 | `cobblemon_dynamics:pasture_panel_close` | client to server | none | The pasture panel closes. |
 | `cobblemon_dynamics:pasture_panel_state` | server to client | `workMode`, `canToggle`, entries of (`pokemonId`, `percent`, `state`) | On open, after a toggle, and every 20 ticks while the panel is open. |
-| `cobblemon_dynamics:leash_overview_request` | client to server | none | The player selects the Work Leash. |
+| `cobblemon_dynamics:leash_overview_request` | client to server | none | The player takes the Work Leash in the main hand, and every 20 ticks while it stays there. |
 | `cobblemon_dynamics:leash_overview` | server to client | entries of (`entityId`, `targetPos`) | Reply to the request. The client outlines these targets. |
+
+The rate limits are per player and in server memory. The server forgets a player's times at logout, and all of
+them when it stops:
+
+- A Work Mode request within `engine.toggleCooldownTicks` (10) of the player's last accepted request changes
+  nothing (CD-SEC-03). A request that changes nothing, refused or ignored, gets the pasture's state back at most
+  once per that cooldown.
+- A `leash_overview_request` within 10 ticks of the player's last answered one gets no reply. The client asks
+  again 20 ticks later while it holds the leash. The reply reads only the player's own entries of the leash
+  binding index.
+- A `pasture_panel_open` within 10 ticks of the player's last one makes the player a viewer, but the pasture's
+  state follows with the first 20-tick refresh instead of at once.
 
 Built-in sync, with no payload of ours:
 

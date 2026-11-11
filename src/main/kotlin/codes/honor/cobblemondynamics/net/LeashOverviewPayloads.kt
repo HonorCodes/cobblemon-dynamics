@@ -45,9 +45,9 @@ data class LeashOverviewPayload(val entries: List<Pair<Int, BlockPos>>) : Custom
         /** The reply to [player]'s request. A worker in a pasture with Work Mode off has no engine slot, so its pasture finds it. */
         fun of(player: ServerPlayer): LeashOverviewPayload {
             val level = player.serverLevel()
-            val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.all().orEmpty()
+            val owned = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.allOwnedBy(player.uuid).orEmpty()
             val engine = WorkEngine.get()
-            val entries = index.filter { it.value.owner == player.uuid }.map { (target, ref) ->
+            val entries = owned.map { (target, ref) ->
                 val entity = engine?.entityOf(ref.pokemonId) ?: pasturedEntity(level, ref)
                 (entity?.id ?: -1) to target
             }
