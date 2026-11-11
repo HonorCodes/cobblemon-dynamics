@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.engine
 import codes.honor.cobblemondynamics.handler.BindingShape
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleSelection
+import java.util.UUID
 
 /** The pure rules of a Quick Work order (ADR-0013). The engine reads every input from server state. */
 object QuickWorkRules {
@@ -48,6 +49,20 @@ object QuickWorkRules {
         val standbyLimit: Int,
     )
 
+    /** CD-QWK-01: an aim this old can no longer start an order. Game time is the overworld's in every level. */
+    fun isExpired(aimTick: Long, now: Long): Boolean = now - aimTick > AIM_TICKS
+
+    /**
+     * CD-QWK-25: drops every aim of [aims] that can no longer start an order, such as the aim of a send-out that a later subscriber
+     * cancelled, so that no aim waits for its owner's logout.
+     */
+    fun dropExpired(aims: MutableMap<UUID, QuickAim>, now: Long) {
+        aims.values.removeIf { isExpired(it.tick, now) }
+    }
+
+    /** CD-QWK-13: past the leash, from the owner's eye position to the box of the aimed block. The start and the end of an order ask it. */
+    fun beyondLeash(ownerDistanceSqr: Double, leashRange: Int): Boolean = ownerDistanceSqr > leashRange.toDouble() * leashRange
+
     /** CD-CFG-16, CD-CFG-18, CD-QWK-21: how far the trace of a send-out reaches, or null for no trace. */
     fun traceRange(enabled: Boolean, ownerBattling: Boolean, targetRange: Int, leashRange: Int): Int? =
         if (enabled && !ownerBattling) minOf(targetRange, leashRange) else null
@@ -81,7 +96,7 @@ object QuickWorkRules {
         w.entityGone -> QuickEnd.RECALLED
         w.battling -> QuickEnd.BATTLE
         !w.ownerPresent -> QuickEnd.OWNER_LEFT
-        w.ownerDistanceSqr > w.leashRange.toDouble() * w.leashRange -> QuickEnd.TOO_FAR
+        beyondLeash(w.ownerDistanceSqr, w.leashRange) -> QuickEnd.TOO_FAR
         !w.holdsClaim -> QuickEnd.TARGET
         w.status == WorkerStatus.STANDBY && w.ticksInStatus >= w.standbyLimit -> QuickEnd.NO_DEMAND
         else -> null

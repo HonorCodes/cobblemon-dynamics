@@ -114,6 +114,9 @@ object QuickWorkRules {
     sealed interface Pick          // Pick.Order(role), Pick.NeedsLeash or Pick.None
     data class Watch(/* what one tick of an order sees */)
 
+    fun isExpired(aimTick: Long, now: Long): Boolean
+    fun dropExpired(aims: MutableMap<UUID, QuickAim>, now: Long)
+    fun beyondLeash(ownerDistanceSqr: Double, leashRange: Int): Boolean
     fun traceRange(enabled: Boolean, ownerBattling: Boolean, targetRange: Int, leashRange: Int): Int?
     fun mayOrder(role: RoleDefinition, scanned: Boolean, shape: BindingShape): Boolean
     fun pick(fitting: List<RoleDefinition>, types: List<String>, hasFairyType: Boolean, orderable: (RoleDefinition) -> Boolean): Pick
@@ -344,6 +347,20 @@ object QuickWorkRules {
         val standbyLimit: Int,
     )
 
+    /** CD-QWK-01: an aim this old can no longer start an order. Game time is the overworld's in every level. */
+    fun isExpired(aimTick: Long, now: Long): Boolean = now - aimTick > AIM_TICKS
+
+    /**
+     * CD-QWK-25: drops every aim of [aims] that can no longer start an order, such as the aim of a send-out that a later subscriber
+     * cancelled, so that no aim waits for its owner's logout.
+     */
+    fun dropExpired(aims: MutableMap<UUID, QuickAim>, now: Long) {
+        aims.values.removeIf { isExpired(it.tick, now) }
+    }
+
+    /** CD-QWK-13: past the leash, from the owner's eye position to the box of the aimed block. The start and the end of an order ask it. */
+    fun beyondLeash(ownerDistanceSqr: Double, leashRange: Int): Boolean = ownerDistanceSqr > leashRange.toDouble() * leashRange
+
     /** CD-CFG-16, CD-CFG-18, CD-QWK-21: how far the trace of a send-out reaches, or null for no trace. */
     fun traceRange(enabled: Boolean, ownerBattling: Boolean, targetRange: Int, leashRange: Int): Int? =
         if (enabled && !ownerBattling) minOf(targetRange, leashRange) else null
@@ -377,7 +394,7 @@ object QuickWorkRules {
         w.entityGone -> QuickEnd.RECALLED
         w.battling -> QuickEnd.BATTLE
         !w.ownerPresent -> QuickEnd.OWNER_LEFT
-        w.ownerDistanceSqr > w.leashRange.toDouble() * w.leashRange -> QuickEnd.TOO_FAR
+        beyondLeash(w.ownerDistanceSqr, w.leashRange) -> QuickEnd.TOO_FAR
         !w.holdsClaim -> QuickEnd.TARGET
         w.status == WorkerStatus.STANDBY && w.ticksInStatus >= w.standbyLimit -> QuickEnd.NO_DEMAND
         else -> null
@@ -573,7 +590,12 @@ fun isQuickWorker(pokemonId: UUID): Boolean = pokemonId in orders
 fun aimOf(pokemonId: UUID): QuickAim? = aims[pokemonId]
 
 fun keepAim(pokemonId: UUID, aim: QuickAim?) {
-    if (aim == null) aims.remove(pokemonId) else aims[pokemonId] = aim
+    if (aim == null) {
+        aims.remove(pokemonId)
+        return
+    }
+    QuickWorkRules.dropExpired(aims, aim.tick)
+    aims[pokemonId] = aim
 }
 
 fun forgetAims(owner: UUID) {
@@ -634,13 +656,14 @@ fun tickLevel(level: ServerLevel) {
 fun onSentOut(level: ServerLevel, pokemon: Pokemon, entity: PokemonEntity) {
     val aim = aims.remove(pokemon.uuid) ?: return
     val t = tick(level)
-    if (!t.settings.quickWorkEnabled || t.now - aim.tick > QuickWorkRules.AIM_TICKS || aim.dimension != t.dimension) return
+    if (!t.settings.quickWorkEnabled || QuickWorkRules.isExpired(aim.tick, t.now) || aim.dimension != t.dimension) return
     if (entity.isRemoved || entity.isBattling || pokemon.uuid in slots || !BrainBridge.canHoldOrder(entity)) return
     // CD-QWK-25: only the party Pokémon of the player who aimed, as at the key press.
     val store = pokemon.storeCoordinates.get()?.store as? PlayerPartyStore
     if (pokemon.isFainted() || pokemon.isBattleClone() || store?.playerUUID != aim.owner) return
     val owner = server.playerList.getPlayer(aim.owner)?.takeIf { it.level() === level } ?: return
-    if (!level.isLoaded(aim.pos)) return
+    // CD-QWK-21: an owner who entered a battle while the Pokémon came out gets no order.
+    if (BattleRegistry.getBattleByParticipatingPlayer(owner) != null || !level.isLoaded(aim.pos)) return
     val types = typesOf(pokemon)
     val state = level.getBlockState(aim.pos)
     val blockEntity = level.getBlockEntity(aim.pos)
@@ -670,6 +693,10 @@ private fun start(
     role: ActiveRole,
     name: Component,
 ) {
+    // CD-QWK-13: an owner who walked past the leash while the Pokémon came out gets the leash's message, and no order starts.
+    if (QuickWorkRules.beyondLeash(AABB(aim.pos).distanceToSqr(owner.eyePosition), t.settings.quickWorkLeashRange)) {
+        return tell(aim.owner, QuickEnd.TOO_FAR.messageKey, pokemon, name)
+    }
     val canonical = guarded(role.handler, aim.pos) { role.handler.canonical(t.level, aim.pos) }
     if (!guarded(role.handler, false) { role.handler.stillValid(t.level, canonical) }) return
     // CD-STA-11: a party Pokémon recovers for its time away when it loads.
@@ -707,6 +734,12 @@ private fun tell(owner: UUID, key: String, pokemon: Pokemon, target: Component) 
   - `start` gives every claim result other than `GRANTED` and `REFUSED` the "cannot reach" message, because an order never
     tries again. So a result that `claim` gains later, such as the one for a navigation that cannot plan, needs no change
     in `start`.
+  - The review of 2026-11-11 added three checks. An owner who entered a battle while the Pokémon came out gets no order
+    (CD-QWK-21). An owner who walked past the leash in that time gets the leash's message and no order (CD-QWK-13). A new aim
+    drops every aim that can no longer start an order, and a send-out that is cancelled when its event reaches Quick Work
+    leaves no aim (CD-QWK-25). Cobblemon's `CancelableObservable.emit` stops at the first subscriber after which the event is
+    cancelled (`api/reactive/EventObservables.kt`), so a later subscriber at `LOWEST` can still cancel a send-out after its
+    aim exists.
   - `WorkEngine`, one tick and the end of an order:
 
 ```kotlin
@@ -994,9 +1027,11 @@ class QuickWorkTests {
 /** The Cobblemon and NeoForge events of Quick Work (ADR-0013). Server thread only. */
 object QuickWork {
     fun register() {
-        // LOWEST runs after the other subscribers, so an aim stays only for a send-out that none of them cancelled.
+        // Cobblemon stops the emission at the subscriber that cancels a send-out, and LOWEST runs after the other priorities. A
+        // send-out that is cancelled when it reaches this subscriber leaves no aim. One that a later LOWEST subscriber cancels leaves
+        // an aim that the next aim drops when it is too old to start an order (CD-QWK-25).
         CobblemonEvents.POKEMON_SENT_PRE.subscribe(Priority.LOWEST) { event ->
-            EngineTiming.time { WorkEngine.get()?.keepAim(event.pokemon.uuid, aimOf(event)) }
+            EngineTiming.time { WorkEngine.get()?.keepAim(event.pokemon.uuid, if (event.isCanceled) null else aimOf(event)) }
         }
         CobblemonEvents.POKEMON_SENT_POST.subscribe(Priority.NORMAL) { event ->
             EngineTiming.time { WorkEngine.get()?.onSentOut(event.level, event.pokemon, event.pokemonEntity) }

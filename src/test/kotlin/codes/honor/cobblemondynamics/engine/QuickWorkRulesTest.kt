@@ -3,10 +3,14 @@ package codes.honor.cobblemondynamics.engine
 import codes.honor.cobblemondynamics.handler.BindingShape
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import codes.honor.cobblemondynamics.role.RoleDefinition
+import net.minecraft.core.BlockPos
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.UUID
 
 class QuickWorkRulesTest {
     private val stoker = BuiltInRoles.parse("stoker")
@@ -111,6 +115,25 @@ class QuickWorkRulesTest {
         assertEquals(QuickEnd.NO_DEMAND, QuickWorkRules.endReason(standby.copy(ticksInStatus = 200)))
         assertNull(QuickWorkRules.endReason(calm.copy(ticksInStatus = 5_000)))
     }
+
+    @Test
+    fun `CD-QWK-13 the start and the end of an order measure the leash alike`() {
+        assertFalse(QuickWorkRules.beyondLeash(ownerDistanceSqr = 256.0, leashRange = 16))
+        assertTrue(QuickWorkRules.beyondLeash(ownerDistanceSqr = 256.01, leashRange = 16))
+    }
+
+    @Test
+    fun `CD-QWK-25 an aim starts an order for AIM_TICKS, and a new aim drops every older one`() {
+        assertFalse(QuickWorkRules.isExpired(aimTick = 1_000, now = 1_100))
+        assertTrue(QuickWorkRules.isExpired(aimTick = 1_000, now = 1_101))
+        val stale = UUID.randomUUID()
+        val fresh = UUID.randomUUID()
+        val aims = hashMapOf(stale to aim(tick = 1_000), fresh to aim(tick = 1_050))
+        QuickWorkRules.dropExpired(aims, now = 1_101)
+        assertEquals(setOf(fresh), aims.keys)
+    }
+
+    private fun aim(tick: Long) = QuickAim(UUID.randomUUID(), ResourceLocation.withDefaultNamespace("overworld"), BlockPos(0, 64, 0), tick)
 
     @Test
     fun `CD-UI-12 each end has its own message key, and a timeout reuses the leash's`() {

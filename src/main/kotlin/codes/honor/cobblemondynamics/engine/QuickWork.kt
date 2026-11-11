@@ -16,9 +16,11 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent
 /** The Cobblemon and NeoForge events of Quick Work (ADR-0013). Server thread only. */
 object QuickWork {
     fun register() {
-        // LOWEST runs after the other subscribers, so an aim stays only for a send-out that none of them cancelled.
+        // Cobblemon stops the emission at the subscriber that cancels a send-out, and LOWEST runs after the other priorities. A
+        // send-out that is cancelled when it reaches this subscriber leaves no aim. One that a later LOWEST subscriber cancels leaves
+        // an aim that the next aim drops when it is too old to start an order (CD-QWK-25).
         CobblemonEvents.POKEMON_SENT_PRE.subscribe(Priority.LOWEST) { event ->
-            EngineTiming.time { WorkEngine.get()?.keepAim(event.pokemon.uuid, aimOf(event)) }
+            EngineTiming.time { WorkEngine.get()?.keepAim(event.pokemon.uuid, if (event.isCanceled) null else aimOf(event)) }
         }
         CobblemonEvents.POKEMON_SENT_POST.subscribe(Priority.NORMAL) { event ->
             EngineTiming.time { WorkEngine.get()?.onSentOut(event.level, event.pokemon, event.pokemonEntity) }

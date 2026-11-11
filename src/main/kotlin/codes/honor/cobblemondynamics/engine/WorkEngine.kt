@@ -41,6 +41,7 @@ import codes.honor.cobblemondynamics.stamina.StaminaView
 import codes.honor.cobblemondynamics.stamina.ViewSync
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore
 import com.cobblemon.mod.common.api.types.ElementalTypes
+import com.cobblemon.mod.common.battles.BattleRegistry
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
@@ -107,9 +108,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     fun aimOf(pokemonId: UUID): QuickAim? = aims[pokemonId]
 
-    /** CD-QWK-01: a send-out replaces the Pokémon's aim, and one with no block in view ([aim] null) leaves none. */
+    /**
+     * CD-QWK-01: a send-out replaces the Pokémon's aim, and one with no block in view ([aim] null) leaves none. A new aim drops every
+     * aim that can no longer start an order (CD-QWK-25).
+     */
     fun keepAim(pokemonId: UUID, aim: QuickAim?) {
-        if (aim == null) aims.remove(pokemonId) else aims[pokemonId] = aim
+        if (aim == null) {
+            aims.remove(pokemonId)
+            return
+        }
+        QuickWorkRules.dropExpired(aims, aim.tick)
+        aims[pokemonId] = aim
     }
 
     /** CD-QWK-25: a player who logs out leaves no aim. Its orders end on the next tick (CD-QWK-20). */
@@ -199,13 +208,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     fun onSentOut(level: ServerLevel, pokemon: Pokemon, entity: PokemonEntity) {
         val aim = aims.remove(pokemon.uuid) ?: return
         val t = tick(level)
-        if (!t.settings.quickWorkEnabled || t.now - aim.tick > QuickWorkRules.AIM_TICKS || aim.dimension != t.dimension) return
+        if (!t.settings.quickWorkEnabled || QuickWorkRules.isExpired(aim.tick, t.now) || aim.dimension != t.dimension) return
         if (entity.isRemoved || entity.isBattling || pokemon.uuid in slots || !BrainBridge.canHoldOrder(entity)) return
         // CD-QWK-25: only the party Pokémon of the player who aimed, as at the key press.
         val store = pokemon.storeCoordinates.get()?.store as? PlayerPartyStore
         if (pokemon.isFainted() || pokemon.isBattleClone() || store?.playerUUID != aim.owner) return
         val owner = server.playerList.getPlayer(aim.owner)?.takeIf { it.level() === level } ?: return
-        if (!level.isLoaded(aim.pos)) return
+        // CD-QWK-21: an owner who entered a battle while the Pokémon came out gets no order.
+        if (BattleRegistry.getBattleByParticipatingPlayer(owner) != null || !level.isLoaded(aim.pos)) return
         val types = typesOf(pokemon)
         val state = level.getBlockState(aim.pos)
         val blockEntity = level.getBlockEntity(aim.pos)
@@ -883,6 +893,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         role: ActiveRole,
         name: Component,
     ) {
+        // CD-QWK-13: an owner who walked past the leash while the Pokémon came out gets the leash's message, and no order starts.
+        if (QuickWorkRules.beyondLeash(AABB(aim.pos).distanceToSqr(owner.eyePosition), t.settings.quickWorkLeashRange)) {
+            return tell(aim.owner, QuickEnd.TOO_FAR.messageKey, pokemon, name)
+        }
         val canonical = guarded(role.handler, aim.pos) { role.handler.canonical(t.level, aim.pos) }
         if (!guarded(role.handler, false) { role.handler.stillValid(t.level, canonical) }) return
         // CD-STA-11: a party Pokémon recovers for its time away when it loads.

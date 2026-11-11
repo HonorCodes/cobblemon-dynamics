@@ -149,7 +149,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Work focus entity | Entity type `cobblemon_dynamics:work_focus`, one per Working claim on a block target, at the target's center. It is invisible and has no collision. | Never saved to disk. | Vanilla entity tracking. |
 | Brain work order | Memory `cobblemon_dynamics:work_order` in the Pokémon's Brain. | Not saved. The engine rewrites it every tick, because Cobblemon rebuilds the Brain when it swaps the Pokémon instance. | No |
 | Quick Work order | `QuickRuntime` in the work engine, keyed by the Pokémon's UUID: the owner's UUID, the aimed block, the target's name, one worker slot and a work area around the target. | Not saved. The order ends for good, and its end leaves no slot, claim or order. A server stop drops it. | Through the stamina view of its worker. |
-| Quick Work aim | `QuickAim` in the work engine, keyed by the Pokémon's UUID: the owner's UUID, the dimension, the aimed block and the tick of the key press. It lives from the key press to the end of the send-out. | Not saved. A recall, the owner's logout and a server stop drop it. | No |
+| Quick Work aim | `QuickAim` in the work engine, keyed by the Pokémon's UUID: the owner's UUID, the dimension, the aimed block and the tick of the key press. It lives from the key press to the end of the send-out. | Not saved. A recall, the owner's logout and a server stop drop it. A cancelled send-out leaves none, and each new aim drops the aims that are too old to start an order. | No |
 
 Work Stamina rules, from [ADR-0008](docs/adr/0008-work-stamina-model.md):
 
