@@ -108,7 +108,8 @@ Tired icon, so seven icons cover the eight states.
 A Working worker faces its target and plays its role's move. The move's animation plays to its end, and the
 worker then stands idle for 2 seconds before it plays the move again. A worker whose model has no animation
 for the move shows the move's particles every 2 seconds. The move's particles fly to the center of the
-target. Players within 64 blocks of the worker see the effects. Work effects play no sound.
+target. A player sees the effects while the player is within 64 blocks of the worker and the player's game shows
+the worker. Work effects play no sound.
 
 ## Work Leash
 
