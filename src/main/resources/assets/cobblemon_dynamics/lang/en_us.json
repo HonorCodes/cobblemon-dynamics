@@ -4,6 +4,7 @@
   "block.cobblemon_dynamics.wool_bed": "Wool Bed",
   "block.cobblemon_dynamics.plush_bed": "Plush Bed",
   "block.cobblemon_dynamics.starlit_bed": "Starlit Bed",
+  "block.cobblemon_dynamics.charge_cell": "Charge Cell",
   "entity.cobblemon_dynamics.work_focus": "Work Focus",
   "cobblemon_dynamics.leash.outside_area": "Outside its pasture's work area",
   "cobblemon_dynamics.leash.no_role": "No role fits",
@@ -46,5 +47,6 @@
   "cobblemon_dynamics.ui.work_mode.on": "Work Mode: On",
   "cobblemon_dynamics.ui.work_mode.off": "Work Mode: Off",
   "cobblemon_dynamics.ui.work_mode.locked": "Only the pasture's owner can change Work Mode",
-  "cobblemon_dynamics.ui.stamina": "%s%% Work Stamina"
+  "cobblemon_dynamics.ui.stamina": "%s%% Work Stamina",
+  "cobblemon_dynamics.charge_cell.energy": "%s / %s FE"
 }

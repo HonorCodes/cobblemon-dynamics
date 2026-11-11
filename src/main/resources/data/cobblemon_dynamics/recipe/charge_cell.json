@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "CRC",
+    "CTC",
+    "CRC"
+  ],
+  "key": {
+    "C": { "item": "minecraft:copper_ingot" },
+    "R": { "item": "minecraft:redstone" },
+    "T": { "item": "cobblemon:thunder_stone" }
+  },
+  "result": { "id": "cobblemon_dynamics:charge_cell", "count": 1 }
+}
