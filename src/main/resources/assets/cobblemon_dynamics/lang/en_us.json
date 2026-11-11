@@ -20,6 +20,8 @@
   "cobblemon_dynamics.leash.cannot_reach": "%s cannot reach %s",
   "cobblemon_dynamics.leash.selected": "Selected %s",
   "cobblemon_dynamics.leash.cleared": "Cleared the binding of %s",
+  "cobblemon_dynamics.fan.mode.blasting": "Fan mode: Blasting",
+  "cobblemon_dynamics.fan.mode.smoking": "Fan mode: Smoking",
   "cobblemon_dynamics.binding.lost": "%s lost its work binding: %s",
   "cobblemon_dynamics.binding.reason.target_gone": "its target was broken or replaced",
   "cobblemon_dynamics.binding.reason.destination_gone": "its destination was broken or replaced",

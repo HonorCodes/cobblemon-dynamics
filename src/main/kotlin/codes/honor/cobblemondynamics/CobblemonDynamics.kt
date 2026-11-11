@@ -82,7 +82,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(TelekinesisHandler)
         HandlerRegistry.register(MagnetHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
-        if (ModList.get().isLoaded("create")) CreateCompat.register()
+        if (ModList.get().isLoaded("create")) CreateCompat.register(modBus)
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }

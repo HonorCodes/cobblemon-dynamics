@@ -77,8 +77,7 @@ src/main/java/codes/honor/cobblemondynamics/
 src/main/java/codes/honor/cobblemondynamics/mixin/
   MixinPlugin.java       skips each mixin whose target mod is absent, records each injection
   create/                WaterWheelBlockEntityMixin, BlazeBurnerBlockEntityMixin,
-                         ItemUseOverridesMixin, EncasedFanBlockEntityMixin,
-                         NozzleBlockEntityMixin, WindmillBearingBlockEntityMixin
+                         ItemUseOverridesMixin, AirCurrentMixin, WindmillBearingBlockEntityMixin
   vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
                          other code load), WorkerPushMixin (no push between two directed workers)
   cobblemon/client/      PastureWidgetMixin (stamina bars), PasturePokemonScrollListMixin (list height)
@@ -137,7 +136,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Leash selection and pending source | Data components on the Work Leash stack: `cobblemon_dynamics:leash_selection` (the selected Pokémon's UUID and name) and `cobblemon_dynamics:pending_source` (for Telekinesis, the source's dimension and position, its clicked face and the click tick). The server binds only from its own copy of the stack. A pending source counts only in the level of its click, because in another level its position names a block that the player never clicked. | Saved with the stack. The pending source expires after 600 ticks (30 s), on a right-click on air, or on the first tick or click in another level. | Yes, as item data |
 | Worker runtime state | `WorkerState` in the work engine, keyed by Pokémon UUID: state, Tired flag, claim, work spot, timers, per-target skip list. | Not saved. | Through the stamina view below. |
 | Work Stamina | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `stamina`: `percent` (0.0 to 1.0), `tired` (boolean), `last_game_time` (long, overworld game time). | Saved with the Pokémon. The engine flushes it on each state change, every 600 ticks, on entity unload and on server stop. | Entity attachment `cobblemon_dynamics:stamina_view` (`percent` as 0 to 100, `state` as an enum ordinal), synced with NeoForge attachment sync. |
-| Fan worker mark | Entity attachment `cobblemon_dynamics:fan_worker`: the position of the fan that this Pokémon serves as a working catalyst, or none. | Not saved. The engine sets it while the Fan Catalyst works. | NeoForge attachment sync, so the client exempts the worker from the fan push. |
+| Fan worker mark | Entity attachment `cobblemon_dynamics:fan_worker`: the position of the fan that this Pokémon holds a work claim on, or none. | Not saved. The Fan Catalyst handler sets it when its worker claims a fan and removes it when the claim ends, so it lasts through Traveling, Standby and Working. | NeoForge attachment sync, so the client exempts the worker from the fan push. |
 | Cobbleworkers flag ownership | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `set_cw_rest`. It marks a `cobbleworkers.resting` flag that this mod set. | Saved with the Pokémon. | No |
 | Drive direction (wheels, hand cranks) | A Create `BlockEntityBehaviour` added through `BlockEntityBehaviourEvent` to the water wheel, large water wheel and hand crank block entities. Fields: `direction` (+1 or -1, default +1), `driven` (boolean). | Saved in the Create block entity NBT. | Create's block entity packets carry it, so the client recomputes the same wheel speed. |
 | Fan state | A Create `BlockEntityBehaviour` on the encased fan block entity. Fields: `fireMode` (`blasting` or `smoking`, default `blasting`), `catalyst` (the active catalyst kind, or none). | `fireMode` is saved in the Create block entity NBT. `catalyst` is not saved. | Create's block entity packets carry both, so the client builds the same air current. |
@@ -548,10 +547,15 @@ references. This section lists what the code uses.
     because the behaviour syncs through Create's packets.
   - The Fire kind uses the fan's `fireMode`: blasting by default, smoking after a flip with the Work
     Leash.
-  - Mixin `EncasedFanBlockEntityMixin` at the TAIL of `findEntities` removes the fan's own worker from
-    `caughtEntities`. That stops the push, `affectEntity` and item processing for the worker. Mixin
-    `NozzleBlockEntityMixin` applies the same exemption to nozzles. The predicate reads the synced
-    `fan_worker` attachment, so it also works on the client.
+  - Mixin `AirCurrentMixin` at the HEAD of `AirCurrent.tickAffectedEntities` removes each marked fan
+    worker from `caughtEntities`. That stops the push, `affectEntity` and item processing for the
+    worker from the next tick. `findEntities` and `caughtEntities` live in `AirCurrent`, not in
+    `EncasedFanBlockEntity` (`javap` on Create 6.0.10). The predicate reads the synced `fan_worker`
+    attachment, so it also works on the client.
+  - The fan worker mark lasts for the worker's whole work claim, because a spinning fan pushes a worker
+    that walks to the block in front of it. A marked worker is exempt from the air current of every fan.
+  - No mixin targets the nozzle. A nozzle fills the block in front of its own fan, so a fan with a
+    nozzle has no catalyst worker.
   - Demand: the fan spins, and its air current holds at least one item.
 - **Tailwind (Phase 2).** Mixin `WindmillBearingBlockEntityMixin` on `getGeneratedSpeed()`:
 

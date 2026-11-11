@@ -52,6 +52,18 @@ class MixinGateTest {
     }
 
     @Test
+    fun `CD-FAN-17 a missing air current mixin disables every Fan Catalyst role with one warning`() {
+        val roles = listOf("fire", "water", "ghost").map {
+            role("fan_catalyst_$it", setOf(it), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+        }
+        val set = RoleSet(roles.associateBy { it.id }, { FakeHandler(it) }, emptySet()) { }
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set, applied = { it != MixinState.AIR_CURRENT }, warn = warnings::add)
+        assertTrue(gated.active.isEmpty())
+        assertEquals(1, warnings.size)
+    }
+
+    @Test
     fun `CD-WHL-10 an applied mixin keeps its roles, and a role that needs no mixin stays on`() {
         val warnings = mutableListOf<String>()
         val gated = MixinGate.apply(set(wheel, superheater, stoker), applied = { it == MixinState.WATER_WHEEL }, warn = warnings::add)

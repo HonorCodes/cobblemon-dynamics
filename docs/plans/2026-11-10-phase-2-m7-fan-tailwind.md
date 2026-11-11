@@ -63,26 +63,36 @@ MixinExtras 0.5.5 jar and the Cobblemon 1.8.4 jar:
   and `gust_target` and `gust_targethit`. None of these particle files plays a sound. Pidgey is Normal and Flying, with a
   hitbox of 0.5 × 0.7.
 
+Checked in Task 2 on 2026-11-11, with `javap` and the `FanTests` GameTests:
+
+- `caughtEntities` is a mutable list. `findEntities` sets it to `level.getEntities(null, bounds)`, which builds a
+  `Lists.newArrayList()`, and Create's own `tickAffectedEntities` removes entries through its iterator.
+- A positive creative motor value makes the fan in front of it blow out of its face. `CreateKit.fan` checks
+  `getAirFlowDirection()` after a tick, and the check passes in every `FanTests` scene.
+- `createBelts` reads a shaft's axis only for a vertical belt, whose x and z steps are equal, so a flat belt needs no
+  shafts at its ends. It destroys the blocks in its way. A belt has no controller until its first tick, which calls
+  `BeltBlock.initBelt` while `beltLength` is 0, so `CreateKit.belt` calls `initBelt` itself before it adds the item. An
+  unpowered belt holds its item in place, and the fan processes it there.
+- A wild Pokémon with `setNoAi(true)` is never pushed by a fan. `Mob.isEffectiveAi()` is false with no AI, and
+  `LivingEntity.travel` moves only an entity that `isControlledByLocalInstance()`, which falls back to `isEffectiveAi()`.
+  The fan still sets the entity's velocity, so `cdFan12MarkedWorkerIsNeitherPushedNorHaunted` reads the velocity.
+- `GameTestHelper.onEachTick` adds one callback for each tick that is left to the map that the test's tick walks. A call
+  from inside a callback changes that map during the walk, so `CreateKit.catalyse` registers it when the test starts.
+
 Inferred (check before the task that uses it):
 
-- `caughtEntities` is a mutable list, because `Level.getEntities` returns an `ArrayList` (Task 2).
-- A positive creative motor value makes the fan in front of it blow out of its face, because `convertToDirection` folds
-  the axis sign in twice. `CreateKit.fan` checks `getAirFlowDirection()` after a tick (Task 2).
-- `createBelts` needs no shafts at its ends, an unpowered belt holds its items in place, and the fan processes them there
-  (Task 2).
 - `handleProcessingOnAllItems` with `doNothing()` changes nothing (Task 3).
 - A sheet of sails whose `FACING` is the bearing's facing assembles as one windmill, and a speed change reaches a shaft
   behind the bearing within 1 tick (Task 4).
 - `MixinState`'s handler-call check sees the call that `@ModifyExpressionValue` injects, as it does for `@ModifyArg`
   (Task 4).
-- A wild Pokémon with `setNoAi(true)` is still pushed by a fan (Task 2).
 
-`CreateKit` additions (full test mod only):
+`CreateKit` additions (full test mod only). Task 2 adds all but `windmill`, which Task 4 adds with its first test:
 
 ```kotlin
 /** A creative motor at [rel] whose shaft faces [facing], turning at [rpm]. */
 fun motor(helper: GameTestHelper, rel: BlockPos, facing: Direction, rpm: Int): CreativeMotorBlockEntity {
-    helper.setBlock(rel, AllBlocks.CREATIVE_MOTOR.defaultState.setValue(CreativeMotorBlock.FACING, facing))
+    helper.setBlock(rel, AllBlocks.CREATIVE_MOTOR.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
     return helper.getBlockEntity<CreativeMotorBlockEntity>(rel).also { setRpm(it, rpm) }
 }
 
@@ -93,7 +103,7 @@ fun setRpm(motor: CreativeMotorBlockEntity, rpm: Int) {
 
 /** An encased fan at [rel] facing [facing], with a creative motor behind it at [rpm], so that it blows out of its face. */
 fun fan(helper: GameTestHelper, rel: BlockPos, facing: Direction, rpm: Int): EncasedFanBlockEntity {
-    helper.setBlock(rel, AllBlocks.ENCASED_FAN.defaultState.setValue(EncasedFanBlock.FACING, facing))
+    helper.setBlock(rel, AllBlocks.ENCASED_FAN.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
     motor(helper, rel.relative(facing.opposite), facing, rpm)
     val fan = helper.getBlockEntity<EncasedFanBlockEntity>(rel)
     helper.runAfterDelay(1) {
@@ -108,20 +118,30 @@ fun depot(helper: GameTestHelper, rel: BlockPos, stack: ItemStack): DepotBlockEn
     return helper.getBlockEntity<DepotBlockEntity>(rel).also { it.setHeldItem(stack) }
 }
 
-/** An unpowered belt from [from] to [to] along one axis, with [stack] at its middle. Returns its controller. */
+/**
+ * An unpowered belt from [from] to [to] along one axis, with [stack] at its middle. Returns its controller. A belt finds its
+ * controller in its first tick, through `BeltBlock.initBelt`, which this calls at once.
+ */
 fun belt(helper: GameTestHelper, from: BlockPos, to: BlockPos, stack: ItemStack): BeltBlockEntity {
     BeltConnectorItem.createBelts(helper.level, helper.absolutePos(from), helper.absolutePos(to))
+    BeltBlock.initBelt(helper.level, helper.absolutePos(from))
     val controller = helper.getBlockEntity<BeltBlockEntity>(from).controllerBE ?: throw GameTestAssertException("no belt controller")
-    controller.inventory.addItem(TransportedItemStack(stack).apply { beltPosition = from.distManhattan(to) / 2f + 0.5f })
+    controller.getInventory().addItem(TransportedItemStack(stack).apply { beltPosition = from.distManhattan(to) / 2f + 0.5f })
     return controller
 }
 
-/** Holds [kind] (and [mode], for Fire) on [fan] for the rest of the test, as a Working worker does. Starts one tick later. */
+/**
+ * Holds [kind] (and [mode], for Fire) on [fan] for the rest of the test, as a Working worker does. Starts on the fan's first tick,
+ * when Create attaches the fan state.
+ */
 fun catalyse(helper: GameTestHelper, fan: EncasedFanBlockEntity, kind: FanCatalyst, mode: FireMode = FireMode.BLASTING) {
-    helper.runAfterDelay(1) {
-        val state = FanState.of(fan) ?: throw GameTestAssertException("the fan has no fan state")
-        if (state.fireMode != mode) state.flipMode()
-        helper.onEachTick { state.grant(kind, helper.level.gameTime) }
+    var held: FanState? = null
+    helper.onEachTick {
+        val state = held ?: FanState.of(fan)?.also {
+            if (it.fireMode != mode) it.flipMode()
+            held = it
+        } ?: return@onEachTick
+        state.grant(kind, helper.level.gameTime)
     }
 }
 
@@ -284,10 +304,12 @@ return flipped
 
 ```kotlin
 noSpotRefusal = best?.handler?.noSpotRefusal?.takeIf {
-    pending == null && pasture != null && pokemon != null &&
-        WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
+    pending == null && pasture != null && WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
 },
 ```
+
+  `pasture` comes from `pokemon?.let`, so Kotlin knows that `pokemon` is not null where `pasture` is not, and warns about a
+  `pokemon != null` check there.
 
   - `WorkEngine` finds every spot through one function, which `claim` and `hasSpot` share:
 
@@ -355,9 +377,15 @@ fun hasSpot(level: ServerLevel, pasture: BlockPos, pokemonId: UUID, role: Active
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CreateCompat.kt` (`register(modBus)`: the types,
   the fan state, the `AirCurrent` class literal), `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt`
   (`CreateCompat.register(modBus)`)
+- Modify: `src/main/resources/assets/cobblemon_dynamics/lang/en_us.json` (the two `cobblemon_dynamics.fan.mode` keys:
+  `FireMode` names them, and `LangTest` needs each key literal of the code in `en_us`)
+- Modify: `ARCHITECTURE.md` (sections 2, 4 and 8: the mixin is `AirCurrentMixin`, the mark lasts for the claim, there is no
+  nozzle mixin), `docs/adr/0011-v2-roles-in-first-release.md` (an amendment: two Create mixins, not three). This task adds
+  the mixin, so its commit fixes the text that named the wrong class.
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/FanNbtTest.kt`,
   `src/test/kotlin/codes/honor/cobblemondynamics/role/MixinGateTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/FanTests.kt`, `CreateKit.kt` (the additions above)
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/FanTests.kt`, `CreateKit.kt` (the additions above,
+  except `windmill`)
 
 **Interfaces:**
 - Consumes: nothing from Task 1.
@@ -649,7 +677,7 @@ fun cdFan05Bal04BlastingOnABeltKeepsCreatesTime(helper: GameTestHelper) {
     CreateKit.catalyse(helper, fan, FanCatalyst.FIRE)
     val minimum = AllConfigs.server().kinetics.fanProcessingTime.get()
     helper.succeedWhen {
-        val stack = belt.inventory.transportedItems.firstOrNull()?.stack ?: throw GameTestAssertException("the belt holds no item")
+        val stack = belt.getInventory().transportedItems.firstOrNull()?.stack ?: throw GameTestAssertException("the belt holds no item")
         helper.assertTrue(stack.`is`(Items.IRON_INGOT), "CD-FAN-05: the belt holds $stack")
         val elapsed = helper.level.gameTime - start
         helper.assertTrue(elapsed >= minimum - 1, "CD-BAL-04: blasting took $elapsed ticks, under Create's $minimum")
@@ -705,12 +733,14 @@ fun cdFan13GhostInWaterStillHaunts(helper: GameTestHelper) {
 }
 
 /**
- * A fan at 256 RPM with a Ghost catalyst. A wild Gastly with the fan worker mark stands in the block in front of the fan, and
- * an unmarked Gastly stands 3 blocks downstream, both with no AI. After 100 ticks the marked one has not moved and has no
- * Blindness or Slowness, and the unmarked one was pushed or haunted, so the current works (CD-FAN-12).
+ * A fan at 256 RPM with a Ghost catalyst. A wild Gastly with the fan worker mark stands in the block in front of the fan, and an
+ * unmarked Gastly stands 3 blocks downstream, both with no AI. After 100 ticks the marked one has not moved and has no Blindness
+ * or Slowness, and the unmarked one was pushed or haunted, so the current works (CD-FAN-12). A mob with no AI never moves on its
+ * own velocity, so the push shows in the velocity that the fan gives it: east for the unmarked one, none for the marked one.
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
 fun cdFan12MarkedWorkerIsNeitherPushedNorHaunted(helper: GameTestHelper) {
+    helper.assertTrue(MixinState.applied(MixinState.AIR_CURRENT), "the air current mixin did not apply")
     val fan = CreateKit.fan(helper, fanRel, Direction.EAST, rpm = 256)
     CreateKit.catalyse(helper, fan, FanCatalyst.GHOST)
     val marked = TestKit.wild(helper, BlockPos(4, 2, 7), "gastly level=10").apply { isNoAi = true }
@@ -718,16 +748,29 @@ fun cdFan12MarkedWorkerIsNeitherPushedNorHaunted(helper: GameTestHelper) {
     FanWorkers.mark(marked, helper.absolutePos(fanRel))
     val markedStart = marked.position()
     val controlStart = control.position()
+    var pushed = false
+    helper.onEachTick {
+        helper.assertTrue(abs(marked.deltaMovement.x) <= PUSH, "CD-FAN-12: the fan pushed the marked Gastly: ${marked.deltaMovement}")
+        if (control.deltaMovement.x > PUSH) pushed = true
+    }
     helper.runAfterDelay(100) {
         helper.assertTrue(marked.position().distanceTo(markedStart) <= 0.5, "CD-FAN-12: the fan moved the marked Gastly")
         val harmed = marked.hasEffect(MobEffects.BLINDNESS) || marked.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)
         helper.assertFalse(harmed, "CD-FAN-12: the marked Gastly was haunted")
         val acted = control.position().distanceTo(controlStart) > 1.0 || control.hasEffect(MobEffects.BLINDNESS)
         helper.assertTrue(acted, "the current did nothing to the unmarked Gastly, so the scene proves nothing")
+        helper.assertTrue(pushed, "the current never pushed the unmarked Gastly, so the scene proves nothing about the push")
         helper.succeed()
     }
 }
+
+/** A velocity along the current above this is a push. Create's first push at 256 RPM adds about 0.3 blocks per tick. */
+const val PUSH = 0.01
 ```
+
+  The exemption scene keeps every assertion of the first draft. A fan cannot push a mob with no AI (see the checked facts
+  above), so the draft's "not moved" check alone proved nothing about the push. The velocity checks and the mixin check are
+  new.
 
   Deferred:
   - CD-FAN-11 with a real reload (`cdFan11SmokingSurvivesARestart`: flip a fan to smoking, save the fan's block entity to
@@ -760,8 +803,7 @@ section), CD-REL-09 (the checklist entries).
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CreateCompat.kt` (registers the handler)
 - Modify: `src/main/resources/assets/cobblemon_dynamics/lang/en_us.json`
 - Modify: `docs/player-guide.md` (`### Fan Catalyst`), `docs/testing/manual-checklist.md` (checks for CD-FAN-14 and CD-FAN-16)
-- Modify: `ARCHITECTURE.md` (sections 2, 4 and 8: the mixin is `AirCurrentMixin`, the mark lasts for the claim, there is
-  no nozzle mixin), `docs/adr/0011-v2-roles-in-first-release.md` (an amendment: two Create mixins, not three)
+- Task 2 made the `ARCHITECTURE.md` fixes and the ADR-0011 amendment, in the commit that adds the mixin.
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/FanCatalystTests.kt`
 - Test: `src/gametestCore/kotlin/codes/honor/cobblemondynamics/coretest/CoreTests.kt` (`createRoles` gains the three files)
@@ -948,12 +990,11 @@ object FanItems {
 }
 ```
 
-  Register the handler in `CreateCompat.register`. Lang keys:
+  Register the handler in `CreateCompat.register`. Lang key (Task 2 added the two `cobblemon_dynamics.fan.mode` keys, which
+  `FireMode` names):
 
 ```json
 "cobblemon_dynamics.leash.no_room_in_front": "No room in front of the fan",
-"cobblemon_dynamics.fan.mode.blasting": "Fan mode: Blasting",
-"cobblemon_dynamics.fan.mode.smoking": "Fan mode: Smoking",
 ```
 
 - [ ] **Step 4: Run the unit tests and see them pass.**
@@ -1126,9 +1167,9 @@ Role file parameter: `catalyst` (`fire`, `water` or `ghost`).
     Expected: the action bar shows "Fan mode: Smoking", then "Fan mode: Blasting".
 ```
 
-  - ARCHITECTURE sections 2, 4 and 8, and an amendment at the end of ADR-0011: Phase 2 adds two Create mixins, the air
-    current's `tickAffectedEntities` and the windmill speed. The fan worker mark lasts for the worker's claim. A nozzle fills
-    the block in front of its own fan, so no nozzle mixin is needed.
+  - Task 2 already fixed ARCHITECTURE sections 2, 4 and 8 and added the amendment at the end of ADR-0011: Phase 2 adds two
+    Create mixins, the air current's `tickAffectedEntities` and the windmill speed. The fan worker mark lasts for the
+    worker's claim. A nozzle fills the block in front of its own fan, so no nozzle mixin is needed.
 
 - [ ] **Step 7: Run** `./gradlew build`, `./gradlew runGameTestServer` and `./gradlew runGameTestServerCore`.
 

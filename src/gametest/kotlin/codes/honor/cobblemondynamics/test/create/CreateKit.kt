@@ -1,18 +1,30 @@
 package codes.honor.cobblemondynamics.test.create
 
+import codes.honor.cobblemondynamics.handler.create.FanCatalyst
+import codes.honor.cobblemondynamics.handler.create.FanState
+import codes.honor.cobblemondynamics.handler.create.FireMode
 import com.simibubi.create.AllBlocks
 import com.simibubi.create.api.boiler.BoilerHeater
 import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.content.kinetics.base.RotatedPillarKineticBlock
+import com.simibubi.create.content.kinetics.belt.BeltBlock
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
+import com.simibubi.create.content.kinetics.belt.item.BeltConnectorItem
+import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack
 import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity
+import com.simibubi.create.content.kinetics.fan.EncasedFanBlockEntity
+import com.simibubi.create.content.kinetics.motor.CreativeMotorBlockEntity
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
+import com.simibubi.create.content.logistics.depot.DepotBlockEntity
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Blocks
 import kotlin.math.abs
 
@@ -84,4 +96,59 @@ object CreateKit {
 
     /** The capacity of the kinetic network that [be] is in, or null when it is in none. */
     fun networkCapacity(be: KineticBlockEntity): Float? = if (be.hasNetwork()) be.getOrCreateNetwork().calculateCapacity() else null
+
+    /** A creative motor at [rel] whose shaft faces [facing], turning at [rpm]. */
+    fun motor(helper: GameTestHelper, rel: BlockPos, facing: Direction, rpm: Int): CreativeMotorBlockEntity {
+        helper.setBlock(rel, AllBlocks.CREATIVE_MOTOR.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
+        return helper.getBlockEntity<CreativeMotorBlockEntity>(rel).also { setRpm(it, rpm) }
+    }
+
+    fun setRpm(motor: CreativeMotorBlockEntity, rpm: Int) {
+        motor.generatedSpeed.setValue(rpm)
+        motor.updateGeneratedRotation()
+    }
+
+    /** An encased fan at [rel] facing [facing], with a creative motor behind it at [rpm], so that it blows out of its face. */
+    fun fan(helper: GameTestHelper, rel: BlockPos, facing: Direction, rpm: Int): EncasedFanBlockEntity {
+        helper.setBlock(rel, AllBlocks.ENCASED_FAN.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
+        motor(helper, rel.relative(facing.opposite), facing, rpm)
+        val fan = helper.getBlockEntity<EncasedFanBlockEntity>(rel)
+        helper.runAfterDelay(1) {
+            if (fan.airFlowDirection != facing) throw GameTestAssertException("the fan at $rel blows ${fan.airFlowDirection}, not $facing")
+        }
+        return fan
+    }
+
+    /** A depot at [rel] that holds [stack]. A depot one block below an air current is in the current. */
+    fun depot(helper: GameTestHelper, rel: BlockPos, stack: ItemStack): DepotBlockEntity {
+        helper.setBlock(rel, AllBlocks.DEPOT.defaultState)
+        return helper.getBlockEntity<DepotBlockEntity>(rel).also { it.setHeldItem(stack) }
+    }
+
+    /**
+     * An unpowered belt from [from] to [to] along one axis, with [stack] at its middle. Returns its controller. A belt finds its
+     * controller in its first tick, through `BeltBlock.initBelt`, which this calls at once.
+     */
+    fun belt(helper: GameTestHelper, from: BlockPos, to: BlockPos, stack: ItemStack): BeltBlockEntity {
+        BeltConnectorItem.createBelts(helper.level, helper.absolutePos(from), helper.absolutePos(to))
+        BeltBlock.initBelt(helper.level, helper.absolutePos(from))
+        val controller = helper.getBlockEntity<BeltBlockEntity>(from).controllerBE ?: throw GameTestAssertException("no belt controller")
+        controller.getInventory().addItem(TransportedItemStack(stack).apply { beltPosition = from.distManhattan(to) / 2f + 0.5f })
+        return controller
+    }
+
+    /**
+     * Holds [kind] (and [mode], for Fire) on [fan] for the rest of the test, as a Working worker does. Starts on the fan's first tick,
+     * when Create attaches the fan state.
+     */
+    fun catalyse(helper: GameTestHelper, fan: EncasedFanBlockEntity, kind: FanCatalyst, mode: FireMode = FireMode.BLASTING) {
+        var held: FanState? = null
+        helper.onEachTick {
+            val state = held ?: FanState.of(fan)?.also {
+                if (it.fireMode != mode) it.flipMode()
+                held = it
+            } ?: return@onEachTick
+            state.grant(kind, helper.level.gameTime)
+        }
+    }
 }

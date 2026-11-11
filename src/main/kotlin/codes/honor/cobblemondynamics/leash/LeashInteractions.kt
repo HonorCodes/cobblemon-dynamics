@@ -125,7 +125,6 @@ object LeashInteractions {
             noSpotRefusal = best?.handler?.noSpotRefusal?.takeIf {
                 pending == null &&
                     pasture != null &&
-                    pokemon != null &&
                     WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
             },
         )

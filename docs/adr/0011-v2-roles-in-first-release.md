@@ -69,3 +69,16 @@ Research facts (see the integration-points note):
   steps, and the operator wants one complete release for the pack.
 - **Auto-assign Tailwind and fans.** Less clicking, but a Pokémon could start processing on a fan or
   speed up a network that nobody asked it to.
+
+## Amendment (2026-11-11, M7 Task 2)
+
+The build changed three details of the decision. The fan exemption stays.
+
+- Phase 2 adds two Create mixins, not three: the air current's `tickAffectedEntities` and the windmill
+  speed. `javap` on Create 6.0.10 shows that `findEntities` and `caughtEntities` live in `AirCurrent`, not
+  in the fan's block entity. `AirCurrentMixin` takes the fan worker out of the caught entities at the
+  head of `tickAffectedEntities`.
+- No mixin targets the nozzle. A nozzle fills the block in front of its own fan, so a fan with a nozzle
+  has no catalyst worker.
+- The fan worker mark lasts for the worker's whole work claim, not only while it Works. A spinning fan
+  pushes a worker that walks to the block in front of it.

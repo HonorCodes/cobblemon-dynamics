@@ -6,9 +6,11 @@ import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import com.simibubi.create.AllBlockEntityTypes
 import com.simibubi.create.api.event.BlockEntityBehaviourEvent
+import com.simibubi.create.content.kinetics.fan.AirCurrent
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import com.simibubi.create.foundation.block.ItemUseOverrides
+import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.common.NeoForge
 
 /**
@@ -18,17 +20,23 @@ import net.neoforged.neoforge.common.NeoForge
 object CreateCompat {
     private val warnings = OnceLogger()
 
-    fun register() {
+    fun register(modBus: IEventBus) {
         // A mixin applies when its target class loads. These class literals load each target of the `create.` mixins during mod
-        // construction, so MixinState holds its final answer before the first role build reads it (CD-WHL-10, CD-BRN-07).
-        val mixinTargets = listOf(WaterWheelBlockEntity::class.java, BlazeBurnerBlockEntity::class.java, ItemUseOverrides::class.java)
+        // construction, so MixinState holds its final answer before the first role build reads it (CD-WHL-10, CD-BRN-07, CD-FAN-17).
+        val mixinTargets = listOf(
+            WaterWheelBlockEntity::class.java,
+            BlazeBurnerBlockEntity::class.java,
+            ItemUseOverrides::class.java,
+            AirCurrent::class.java,
+        )
         CobblemonDynamics.LOGGER.debug("Create integration on, mixin targets loaded: {}", mixinTargets.map { it.simpleName })
+        PokemonFanTypes.REGISTER.register(modBus)
         if (!MixinState.applied(MixinState.ITEM_USE_OVERRIDES)) {
             warnings.warn(MixinState.ITEM_USE_OVERRIDES) {
                 "The Work Leash cannot bind or flip Create hand cranks: its crank mixin did not apply"
             }
         }
-        NeoForge.EVENT_BUS.addListener(BlockEntityBehaviourEvent::class.java, ::attachDrive)
+        NeoForge.EVENT_BUS.addListener(BlockEntityBehaviourEvent::class.java, ::attachBehaviours)
         HandlerRegistry.register(WaterWheelHandler)
         HandlerRegistry.register(HandCrankHandler)
         HandlerRegistry.register(BurnerHeatHandler)
@@ -38,9 +46,10 @@ object CreateCompat {
      * Create posts the event on both sides, on a block entity's first tick or first load. A valve handle has its own block entity
      * type, so it gets no drive.
      */
-    private fun attachDrive(event: BlockEntityBehaviourEvent) {
+    private fun attachBehaviours(event: BlockEntityBehaviourEvent) {
         event.forType(AllBlockEntityTypes.WATER_WHEEL.get()) { event.attach(DriveBehaviour(it)) }
         event.forType(AllBlockEntityTypes.LARGE_WATER_WHEEL.get()) { event.attach(DriveBehaviour(it)) }
         event.forType(AllBlockEntityTypes.HAND_CRANK.get()) { event.attach(DriveBehaviour(it)) }
+        event.forType(AllBlockEntityTypes.ENCASED_FAN.get()) { event.attach(FanState(it)) }
     }
 }
