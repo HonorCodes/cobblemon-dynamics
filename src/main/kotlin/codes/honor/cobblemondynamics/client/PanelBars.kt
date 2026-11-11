@@ -53,7 +53,16 @@ object PanelBars {
         Minecraft.getInstance().screen?.setTooltipForNextRenderPass(lines)
     }
 
+    /** The bar sprite, then the fill sprite cropped to the stamina and tinted with the bar's colour (CD-ART-04). */
     private fun drawBar(graphics: GuiGraphics, bar: Rect, percent: Int) {
-        for ((rect, color) in StaminaBar.parts(bar, percent)) graphics.fill(rect.x, rect.y, rect.right, rect.bottom, color)
+        graphics.blit(StaminaBar.PANEL_BAR, bar.x, bar.y, 0f, 0f, bar.width, bar.height, bar.width, bar.height)
+        val fill = StaminaBar.fill(bar, percent) ?: return
+        val inner = StaminaBar.inner(bar)
+        val color = StaminaBar.color(percent)
+        graphics.setColor(channel(color, 16), channel(color, 8), channel(color, 0), 1f)
+        graphics.blit(StaminaBar.PANEL_FILL, fill.x, fill.y, 0f, 0f, fill.width, fill.height, inner.width, inner.height)
+        graphics.setColor(1f, 1f, 1f, 1f)
     }
+
+    private fun channel(color: Int, shift: Int): Float = (color shr shift and 0xFF) / 255f
 }

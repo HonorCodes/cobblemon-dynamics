@@ -138,6 +138,14 @@ class ReleaseWorkflowTest {
         assertEquals("\${{ needs.build.outputs.version }}+mc1.21.1", inputs("publish", MC_PUBLISH)["version"])
     }
 
+    /** CD-ART-12: a public release ships only art that the approver approved at its current source. */
+    @Test
+    fun `CD-ART-12 a public tag checks the approver's approval of every asset before it publishes`() {
+        val art = steps("build").firstOrNull { (it["run"] as? String)?.contains("scripts/art.py check --release") == true }
+            ?: fail("the build job has no art check")
+        assertEquals("steps.tag.outputs.public == 'true'", art["if"])
+    }
+
     private companion object {
         /** Kir-Antipov/mc-publish moved to this name. Its current major is 3. */
         const val MC_PUBLISH = "Kira-NT/mc-publish@v3"

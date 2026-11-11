@@ -1,0 +1,36 @@
+# B: a round loop on a straight tail, 7x7 clasp
+size 16 16
+palette
+  . transparent
+  o #2e1a10   rope outline
+  h #e9b877   rope highlight
+  l #c88a4a   rope lit
+  b #9b6234   rope
+  d #6a3f22   rope shade
+  R #5a1219   clasp red outline
+  p #ff9d8f   clasp red highlight
+  L #f2564f   clasp red lit
+  r #d1353a   clasp red
+  s #9e2129   clasp red shade
+  k #2a2430   clasp band
+  W #f6f6f8   clasp white
+  w #d3d1dc   clasp white shade
+  v #a19eae   clasp white dark
+  g #3f3c4a   clasp white outline
+pixels
+..oooo..........
+.ohhhlo.........
+ohlbbllo........
+olboobllo.......
+olbo.oblbo......
+obblo.obdo......
+.odbloobdo......
+..odbllbdo......
+...oddddblo.....
+....ooooobbRRR..
+..........RpLrR.
+.........RLLrrsR
+.........kkkWkkk
+.........gWWWwvg
+..........gWwvg.
+...........ggg..

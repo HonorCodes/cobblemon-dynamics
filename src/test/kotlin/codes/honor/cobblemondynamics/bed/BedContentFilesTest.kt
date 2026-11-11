@@ -128,7 +128,10 @@ class BedContentFilesTest {
         }
     }
 
-    /** CD-ART-11: Phase 1 ships placeholder textures, each an original 16 × 16 PNG. */
+    /**
+     * CD-ART-11: each bed texture is an original 16 × 16 PNG. By the approver's ruling of 2026-11-10, the bed textures represent
+     * the placed bed, so they are release art, not placeholders.
+     */
     @Test
     fun `CD-ART-11 each bed texture is a 16 x 16 PNG`() {
         for (id in beds) {

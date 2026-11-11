@@ -1,0 +1,27 @@
+# State icon: Tired, for ToBed and RestingInPlace (CD-ART-04, CD-UI-07). The Phase 1 shape, with an outline in a dark shade of
+# its colour and a bevel lit from the top-left. The shapes differ without colour (CD-UI-08).
+size 16 16
+palette
+  . transparent
+  o #47210c     outline
+  h #ffdab2     highlight
+  l #f8ad62     lit
+  b #ef8a30     base
+  d #bf611c     shade
+pixels
+................
+................
+.....oooooo.....
+....oohllloo....
+...oohbbbbloo...
+..oohbddddbloo..
+.oohbdoooobbloo.
+.ohbdoo..oolblo.
+oolbdo....obbdoo
+ohbdoo....oobblo
+oldoo......ooldo
+obdo........obdo
+oooo........oooo
+................
+................
+................

@@ -5,7 +5,7 @@ and its section "Rows that this plan handles in a special way" first. Branch: `m
 
 **Milestone goal:** every asset ships from a source under `art/` and passes the art checks. The Work Leash has original
 pixel art in Cobblemon's item style, and the UI sprites are final. Blocks keep art that represents their 3D object. The
-approver sees every asset on a review page. The whole mod passes a multiplayer code audit. Every `MUST` and `MUST NOT` row
+approver sees the art on one review spritesheet. The whole mod passes a multiplayer code audit. Every `MUST` and `MUST NOT` row
 of the spec sheet passes on one commit. Then the work stops for the approver's play-test and art review.
 
 **The approver's art ruling (2026-11-10):** "the block art can just be a representative of the actual 3d object, like it
@@ -34,8 +34,9 @@ Before Task 1:
 - Checked in the jars on 2026-11-10: GUI sprites live in `assets/<namespace>/textures/gui/sprites/`, with a
   `.png.mcmeta` for nine-slice scaling (vanilla's `widget/button.png.mcmeta`). `GuiGraphics.blitSprite(ResourceLocation,
   int, int, int, int)` and `WidgetSprites` exist.
-- Inferred: the Charge Cell's block id is `cobblemon_dynamics:charge_cell`, with its models and textures under that name.
-  Read the merged approver-changes pull request for the real names before Task 2.
+- Checked on 2026-11-11: the Charge Cell's block id is `cobblemon_dynamics:charge_cell`. It ships
+  `blockstates/charge_cell.json`, `models/block/charge_cell.json` (parent `minecraft:block/cube_all`),
+  `models/item/charge_cell.json` (parent `cobblemon_dynamics:block/charge_cell`) and `textures/block/charge_cell.png`.
 
 ---
 
@@ -851,6 +852,26 @@ if __name__ == "__main__":
     sys.exit(main())
 ````
 
+  **As built (2026-11-11).** The committed `scripts/art.py` is this listing with these changes. The file is the reference
+  from here on:
+  - Lines wrap at 120 columns, as the other scripts do for super-linter's ruff.
+  - `resolve_model` knows the box of `minecraft:block/cube_all` (`VANILLA_ELEMENTS`). The Charge Cell's model names that
+    parent, so without it CD-ART-07 checked none of its faces and the review had no view of it.
+  - `check_copies` also compares each texture that has no full 16 × 16 tile, such as the 70 × 12 button sprites and the
+    bar sprites, whole with every reference PNG of its size. The CD-ART-09 line names the counts:
+    `CASE cd-art-09: PASS 12088 reference PNGs read, N tiles and M whole textures compared`.
+  - `sha256` counts CRLF line ends as LF in a text source, so a Windows checkout and CI agree on a source's hash.
+  - The record's Asset column keeps `.mcmeta` for a texture's metadata (`title_of`), so the two rows of a sprite differ.
+    `write_record` creates the record's folder.
+  - `review` refuses to run while a shipped asset is not the build of its source. By the approver's ruling of
+    2026-11-11 (plan index, ruling 3), it writes one PNG spritesheet, `build/art-review/spritesheet.png`, instead of the
+    HTML page of this listing, and deletes the files of an earlier review first. The sheet shows the Work Leash, the
+    creative tab's icon, the candidates under `art/candidates/` with the pick marked, and every UI sprite, each at 8x and
+    1x on a light and a dark inventory slot, with a label of its name and texture path in a 5 × 9 bitmap font. A smaller
+    section shows each block item from above, for reference. It needs no library outside Python's own. `--note TEXT`
+    prints a line under the title.
+  - A malformed PNG, JSON file or jar exits with code 2, as an unreadable input does.
+
 - [ ] **Step 3: Run it.** `py scripts/art.py --self-check` prints `self-check passed`. `py -m ruff check scripts` passes.
   `git update-index --chmod=+x scripts/art.py` keeps the mode at 100755, as for the other scripts.
 
@@ -863,8 +884,8 @@ Every texture and model of the mod ships from a source under `art/`. A texture s
 palette of one character per color, and one row of characters per pixel row. Edit a source, then run
 `py scripts/art.py build`, which writes the shipped files under `src/main/resources/assets/`. `py scripts/art.py check`
 checks the sizes, the sources, the models and the license, and `--references auto` also compares every texture with the
-textures of Minecraft, Cobblemon, Create and AE2, tile by tile. `py scripts/art.py review` writes a review page to
-`build/art-review/index.html`. `py scripts/art.py import PNG SOURCE` turns a PNG into a source. The art is under the
+textures of Minecraft, Cobblemon, Create and AE2, tile by tile. `py scripts/art.py review` writes the review spritesheet
+`build/art-review/spritesheet.png`. `py scripts/art.py import PNG SOURCE` turns a PNG into a source. The art is under the
 repository's MPL-2.0 license.
 ```
 
@@ -989,8 +1010,14 @@ pixels
 ```
 
 - [ ] **Step 1: Write the source,** then run `py scripts/art.py build` and `py scripts/art.py review`, and look at
-  `build/art-review/textures-item-work-leash-pixels.png`. Refine the rope's twist and the clasp until the icon reads as a
+  the Work Leash on `build/art-review/spritesheet.png`. Refine the rope's twist and the clasp until the icon reads as a
   lead with a clasp at 1×.
+
+  **As drawn (2026-11-11).** At inventory scale the draft read as a racket: a round loop on a short straight handle. The
+  committed source keeps the concept but lets the rope arc over from the handle loop and hang into the clasp, so the lead
+  reads as flexible. The clasp is 8 × 8 with a two-pixel button on its band. Each material has an outline in its own dark
+  hue, as Cobblemon's items have: dark brown on the rope, dark red on the clasp's top, dark grey on its bottom. The rope
+  has four tones and the clasp's red four, so the palette has 15 colors.
 - [ ] **Step 2: Run** `py scripts/art.py check --references auto`: `CASE cd-art-09: PASS` and `ART CHECK PASS`.
 - [ ] **Step 3: Multiplayer check.** An item texture holds no state.
 - [ ] **Step 4: Commit:** `git commit -m "Draw the Work Leash in Cobblemon's item style"`.
@@ -1090,11 +1117,31 @@ class WorkModeSpritesTest {
 - [ ] **Step 6: Multiplayer check.** The sprites and their code are client only, in `client/`, behind
   `FMLEnvironment.dist.isClient`. They draw only what the server sent.
 
+  **As built (2026-11-11).**
+  - `StaminaBar` also gains `inner(bar)` and `fill(bar, percent)`, the inside of a bar and its filled part, which both
+    bars draw from. `parts` stays, as this task says, but no code draws it now: the head bar no longer needs quads that do
+    not overlap.
+  - `HeadBars` draws the frame sprite 0.01 behind the name-tag plane and the fill on it, as vanilla puts a name tag's
+    background 0.01 behind its text (`Font$StringRenderOutput.finish`, checked with `javap`). The frame's render type
+    starts first, and `MultiBufferSource.BufferSource.getBuffer` draws a shared render type's quads when the next one
+    starts (`RenderType.text` has no fixed buffer in `RenderBuffers`), so the fill always draws after the frame.
+  - `WorkModeButton.renderWidget` repeats `AbstractButton.renderWidget` with our sprite: the widget's alpha, blend and depth
+    test, and the label colour with the alpha in its top byte. `PanelBars` tints the fill with `GuiGraphics.setColor`,
+    which sets `RenderSystem.setShaderColor` after it draws what is batched.
+  - Tests beyond Step 1: `WorkModeSpritesTest` checks that each button sprite is the size of `PanelLayout.BUTTON` with a
+    nine-slice `.mcmeta` of that size, and `StaminaBarTest` checks `fill` and that each bar sprite is the size of the bar
+    that draws it.
+  - The sprites: the button's body is slate, with a 1-pixel outline, round corners, a lighter top and left edge and a
+    darker bottom and right edge. On and off have a 2-pixel accent at the left end, inside the 3-pixel nine-slice border.
+    The bars have round corners and an inside that is darker under the top edge. The fills are white over light grey, so
+    the tint shows as two tones. The seven icons keep the alpha masks of Phase 1. Each has an outline in a dark shade of
+    its colour and a bevel lit from the top-left.
+
 - [ ] **Step 7: Commit:** `git commit -m "Draw the Work Mode button, the Work Stamina bars and the state icons from final sprites"`.
 
 ---
 
-### Task 5: The review page, the review record and the release check
+### Task 5: The review spritesheet, the review record and the release check
 
 **Rows:** CD-ART-02, CD-ART-03, CD-ART-04, CD-ART-05, CD-ART-10, CD-ART-12, CD-ART-14.
 
@@ -1127,11 +1174,11 @@ fun `CD-ART-12 a public tag checks the approver's approval of every asset before
 ```markdown
 # Art review record
 
-This record holds the approver's verdict on each asset of the first release (CD-ART-10). `py scripts/art.py review` writes
-the review page `build/art-review/index.html` and the rows below: one row for each asset, with the SHA-256 of its source.
-A row whose source changed goes back to `pending`. The approver gives a verdict for each row: `approved`, or `changes` with a
-note. `py scripts/art.py check --release` passes only when every row is `approved` at its current SHA-256. The release
-workflow runs it for every public tag (CD-ART-12).
+This record holds the approver's verdict on each asset of the first release (CD-ART-10). `py scripts/art.py review`
+writes the review sheet `build/art-review/spritesheet.png` and the rows below: one row for each asset, with the SHA-256
+of its source. A row whose source changed goes back to `pending`. The approver gives a verdict for each row: `approved`,
+or `changes` with a note. `py scripts/art.py check --release` passes only when every row is `approved` at its current
+SHA-256. The release workflow runs it for every public tag (CD-ART-12).
 
 <!-- art-review rows: written by scripts/art.py; the verdict, date and note columns are kept -->
 <!-- art-review rows end -->
@@ -1151,9 +1198,15 @@ workflow runs it for every public tag (CD-ART-12).
 - [ ] **Step 3: Run** the test, `./gradlew build`, and `py scripts/art.py check --release`. The last prints `CASE cd-art-10:
   FAIL` until the approver's review at the gate stop (Task 8).
 
-- [ ] **Step 4: Multiplayer check.** The record and the page are files outside the game.
+  **As built (2026-11-11).** The review sheet also shows each Work Stamina bar as the game draws it, at the 100%, 40% and
+  10% of manual checklist check 49: the fill cropped as `StaminaBar.fillWidth` crops it and tinted with the colour that
+  `StaminaBar.kt` declares for that stamina (`bar_tints`, `drawn_bar`). The approver judges the bars from these, because
+  the fill sprite alone is a grey strip.
 
-- [ ] **Step 5: Commit:** `git commit -m "Add the art review page and record, and check the approvals of a public release [rag:2]"`.
+- [ ] **Step 4: Multiplayer check.** The record and the sheet are files outside the game.
+
+- [ ] **Step 5: Commit:** `git commit -m "Add the art review record, and check the approvals of a public release [rag:2]"`.
+  The spritesheet code went in with the approver's ruling of 2026-11-11, one commit before Task 4's.
 
 ---
 
@@ -1267,8 +1320,8 @@ fun `CD-REL-09 the manual checklist lists every Demo test of the spec sheet`() {
 ```markdown
 ## Art
 
-47. **CD-ART-02.** Setup: the review page `build/art-review/index.html`, and the four beds and a Charge Cell placed in the
-    play-test world. Action: compare each block in the world with its preview on the page. Expected: each block reads as
+47. **CD-ART-02.** Setup: the review spritesheet `build/art-review/spritesheet.png`, and the four beds and a Charge Cell
+    placed in the play-test world. Action: compare each block in the world with its view on the sheet. Expected: each block reads as
     the object that it is, and the approver approves it in the review record.
 48. **CD-ART-03.** Setup: a Work Leash in the hotbar and one in the hand. Action: look at the icon in the inventory and in
     the hand. Expected: a lead with a red-and-white clasp, in the style of Cobblemon's items, and the approver approves it.
@@ -1351,8 +1404,8 @@ PHASES = {
 
 - [ ] **Step 2: The report skeleton.** Create `docs/testing/phase-2-gate.md` in the shape of the Phase 1 report: a short
   introduction, the two generated blocks (`summary` and `rows`), and these sections that the script keeps:
-  - "For the approver": the play-test client (`py scripts/testpack/testpack.py client`), the review page and the review
-    record, and the steps below.
+  - "For the approver": the play-test client (`py scripts/testpack/testpack.py client`), the review spritesheet and the
+    review record, and the steps below.
   - "Known issues and open decisions": the open items of this plan index and of Tasks 1 to 7.
   - "Play-test note": a table with a line for each check of the manual checklist that the Phase 2 play-test covers: checks
     20, 44 to 50, and the Phase 1 checks that Phase 2 code touches (6, 9, 10, 14, 15 and 22).
@@ -1374,7 +1427,7 @@ PHASES = {
   Then follow the rehydration note's pull request steps (HAR-809). Merge when CI is green and every thread is resolved.
 
 - [ ] **Step 5: Stop.** Hand off to the approver for the Phase 2 play-test and the art review: the play-test client of
-  Step 3, the checks of the play-test note, and the review page `build/art-review/index.html` (`py scripts/art.py review`)
+  Step 3, the checks of the play-test note, and the review spritesheet `build/art-review/spritesheet.png` (`py scripts/art.py review`)
   with the review record. Record each verdict that the approver gives, in the approver's words, in the review record, and the
   play-test note in the gate report. Fix what the approver rejects in a follow-up pull request, test first, and run the
   review again for each changed asset. CD-REL-14 completes when the gate report records a passing run on a named commit and

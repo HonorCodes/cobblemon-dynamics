@@ -162,6 +162,18 @@ You need JDK 21. Set `JAVA_HOME` to it.
 
 The jar is written to `build/libs/`.
 
+## Art sources
+
+Every texture and model of the mod ships from a source under `art/`. A texture source
+(`.pixels`) is text: its size, a palette of one character per color, and one row of
+characters per pixel row. Edit a source, then run `py scripts/art.py build`, which
+writes the shipped files under `src/main/resources/assets/`. `py scripts/art.py check`
+checks the sizes, the sources, the models and the license, and `--references auto`
+also compares every texture with the textures of Minecraft, Cobblemon, Create and
+AE2, tile by tile. `py scripts/art.py review` writes the review spritesheet
+`build/art-review/spritesheet.png`. `py scripts/art.py import PNG SOURCE` turns a PNG
+into a source. The art is under the repository's MPL-2.0 license.
+
 ## Compatibility
 
 - **Cobbleworkers and Cobblebase.** These mods also give jobs to pastured Pokémon. In a

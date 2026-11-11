@@ -1,0 +1,8 @@
+# Work Stamina fill over a worker's head. The code crops it to the stamina and tints it green, yellow or red.
+size 28 2
+palette
+  w #ffffff     fill, top: the tint itself
+  g #c2c2c2     fill, bottom: a darker tint
+pixels
+wwwwwwwwwwwwwwwwwwwwwwwwwwww
+gggggggggggggggggggggggggggg

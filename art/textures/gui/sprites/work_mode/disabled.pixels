@@ -1,0 +1,21 @@
+# Work Mode button, disabled, for a viewer who may not toggle: dimmed, no accent (CD-ART-04). 70 x 12, nine-sliced by its .mcmeta.
+size 70 12
+palette
+  . transparent
+  o #202227     outline
+  t #4d525c     top and left edge
+  b #3b3f47     body
+  u #30333a     bottom and right edge
+pixels
+.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.
+otttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttto
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+otbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+ouuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuo
+.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.

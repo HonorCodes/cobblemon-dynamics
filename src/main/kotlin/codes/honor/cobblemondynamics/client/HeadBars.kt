@@ -25,6 +25,9 @@ object HeadBars {
     /** Above the head, clear of where a name tag would sit. */
     private const val HEIGHT_ABOVE_HEAD = 0.75
 
+    /** The frame sits this far behind the fill, as vanilla puts a name tag's background 0.01 behind its text. */
+    private const val BEHIND = 0.01f
+
     fun register() {
         NeoForge.EVENT_BUS.addListener(RenderLivingEvent.Post::class.java) { onRender(it) }
     }
@@ -45,28 +48,31 @@ object HeadBars {
         pose.mulPose(Minecraft.getInstance().entityRenderDispatcher.cameraOrientation())
         pose.scale(SCALE, -SCALE, SCALE)
         val matrix = pose.last().pose()
-        val flat = buffers.getBuffer(RenderType.textBackground())
-        // The parts do not overlap, so the coplanar quads never fight over depth.
-        for ((rect, color) in StaminaBar.parts(HeadBarRange.BAR, view.percent)) quad(flat, matrix, rect, color)
+        val bar = HeadBarRange.BAR
+        // The frame first: a buffer source draws each render type's quads when the next type starts, so the fill comes later.
+        texturedQuad(buffers.getBuffer(RenderType.text(StaminaBar.HEAD_BAR)), matrix, bar, depth = BEHIND)
+        StaminaBar.fill(bar, view.percent)?.let { fill ->
+            val crop = fill.width.toFloat() / StaminaBar.inner(bar).width
+            val consumer = buffers.getBuffer(RenderType.text(StaminaBar.HEAD_FILL))
+            texturedQuad(consumer, matrix, fill, maxU = crop, color = StaminaBar.color(view.percent))
+        }
         texturedQuad(buffers.getBuffer(RenderType.text(StateIcons.iconFor(view.state))), matrix, HeadBarRange.ICON)
         pose.popPose()
     }
 
-    /** The corners in the order of vanilla's glyph quads, which face the camera after the name-tag transform. */
-    private fun quad(consumer: VertexConsumer, matrix: Matrix4f, rect: Rect, color: Int) {
+    /**
+     * A quad of [rect] with the texture's columns from 0 to [maxU], tinted with [color] and [depth] behind the name-tag plane.
+     * The corners follow vanilla's glyph quads, which face the camera after the name-tag transform.
+     */
+    private fun texturedQuad(consumer: VertexConsumer, matrix: Matrix4f, rect: Rect, maxU: Float = 1f, color: Int = -1, depth: Float = 0f) {
         val light = LightTexture.FULL_BRIGHT
-        consumer.addVertex(matrix, rect.x.toFloat(), rect.y.toFloat(), 0f).setColor(color).setLight(light)
-        consumer.addVertex(matrix, rect.x.toFloat(), rect.bottom.toFloat(), 0f).setColor(color).setLight(light)
-        consumer.addVertex(matrix, rect.right.toFloat(), rect.bottom.toFloat(), 0f).setColor(color).setLight(light)
-        consumer.addVertex(matrix, rect.right.toFloat(), rect.y.toFloat(), 0f).setColor(color).setLight(light)
-    }
-
-    private fun texturedQuad(consumer: VertexConsumer, matrix: Matrix4f, rect: Rect) {
-        val light = LightTexture.FULL_BRIGHT
-        val white = -1
-        consumer.addVertex(matrix, rect.x.toFloat(), rect.y.toFloat(), 0f).setColor(white).setUv(0f, 0f).setLight(light)
-        consumer.addVertex(matrix, rect.x.toFloat(), rect.bottom.toFloat(), 0f).setColor(white).setUv(0f, 1f).setLight(light)
-        consumer.addVertex(matrix, rect.right.toFloat(), rect.bottom.toFloat(), 0f).setColor(white).setUv(1f, 1f).setLight(light)
-        consumer.addVertex(matrix, rect.right.toFloat(), rect.y.toFloat(), 0f).setColor(white).setUv(1f, 0f).setLight(light)
+        val left = rect.x.toFloat()
+        val right = rect.right.toFloat()
+        val top = rect.y.toFloat()
+        val bottom = rect.bottom.toFloat()
+        consumer.addVertex(matrix, left, top, depth).setColor(color).setUv(0f, 0f).setLight(light)
+        consumer.addVertex(matrix, left, bottom, depth).setColor(color).setUv(0f, 1f).setLight(light)
+        consumer.addVertex(matrix, right, bottom, depth).setColor(color).setUv(maxU, 1f).setLight(light)
+        consumer.addVertex(matrix, right, top, depth).setColor(color).setUv(maxU, 0f).setLight(light)
     }
 }

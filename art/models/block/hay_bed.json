@@ -1,0 +1,7 @@
+{
+  "parent": "cobblemon_dynamics:block/template_bed",
+  "textures": {
+    "top": "cobblemon_dynamics:block/hay_bed_top",
+    "side": "cobblemon_dynamics:block/hay_bed_side"
+  }
+}

@@ -67,6 +67,11 @@ jobs:
             echo "::error::$jar is missing or does not declare version $VERSION+mc1.21.1"
             exit 1
           fi
+      # CD-ART-12: a public release ships only art that the approver approved at its current source. The copied-pixel
+      # scan (CD-ART-09) needs the AE2 jar, which this job does not resolve, so the Phase 2 gate runs it.
+      - name: Check the art of a public release
+        if: steps.tag.outputs.public == 'true'
+        run: python3 scripts/art.py check --release
       - uses: actions/upload-artifact@v7
         with:
           name: release-jar

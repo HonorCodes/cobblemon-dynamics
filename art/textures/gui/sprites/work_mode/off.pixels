@@ -1,0 +1,24 @@
+# Work Mode button, off: a grey accent along the left end (CD-ART-04). 70 x 12, nine-sliced by its .mcmeta.
+size 70 12
+palette
+  . transparent
+  o #17191e     outline
+  t #8b95a4     top and left edge
+  b #5d6674     body
+  u #3e4551     bottom and right edge
+  A #e2e5ea     accent, lit
+  B #adb3bc     accent
+  C #757c87     accent, shade
+pixels
+.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.
+oAAtttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttto
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oBBbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbuo
+oCCuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuo
+.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.
