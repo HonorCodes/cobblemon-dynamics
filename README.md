@@ -116,6 +116,13 @@ output, such as water wheels and windmills, are exempt. See
 
 The spec sheet areas STA, BED and HEAL hold the exact rules and numbers.
 
+## Charge Cell
+
+The **Charge Cell** is a block that stores up to 50,000 FE. A Generator charges it
+as it charges any block that takes FE, and each tick the cell pushes its FE into the
+blocks around it. A comparator reads how full it is, and a broken cell keeps its FE
+on the item. The spec sheet area GEN holds the exact rules.
+
 ## Art
 
 All block models, textures, sprites and icons are original and drawn for this mod in

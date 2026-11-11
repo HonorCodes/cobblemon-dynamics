@@ -25,6 +25,10 @@ Corrections after agreement:
   describe the Superheater: CD-BRN-01 holds `KINDLED` below level 50, and CD-BRN-05 counts 1 boiler heat from a
   Superheater below level 50. CD-SUP-02 adds that a Fire-type never claims a Blaze Burner, and the burner case of
   CD-ASG-16 now gives the Superheater as the burner's only role.
+- 2026-11-10, approver's ruling after the play-test (R60): a Charge Cell block. New rows CD-GEN-08 to CD-GEN-12 cover
+  its capacity and faces, its push into the blocks around it, its comparator signal, the FE that its item keeps, and its
+  recipe, which the Recipes table lists. CD-REL-08 adds the Charge Cell to the player guide, and CD-ART-01 adds its art
+  to the art of M8.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -104,7 +108,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 
 ## Inputs
 
-Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 comes from the approver's ruling after the Phase 1 play-test, on 2026-11-10.
+Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 and R60 come from the approver's rulings after the Phase 1 play-test, on 2026-11-10.
 
 | Input | Link |
 | --- | --- |
@@ -167,6 +171,7 @@ Rulings R1 to R58 come from the design session with the approver on 2026-11-09. 
 | R57. Ruling (was A23): the action-bar messages read `"Select a destination for {Pokémon}"`, `"Destination must differ from the source"`, `"No room in front of the fan"`, `"{Pokémon} cannot reach {target}"`, `"Fan mode: Blasting"` and `"Fan mode: Smoking"`. | none |
 | R58. Ruling: a leash binding clears when its target is broken, replaced, picked up with a Create wrench or moved into a Create contraption. It also clears when its Pokémon is recalled to the PC or the party, moves to another pasture, is released or traded, or loses its pasture block. | none |
 | R59. Ruling (2026-11-10, after the Phase 1 play-test): Fire-types do not heat Blaze Burners. Dragon-types alone heat them, `KINDLED` below level 50 and `SEETHING` from level 50. The Burner Keeper role goes. | none |
+| R60. Ruling (2026-11-10, after the Phase 1 play-test): a Charge Cell block, with an item, stores up to 50,000 FE behind NeoForge's energy capability on all six faces and takes FE on each. Every tick it pushes its FE into each adjacent block that takes FE, split fairly between the faces, and it never loops FE between two cells. A comparator reads its fill from 0 to 15. A broken cell keeps its FE on the item, and the tooltip shows it. A shaped recipe from copper ingots, redstone and a Cobblemon Thunder Stone makes it. | none |
 | RES1. Research: Cobblemon 1.8.4 integration points. | `docs/research/2026-11-09-integration-points.md` |
 | RES2. Research: Create 6.0.10 kinetic and heat hooks. | `docs/research/2026-11-09-integration-points.md` |
 | RES3. Research: AE2 19.2.19, NeoForge 21.1 and vanilla furnace facts. | `docs/research/2026-11-09-integration-points.md` |
@@ -225,6 +230,7 @@ and default priority. The default role files hold these values.
 | Wool Bed | Shaped: a Hay Bed in the center, 4 wool blocks (`#minecraft:wool`) on the edges, 4 iron ingots in the corners. |
 | Plush Bed | Shaped: a Wool Bed in the center, 4 gold ingots on the edges, 4 diamonds in the corners. |
 | Starlit Bed | Shapeless: 1 Plush Bed, 1 Nether Star and 4 Rare Candy (`cobblemon:rare_candy`). |
+| Charge Cell | Shaped: a Thunder Stone (`cobblemon:thunder_stone`) in the center, redstone dust above and below it, and 6 copper ingots in the side columns. |
 
 ## Milestones
 
@@ -456,6 +462,11 @@ and default priority. The default role files hold these values.
 | CD-GEN-05 | The Generator handler MUST NOT keep FE that the target refuses. | MUST NOT | R24 | A hidden buffer would hand out bursts above the rate. | Unit: a full battery refuses 217 FE. When it empties, the next tick offers 217 FE. Fails if: an offer exceeds the rate. | target handler (NeoForge caps) | agreed |
 | CD-GEN-06 | The Generator handler MUST report demand only while a simulated insert of 1 FE succeeds. | MUST | R24 | A worker at a full battery rests in Standby. | GameTest: fill the battery. Fails if: the worker is not in Standby within 20 ticks, or its stamina drains. | target handler (NeoForge caps) | agreed |
 | CD-GEN-07 | Where AE2 is present, the Generator handler MUST deliver its FE into an AE2 Energy Acceptor at AE2's configured ratio. | MUST | R5, RES3 | AE2 is a named integration target, and it converts 2 FE to 1 AE by default. | GameTest: a Lv50 Generator on an Energy Acceptor whose grid can store energy. Fails if: stored energy does not rise by 108.5 ± 1 AE per tick. | target handler (NeoForge caps) | agreed |
+| CD-GEN-08 | The Charge Cell MUST store up to 50,000 FE through NeoForge's energy capability, which it exposes on all six faces, each of which takes and gives FE. | MUST | R60 | The approver's ruling of 2026-11-10. A Generator worker charges a cell with no handler change, because CD-GEN-01 targets any block whose energy capability can receive. Cables and machines of other mods reach it from any side. | Unit: a cell takes FE up to 50,000 and refuses the rest. GameTest: each face of a placed cell has a capability that takes FE, and a Lv100 Pikachu fills the cell in offers of 5,000 FE, then waits in Standby. Fails if: a face has no capability or refuses FE, the full cell holds more or less than 50,000 FE, or the Pikachu does not charge it. | content | agreed |
+| CD-GEN-09 | Each tick, the Charge Cell MUST push its stored FE into the adjacent blocks that take FE: an equal share for each face whose block is not a Charge Cell, with what a face cannot take going to the others, and then to each neighbouring cell that holds less only enough FE to leave both at one level. | MUST | R60 | The approver's ruling of 2026-11-10. A cell feeds the machines around it. FE flows into a cell only while that cell holds less, and never back, so it cannot loop between two cells. | Unit: 10,000 FE over a face that takes 1,000 and two faces that take any amount gives 1,000, 4,500 and 4,500. Two cells of 10,000 and 0 FE settle at 5,000 each and move nothing after that, and a ring of four cells keeps its FE and stops moving it. GameTest: a cell gives test batteries on three faces 1,000, 4,500 and 4,500 FE in one tick, and two adjacent cells settle at 5,000 FE each and hold it for 40 ticks. Fails if: a face gets another share, FE is lost or made, or FE keeps moving between cells. | content | agreed |
+| CD-GEN-10 | The Charge Cell MUST give a comparator signal of 0 when it is empty and 1 + floor(14 × stored ÷ 50,000) otherwise, so the signal is 15 only when the cell is full. | MUST | R60 | The approver's ruling of 2026-11-10. Redstone can switch machines on the fill of a cell, as it can on the fill of a vanilla container. | Unit: 0, 1, 25,000, 49,999 and 50,000 FE give 0, 1, 8, 14 and 15, and the signal never falls as the cell fills. GameTest: comparators behind cells with 0, 25,000 and 50,000 FE read 0, 8 and 15. Fails if: a signal differs. | content | agreed |
+| CD-GEN-11 | When a Charge Cell is broken, its drop MUST keep the cell's stored FE in the data component `cobblemon_dynamics:stored_energy`, show the FE in its tooltip and give it to the cell that it places. | MUST | R60 | The approver's ruling of 2026-11-10. A player moves a charged cell and keeps its FE. | GameTest: break a cell that holds 12,345 FE, then place its drop. Fails if: the drop's component is not 12,345, its tooltip does not read "12,345 / 50,000 FE", or the placed cell does not hold 12,345 FE. | content | agreed |
+| CD-GEN-12 | Dynamics MUST register the Charge Cell recipe from the Recipes table. | MUST | R60 | The approver's ruling of 2026-11-10. Players craft cells in survival. | GameTest: craft the cell from its exact inputs, then try the same grid without the Thunder Stone. Fails if: the first grid makes no Charge Cell, or the second makes one. | content | agreed |
 
 ### STK: Stoker
 
@@ -715,7 +726,7 @@ and default priority. The default role files hold these values.
 
 | ID | Requirement | Level | Source | Rationale | Acceptance test | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| CD-ART-01 | Dynamics MUST ship an original block model, an original block texture and an original item model for each of the four beds. | MUST | R32, G11 | The beds are new blocks that need their own look. | Inspect: the jar holds a block model, a block texture and an item model for each bed. Fails if: an asset is missing. | content | agreed |
+| CD-ART-01 | Dynamics MUST ship an original block model, an original block texture and an original item model for each of the four beds and for the Charge Cell. | MUST | R32, R60, G11 | The beds and the Charge Cell are new blocks that need their own look. | Inspect: the jar holds a block model, a block texture and an item model for each bed and for the Charge Cell. Fails if: an asset is missing. | content | agreed |
 | CD-ART-02 | Each bed's art MUST follow its tier concept: the Hay Bed a round straw nest, the Wool Bed a round wool cushion on a low wooden frame, the Plush Bed a thick velvet cushion with gold trim, and the Starlit Bed a midnight-blue cushion with a gold star pattern, a faint glow and an occasional sparkle. | MUST | R32, R33 | The approver approved these concepts. | Demo: the approver compares each bed with its concept on the screenshot review page. Fails if: the approver rejects a bed. | content | agreed |
 | CD-ART-03 | Dynamics MUST ship an original Work Leash item texture that shows a lead with a red-and-white clasp. | MUST | R32, R33 | The leash is a new item. | Demo: the approver reviews the texture on the screenshot review page. Fails if: the texture is missing, or the approver rejects it. | content | agreed |
 | CD-ART-04 | Dynamics MUST ship original UI sprites for the Work Mode button in 4 states (on, off, disabled, hover), the Work Stamina bar, and the 7 state icons. | MUST | R32, R33, R38, G7 | The panel and the head bars need their own sprites. | Inspect: the jar holds 4 button sprites, the bar sprites and 7 icon sprites. Demo: the approver reviews them. Fails if: a sprite is missing, or the approver rejects one. | content | agreed |
@@ -741,7 +752,7 @@ and default priority. The default role files hold these values.
 | CD-REL-05 | The build MUST version releases as `MAJOR.MINOR.PATCH+mc1.21.1`. | MUST | R24 | Players see the game version in the version name. | Inspect: the mod version in the v1.0.0 jar reads `1.0.0+mc1.21.1`. Fails if: it has another form. | build | agreed |
 | CD-REL-06 | The repository MUST license its code under MPL-2.0. | MUST | R8, G9 | The approver chose MPL-2.0. | Inspect: `LICENSE` holds MPL-2.0, and `neoforge.mods.toml` declares `license = "MPL-2.0"`. Fails if: either differs. | build | agreed |
 | CD-REL-07 | The jar MUST NOT contain copies of Cobblemon assets. | MUST NOT | RES1, misuse sweep | Cobblemon models carry a NonCommercial license, so the mod refers to them by id. | Inspect: list the jar. Fails if: a file sits under `assets/cobblemon/`. | build | agreed |
-| CD-REL-08 | The repository MUST hold a player guide at `docs/player-guide.md` that covers Work Mode, the Work Leash, Work Stamina, beds, healers and every role. | MUST | R9, R49 | Public players need a guide. | Inspect: at the v1.0.0 tag, the guide has a section for each item. Fails if: a section is missing. | build | agreed |
+| CD-REL-08 | The repository MUST hold a player guide at `docs/player-guide.md` that covers Work Mode, the Work Leash, Work Stamina, beds, healers, the Charge Cell and every role. | MUST | R9, R49, R60 | Public players need a guide. | Inspect: at the v1.0.0 tag, the guide has a section for each item. Fails if: a section is missing. | build | agreed |
 | CD-REL-09 | The repository MUST hold a manual checklist at `docs/testing/manual-checklist.md` that lists every `Demo:` test in this sheet. | MUST | R24, R49 | Demo tests need a repeatable run. | Inspect: at the v1.0.0 tag, compare the checklist with the Demo tests in this sheet. Fails if: a Demo test is missing. | build | agreed |
 | CD-REL-10 | The GameTest run MUST load Cobblemon 1.8.4, Create 6.0.10 and AE2 19.2.19. | MUST | R24, RES3 | Integration tests need the real mods. | Inspect: the CI log of a GameTest run lists the three mods at these versions. Fails if: a mod is missing or at another version. | build | agreed |
 | CD-REL-11 | The README SHOULD state that Cobblemon Dynamics is not affiliated with Cobblemon, The Pokémon Company, Create or Applied Energistics 2. | SHOULD | R9 | A clear notice protects a fan project. Acceptable to put the notice on the Modrinth and CurseForge pages instead. | Inspect: the README and both release pages. Fails if: none of them holds the notice. | build | agreed |
@@ -836,6 +847,7 @@ and default priority. The default role files hold these values.
 | R57 | CD-LSH-20, CD-LSH-21, CD-TLK-10, CD-FAN-04, CD-FAN-16 |
 | R58 | CD-LSH-08, CD-LSH-22, CD-LSH-23, CD-LSH-24, CD-LSH-25, CD-LSH-26, CD-LSH-27 |
 | R59 | CD-BRN-01 to CD-BRN-07, CD-SUP-02, CD-ASG-16 |
+| R60 | CD-GEN-08 to CD-GEN-12, CD-REL-08, CD-ART-01 |
 | RES1 | CD-PLAT-02, CD-AI-01, CD-AI-04, CD-AI-07, CD-AI-09, CD-FX-03, CD-HEAL-15, CD-UI-11, CD-REL-07, CD-CFG-14 |
 | RES2 | CD-WHL-02, CD-WHL-09, CD-BRN-02, CD-CRK-02, CD-CRK-04 |
 | RES3 | CD-PLAT-01, CD-GEN-04, CD-GEN-07, CD-STK-04, CD-CRY-02, CD-SEC-11 |
@@ -868,7 +880,7 @@ Output of `scripts/check_spec_sheet.py` (documentation-driven-design skill 1.2.1
 exit 0:
 
 ```text
-docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 342 rows
+docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 347 rows
   malformed row (cell count differs from the header): 0
   missing, malformed or duplicate ID: 0
   empty or placeholder cell: 0
@@ -881,6 +893,6 @@ docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 342 rows
   unknown Status value: 0
 ```
 
-- Trace-table lines mapped: 91 of 91 (11 goals + 80 inputs + 0 assumptions)
+- Trace-table lines mapped: 92 of 92 (11 goals + 81 inputs + 0 assumptions)
 - Sweeps recorded: 7 of 7
-- Rows by level: 287 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY
+- Rows by level: 292 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY

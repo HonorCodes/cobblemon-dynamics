@@ -292,3 +292,11 @@ These checks show the changes that the approver ruled after the Phase 1 play-tes
 46. **CD-SUP-02.** Setup: as in check 45, with a level 10 Charmander in place of the Dratini, and no furnace or brewing
     stand in the work area. Action: watch for 30 seconds. Then select the Charmander with the Work Leash and click the
     burner. Expected: the Charmander never walks to the burner, and the click shows "No role fits".
+47. **CD-GEN-08.** Setup: a Work Mode pasture with a level 50 Pikachu, a Charge Cell 4 blocks from the pasture block, and
+    a comparator that reads the cell, with redstone dust after it. Action: watch for 20 seconds. Expected: the Pikachu
+    works the cell with Thunder Shock, and the dust gets brighter as the cell fills. After about 12 seconds the comparator
+    gives 15, and the Pikachu waits in Standby.
+48. **CD-GEN-11.** Setup: the full cell of check 47. Action: break the cell, hover over its item, then place the item where
+    the cell was. Expected: the tooltip reads "50,000 / 50,000 FE", and the comparator gives 15 again within a second.
+49. **CD-GEN-09.** Setup: a full Charge Cell beside an empty one, each with a comparator that reads it. Action: watch for 10
+    seconds. Expected: both comparators settle at a signal of 8, and then neither signal changes.

@@ -634,3 +634,52 @@ before its fix:
   blocks wide got a spot in a gap one block wide, where its body overlapped the walls. Fix: `SpotGrid.fitsBody` needs room for
   the body on the spot's center and where navigation stops it (`WorkerBody`). Manual checklist 14 repeats the check in the
   play-test.
+
+## Approver rulings after the play-test (2026-11-10)
+
+The approver reported the second play-test round GREEN (Task 9, Step 5) and ruled the changes below on the same day.
+The spec sheet records them as inputs R59 and R60 and in its corrections list. Each ruling is test-first, with its own
+commits on the branch `approver-changes`.
+
+### Ruling: no Fire-types on Blaze Burners (R59)
+
+**Rows:** CD-BRN-01 to CD-BRN-07, CD-SUP-02 and CD-ASG-16, amended. [M3 Task 5](2026-11-09-phase-1-m3-create-roles.md#task-5-superheater)
+holds the design.
+
+- `burner_keeper.json` is gone. The Superheater's file already gives `kindled` below level 50 and `seething` from level 50,
+  so no code changed.
+- Tests: `HeatGateTest` (kindled below level 50), `DefaultPriorityTest` (a burner has only the Superheater, so a Charmander
+  gets no role there and a Turtonator works it as the Superheater), `BuiltInRoleFilesTest` (the Role table),
+  `MixinGateTest` (a data pack's own role on the burner handler still gives one warning per handler), `BurnerTests` with a
+  Lv10 Dratini in place of the Charmander, and `BurnerTests.cdSup02FireTypeNeverClaimsABlazeBurner`.
+
+### Ruling: the Charge Cell (R60)
+
+**Rows:** CD-GEN-08, CD-GEN-09, CD-GEN-10, CD-GEN-11 and CD-GEN-12, new. CD-REL-08 and CD-ART-01, amended.
+
+**Files:** `cell/ChargeCellRules.kt` (pure: the capacity, the split, the levelling, the signal and the FE count),
+`cell/ChargeCellBlock.kt`, `cell/ChargeCellBlockEntity.kt`, `registry/DynamicsBlocks.kt` (the block, its item, its block
+entity type, the `cobblemon_dynamics:stored_energy` data component and the capability), the blockstate, the block and item
+models, the placeholder texture from `scripts/placeholder_art.py`, the loot table, the recipe, the `mineable/pickaxe` tag
+and the lang entries. Tests: `ChargeCellRulesTest`, `ChargeCellTests` and `PlayerGuideTest`.
+
+Design, as built:
+
+- `RegisterCapabilitiesEvent.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, type, provider)` (checked with `javap` on
+  the NeoForge 21.1.265 jar) gives every face the same `IEnergyStorage`. It takes and gives FE, and `canReceive()` stays
+  true when the cell is full, so a Generator at a full cell waits in Standby (CD-GEN-06) instead of losing its claim.
+- The server tick first splits the cell's FE between the faces whose blocks take FE and are not cells
+  (`ChargeCellRules.split`). Each face gets an equal share up to what a simulated insert takes, what a face cannot take
+  goes to the others, and the FE that does not divide evenly goes one each in turn, from a face that moves on with each
+  split. Then `ChargeCellRules.levelWith` gives each neighbouring cell that holds less only enough FE to bring the giver and
+  those cells to one level, and the giver keeps at least that level. FE therefore moves only from a cell that holds more to
+  one that holds less, and each move lowers the sum of the squares of the stores, so FE between cells settles and stops. A
+  first rule, half the difference for each neighbour, let a cell with several lower neighbours fall below them. The cell
+  finds its neighbours' capabilities through `BlockCapabilityCache`, which reads nothing in an unloaded chunk.
+- `BlockEntity.setChanged` calls `Level.updateNeighbourForOutputSignal`, so each real change of the store also tells the
+  comparators (CD-GEN-10).
+- `collectImplicitComponents` writes `stored_energy` when the cell holds FE, and the loot table's `copy_components` copies it
+  to the drop. `applyImplicitComponents` loads it into a cell that an item places. The tooltip comes from
+  `Block.appendHoverText`. `GameTestHelper.destroyBlock` drops nothing, so `ChargeCellTests` breaks the cell through
+  `ServerLevel.destroyBlock(pos, true)`.
+- The cell has no transfer limit per tick: it gives what the blocks around it take, up to its store. The ruling names none.

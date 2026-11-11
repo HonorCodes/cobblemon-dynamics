@@ -295,6 +295,25 @@ divides it, as it does for any worker.
 A Fairy-type with a binding, for example a [Muse](#muse), is a normal worker. It recovers by the worker rule
 and heals no ally.
 
+## Charge Cell
+
+The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 FE.
+
+- Each face of the cell takes FE. A [Generator](#generator) works a cell as it works any block that takes FE, so a
+  Generator next to a cell charges it.
+- Every tick, the cell pushes its FE into the blocks around it that take FE. Each of them gets an equal share. When a
+  block takes less than its share, the others get the rest.
+- Two cells side by side share their FE until both hold the same amount. FE never moves from a cell into a cell that
+  holds more, so it does not flow back and forth between cells.
+- A comparator reads how full the cell is: 0 when the cell is empty, 1 to 14 while it holds some FE, and 15 when it is
+  full.
+- When you break a cell, its item keeps the FE. The tooltip of the item shows it, for example "12,345 / 50,000 FE". The
+  cell that you place from the item holds that FE again.
+
+| Item | Recipe |
+| --- | --- |
+| Charge Cell | Shaped: a Thunder Stone (`cobblemon:thunder_stone`) in the center, redstone dust above and below it, and 6 copper ingots in the side columns. |
+
 ## Roles
 
 A role is a job that Pokémon of some types do on one kind of block. Auto-assigned workers take the roles
@@ -393,7 +412,8 @@ The factor m is 2 for a legendary or mythical Pokémon, and 1 for any other.
 | 100 | 5,000 | 10,000 |
 
 The Generator pushes through the face of the target nearest to it that accepts energy. It stores no energy,
-so any FE that the target refuses is lost. It works only while the target can take more energy. Next to a
+so any FE that the target refuses is lost. To keep FE for later, let the Generator charge a
+[Charge Cell](#charge-cell). It works only while the target can take more energy. Next to a
 full target, it waits in Standby. An AE2 Energy Acceptor converts the FE at AE2's own ratio.
 
 **Role file parameters:** `base_fe_per_tick` (10), `max_fe_per_tick` (5000), `rare_multiplier` (2.0) and
