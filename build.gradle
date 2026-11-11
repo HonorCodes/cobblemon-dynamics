@@ -36,6 +36,29 @@ sourceSets {
         kotlin.srcDir 'src/gametest/kotlin-shared'
         resources.srcDir 'src/gametest/resources-shared'
     }
+    // CD-QWK-27 to CD-QWK-32, CD-LND-06 to CD-LND-10: one claim mod each, on the mod set of the core run. CI does not run them.
+    gametestFtbChunks {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        kotlin.srcDir 'src/gametest/kotlin-claims'
+        resources.srcDir 'src/gametest/resources-shared'
+    }
+    gametestOpac {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        kotlin.srcDir 'src/gametest/kotlin-claims'
+        resources.srcDir 'src/gametest/resources-shared'
+    }
+    // CD-LND-08, CD-LND-09: MineColonies and its three required libraries, on the mod set of the core run.
+    gametestMineColonies {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        kotlin.srcDir 'src/gametest/kotlin-claims'
+        resources.srcDir 'src/gametest/resources-shared'
+    }
 }
 
 configurations {
@@ -48,6 +71,12 @@ configurations {
     // CD-PLAT-05: Cobblemon and KotlinForForge only. Neither localRuntime nor compileOnly, so the core tests cannot name Create.
     gametestCoreImplementation.extendsFrom implementation
     gametestCoreRuntimeOnly.extendsFrom runtimeOnly
+    gametestFtbChunksImplementation.extendsFrom implementation
+    gametestFtbChunksRuntimeOnly.extendsFrom runtimeOnly
+    gametestOpacImplementation.extendsFrom implementation
+    gametestOpacRuntimeOnly.extendsFrom runtimeOnly
+    gametestMineColoniesImplementation.extendsFrom implementation
+    gametestMineColoniesRuntimeOnly.extendsFrom runtimeOnly
 }
 
 repositories {
@@ -106,6 +135,9 @@ neoForge {
     addModdingDependenciesTo sourceSets.test
     addModdingDependenciesTo sourceSets.gametest
     addModdingDependenciesTo sourceSets.gametestCore
+    addModdingDependenciesTo sourceSets.gametestFtbChunks
+    addModdingDependenciesTo sourceSets.gametestOpac
+    addModdingDependenciesTo sourceSets.gametestMineColonies
 
     mods {
         "${mod_id}" {
@@ -116,6 +148,15 @@ neoForge {
         }
         cobblemon_dynamics_coretest {
             sourceSet sourceSets.gametestCore
+        }
+        cobblemon_dynamics_ftbtest {
+            sourceSet sourceSets.gametestFtbChunks
+        }
+        cobblemon_dynamics_opactest {
+            sourceSet sourceSets.gametestOpac
+        }
+        cobblemon_dynamics_mctest {
+            sourceSet sourceSets.gametestMineColonies
         }
     }
 
@@ -154,6 +195,28 @@ neoForge {
             loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_test]
             systemProperty 'neoforge.enabledGameTestNamespaces', 'cobblemon_dynamics_perf'
         }
+        // The three claim runs: the mod set of the core run and one claim mod each (ADR-0013 Amendment 1, ADR-0014).
+        gameTestServerFtbChunks {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametestFtbChunks
+            gameDirectory = project.file('run/gametest-ftbchunks')
+            loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_ftbtest]
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        gameTestServerOpac {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametestOpac
+            gameDirectory = project.file('run/gametest-opac')
+            loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_opactest]
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        gameTestServerMineColonies {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametestMineColonies
+            gameDirectory = project.file('run/gametest-minecolonies')
+            loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_mctest]
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.INFO
@@ -187,6 +250,16 @@ dependencies {
     localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
     // CD-GEN-07: the full GameTest run reads an AE2 grid's stored energy through AE2's API. The main source set never sees AE2 (CD-CRY-05).
     gametestCompileOnly("org.appliedenergistics:appliedenergistics2:${ae2_version}") { transitive = false }
+    // The claim runs load the jars of COHO 2.4.0. They never go into a CI artifact or a log upload.
+    gametestFtbChunksImplementation("dev.ftb.mods:ftb-chunks-neoforge:${ftb_chunks_version}") { transitive = false }
+    gametestFtbChunksImplementation("dev.ftb.mods:ftb-teams-neoforge:${ftb_teams_version}") { transitive = false }
+    gametestFtbChunksImplementation("dev.ftb.mods:ftb-library-neoforge:${ftb_library_version}") { transitive = false }
+    gametestFtbChunksRuntimeOnly("maven.modrinth:architectury-api:${architectury_version}") { transitive = false }
+    gametestOpacImplementation("maven.modrinth:open-parties-and-claims:${opac_version}") { transitive = false }
+    gametestMineColoniesImplementation("com.ldtteam:minecolonies:${minecolonies_version}") { transitive = false }
+    gametestMineColoniesImplementation("com.ldtteam:structurize:${structurize_version}") { transitive = false }
+    gametestMineColoniesImplementation("com.ldtteam:blockui:${blockui_version}") { transitive = false }
+    gametestMineColoniesRuntimeOnly("com.ldtteam:domum-ornamentum:${domum_ornamentum_version}:main") { transitive = false }
 
     testImplementation platform('org.junit:junit-bom:6.1.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'

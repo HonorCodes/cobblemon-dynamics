@@ -29,10 +29,19 @@ import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.gametest.framework.GameTestInfo
 import net.minecraft.gametest.framework.GameTestListener
 import net.minecraft.gametest.framework.GameTestRunner
+import net.minecraft.network.Connection
+import net.minecraft.network.PacketSendListener
 import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.PacketFlow
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ClientInformation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.server.network.CommonListenerCookie
+import net.minecraft.server.network.ServerGamePacketListenerImpl
 import net.minecraft.server.players.PlayerList
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
@@ -249,6 +258,57 @@ object TestKit {
         afterTest(helper) { byUuid.remove(player.uuid) }
         return player
     }
+
+    /** A player of the exact class ServerPlayer and the packets that the server sent it (CD-QWK-31, CD-QWK-32, CD-LND-10). */
+    class PlainOwner(val player: ServerPlayer, val packets: MutableList<Packet<*>>)
+
+    /**
+     * An owner at [rel] that `PlayerList.getPlayer` finds until the test ends, as [listedOwner], but of the exact class ServerPlayer,
+     * which Architectury and FTB Chunks judge as a player and not as a fake player. Its connection has no Netty channel and keeps every
+     * packet, as the listener of `EffectPacketTests` does. It claims every channel, because FTB Library asks before it sends.
+     */
+    fun plainOwner(helper: GameTestHelper, rel: BlockPos, name: String = "owner", permissionLevel: Int = 0): PlainOwner {
+        val uuid = UUID.randomUUID()
+        val profile = GameProfile(uuid, "${name}_${uuid.toString().take(6)}")
+        val server = helper.level.server
+        val player = if (permissionLevel > 0) {
+            LeveledPlayer(server, helper.level, profile, permissionLevel)
+        } else {
+            ServerPlayer(server, helper.level, profile, ClientInformation.createDefault())
+        }
+        val packets = ArrayList<Packet<*>>()
+        // The constructor sets player.connection to this listener.
+        object : ServerGamePacketListenerImpl(
+            server,
+            Connection(PacketFlow.CLIENTBOUND),
+            player,
+            CommonListenerCookie.createInitial(profile, false),
+        ) {
+            override fun send(packet: Packet<*>) {
+                packets += packet
+            }
+
+            override fun send(packet: Packet<*>, listener: PacketSendListener?) {
+                packets += packet
+            }
+
+            override fun hasChannel(payloadId: ResourceLocation): Boolean = true
+        }
+        return PlainOwner(listed(helper, player, rel), packets)
+    }
+
+    /** A plain owner with a permission level, such as an operator of level 2. The GameTest server gives every player level 0. */
+    private class LeveledPlayer(server: MinecraftServer, level: ServerLevel, profile: GameProfile, private val permission: Int) :
+        ServerPlayer(server, level, profile, ClientInformation.createDefault()) {
+        override fun getPermissionLevel(): Int = permission
+    }
+
+    /** The system chat packets that [owner] got: action-bar messages with [overlay] true, chat messages with it false. */
+    fun systemMessages(owner: PlainOwner, overlay: Boolean): List<String> =
+        owner.packets.filterIsInstance<ClientboundSystemChatPacket>().filter { it.overlay() == overlay }.map { it.content().string }
+
+    /** The last action-bar message that [owner] got, from Quick Work or from a claim mod. */
+    fun lastActionBar(owner: PlainOwner): String? = systemMessages(owner, overlay = true).lastOrNull()
 
     /** Takes [player] out of the player list's UUID map, so that `PlayerList.getPlayer` no longer finds it, as after a logout. */
     fun unlist(helper: GameTestHelper, player: ServerPlayer) {

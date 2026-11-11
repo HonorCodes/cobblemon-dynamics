@@ -1,0 +1,23 @@
+modLoader="kotlinforforge"
+loaderVersion="[5.10,)"
+license="MPL-2.0"
+
+[[mods]]
+modId="cobblemon_dynamics_mctest"
+version="0.0.0"
+displayName="Cobblemon Dynamics GameTests with MineColonies"
+description='''GameTests for Cobblemon Dynamics on a server with Cobblemon, KotlinForForge and MineColonies. Never shipped.'''
+
+[[dependencies.cobblemon_dynamics_mctest]]
+modId="cobblemon_dynamics"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.cobblemon_dynamics_mctest]]
+modId="minecolonies"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"

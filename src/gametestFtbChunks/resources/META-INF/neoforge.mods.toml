@@ -1,0 +1,23 @@
+modLoader="kotlinforforge"
+loaderVersion="[5.10,)"
+license="MPL-2.0"
+
+[[mods]]
+modId="cobblemon_dynamics_ftbtest"
+version="0.0.0"
+displayName="Cobblemon Dynamics GameTests with FTB Chunks"
+description='''GameTests for Cobblemon Dynamics on a server with Cobblemon, KotlinForForge and FTB Chunks. Never shipped.'''
+
+[[dependencies.cobblemon_dynamics_ftbtest]]
+modId="cobblemon_dynamics"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.cobblemon_dynamics_ftbtest]]
+modId="ftbchunks"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
