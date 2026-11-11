@@ -12,7 +12,7 @@ spec sheet disagree, the spec sheet wins.
 
 Cobblemon Dynamics lets pastured Pokémon work on blocks around a player's base. A Water-type turns
 a Create water wheel. An Electric-type pushes Forge Energy (FE) into a machine. A Fire-type keeps a
-furnace lit. Version 1.0 has 16 roles across 13 types, a Work Stamina cycle with four bed tiers, and
+furnace lit. Version 1.0 has 15 roles across 13 types, a Work Stamina cycle with four bed tiers, and
 Fairy-type healers. [docs/roles.md](docs/roles.md) lists every role.
 
 Constraints:
@@ -48,6 +48,8 @@ Mixin supports only Java mixin classes.
 ```text
 src/main/kotlin/codes/honor/cobblemondynamics/
   CobblemonDynamics.kt   mod entry point, registration, event wiring
+  registry/              deferred registers: blocks, items, block entities, the Charge Cell's
+                         data component, the creative tab, the entity type, attachments
   config/                server and client config specs
   pasture/               pasture adapter, Work Mode attachment, Work Mode pasture index
   engine/                scheduler, worker state machine, scanner, assigner
@@ -62,6 +64,7 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   fx/                    effect player, effect definitions, work focus entity
   stamina/               Work Stamina math, store, display mirror
   bed/                   bed blocks, bed block entity, tiers
+  cell/                  Charge Cell block, block entity and FE rules
   heal/                  healer target selection, heal transaction
   leash/                 Work Leash item, interaction handlers, pending selections
   net/                   payload definitions and handlers
@@ -87,7 +90,7 @@ src/main/resources/
   cobblemon_dynamics.mixins.json
   data/cobblemon_dynamics/cobblemon_dynamics/roles/*.json   built-in roles
   data/cobblemon_dynamics/behaviours/pokemon/auto/*.json    Brain behaviour
-  data/cobblemon_dynamics/recipe/*.json                     Work Leash and bed recipes
+  data/cobblemon_dynamics/recipe/*.json                     Work Leash, bed and Charge Cell recipes
   assets/cobblemon_dynamics/                                models, textures, sprites, lang
 src/test/kotlin/         JUnit 5 unit tests, no game runtime
 src/gametest/kotlin/     NeoForge GameTests, loaded only by the gameTestServer run
@@ -102,6 +105,7 @@ files live under `assets/cobblemon_dynamics/`.
 
 | Component | Package | Responsibility | Talks to |
 |---|---|---|---|
+| Content | `registry` | Registers the blocks, the items, the block entity types, the Charge Cell's data component, the work focus entity type and the attachments. Registers the creative tab `cobblemon_dynamics:main`, which lists every item of the mod, and no vanilla tab lists them. | NeoForge registries |
 | Pasture adapter | `pasture` | Reads tethered Pokémon, the pasture's `ownerId` and the player-to-pasture link. Stores Work Mode as a NeoForge data attachment on Cobblemon's pasture block entity. Keeps an index of Work Mode pastures per level. Polls each loaded Work Mode pasture every 20 ticks, because Cobblemon fires no pasture events. | Cobblemon internals, work engine |
 | Work engine | `engine` | Owns the authoritative state of every worker. Schedules scans, runs assignment, runs each worker's state machine, applies work through handlers and drains or restores Work Stamina. Runs on the server thread only. | All server components |
 | Claim registry | `claim` | Holds work claims, bed claims and heal claims: one claim per key and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, or an entity UUID. Holds the leash bindings as reservations, at most one per worker, and their persistent index. | Work engine, leash, heal, beds |
@@ -112,6 +116,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Effects | `fx` | Sends Cobblemon animation and particle packets on each effect loop. Spawns and removes work focus entities. Runs the Floral Healing timeline when Cobblemon has it. Sends no sound: work is silent. | Cobblemon network, clients |
 | Work Stamina | `stamina` | Computes capacity, drain and recovery. Stores the value in the Pokémon's `persistentData`. Mirrors a display value to a synced entity attachment. | Work engine, Cobblemon data |
 | Beds | `bed` | Registers the Hay Bed, Wool Bed, Plush Bed and Starlit Bed blocks and their speed factors. Each bed has a block entity, so scans find beds in the chunk's block entity map and never iterate block positions for them. | Claim registry, work engine |
+| Charge Cell | `cell` | Registers the Charge Cell block, which stores 50,000 FE behind NeoForge's energy capability on all six faces. Each tick it splits its FE between the blocks around it that take FE, then levels each neighbouring cell that holds less, so FE never loops between cells. It gives a comparator signal by fill, and its item keeps its FE. | NeoForge capabilities, Generator |
 | Heal | `heal` | Picks the next ally for each healer and applies the heal as one transaction. | Claim registry, stamina |
 | Work Leash | `leash` | Handles the two-click binding, the three-click Telekinesis binding, the pending selection, the clear gesture and the flip gesture. Sends action-bar feedback. | Claim registry, handlers |
 | Network | `net` | Defines our payloads and validates every client payload on the server. | Client, engine |
@@ -136,6 +141,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Drive direction (wheels, hand cranks) | A Create `BlockEntityBehaviour` added through `BlockEntityBehaviourEvent` to the water wheel, large water wheel and hand crank block entities. Fields: `direction` (+1 or -1, default +1), `driven` (boolean). | Saved in the Create block entity NBT. | Create's block entity packets carry it, so the client recomputes the same wheel speed. |
 | Fan state | A Create `BlockEntityBehaviour` on the encased fan block entity. Fields: `fireMode` (`blasting` or `smoking`, default `blasting`), `catalyst` (the active catalyst kind, or none). | `fireMode` is saved in the Create block entity NBT. `catalyst` is not saved. | Create's block entity packets carry both, so the client builds the same air current. |
 | Tailwind bonus | A Create `BlockEntityBehaviour` on the windmill bearing block entity. Field: `bonusSails` (int, default 0). | Not saved. The handler sets it while Tailwind works. | Create's block entity packets carry it, so the client spins at the same rate. |
+| Charge Cell FE | The Charge Cell block entity, field `energy` (0 to 50,000). The item of a broken cell holds it as the data component `cobblemon_dynamics:stored_energy`. | Saved in the block entity NBT, and with the item stack. | The item component syncs as item data. The block entity sends nothing. |
 | Work focus entity | Entity type `cobblemon_dynamics:work_focus`, one per Working claim on a block target, at the target's center. It is invisible and has no collision. | Never saved to disk. | Vanilla entity tracking. |
 | Brain work order | Memory `cobblemon_dynamics:work_order` in the Pokémon's Brain. | Not saved. The engine rewrites it every tick, because Cobblemon rebuilds the Brain when it swaps the Pokémon instance. | No |
 
@@ -472,9 +478,9 @@ references. This section lists what the code uses.
       at = @At("RETURN"), cancellable = true)
   ```
 
-  It returns `KINDLED` for the Burner Keeper. It returns `SEETHING` for a Superheater at level 50 or
-  higher, and `KINDLED` for a Superheater below level 50. It changes the result only when ours is
-  hotter. The burner's own tick writes the block state every tick, so heat starts within one tick and
+  It returns `SEETHING` for a Superheater at level 50 or higher, and `KINDLED` for a Superheater
+  below level 50. The Superheater is the only role that heats a burner, so a Fire-type never works
+  one (the approver's ruling of 2026-11-10). It changes the result only when ours is hotter. The burner's own tick writes the block state every tick, so heat starts within one tick and
   ends one tick after release. The handler renews the heat of a burner on every tick that its worker
   Works, and the heat lapses one tick after the last renewal, so a release that never came leaves no
   burner hot. Empty burners (`HeatLevel.NONE`, no block entity) are never targets, because heating
@@ -558,6 +564,8 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
   `Capabilities.FluidHandler.BLOCK` (`IFluidHandler`) and `Capabilities.ItemHandler.BLOCK`
   (`IItemHandler`), each read through `BlockCapabilityCache`. The FE, fluid and item code sits behind
   internal interfaces, because NeoForge 21.9 and later replace these interfaces with the transfer API.
+  The Charge Cell registers `Capabilities.EnergyStorage.BLOCK` for its block entity type through
+  `RegisterCapabilitiesEvent.registerBlockEntity`, with one store behind every face.
 - **Vanilla item handlers.** Chests, barrels and hoppers ignore the side, and a double chest is one
   54-slot handler. A real insert into an empty hopper sets an 8-tick cooldown. Sided containers such as
   furnaces use `SidedInvWrapper`, which is why Telekinesis uses the faces that the player clicked.
@@ -727,6 +735,7 @@ sheet's ART rows are normative.
 | Plush Bed | A thick velvet cushion with gold trim. |
 | Starlit Bed | A midnight-blue cushion with a gold star pattern, a faint glow and an occasional sparkle. |
 | Work Leash | A lead with a red-and-white clasp. |
+| Charge Cell | A block that stores FE. It ships a placeholder texture until M8. |
 | UI sprites | The Work Mode button in 4 states (on, off, disabled, hover), the stamina bar, and 7 state icons (Idle, Traveling, Working, Standby, Tired, Sleeping, Healing). |
 | Logo | The operator's own pixel-art image of Machop turning a gear machine. The source is `art/logo/logo-source-1254.png` (1254 × 1254). It ships as a 256 × 256 `logo.png` (`art/logo/logo-256.png`) with `logoBlur=false` in `neoforge.mods.toml`, and as a 512 × 512 project-page icon (`art/logo/icon-512.png`). |
 
@@ -747,7 +756,7 @@ Rules:
 | 1, private | M0 | Scaffold, CI, `security.yml` and `dependabot.yml` |
 | 1, private | M1 | Engine, claims, the Work Leash, Work Mode and the Stoker |
 | 1, private | M2 | Work Stamina, beds (placeholder art) and healers |
-| 1, private | M3 | Create roles: Wheel Driver, Burner Keeper, Superheater, Cranker |
+| 1, private | M3 | Create roles: Wheel Driver, Superheater, Cranker |
 | 1, private | M4 | Generator, Crystal Tender, Brew Stoker, Brewer, Muse and Pump |
 | 1, private | M5 | Panel and head bars, compatibility, polish and the manual checklist |
 | Gate 1 | | Every v1 MUST row passes, and the operator tests the mod in a private world. |

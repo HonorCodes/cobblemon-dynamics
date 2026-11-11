@@ -281,3 +281,26 @@ These checks repeat the findings of the approver's first play-test after their f
 44. **CD-ASG-09.** Setup: a Work Mode pasture with a Charmander, and a furnace with 64 raw iron on the floor 5
     blocks from the pasture block, with open floor around it. Action: watch the Charmander until it Works.
     Expected: it stands on the floor beside the furnace, not on top of it and not several blocks away.
+
+## Approver rulings (2026-11-10)
+
+These checks show the changes that the approver ruled after the Phase 1 play-test.
+
+45. **CD-BRN-01.** Setup: a Work Mode pasture with a level 10 Dratini, and a Blaze Burner with a blaze, no fuel and a
+    basin on top, 4 blocks from the pasture block. Action: watch the Dratini until it Works. Expected: the Dratini works
+    the burner with Dragon Breath, and the burner burns with kindled flames, not with the blue flames of superheat.
+46. **CD-SUP-02.** Setup: as in check 45, with a level 10 Charmander in place of the Dratini, and no furnace or brewing
+    stand in the work area. Action: watch for 30 seconds. Then select the Charmander with the Work Leash and click the
+    burner. Expected: the Charmander never walks to the burner, and the click shows "No role fits".
+47. **CD-GEN-08.** Setup: a Work Mode pasture with a level 50 Pikachu, a Charge Cell 4 blocks from the pasture block, and
+    a comparator that reads the cell, with redstone dust after it. Action: watch for 20 seconds. Expected: the Pikachu
+    works the cell with Thunder Shock, and the dust gets brighter as the cell fills. After about 12 seconds the comparator
+    gives 15, and the Pikachu waits in Standby.
+48. **CD-GEN-11.** Setup: the full cell of check 47. Action: break the cell, hover over its item, then place the item where
+    the cell was. Expected: the tooltip reads "50,000 / 50,000 FE", and the comparator gives 15 again within a second.
+49. **CD-GEN-09.** Setup: a full Charge Cell beside an empty one, each with a comparator that reads it. Action: watch for 10
+    seconds. Expected: both comparators settle at a signal of 8, and then neither signal changes.
+50. **CD-UI-16.** Setup: the play-test client in a creative world. Action: open the creative inventory and look through its
+    tabs. Expected: a tab named "Cobblemon Dynamics", with the Work Leash as its icon, holds the Work Leash, the Hay Bed, the
+    Wool Bed, the Plush Bed, the Starlit Bed and the Charge Cell, in that order. The Tools and Utilities tab and the
+    Functional Blocks tab hold none of them.

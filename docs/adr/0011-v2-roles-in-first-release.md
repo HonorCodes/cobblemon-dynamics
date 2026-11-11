@@ -28,9 +28,9 @@ Research facts (see the integration-points note):
 
 ## Decision
 
-- **Scope.** Version 1.0 ships all 16 roles. Phase 2 builds the four roles after the Phase 1 test gate.
+- **Scope.** Version 1.0 ships all 15 roles. Phase 2 builds the four roles after the Phase 1 test gate.
 - **Phases.**
-  1. Phase 1, private: milestones M0 to M5 build the 12 v1 roles. The gate: every v1 MUST row passes, and
+  1. Phase 1, private: milestones M0 to M5 build the 11 v1 roles. The gate: every v1 MUST row passes, and
      the operator tests the mod in a private world.
   2. Phase 2, private: M6 builds Telekinesis and the Magnet. M7 builds the Fan Catalyst and Tailwind. M8
      makes the final art, and the operator reviews it. The gate: every v2 MUST row passes, and the

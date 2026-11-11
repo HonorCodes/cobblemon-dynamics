@@ -136,7 +136,7 @@ The repository's `CLAUDE.md` holds them; add new ones there.
   beside it (CD-ASG-09). A Camerupt on real blocks got a spot in a gap one block wide. The spot check now needs
   room for the worker's body on the spot's center and where navigation stops it
   (`WideWorkerTests.cdAsg09WideWorkerGetsASpotItsBodyFits`). The play-test still checks it (manual checklist 14).
-- Done in the end-of-phase pass (M5): a Burner Keeper worked a creative Blaze Burner, which gains nothing
+- Done in the end-of-phase pass (M5): a worker worked a creative Blaze Burner, which gains nothing
   from it. `hasDemand` is now false for a creative burner (`BurnerTests.creativeBlazeBurnerHasNoDemand`).
 - Done in the end-of-phase pass (M5): two Pokémon that walk toward each other on the same row of cell centres
   push each other straight back, because Minecraft pushes along the line between their centres. Navigation

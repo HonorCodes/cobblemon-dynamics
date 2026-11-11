@@ -1,10 +1,10 @@
 # Role catalog
 
 A role is a job that a Pokémon of a given type does on a specific block. This page
-lists the roles for all 18 types: the 16 roles of version 1.0 and the later ideas.
+lists the roles for all 18 types: the 15 roles of version 1.0 and the later ideas.
 
 Version 1.0 ships in phases ([ADR 0011](adr/0011-v2-roles-in-first-release.md)).
-Phase 1 builds the 12 v1 roles and ends with a private test. Phase 2 builds the 4 v2
+Phase 1 builds the 11 v1 roles and ends with a private test. Phase 2 builds the 4 v2
 roles and the final art and ends with a second private test. Phase 3 is the public
 release.
 
@@ -41,7 +41,7 @@ Thirteen types have roles in version 1.0.
 | Type | Phase 1 | Phase 2 | Later idea |
 | --- | --- | --- | --- |
 | Normal | Cranker | | |
-| Fire | Stoker, Burner Keeper, Brew Stoker | Fan Catalyst (blasting or smoking) | |
+| Fire | Stoker, Brew Stoker | Fan Catalyst (blasting or smoking) | |
 | Water | Wheel Driver, Pump | Fan Catalyst (washing) | |
 | Grass | | | Grower |
 | Electric | Generator | | |
@@ -67,8 +67,7 @@ Thirteen types have roles in version 1.0.
 | Pump | Water | Fluid tanks, boilers, basins and cauldrons, and any block that accepts water through NeoForge's fluid capability | Fills the target with water. The rate scales with level. | Water Gun | Leash only | PMP |
 | Generator | Electric | Any block that accepts Forge Energy, including AE2 energy acceptors, chargers and inscribers | Pushes Forge Energy into the target. The output scales with level. Legendary and mythical Pokémon produce more. | Thunder Shock | Auto | GEN |
 | Stoker | Fire | Furnace, smoker, blast furnace, and modded furnaces that extend the vanilla furnace | Keeps the furnace lit as if it burned coal, while a recipe can run. The fuel slot stays untouched. | Ember | Auto | STK |
-| Burner Keeper | Fire | A Create Blaze Burner that holds a blaze | Keeps the burner kindled, as coal does, while a basin or fluid tank sits on top. | Ember | Auto | BRN |
-| Superheater | Dragon | A Create Blaze Burner that holds a blaze | From level 50, keeps the burner superheated, as a Blaze Cake does, while a basin or fluid tank sits on top. Below level 50, it keeps the burner kindled. | Dragon Breath | Auto | SUP |
+| Superheater | Dragon | A Create Blaze Burner that holds a blaze | From level 50, keeps the burner superheated, as a Blaze Cake does, while a basin or fluid tank sits on top. Below level 50, it keeps the burner kindled, as coal does. | Dragon Breath | Auto | SUP, BRN |
 | Cranker | Fighting, Normal | Create hand crank | Turns the crank without a stop. Each crank stores its own direction. | Pound | Auto | CRK |
 | Crystal Tender | Rock | Blocks in `#c:budding_blocks`: budding amethyst and AE2 budding certus quartz | Gives extra growth ticks, as one AE2 Growth Accelerator does, while a face of the block can still grow. | Rock Throw | Auto | CRY |
 | Brew Stoker | Fire | Brewing stand | Keeps the stand fueled as if it held blaze powder, while a brew can start. | Ember | Auto | BRF |
@@ -111,16 +110,17 @@ behaves.
 ### One worker per block
 
 - A brewing stand takes a Brew Stoker or a Brewer, never both.
-- A Blaze Burner takes a Burner Keeper or a Superheater, never both.
+- A Blaze Burner takes only a Superheater. A Fire-type never works a burner (the
+  approver's ruling of 2026-11-10).
 - When one worker qualifies for two roles on the same target, the role with the higher
-  priority wins. For example, a Fire/Dragon Pokémon on a Blaze Burner works as a
-  Superheater.
+  priority wins. For example, a Poison/Fire Pokémon on a brewing stand works as a Brew
+  Stoker.
 - A large water wheel is one target. The claim sits on the wheel's controller, and a
   click on any block of the wheel's ring maps to the controller.
 - A Telekinesis binding holds its source only. Its destination stays open to other
   workers.
 
-A Blaze Burner that a Burner Keeper or Superheater heats also counts as a blasting
+A Blaze Burner that a Superheater heats also counts as a blasting
 catalyst for a Create encased fan. Create applies this rule itself, so it needs no
 extra role.
 

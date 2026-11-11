@@ -69,8 +69,8 @@ has eight structural blocks around its controller.
 
 - No claim goes stale after a crash, because work, bed and heal claims do not persist.
 - One worker per block also means one role per block. A brewing stand takes a Brew Stoker or a
-  Brewer. A Blaze Burner takes a Burner Keeper or a Superheater. When one worker fits two roles on the
-  same target, the role with the higher `priority` wins ([ADR-0006](0006-data-driven-roles.md)).
+  Brewer. When one worker fits two roles on the same target, the role with the higher `priority` wins
+  ([ADR-0006](0006-data-driven-roles.md)).
 - A leashed machine stays reserved while its worker sleeps, so no other worker covers it.
 - An auto-assigned worker that gets Tired releases its target, so another worker can take over.
 

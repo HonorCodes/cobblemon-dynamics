@@ -18,6 +18,19 @@ Corrections after agreement:
 - 2026-11-10, approver's play-test ruling: CD-ASG-09 prefers a work spot beside the target at its base height and never
   picks one that stands on the target. Before, the spot nearest to the worker won, which could be on top of the target. A
   spot that a worker cannot walk into on the level, such as a pit beside a water wheel, comes last.
+- 2026-11-10, approver's play-test result: the second play-test of the Phase 1 build, on the jar of PR #12, is GREEN.
+  The play-test note in `docs/testing/phase-1-gate.md` records it, so CD-REL-13 is complete. No row changes.
+- 2026-11-10, approver's ruling after the play-test (R59): Fire-types do not heat Blaze Burners. The Burner Keeper role
+  and its role file are gone, so the Role table, G3, the M3 scope and R15 lose it. The BRN rows keep their ids and now
+  describe the Superheater: CD-BRN-01 holds `KINDLED` below level 50, and CD-BRN-05 counts 1 boiler heat from a
+  Superheater below level 50. CD-SUP-02 adds that a Fire-type never claims a Blaze Burner, and the burner case of
+  CD-ASG-16 now gives the Superheater as the burner's only role.
+- 2026-11-10, approver's ruling after the play-test (R60): a Charge Cell block. New rows CD-GEN-08 to CD-GEN-12 cover
+  its capacity and faces, its push into the blocks around it, its comparator signal, the FE that its item keeps, and its
+  recipe, which the Recipes table lists. CD-REL-08 adds the Charge Cell to the player guide, and CD-ART-01 adds its art
+  to the art of M8.
+- 2026-11-10, approver's ruling after the play-test (R61): a creative tab. The new row CD-UI-16 lists every item of the
+  mod in the tab `cobblemon_dynamics:main`, and in no vanilla tab.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -70,7 +83,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 
 - G1: A player switches a Cobblemon pasture to Work Mode, and its owned Pokémon power and operate machines in the work area, with no stand block.
 - G2: Water-types turn Create water wheels with no water, Electric-types generate Forge Energy by level, and Fire-types fuel furnaces as if they burned coal.
-- G3: Thirteen types get sixteen roles across vanilla Minecraft, Create and Applied Energistics 2: twelve in Phase 1 and four in Phase 2.
+- G3: Thirteen types get fifteen roles across vanilla Minecraft, Create and Applied Energistics 2: eleven in Phase 1 and four in Phase 2.
 - G4: Only one worker acts on a target at a time, across all pastures and players, and wild Pokémon never work.
 - G5: A player binds a specific pastured Pokémon to a specific machine with the Work Leash.
 - G6: Work Stamina, four bed tiers and Fairy healers make worker uptime something that a player plans, as in Palworld.
@@ -97,7 +110,7 @@ research notes in `docs/research/2026-11-09-integration-points.md`.
 
 ## Inputs
 
-All rulings come from the design session with the approver on 2026-11-09.
+Rulings R1 to R58 come from the design session with the approver on 2026-11-09. R59 to R61 come from the approver's rulings after the Phase 1 play-test, on 2026-11-10.
 
 | Input | Link |
 | --- | --- |
@@ -115,7 +128,7 @@ All rulings come from the design session with the approver on 2026-11-09.
 | R12. Ruling: a Tired Pokémon claims the nearest unclaimed bed, walks to it, and loops the sleep effect silently. A bed takes a Pokémon of any size. | none |
 | R13. Ruling: a Fairy healer restores 100% of an ally for 25% of its own stamina, at any level. It heals in its own pasture only, never Fairy allies, Tired allies first, then the lowest ally under 25%. The heal shows sparkles on the ally. | ADR 0008 |
 | R14. Ruling: healer recovery time falls linearly from 1,200 min at level 1 to 120 min at level 100. | ADR 0008 |
-| R15. Ruling: the v1 roles are Wheel Driver, Pump, Generator, Stoker, Burner Keeper, Brew Stoker, Superheater, Cranker, Crystal Tender, Brewer, healer and Muse. | `docs/roles.md` |
+| R15. Ruling: the v1 roles are Wheel Driver, Pump, Generator, Stoker, Burner Keeper, Brew Stoker, Superheater, Cranker, Crystal Tender, Brewer, healer and Muse. R59 removes the Burner Keeper. | `docs/roles.md` |
 | R16. Ruling: the v2 roles Telekinesis, Fan Catalyst, Tailwind and Magnet ship in 1.0. Phase 1 tests v1 privately, Phase 2 builds and tests v2 privately, and then 1.0 goes public and joins the approver's pack. | `docs/roles.md` |
 | R17. Ruling: each water wheel stores its own spin direction. Sneak + right-click with the Work Leash flips it. | none |
 | R18. Ruling: Muse power is ceil(15 × level ÷ 100) bookshelves, capped at 15. Unleashed Fairy-types heal. A Fairy-type is a Muse only when leashed. | none |
@@ -159,6 +172,9 @@ All rulings come from the design session with the approver on 2026-11-09.
 | R56. Ruling (was A22): Phase 1 builds use tags of the form `vX.Y.Z-alpha.N`, Phase 2 builds use `vX.Y.Z-beta.N`, and only a tag with no suffix publishes. | none |
 | R57. Ruling (was A23): the action-bar messages read `"Select a destination for {Pokémon}"`, `"Destination must differ from the source"`, `"No room in front of the fan"`, `"{Pokémon} cannot reach {target}"`, `"Fan mode: Blasting"` and `"Fan mode: Smoking"`. | none |
 | R58. Ruling: a leash binding clears when its target is broken, replaced, picked up with a Create wrench or moved into a Create contraption. It also clears when its Pokémon is recalled to the PC or the party, moves to another pasture, is released or traded, or loses its pasture block. | none |
+| R59. Ruling (2026-11-10, after the Phase 1 play-test): Fire-types do not heat Blaze Burners. Dragon-types alone heat them, `KINDLED` below level 50 and `SEETHING` from level 50. The Burner Keeper role goes. | none |
+| R60. Ruling (2026-11-10, after the Phase 1 play-test): a Charge Cell block, with an item, stores up to 50,000 FE behind NeoForge's energy capability on all six faces and takes FE on each. Every tick it pushes its FE into each adjacent block that takes FE, split fairly between the faces, and it never loops FE between two cells. A comparator reads its fill from 0 to 15. A broken cell keeps its FE on the item, and the tooltip shows it. A shaped recipe from copper ingots, redstone and a Cobblemon Thunder Stone makes it. | none |
+| R61. Ruling (2026-11-10, after the Phase 1 play-test): the mod's items get their own creative tab, `cobblemon_dynamics:main`, titled "Cobblemon Dynamics" with the Work Leash as its icon. It holds the Work Leash, the four beds and the Charge Cell, in that order, and the items leave the vanilla tabs. | none |
 | RES1. Research: Cobblemon 1.8.4 integration points. | `docs/research/2026-11-09-integration-points.md` |
 | RES2. Research: Create 6.0.10 kinetic and heat hooks. | `docs/research/2026-11-09-integration-points.md` |
 | RES3. Research: AE2 19.2.19, NeoForge 21.1 and vanilla furnace facts. | `docs/research/2026-11-09-integration-points.md` |
@@ -195,7 +211,6 @@ and default priority. The default role files hold these values.
 | Wheel Driver | 1 | Water | Create water wheel, large water wheel | Water Gun | yes | 0 |
 | Generator | 1 | Electric | Blocks whose NeoForge energy capability can receive | Thunder Shock | yes | 0 |
 | Stoker | 1 | Fire | Block entities that extend `AbstractFurnaceBlockEntity` | Ember | yes | 0 |
-| Burner Keeper | 1 | Fire | Filled Create Blaze Burner | Ember | yes | 0 |
 | Superheater | 1 | Dragon | Filled Create Blaze Burner | Dragon Breath | yes | 10 |
 | Cranker | 1 | Fighting, Normal | Create hand crank | Pound | yes | 0 |
 | Crystal Tender | 1 | Rock | Blocks in `#c:budding_blocks` | Rock Throw | yes | 0 |
@@ -218,6 +233,7 @@ and default priority. The default role files hold these values.
 | Wool Bed | Shaped: a Hay Bed in the center, 4 wool blocks (`#minecraft:wool`) on the edges, 4 iron ingots in the corners. |
 | Plush Bed | Shaped: a Wool Bed in the center, 4 gold ingots on the edges, 4 diamonds in the corners. |
 | Starlit Bed | Shapeless: 1 Plush Bed, 1 Nether Star and 4 Rare Candy (`cobblemon:rare_candy`). |
+| Charge Cell | Shaped: a Thunder Stone (`cobblemon:thunder_stone`) in the center, redstone dust above and below it, and 6 copper ingots in the side columns. |
 
 ## Milestones
 
@@ -226,7 +242,7 @@ and default priority. The default role files hold these values.
 | M0 | 1 | Scaffold and CI |
 | M1 | 1 | Work engine, claims, Work Leash, Work Mode and the Stoker role |
 | M2 | 1 | Work Stamina, beds and healers |
-| M3 | 1 | Create roles: Wheel Driver, Burner Keeper, Superheater and Cranker |
+| M3 | 1 | Create roles: Wheel Driver, Superheater and Cranker |
 | M4 | 1 | Generator, Crystal Tender, Brew Stoker, Brewer, Muse and Pump |
 | M5 | 1 | UI bars, compatibility and polish. Ends at the Phase 1 gate. |
 | M6 | 2 | Telekinesis and Magnet |
@@ -280,7 +296,7 @@ and default priority. The default role files hold these values.
 | CD-ASG-13 | With the default config, if an auto-assigned worker has not reached its work spot 600 ticks (30 s) after its work claim, then the claim registry MUST release that claim. | MUST | R24, REV1, failure sweep, limits sweep | An unreachable target must not hold a worker forever. | GameTest: a target walled off from every spot. Fails if: the claim is not held at tick 599 after the claim, or is still held at tick 601. | claim registry | agreed |
 | CD-ASG-14 | With the default config, when an auto-assigned worker's travel times out, the work engine MUST NOT give that worker the same target for 6,000 ticks (5 min). | MUST NOT | R24, REV1, limits sweep | Repeated timeouts on one target waste every scan. | Unit: on a fake clock, the target is refused to that worker 5,999 ticks after the timeout and allowed at 6,000 ticks. Fails if: either result is wrong. | work engine | agreed |
 | CD-ASG-15 | When a worker leaves its pasture, the claim registry MUST release the worker's claim within 20 ticks. | MUST | R24, RES1, failure sweep | Cobblemon fires no unpasture event, so the pasture adapter polls every 20 ticks. | GameTest: move a Working worker to the PC and read the registry 20 ticks later. Fails if: the claim remains. | claim registry | agreed |
-| CD-ASG-16 | When a worker qualifies for two roles on one target, the work engine MUST give it the role whose role file has the higher `priority`. | MUST | R24, R42, REV1 | One worker per target means one role per target, and the stronger role wins. | Unit: with the default role files, a Fire/Dragon Turtonator on a Blaze Burner gets the Superheater role (priority 10 over 0), and a Poison/Fire Salazzle on a brewing stand gets the Brew Stoker role (10 over 0). Fails if: either gets the other role. | role registry | agreed |
+| CD-ASG-16 | When a worker qualifies for two roles on one target, the work engine MUST give it the role whose role file has the higher `priority`. | MUST | R24, R42, REV1 | One worker per target means one role per target, and the stronger role wins. | Unit: with the default role files, a Poison/Fire Salazzle on a brewing stand gets the Brew Stoker role (priority 10 over 0), and a Fire/Dragon Turtonator on a Blaze Burner gets the Superheater role, the burner's only role. Fails if: either gets another role. | role registry | agreed |
 | CD-ASG-17 | With the default config, if a leashed worker has not reached its work spot 600 ticks after its work claim, then the work engine MUST keep its leash binding and hold it in Standby for 6,000 ticks before it travels again. | MUST | R24, REV1, failure sweep, limits sweep | A leashed machine stays reserved for its own worker, and the worker tries again later. | Unit: on a fake clock, the binding stays, the worker is in Standby from tick 600 to tick 6,599 after the claim, and it is Traveling again at tick 6,600. Fails if: the binding clears, or the retry starts at another tick. | work engine | agreed |
 | CD-ASG-18 | The work engine MUST keep each worker in exactly one of the states Idle, Traveling, Working, Standby, ToBed, Sleeping, RestingInPlace and Healing. | MUST | REV1, state × event sweep | One state list drives the icons, the claims and the stamina rules. | Unit: run a scripted day of 24,000 ticks for a worker and a healer, and record the state set on every tick. Fails if: a tick has no state, two states, or a state outside the list. | work engine | agreed |
 | CD-ASG-19 | With the default config, when a scan finds an unclaimed target with demand for one of an auto-assigned worker's roles in its work area, and that worker has been in Standby for 200 ticks or more, the work engine MUST move the worker's work claim to that target. | MUST | R43, R44, limits sweep, state × event sweep | A worker must not wait at a machine with no work while another machine needs it, for example at a wheel that real water already turns. | Unit: on a fake clock, a Stoker in Standby at an empty furnace sees a second furnace with input. A scan at Standby tick 199 leaves its claim, and a scan at tick 200 moves it to the second furnace. GameTest: a Wheel Driver that has waited 400 ticks at a wheel that real water turns moves to a dry wheel in its work area within 80 ticks of the dry wheel's placement. Fails if: the claim moves at tick 199, it stays at tick 200, or the Wheel Driver does not move. | work engine | agreed |
@@ -449,6 +465,11 @@ and default priority. The default role files hold these values.
 | CD-GEN-05 | The Generator handler MUST NOT keep FE that the target refuses. | MUST NOT | R24 | A hidden buffer would hand out bursts above the rate. | Unit: a full battery refuses 217 FE. When it empties, the next tick offers 217 FE. Fails if: an offer exceeds the rate. | target handler (NeoForge caps) | agreed |
 | CD-GEN-06 | The Generator handler MUST report demand only while a simulated insert of 1 FE succeeds. | MUST | R24 | A worker at a full battery rests in Standby. | GameTest: fill the battery. Fails if: the worker is not in Standby within 20 ticks, or its stamina drains. | target handler (NeoForge caps) | agreed |
 | CD-GEN-07 | Where AE2 is present, the Generator handler MUST deliver its FE into an AE2 Energy Acceptor at AE2's configured ratio. | MUST | R5, RES3 | AE2 is a named integration target, and it converts 2 FE to 1 AE by default. | GameTest: a Lv50 Generator on an Energy Acceptor whose grid can store energy. Fails if: stored energy does not rise by 108.5 ± 1 AE per tick. | target handler (NeoForge caps) | agreed |
+| CD-GEN-08 | The Charge Cell MUST store up to 50,000 FE through NeoForge's energy capability, which it exposes on all six faces, each of which takes and gives FE. | MUST | R60 | The approver's ruling of 2026-11-10. A Generator worker charges a cell with no handler change, because CD-GEN-01 targets any block whose energy capability can receive. Cables and machines of other mods reach it from any side. | Unit: a cell takes FE up to 50,000 and refuses the rest. GameTest: each face of a placed cell has a capability that takes FE, and a Lv100 Pikachu fills the cell in offers of 5,000 FE, then waits in Standby. Fails if: a face has no capability or refuses FE, the full cell holds more or less than 50,000 FE, or the Pikachu does not charge it. | content | agreed |
+| CD-GEN-09 | Each tick, the Charge Cell MUST push its stored FE into the adjacent blocks that take FE: an equal share for each face whose block is not a Charge Cell, with what a face cannot take going to the others, and then to each neighbouring cell that holds less only enough FE to leave both at one level. | MUST | R60 | The approver's ruling of 2026-11-10. A cell feeds the machines around it. FE flows into a cell only while that cell holds less, and never back, so it cannot loop between two cells. | Unit: 10,000 FE over a face that takes 1,000 and two faces that take any amount gives 1,000, 4,500 and 4,500. Two cells of 10,000 and 0 FE settle at 5,000 each and move nothing after that, and a ring of four cells keeps its FE and stops moving it. GameTest: a cell gives test batteries on three faces 1,000, 4,500 and 4,500 FE in one tick, and two adjacent cells settle at 5,000 FE each and hold it for 40 ticks. Fails if: a face gets another share, FE is lost or made, or FE keeps moving between cells. | content | agreed |
+| CD-GEN-10 | The Charge Cell MUST give a comparator signal of 0 when it is empty and 1 + floor(14 × stored ÷ 50,000) otherwise, so the signal is 15 only when the cell is full. | MUST | R60 | The approver's ruling of 2026-11-10. Redstone can switch machines on the fill of a cell, as it can on the fill of a vanilla container. | Unit: 0, 1, 25,000, 49,999 and 50,000 FE give 0, 1, 8, 14 and 15, and the signal never falls as the cell fills. GameTest: comparators behind cells with 0, 25,000 and 50,000 FE read 0, 8 and 15. Fails if: a signal differs. | content | agreed |
+| CD-GEN-11 | When a Charge Cell is broken, its drop MUST keep the cell's stored FE in the data component `cobblemon_dynamics:stored_energy`, show the FE in its tooltip and give it to the cell that it places. | MUST | R60 | The approver's ruling of 2026-11-10. A player moves a charged cell and keeps its FE. | GameTest: break a cell that holds 12,345 FE, then place its drop. Fails if: the drop's component is not 12,345, its tooltip does not read "12,345 / 50,000 FE", or the placed cell does not hold 12,345 FE. | content | agreed |
+| CD-GEN-12 | Dynamics MUST register the Charge Cell recipe from the Recipes table. | MUST | R60 | The approver's ruling of 2026-11-10. Players craft cells in survival. | GameTest: craft the cell from its exact inputs, then try the same grid without the Thunder Stone. Fails if: the first grid makes no Charge Cell, or the second makes one. | content | agreed |
 
 ### STK: Stoker
 
@@ -462,24 +483,24 @@ and default priority. The default role files hold these values.
 | CD-STK-06 | When a Stoker stops Working, the handler MUST return the furnace to vanilla fuel rules within 2 ticks. | MUST | R24 | Players keep a normal furnace after the worker leaves. | GameTest: with no fuel, the furnace goes out within 2 ticks, and with 1 coal it burns that coal. Fails if: it stays lit with no fuel, or ignores the coal. | target handler (vanilla) | agreed |
 | CD-STK-07 | While a Stoker heats a furnace, the handler SHOULD set the burn duration to 1,600 ticks, so the flame gauge reads as a coal burn. | SHOULD | R6 | The gauge shows why the furnace runs. Acceptable to skip for a modded furnace that draws its own gauge. | Demo: watch the flame gauge of a worked furnace. Fails if: the gauge shows empty while the furnace cooks. | target handler (vanilla) | agreed |
 
-### BRN: Burner Keeper
+### BRN: Blaze Burner heat
 
 | ID | Requirement | Level | Source | Rationale | Acceptance test | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| CD-BRN-01 | While a Burner Keeper is Working, the handler MUST hold the Blaze Burner at `KINDLED` or hotter. | MUST | R15, RES2, G3 | The burner heats as if it had coal. | GameTest: a filled burner with no fuel and a basin above. Fails if: it reads lower than `KINDLED` 1 tick after Working starts. | target handler (Create) | agreed |
-| CD-BRN-02 | The Burner Keeper and Superheater handlers MUST NOT target an empty Blaze Burner. | MUST NOT | RES2, misuse sweep | Heat on an empty burner makes it drop a full burner, which duplicates a blaze. | GameTest: an empty burner with a basin above, and a Fire-type beside it for 400 ticks. Fails if: the burner is claimed. | target handler (Create) | agreed |
-| CD-BRN-03 | The Burner Keeper and Superheater handlers MUST report demand only while a basin or a fluid tank sits directly above the burner. | MUST | R24 | Heat with no consumer wastes stamina. | GameTest: remove the basin above a worked burner. Fails if: the worker is not in Standby within 20 ticks. | target handler (Create) | agreed |
-| CD-BRN-04 | The Burner Keeper and Superheater handlers MUST NOT change the burner's stored fuel. | MUST NOT | RES2, REV1 | The burner's own fuel burns down at its normal rate while a worker heats it, so the worker neither saves nor adds fuel. | GameTest: two burners with 1,000 ticks of coal fuel each, one worked for 400 ticks. Fails if: their remaining burn times differ. | target handler (Create) | agreed |
-| CD-BRN-05 | While a Burner Keeper heats a burner under a Create boiler, the boiler MUST count 1 heat from that burner. | MUST | R15, RES2 | Pokémon heat powers steam engines. | GameTest: a boiler on a worked burner. Fails if: the heat from that burner is not 1. | target handler (Create) | agreed |
-| CD-BRN-06 | When a Burner Keeper or Superheater stops Working, the handler MUST return the burner to the heat level of its own fuel within 2 ticks. | MUST | R24 | Heat ends with the work. | GameTest: release the claim on a worked burner with no fuel. Fails if: it does not read `SMOULDERING` 2 ticks later. | target handler (Create) | agreed |
-| CD-BRN-07 | If the Blaze Burner mixin fails to apply, then the role registry MUST disable the Burner Keeper and Superheater roles and log one warning. | MUST | RES2, failure sweep | A Create update must not crash the game. | Unit: start with the mixin's applied flag set to false. Fails if: either role stays enabled, or the game crashes. | role registry | agreed |
+| CD-BRN-01 | With the default Superheater role file, while a Superheater below level 50 is Working, the handler MUST hold the Blaze Burner at `KINDLED`, as coal does. | MUST | R26, R59, RES2 | A Dragon-type heats a burner from its first level, so a young dragon has a job before it can superheat. CD-SUP-04 covers the change at level 50. | GameTest: a Lv10 Dratini on a filled burner with no fuel and a basin above. Fails if: it reads anything but `KINDLED` 1 tick after Working starts. | target handler (Create) | agreed |
+| CD-BRN-02 | The Superheater handler MUST NOT target an empty Blaze Burner. | MUST NOT | RES2, misuse sweep | Heat on an empty burner makes it drop a full burner, which duplicates a blaze. | GameTest: an empty burner with a basin above, and a Dragon-type beside it for 400 ticks. Fails if: the burner is claimed. | target handler (Create) | agreed |
+| CD-BRN-03 | The Superheater handler MUST report demand only while a basin or a fluid tank sits directly above the burner. | MUST | R24 | Heat with no consumer wastes stamina. | GameTest: remove the basin above a worked burner. Fails if: the worker is not in Standby within 20 ticks. | target handler (Create) | agreed |
+| CD-BRN-04 | The Superheater handler MUST NOT change the burner's stored fuel. | MUST NOT | RES2, REV1 | The burner's own fuel burns down at its normal rate while a worker heats it, so the worker neither saves nor adds fuel. | GameTest: two burners with 1,000 ticks of coal fuel each, one worked for 400 ticks. Fails if: their remaining burn times differ. | target handler (Create) | agreed |
+| CD-BRN-05 | While a Superheater below level 50 heats a burner under a Create boiler, the boiler MUST count 1 heat from that burner. | MUST | R26, R59, RES2 | Pokémon heat powers steam engines from a Dragon-type's first level. | GameTest: a boiler on a burner that a Lv10 Dratini works. Fails if: the heat from that burner is not 1. | target handler (Create) | agreed |
+| CD-BRN-06 | When a Superheater stops Working, the handler MUST return the burner to the heat level of its own fuel within 2 ticks. | MUST | R24 | Heat ends with the work. | GameTest: release the claim on a worked burner with no fuel. Fails if: it does not read `SMOULDERING` 2 ticks later. | target handler (Create) | agreed |
+| CD-BRN-07 | If the Blaze Burner mixin fails to apply, then the role registry MUST disable the Superheater role and log one warning. | MUST | RES2, failure sweep | A Create update must not crash the game. | Unit: start with the mixin's applied flag set to false. Fails if: the role stays enabled, or the game crashes. | role registry | agreed |
 
 ### SUP: Superheater
 
 | ID | Requirement | Level | Source | Rationale | Acceptance test | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | CD-SUP-01 | With the default Superheater role file, while a Superheater of level 50 or higher is Working, the handler MUST hold the Blaze Burner at `SEETHING`. | MUST | R15, R26, RES2, G3 | Dragon-types superheat as a Blaze Cake does once they reach level 50. | GameTest: a Lv50 Dragonair on a filled burner with no fuel and a basin above. Fails if: it does not read `SEETHING` 1 tick after Working starts. | target handler (Create) | agreed |
-| CD-SUP-02 | The role registry MUST list only the Dragon type for the Superheater role. | MUST | R15 | Superheat is the Dragon role. | Unit: a Fire-type Charmander is not eligible, and a Dragon-type Dratini is. Fails if: either result is wrong. | role registry | agreed |
+| CD-SUP-02 | With the default role files, the role registry MUST give a Blaze Burner the Superheater as its only role, and list only the Dragon type for it. | MUST | R15, R59 | Superheat is the Dragon role, and the approver ruled that Fire-types do not heat Blaze Burners (2026-11-10). | Unit: a Fire-type Charmander is not eligible for the Superheater, a Dragon-type Dratini is, and the default role files give a burner no other role. GameTest: a Charmander stands beside a filled burner with a basin above for 400 ticks, then a Dratini joins its pasture. Fails if: a result is wrong, the Charmander claims the burner, or the Dratini does not claim it. | role registry | agreed |
 | CD-SUP-03 | While a Superheater of level 50 or higher heats a burner under a Create boiler, the boiler MUST count 2 heat from that burner. | MUST | R15, R26, RES2 | Superheat doubles the boiler heat. | GameTest: a boiler on a burner that a Lv50 Superheater works. Fails if: the heat from that burner is not 2. | target handler (Create) | agreed |
 | CD-SUP-04 | With the default Superheater role file, while a Superheater below level 50 is Working, the handler MUST hold the Blaze Burner at `KINDLED`. | MUST | R26, R25, limits sweep | Leveling pays off, and a blaze-cake chain stays the early answer to superheat. | GameTest: a Lv49 Dragonair works a filled burner with no fuel under a boiler, then levels to 50. Fails if: the burner reads anything but `KINDLED` with 1 boiler heat at Lv49, or anything but `SEETHING` with 2 boiler heat at Lv50. | target handler (Create) | agreed |
 
@@ -645,6 +666,7 @@ and default priority. The default role files hold these values.
 | CD-UI-13 | If the pasture-list mixin fails to apply, then the client MUST keep the Work Mode button and the head bars working and log one warning. | MUST | RES1, failure sweep | A Cobblemon update must not take down every display. | Unit: start the client with the mixin's applied flag set to false. Fails if: the button or the head bars fail, or the game crashes. | client | agreed |
 | CD-UI-14 | Dynamics MUST give operators the command `/cobblemondynamics claims`, which lists each claim and each leash binding with its target, worker and kind. | MUST | R24, quality sweep | Operators find stuck machines. | GameTest: run the command with a work claim, a bed claim, a heal claim and a leash binding. Fails if: the output lacks an entry or a field. | work engine | agreed |
 | CD-UI-15 | Dynamics MUST give operators the command `/cobblemondynamics stamina`, which shows a Pokémon's Work Stamina, state and recovery rule. | MUST | R24, quality sweep | Operators check the stamina math in play. | GameTest: run the command on a Lv50 healer at 40%. Fails if: the output lacks the value, the state, or "healer rule". | stamina | agreed |
+| CD-UI-16 | Dynamics MUST list every item of the mod in its own creative mode tab `cobblemon_dynamics:main`, titled "Cobblemon Dynamics" with the Work Leash as its icon, in this order: the Work Leash, the four beds by tier and the Charge Cell, and in no vanilla tab. | MUST | R61 | The approver's ruling of 2026-11-10: the approver did not find the items in the creative menu, and one tab holds them all in one place. | GameTest: build the tab and the vanilla Tools and Utilities and Functional Blocks tabs. Fails if: the tab is missing, its title or icon differs, it misses an item that the mod registers or lists the items in another order, or one of the vanilla tabs lists an item of the mod. | content | agreed |
 
 ### CMP: compatibility
 
@@ -708,7 +730,7 @@ and default priority. The default role files hold these values.
 
 | ID | Requirement | Level | Source | Rationale | Acceptance test | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| CD-ART-01 | Dynamics MUST ship an original block model, an original block texture and an original item model for each of the four beds. | MUST | R32, G11 | The beds are new blocks that need their own look. | Inspect: the jar holds a block model, a block texture and an item model for each bed. Fails if: an asset is missing. | content | agreed |
+| CD-ART-01 | Dynamics MUST ship an original block model, an original block texture and an original item model for each of the four beds and for the Charge Cell. | MUST | R32, R60, G11 | The beds and the Charge Cell are new blocks that need their own look. | Inspect: the jar holds a block model, a block texture and an item model for each bed and for the Charge Cell. Fails if: an asset is missing. | content | agreed |
 | CD-ART-02 | Each bed's art MUST follow its tier concept: the Hay Bed a round straw nest, the Wool Bed a round wool cushion on a low wooden frame, the Plush Bed a thick velvet cushion with gold trim, and the Starlit Bed a midnight-blue cushion with a gold star pattern, a faint glow and an occasional sparkle. | MUST | R32, R33 | The approver approved these concepts. | Demo: the approver compares each bed with its concept on the screenshot review page. Fails if: the approver rejects a bed. | content | agreed |
 | CD-ART-03 | Dynamics MUST ship an original Work Leash item texture that shows a lead with a red-and-white clasp. | MUST | R32, R33 | The leash is a new item. | Demo: the approver reviews the texture on the screenshot review page. Fails if: the texture is missing, or the approver rejects it. | content | agreed |
 | CD-ART-04 | Dynamics MUST ship original UI sprites for the Work Mode button in 4 states (on, off, disabled, hover), the Work Stamina bar, and the 7 state icons. | MUST | R32, R33, R38, G7 | The panel and the head bars need their own sprites. | Inspect: the jar holds 4 button sprites, the bar sprites and 7 icon sprites. Demo: the approver reviews them. Fails if: a sprite is missing, or the approver rejects one. | content | agreed |
@@ -734,7 +756,7 @@ and default priority. The default role files hold these values.
 | CD-REL-05 | The build MUST version releases as `MAJOR.MINOR.PATCH+mc1.21.1`. | MUST | R24 | Players see the game version in the version name. | Inspect: the mod version in the v1.0.0 jar reads `1.0.0+mc1.21.1`. Fails if: it has another form. | build | agreed |
 | CD-REL-06 | The repository MUST license its code under MPL-2.0. | MUST | R8, G9 | The approver chose MPL-2.0. | Inspect: `LICENSE` holds MPL-2.0, and `neoforge.mods.toml` declares `license = "MPL-2.0"`. Fails if: either differs. | build | agreed |
 | CD-REL-07 | The jar MUST NOT contain copies of Cobblemon assets. | MUST NOT | RES1, misuse sweep | Cobblemon models carry a NonCommercial license, so the mod refers to them by id. | Inspect: list the jar. Fails if: a file sits under `assets/cobblemon/`. | build | agreed |
-| CD-REL-08 | The repository MUST hold a player guide at `docs/player-guide.md` that covers Work Mode, the Work Leash, Work Stamina, beds, healers and every role. | MUST | R9, R49 | Public players need a guide. | Inspect: at the v1.0.0 tag, the guide has a section for each item. Fails if: a section is missing. | build | agreed |
+| CD-REL-08 | The repository MUST hold a player guide at `docs/player-guide.md` that covers Work Mode, the Work Leash, Work Stamina, beds, healers, the Charge Cell and every role. | MUST | R9, R49, R60 | Public players need a guide. | Inspect: at the v1.0.0 tag, the guide has a section for each item. Fails if: a section is missing. | build | agreed |
 | CD-REL-09 | The repository MUST hold a manual checklist at `docs/testing/manual-checklist.md` that lists every `Demo:` test in this sheet. | MUST | R24, R49 | Demo tests need a repeatable run. | Inspect: at the v1.0.0 tag, compare the checklist with the Demo tests in this sheet. Fails if: a Demo test is missing. | build | agreed |
 | CD-REL-10 | The GameTest run MUST load Cobblemon 1.8.4, Create 6.0.10 and AE2 19.2.19. | MUST | R24, RES3 | Integration tests need the real mods. | Inspect: the CI log of a GameTest run lists the three mods at these versions. Fails if: a mod is missing or at another version. | build | agreed |
 | CD-REL-11 | The README SHOULD state that Cobblemon Dynamics is not affiliated with Cobblemon, The Pokémon Company, Create or Applied Energistics 2. | SHOULD | R9 | A clear notice protects a fan project. Acceptable to put the notice on the Modrinth and CurseForge pages instead. | Inspect: the README and both release pages. Fails if: none of them holds the notice. | build | agreed |
@@ -761,7 +783,7 @@ and default priority. The default role files hold these values.
 | --- | --- |
 | G1 | CD-WMD-01, CD-WMD-03, CD-ASG-03, CD-UI-01 |
 | G2 | CD-WHL-02, CD-GEN-02, CD-STK-02 |
-| G3 | CD-WHL-01, CD-GEN-01, CD-STK-01, CD-BRN-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRF-01, CD-BRW-01, CD-PMP-01, CD-MUS-01, CD-HEAL-01, CD-TLK-01, CD-MAG-01, CD-FAN-01, CD-TLW-01 |
+| G3 | CD-WHL-01, CD-GEN-01, CD-STK-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRF-01, CD-BRW-01, CD-PMP-01, CD-MUS-01, CD-HEAL-01, CD-TLK-01, CD-MAG-01, CD-FAN-01, CD-TLW-01 |
 | G4 | CD-CLM-01, CD-CLM-02, CD-ASG-01, CD-AI-06 |
 | G5 | CD-LSH-01, CD-LSH-03, CD-CLM-05 |
 | G6 | CD-STA-01, CD-BED-01, CD-BED-03, CD-HEAL-04, CD-HEAL-05 |
@@ -784,7 +806,7 @@ and default priority. The default role files hold these values.
 | R12 | CD-BED-05, CD-BED-07, CD-BED-09, CD-BED-10, CD-FX-10 |
 | R13 | CD-HEAL-01, CD-HEAL-04, CD-HEAL-05, CD-HEAL-06, CD-HEAL-07, CD-HEAL-08, CD-HEAL-15, CD-HEAL-16, CD-HEAL-17 |
 | R14 | CD-HEAL-12, CD-BED-03, CD-CFG-04 |
-| R15 | CD-WHL-01, CD-PMP-01, CD-GEN-01, CD-STK-01, CD-BRN-01, CD-BRF-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRW-01, CD-HEAL-01, CD-MUS-01 |
+| R15 | CD-WHL-01, CD-PMP-01, CD-GEN-01, CD-STK-01, CD-BRF-01, CD-SUP-01, CD-CRK-01, CD-CRY-01, CD-BRW-01, CD-HEAL-01, CD-MUS-01 |
 | R16 | CD-TLK-01, CD-MAG-01, CD-FAN-01, CD-TLW-01, CD-REL-12, CD-REL-13, CD-REL-14, CD-REL-15 |
 | R17 | CD-WHL-04, CD-WHL-05, CD-WHL-06, CD-WHL-07 |
 | R18 | CD-ASG-04, CD-MUS-02, CD-MUS-03, CD-MUS-04, CD-HEAL-13, CD-HEAL-14 |
@@ -795,7 +817,7 @@ and default priority. The default role files hold these values.
 | R23 | CD-AI-01, CD-AI-02, CD-AI-03, CD-AI-04 |
 | R24 | CD-ASG-06 to CD-ASG-16, CD-CLM-07, CD-STA-13, CD-UI-14, CD-PERF-01, CD-REL-01, CD-REL-05 |
 | R25 | CD-BAL-01 to CD-BAL-07, CD-SUP-04, CD-TLW-03 |
-| R26 | CD-SUP-01, CD-SUP-03, CD-SUP-04 |
+| R26 | CD-SUP-01, CD-SUP-03, CD-SUP-04, CD-BRN-01, CD-BRN-05 |
 | R27 | CD-TLK-01, CD-TLK-03, CD-TLK-05, CD-LSH-17, CD-LSH-18 |
 | R28 | CD-FAN-05, CD-FAN-06, CD-FAN-09, CD-FAN-10 |
 | R29 | CD-TLK-02, CD-MAG-02, CD-FAN-02, CD-TLW-02, CD-ASG-05 |
@@ -828,6 +850,9 @@ and default priority. The default role files hold these values.
 | R56 | CD-REL-04, CD-REL-12 |
 | R57 | CD-LSH-20, CD-LSH-21, CD-TLK-10, CD-FAN-04, CD-FAN-16 |
 | R58 | CD-LSH-08, CD-LSH-22, CD-LSH-23, CD-LSH-24, CD-LSH-25, CD-LSH-26, CD-LSH-27 |
+| R59 | CD-BRN-01 to CD-BRN-07, CD-SUP-02, CD-ASG-16 |
+| R60 | CD-GEN-08 to CD-GEN-12, CD-REL-08, CD-ART-01 |
+| R61 | CD-UI-16 |
 | RES1 | CD-PLAT-02, CD-AI-01, CD-AI-04, CD-AI-07, CD-AI-09, CD-FX-03, CD-HEAL-15, CD-UI-11, CD-REL-07, CD-CFG-14 |
 | RES2 | CD-WHL-02, CD-WHL-09, CD-BRN-02, CD-CRK-02, CD-CRK-04 |
 | RES3 | CD-PLAT-01, CD-GEN-04, CD-GEN-07, CD-STK-04, CD-CRY-02, CD-SEC-11 |
@@ -860,7 +885,7 @@ Output of `scripts/check_spec_sheet.py` (documentation-driven-design skill 1.2.1
 exit 0:
 
 ```text
-docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 342 rows
+docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 348 rows
   malformed row (cell count differs from the header): 0
   missing, malformed or duplicate ID: 0
   empty or placeholder cell: 0
@@ -873,6 +898,6 @@ docs/plans/2026-11-09-v1-spec-sheet.md: 33 requirements tables, 342 rows
   unknown Status value: 0
 ```
 
-- Trace-table lines mapped: 90 of 90 (11 goals + 79 inputs + 0 assumptions)
+- Trace-table lines mapped: 93 of 93 (11 goals + 82 inputs + 0 assumptions)
 - Sweeps recorded: 7 of 7
-- Rows by level: 287 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY
+- Rows by level: 293 MUST, 50 MUST NOT, 4 SHOULD, 1 MAY

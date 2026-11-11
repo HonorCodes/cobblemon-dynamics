@@ -4,8 +4,8 @@ Status: Accepted (2026-11-09)
 
 ## Context
 
-Version 1.0 has 16 roles. Phase 1 builds 12 roles across 9 types: Wheel Driver, Pump, Generator,
-Stoker, Burner Keeper, Brew Stoker, Superheater, Cranker, Crystal Tender, Brewer, Healer and Muse.
+Version 1.0 has 15 roles. Phase 1 builds 11 roles across 9 types: Wheel Driver, Pump, Generator,
+Stoker, Brew Stoker, Superheater, Cranker, Crystal Tender, Brewer, Healer and Muse.
 Phase 2 adds Telekinesis, Magnet, Fan Catalyst and Tailwind
 ([ADR-0011](0011-v2-roles-in-first-release.md)).
 
@@ -24,7 +24,7 @@ The operator chose type-based eligibility, not per-species lists.
     are no per-species lists.
   - A `handler` id and its `params`.
   - `auto_assign`, `priority` and `range`. When one worker fits two roles on the same target, the role
-    with the higher `priority` wins. For example, the Superheater outranks the Burner Keeper.
+    with the higher `priority` wins. For example, the Brew Stoker outranks the Brewer.
   - An `effect`: animation names, actor particles, target particles, the idle ticks after each animation
     and the loop interval of a worker whose model has none of the animations.
 - Handlers are Kotlin classes registered by id. Create handlers register only when Create is loaded.
@@ -64,3 +64,10 @@ The operator chose type-based eligibility, not per-species lists.
   chose types.
 - **Role numbers in the server config.** Easy for server owners, but data packs could not ship
   balanced role sets.
+
+## Amendment (2026-11-10, play-test): no Burner Keeper
+
+The approver ruled after the Phase 1 play-test that Fire-types do not heat Blaze Burners. The built-in
+Burner Keeper role file is gone. The Superheater, a Dragon role, is the only built-in role on the
+`cobblemon_dynamics:burner_heat` handler: it keeps a burner kindled below level 50 and superheats it from
+level 50. The handler stays registered, so a data pack can still add its own burner role.

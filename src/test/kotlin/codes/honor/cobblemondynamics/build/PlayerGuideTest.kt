@@ -15,8 +15,9 @@ class PlayerGuideTest {
     private val guide = File(root, "docs/player-guide.md")
 
     @Test
-    fun `CD-REL-08 the player guide has a section for Work Mode, the Work Leash, Work Stamina, beds and healers`() {
-        assertSections(listOf("Work Mode", "Work Leash", "Work Stamina", "Beds", "Healers", "Server config", "Client config", "Commands"))
+    fun `CD-REL-08 the player guide has a section for Work Mode, the Work Leash, Work Stamina, beds, healers and the Charge Cell`() {
+        val sections = listOf("Work Mode", "Work Leash", "Work Stamina", "Beds", "Healers", "Charge Cell", "Server config", "Client config")
+        assertSections(sections + "Commands")
     }
 
     @Test

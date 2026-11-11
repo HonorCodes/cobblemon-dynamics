@@ -19,6 +19,9 @@ of Minecraft, NeoForge, Cobblemon and the optional mods.
 
 Each Pokémon then walks to a block that one of its roles fits, and works it.
 
+In creative mode, the **Cobblemon Dynamics** tab of the creative inventory holds every item of the mod: the Work
+Leash, the four beds and the [Charge Cell](#charge-cell).
+
 ## Work Mode
 
 Work Mode is a setting of each pasture. A new pasture starts with Work Mode off. The pasture keeps the
@@ -71,8 +74,8 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
   scan finds one.
 - If an auto-assigned worker cannot reach its target within 30 seconds, it gives the target up and skips
   it for 5 minutes.
-- When two roles fit one target, the role with the higher priority wins. The Superheater wins over the
-  Burner Keeper, and the Brew Stoker wins over the Brewer.
+- When two roles fit one target, the role with the higher priority wins. For example, the Brew Stoker wins
+  over the Brewer.
 - A Fairy-type never takes a target on its own. With no binding, it is a [healer](#healers). The
   [Pump](#pump) and the [Muse](#muse) work only through the Work Leash.
 
@@ -295,6 +298,25 @@ divides it, as it does for any worker.
 A Fairy-type with a binding, for example a [Muse](#muse), is a normal worker. It recovers by the worker rule
 and heals no ally.
 
+## Charge Cell
+
+The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 FE.
+
+- Each face of the cell takes FE. A [Generator](#generator) works a cell as it works any block that takes FE, so a
+  Generator next to a cell charges it.
+- Every tick, the cell pushes its FE into the blocks around it that take FE. Each of them gets an equal share. When a
+  block takes less than its share, the others get the rest.
+- Two cells side by side share their FE until both hold the same amount. FE never moves from a cell into a cell that
+  holds more, so it does not flow back and forth between cells.
+- A comparator reads how full the cell is: 0 when the cell is empty, 1 to 14 while it holds some FE, and 15 when it is
+  full.
+- When you break a cell, its item keeps the FE. The tooltip of the item shows it, for example "12,345 / 50,000 FE". The
+  cell that you place from the item holds that FE again.
+
+| Item | Recipe |
+| --- | --- |
+| Charge Cell | Shaped: a Thunder Stone (`cobblemon:thunder_stone`) in the center, redstone dust above and below it, and 6 copper ingots in the side columns. |
+
 ## Roles
 
 A role is a job that Pokémon of some types do on one kind of block. Auto-assigned workers take the roles
@@ -306,7 +328,6 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Stoker](#stoker) | `cobblemon_dynamics:stoker` | Fire | Furnace, smoker, blast furnace | Auto | |
 | [Wheel Driver](#wheel-driver) | `cobblemon_dynamics:wheel_driver` | Water | Water wheel, large water wheel | Auto | Create |
 | [Cranker](#cranker) | `cobblemon_dynamics:cranker` | Fighting, Normal | Hand crank | Auto | Create |
-| [Burner Keeper](#burner-keeper) | `cobblemon_dynamics:burner_keeper` | Fire | Blaze Burner with a blaze | Auto | Create |
 | [Superheater](#superheater) | `cobblemon_dynamics:superheater` | Dragon | Blaze Burner with a blaze | Auto | Create |
 | [Generator](#generator) | `cobblemon_dynamics:generator` | Electric | A block that accepts Forge Energy | Auto | |
 | [Crystal Tender](#crystal-tender) | `cobblemon_dynamics:crystal_tender` | Rock | Budding amethyst, AE2 budding certus quartz | Auto | |
@@ -355,29 +376,23 @@ blocks from the crank.
 A new crank turns in Create's positive direction. To reverse it, [flip it with the Work
 Leash](#flip-a-water-wheel-or-a-hand-crank).
 
-### Burner Keeper
+### Superheater
 
-**Types:** Fire. **Level:** any. **Move:** Ember. **Needs:** Create.
+**Types:** Dragon. **Level:** kindles below level 50, superheats from level 50. **Move:** Dragon Breath.
+**Needs:** Create.
 
 **Target:** a Blaze Burner that holds a blaze. An empty Blaze Burner is not a target.
 
-The Burner Keeper keeps the burner kindled, as coal does. It works only while a basin or a fluid tank sits
-directly on top of the burner. It never works a creative Blaze Burner, whose heat a worker cannot change.
-Under a boiler, the burner counts 1 heat. The Burner Keeper never changes the burner's own fuel. When it
+Below level 50, the Superheater keeps the burner kindled, as coal does. Under a boiler, the burner then
+counts 1 heat. From level 50, the Superheater keeps the burner superheated, as a Blaze Cake does. Under a
+boiler, the burner then counts 2 heat.
+
+The Superheater works only while a basin or a fluid tank sits directly on top of the burner. It never works
+a creative Blaze Burner, whose heat a worker cannot change. It never changes the burner's own fuel. When it
 stops, the burner goes back to the heat of its own fuel within 2 ticks.
 
-**Role file parameter:** `heat` (`kindled`).
-
-### Superheater
-
-**Types:** Dragon. **Level:** superheats from level 50. **Move:** Dragon Breath. **Needs:** Create.
-
-**Target:** a Blaze Burner that holds a blaze, as for the Burner Keeper.
-
-From level 50, the Superheater keeps the burner superheated, as a Blaze Cake does. Under a boiler, the
-burner then counts 2 heat. Below level 50, the Superheater keeps the burner kindled, as a Burner Keeper
-does. The other rules of the Burner Keeper apply. A Pokémon that fits both roles, for example a Fire and
-Dragon type, works a burner as a Superheater.
+Only Dragon-types heat Blaze Burners. A Fire-type with no Dragon type never works a burner, and the Work Leash
+cannot bind it to one.
 
 **Role file parameters:** `heat` (`seething`), `min_level` (50) and `below_min_level_heat` (`kindled`).
 
@@ -400,7 +415,8 @@ The factor m is 2 for a legendary or mythical Pokémon, and 1 for any other.
 | 100 | 5,000 | 10,000 |
 
 The Generator pushes through the face of the target nearest to it that accepts energy. It stores no energy,
-so any FE that the target refuses is lost. It works only while the target can take more energy. Next to a
+so any FE that the target refuses is lost. To keep FE for later, let the Generator charge a
+[Charge Cell](#charge-cell). It works only while the target can take more energy. Next to a
 full target, it waits in Standby. An AE2 Energy Acceptor converts the FE at AE2's own ratio.
 
 **Role file parameters:** `base_fe_per_tick` (10), `max_fe_per_tick` (5000), `rare_multiplier` (2.0) and

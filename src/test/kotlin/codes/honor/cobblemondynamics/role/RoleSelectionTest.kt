@@ -30,12 +30,10 @@ class RoleSelectionTest {
 
     @Test
     fun `CD-ASG-16 the higher priority wins`() {
-        val burnerKeeper = role("burner_keeper", setOf("fire"), priority = 0)
-        val superheater = role("superheater", setOf("dragon"), priority = 10)
-        assertEquals(superheater, RoleSelection.best(listOf(burnerKeeper, superheater)))
         val brewer = role("brewer", setOf("poison"), priority = 0)
         val brewStoker = role("brew_stoker", setOf("fire"), priority = 10)
         assertEquals(brewStoker, RoleSelection.best(listOf(brewer, brewStoker)))
+        assertEquals(brewStoker, RoleSelection.best(listOf(brewStoker, brewer)))
     }
 
     @Test

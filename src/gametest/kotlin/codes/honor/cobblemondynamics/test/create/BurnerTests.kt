@@ -21,10 +21,16 @@ import net.minecraft.world.level.block.Blocks
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
-/** The Burner Keeper and the Superheater on real Blaze Burners, each filled, with no fuel, and with a basin or a fluid tank above. */
+/**
+ * The Superheater on real Blaze Burners, each filled, with no fuel, and with a basin or a fluid tank above. Below level 50 it keeps a
+ * burner kindled, from level 50 it superheats it, and a Fire-type never works a burner (the approver's ruling, 2026-11-10).
+ */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
 class BurnerTests {
+    /** A Superheater below level 50, which keeps a burner `KINDLED` (CD-BRN-01). */
+    private val lowDragon = "dratini level=10"
+
     private class Scene(val owner: ServerPlayer, val pasture: PokemonPastureBlockEntity)
 
     private val burnerRel = BlockPos(7, 2, 5)
@@ -47,21 +53,24 @@ class BurnerTests {
         return helper.level.gameTime - worker.statusSince
     }
 
-    /** CD-BRN-01, then CD-BRN-06 on the same burner: heat 1 tick after Working starts, and the burner's own heat 2 ticks after release. */
+    /**
+     * CD-BRN-01, then CD-BRN-06 on the same burner: a Lv10 Dratini holds it at `KINDLED` 1 tick after Working starts, and the burner
+     * reads the heat of its own fuel 2 ticks after the release.
+     */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
-    fun cdBrn01Brn06KindledWhileWorkedSmoulderingAfterRelease(helper: GameTestHelper) {
+    fun cdBrn01Brn06KindledBelowLevel50SmoulderingAfterRelease(helper: GameTestHelper) {
         val scene = scene(helper)
         val burner = CreateKit.filledBurner(helper, burnerRel)
         CreateKit.basin(helper, aboveRel)
-        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        val dragon = TestKit.tether(helper, scene.pasture, scene.owner, lowDragon)
         var releasedAt = -1L
         helper.onEachTick {
             if (releasedAt < 0) {
-                val worked = workedTicks(helper, fire, burner) ?: return@onEachTick
+                val worked = workedTicks(helper, dragon, burner) ?: return@onEachTick
                 if (worked < 1) return@onEachTick
                 val heat = CreateKit.heatAt(helper, burnerRel)
-                helper.assertTrue(heat.isAtLeast(HeatLevel.KINDLED), "the burner reads $heat $worked ticks after Working starts")
-                TestKit.release(helper, fire, burner.blockPos)
+                helper.assertTrue(heat == HeatLevel.KINDLED, "the burner reads $heat $worked ticks after a Lv10 Superheater starts")
+                TestKit.release(helper, dragon, burner.blockPos)
                 releasedAt = helper.tick
             } else if (helper.tick - releasedAt >= 2) {
                 val heat = CreateKit.heatAt(helper, burnerRel)
@@ -71,16 +80,45 @@ class BurnerTests {
         }
     }
 
+    /** CD-BRN-05: a boiler on a burner that a Lv10 Dratini works counts 1 heat from that burner. */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
-    fun cdBrn05BoilerCountsOneHeat(helper: GameTestHelper) {
+    fun cdBrn05BoilerCountsOneHeatBelowLevel50(helper: GameTestHelper) {
         val scene = scene(helper)
         val burner = CreateKit.filledBurner(helper, burnerRel)
         CreateKit.fluidTank(helper, aboveRel)
-        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        val dragon = TestKit.tether(helper, scene.pasture, scene.owner, lowDragon)
         helper.succeedWhen {
-            val worked = workedTicks(helper, fire, burner)
-            helper.assertTrue(worked != null && worked >= 1, "the Charmander does not work the burner under the boiler")
+            val worked = workedTicks(helper, dragon, burner)
+            helper.assertTrue(worked != null && worked >= 1, "the Dratini does not work the burner under the boiler")
             assertBoiler(helper, HeatLevel.KINDLED, 1)
+        }
+    }
+
+    /**
+     * CD-SUP-02: a Lv10 Charmander beside a filled burner with a basin above. The Work Leash finds no role for it, and in 400 ticks it
+     * never claims the burner. Then a Lv10 Dratini joins the pasture and claims the burner, which shows that the burner was a target.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 900)
+    fun cdSup02FireTypeNeverClaimsABlazeBurner(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val burner = CreateKit.filledBurner(helper, burnerRel)
+        CreateKit.basin(helper, aboveRel)
+        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        TestKit.moveTo(helper, fire, BlockPos(7, 2, 7))
+        val binding = TestKit.bind(helper, scene.owner, fire, burnerRel)
+        val reply = TestKit.lastMessage(scene.owner)
+        helper.assertTrue(binding == null, "CD-SUP-02: the leash bound the Charmander to the burner: $binding")
+        helper.assertTrue(reply == "No role fits", "CD-SUP-02: the click on the burner answered '$reply'")
+        val key = TestKit.keyOf(helper, burner.blockPos)
+        var dragon: PokemonEntity? = null
+        helper.onEachTick {
+            helper.assertFalse(TestKit.claimOf(helper, fire)?.key == key, "CD-SUP-02: the Charmander claimed the Blaze Burner")
+            val superheater = dragon
+            if (superheater == null) {
+                if (helper.tick >= 400) dragon = TestKit.tether(helper, scene.pasture, scene.owner, lowDragon)
+            } else if (TestKit.claimOf(helper, superheater)?.key == key) {
+                helper.succeed()
+            }
         }
     }
 
@@ -134,8 +172,8 @@ class BurnerTests {
     }
 
     /**
-     * An empty Blaze Burner with a basin above, and a Charmander beside it for 400 ticks: no claim, and the Work Leash finds no role for
-     * it (CD-BRN-02). Then the burner is filled, and the Charmander claims it, which shows that the empty one was in its reach.
+     * An empty Blaze Burner with a basin above, and a Lv10 Dratini beside it for 400 ticks: no claim, and the Work Leash finds no role
+     * for it (CD-BRN-02). Then the burner is filled, and the Dratini claims it, which shows that the empty one was in its reach.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 700)
     fun cdBrn02EmptyBurnerIsNeverClaimed(helper: GameTestHelper) {
@@ -143,17 +181,17 @@ class BurnerTests {
         helper.setBlock(burnerRel, AllBlocks.BLAZE_BURNER.defaultState.setValue(BlazeBurnerBlock.HEAT_LEVEL, HeatLevel.NONE))
         CreateKit.basin(helper, aboveRel)
         val burner = helper.absolutePos(burnerRel)
-        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
-        TestKit.moveTo(helper, fire, BlockPos(7, 2, 7))
-        val binding = TestKit.bind(helper, scene.owner, fire, burnerRel)
+        val dragon = TestKit.tether(helper, scene.pasture, scene.owner, lowDragon)
+        TestKit.moveTo(helper, dragon, BlockPos(7, 2, 7))
+        val binding = TestKit.bind(helper, scene.owner, dragon, burnerRel)
         val reply = TestKit.lastMessage(scene.owner)
-        helper.assertTrue(binding == null, "CD-BRN-02: the leash bound the Charmander to the empty burner: $binding")
+        helper.assertTrue(binding == null, "CD-BRN-02: the leash bound the Dratini to the empty burner: $binding")
         helper.assertTrue(reply == "No role fits", "CD-BRN-02: the click on the empty burner answered '$reply'")
         var filled = false
         helper.onEachTick {
-            val claim = TestKit.claimOf(helper, fire)
+            val claim = TestKit.claimOf(helper, dragon)
             if (!filled) {
-                helper.assertFalse(claim?.key == TestKit.keyOf(helper, burner), "CD-BRN-02: the Charmander claimed the empty burner")
+                helper.assertFalse(claim?.key == TestKit.keyOf(helper, burner), "CD-BRN-02: the Dratini claimed the empty burner")
                 if (helper.tick < 400) return@onEachTick
                 CreateKit.filledBurner(helper, burnerRel)
                 filled = true
@@ -169,18 +207,18 @@ class BurnerTests {
         val scene = scene(helper)
         val burner = CreateKit.filledBurner(helper, burnerRel)
         CreateKit.basin(helper, aboveRel)
-        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        val dragon = TestKit.tether(helper, scene.pasture, scene.owner, lowDragon)
         var removedAt = -1L
         helper.onEachTick {
-            val worker = TestKit.workerOf(helper, fire) ?: return@onEachTick
+            val worker = TestKit.workerOf(helper, dragon) ?: return@onEachTick
             if (removedAt < 0) {
-                val worked = workedTicks(helper, fire, burner) ?: return@onEachTick
+                val worked = workedTicks(helper, dragon, burner) ?: return@onEachTick
                 if (worked < 1) return@onEachTick
                 helper.setBlock(aboveRel, Blocks.AIR)
                 removedAt = helper.tick
             } else if (worker.status == WorkerStatus.STANDBY) {
                 helper.assertTrue(
-                    TestKit.claimOf(helper, fire)?.key == TestKit.keyOf(helper, burner.blockPos),
+                    TestKit.claimOf(helper, dragon)?.key == TestKit.keyOf(helper, burner.blockPos),
                     "the worker left its burner",
                 )
                 helper.succeed()
@@ -192,7 +230,7 @@ class BurnerTests {
     }
 
     /**
-     * Two burners, each with 1,000 ticks of its own normal fuel and a basin above. A Charmander bound to the first heats it for 400
+     * Two burners, each with 1,000 ticks of its own normal fuel and a basin above. A Lv10 Dratini bound to the first heats it for 400
      * ticks, and the two remaining burn times are equal: the worker neither burns nor adds fuel (CD-BRN-04).
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000)
@@ -203,15 +241,15 @@ class BurnerTests {
         val unworked = fueledBurner(helper, otherRel)
         CreateKit.basin(helper, aboveRel)
         CreateKit.basin(helper, otherRel.above())
-        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
-        val binding = TestKit.bind(helper, scene.owner, fire, burnerRel)
-        helper.assertTrue(binding?.target == worked.blockPos, "the Charmander did not bind to the first burner: $binding")
+        val dragon = TestKit.tether(helper, scene.pasture, scene.owner, lowDragon)
+        val binding = TestKit.bind(helper, scene.owner, dragon, burnerRel)
+        helper.assertTrue(binding?.target == worked.blockPos, "the Dratini did not bind to the first burner: $binding")
         helper.onEachTick {
             helper.assertTrue(
-                TestKit.claimOf(helper, fire)?.key != TestKit.keyOf(helper, unworked.blockPos),
+                TestKit.claimOf(helper, dragon)?.key != TestKit.keyOf(helper, unworked.blockPos),
                 "the worker took the second burner",
             )
-            val ticks = workedTicks(helper, fire, worked) ?: return@onEachTick
+            val ticks = workedTicks(helper, dragon, worked) ?: return@onEachTick
             val left = worked.getRemainingBurnTime()
             val other = unworked.getRemainingBurnTime()
             helper.assertTrue(left == other, "CD-BRN-04: the burn times read $left and $other")
@@ -223,7 +261,7 @@ class BurnerTests {
     }
 
     /**
-     * A creative Blaze Burner holds its heat whatever heats it, so a worker gains nothing there. A Charmander claims it, but on its spot
+     * A creative Blaze Burner holds its heat whatever heats it, so a worker gains nothing there. A Lv10 Dratini claims it, but on its spot
      * it waits in Standby and never Works, and its Work Stamina never drops (carry-over from M3).
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
@@ -236,16 +274,16 @@ class BurnerTests {
         burner.loadWithComponents(saved, registries)
         helper.assertTrue(burner.isCreative(), "the burner did not load as a creative burner")
         CreateKit.basin(helper, aboveRel)
-        val fire = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=10")
+        val dragon = TestKit.tether(helper, scene.pasture, scene.owner, lowDragon)
         var standbySince = -1L
         helper.onEachTick {
-            val worker = TestKit.workerOf(helper, fire) ?: return@onEachTick
-            helper.assertTrue(worker.status != WorkerStatus.WORKING, "the Charmander works a creative burner")
+            val worker = TestKit.workerOf(helper, dragon) ?: return@onEachTick
+            helper.assertTrue(worker.status != WorkerStatus.WORKING, "the Dratini works a creative burner")
             helper.assertTrue(worker.stamina.fraction == 1.0, "Work Stamina dropped at a creative burner: ${worker.stamina}")
             if (worker.status != WorkerStatus.STANDBY) return@onEachTick
             helper.assertTrue(
-                TestKit.claimOf(helper, fire)?.key == TestKit.keyOf(helper, burner.blockPos),
-                "the Charmander waits elsewhere",
+                TestKit.claimOf(helper, dragon)?.key == TestKit.keyOf(helper, burner.blockPos),
+                "the Dratini waits elsewhere",
             )
             if (standbySince < 0) standbySince = helper.tick
             if (helper.tick - standbySince >= 100) helper.succeed()
