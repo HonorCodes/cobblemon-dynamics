@@ -455,11 +455,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    private enum class Attempt { GRANTED, NO_SPOT, REFUSED }
+    private enum class Attempt { GRANTED, NO_SPOT, NOT_NOW, REFUSED }
 
     /**
      * A worker gets the claim only with a work spot that its navigation reaches (CD-ASG-09). With none, it skips the target for
-     * `retryWaitTicks`, as after a travel timeout (CD-ASG-14).
+     * `retryWaitTicks`, as after a travel timeout (CD-ASG-14). While its navigation cannot plan, for example in the air, it does
+     * neither, and its next scan or poll tries again.
      */
     private fun claim(
         t: Tick,
@@ -475,8 +476,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val own = worker.spot?.asLong()
         val entity = slot.entity
         val others = if (own == null) taken else taken - own
-        val spot = guarded(role.handler, null) { spotFor(t.level, area(t, runtime), entity, role, target, others, Reach.of(entity)) }
+        val reach = Reach.of(entity)
+        val spot = guarded(role.handler, null) { spotFor(t.level, area(t, runtime), entity, role, target, others, reach) }
         if (spot == null) {
+            if (reach.cannotPlan) return Attempt.NOT_NOW
             worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
             return Attempt.NO_SPOT
         }
@@ -675,7 +678,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** At 100%: the bed claim ends in the same tick (CD-BED-12), and a leashed worker claims its bound target again (CD-STA-14). */
+    /**
+     * At 100%: the bed claim ends in the same tick (CD-BED-12), and a leashed worker claims its bound target again (CD-STA-14). The
+     * rest's hold stops the worker's body with no fall, so the navigation of most species cannot plan in this tick, and the next poll
+     * claims instead (CD-ASG-09).
+     */
     private fun wake(t: Tick, runtime: PastureRuntime, slot: PastureRuntime.Slot) {
         val worker = slot.worker
         if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)

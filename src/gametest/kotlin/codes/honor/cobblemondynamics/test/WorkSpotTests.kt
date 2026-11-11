@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
+import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
@@ -11,6 +12,8 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.AbstractFurnaceBlock
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
+import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import kotlin.math.abs
@@ -95,16 +98,13 @@ class WorkSpotTests {
 
     /**
      * The furnace's best spot, beside it on the pasture's side, sits in a pocket of two cells that walls 2 blocks high close off, with a
-     * block on top of the furnace. The pocket's second cell makes the spot open, so the search ranks it first for the Charmander, which
-     * is held south of the furnace until it claims. With the path check, the Charmander takes a spot that it can walk to and Works well
-     * before the 600-tick timeout (CD-ASG-09).
+     * block on top of the furnace. The pocket's second cell makes the spot open, so the search ranks it first for a Charmander held
+     * south of the furnace. Returns the furnace and the Charmander, which is tethered to a pasture south of it.
      */
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 400)
-    fun cdAsg09UnreachablePocketGivesWayToAReachableSpot(helper: GameTestHelper) {
+    private fun pocketScene(helper: GameTestHelper): Pair<AbstractFurnaceBlockEntity, PokemonEntity> {
         val furnaceRel = BlockPos(7, 2, 3)
-        TestKit.furnace(helper, furnaceRel, ItemStack(Items.RAW_IRON, 16))
+        val furnace = TestKit.furnace(helper, furnaceRel, ItemStack(Items.RAW_IRON, 16))
         helper.setBlock(furnaceRel.above(), Blocks.STONE)
-        val pocket = setOf(BlockPos(7, 2, 4), BlockPos(8, 2, 4))
         for (wall in listOf(BlockPos(6, 2, 4), BlockPos(7, 2, 5), BlockPos(8, 2, 5), BlockPos(9, 2, 4), BlockPos(8, 2, 3))) {
             helper.setBlock(wall, Blocks.STONE)
             helper.setBlock(wall.above(), Blocks.STONE)
@@ -112,17 +112,61 @@ class WorkSpotTests {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 9), owner)
         TestKit.workMode(pasture, true)
-        val charmander = TestKit.tether(helper, pasture, owner, "charmander level=20")
-        val hold = BlockPos(7, 2, 8)
+        return furnace to TestKit.tether(helper, pasture, owner, "charmander level=20")
+    }
+
+    /** Holds [charmander] on the floor south of the pocket until it claims, then checks its spot until it Works. */
+    private fun claimFromTheFloor(helper: GameTestHelper, charmander: PokemonEntity) {
+        if (TestKit.claimOf(helper, charmander) == null) {
+            TestKit.moveTo(helper, charmander, BlockPos(7, 2, 8))
+            return
+        }
+        val worker = TestKit.workerOf(helper, charmander) ?: throw GameTestAssertException("the Charmander is no worker")
+        val spot = spotOf(helper, charmander)
+        helper.assertFalse(spot in POCKET, "CD-ASG-09: the Charmander got the walled-off spot $spot")
+        if (worker.status == WorkerStatus.WORKING) helper.succeed()
+    }
+
+    /**
+     * In the pocket scene, the Charmander is held south of the furnace until it claims. With the path check, it takes a spot that it
+     * can walk to and Works well before the 600-tick timeout (CD-ASG-09).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 400)
+    fun cdAsg09UnreachablePocketGivesWayToAReachableSpot(helper: GameTestHelper) {
+        val (_, charmander) = pocketScene(helper)
+        helper.onEachTick { claimFromTheFloor(helper, charmander) }
+    }
+
+    /**
+     * In the pocket scene, the Charmander is held 1 block above the floor for 2 scan intervals, so its navigation cannot plan. It gets
+     * no claim, which would be the pocket, and the furnace stays off its skip list. Held on the floor after that, it takes a spot that
+     * it can walk to and Works (CD-ASG-09).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdAsg09NoClaimWhileTheNavigationCannotPlan(helper: GameTestHelper) {
+        val (furnace, charmander) = pocketScene(helper)
+        val key = TestKit.keyOf(helper, furnace.blockPos)
+        val landAt = helper.level.gameTime + 2L * WorkEngineSettings.current.scanIntervalTicks
+        val holdInTheAir = {
+            TestKit.moveTo(helper, charmander, BlockPos(7, 3, 8))
+            charmander.deltaMovement = Vec3.ZERO
+        }
+        holdInTheAir()
         helper.onEachTick {
-            if (TestKit.claimOf(helper, charmander) == null) {
-                TestKit.moveTo(helper, charmander, hold)
+            val now = helper.level.gameTime
+            if (now >= landAt) {
+                claimFromTheFloor(helper, charmander)
                 return@onEachTick
             }
-            val worker = TestKit.workerOf(helper, charmander) ?: throw GameTestAssertException("the Charmander is no worker")
-            val spot = spotOf(helper, charmander)
-            helper.assertFalse(spot in pocket, "CD-ASG-09: the Charmander got the walled-off spot $spot")
-            if (worker.status == WorkerStatus.WORKING) helper.succeed()
+            val worker = TestKit.workerOf(helper, charmander)
+            val spot = worker?.spot?.let { TestKit.relative(helper, it) }
+            helper.assertTrue(TestKit.claimOf(helper, charmander) == null, "CD-ASG-09: the Charmander claimed the spot $spot in the air")
+            helper.assertFalse(worker?.isSkipped(key, now) == true, "CD-ASG-09: the Charmander skips the furnace after a try in the air")
+            holdInTheAir()
         }
+    }
+
+    private companion object {
+        val POCKET = setOf(BlockPos(7, 2, 4), BlockPos(8, 2, 4))
     }
 }
