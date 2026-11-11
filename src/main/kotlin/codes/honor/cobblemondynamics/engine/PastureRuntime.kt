@@ -22,6 +22,12 @@ class PastureRuntime(override val level: ServerLevel, val key: PastureKey, now: 
     var scheduler: ScanScheduler = scheduler(scanIntervalTicks, now)
         private set
 
+    /**
+     * The UUID of the pasture's placer, as the last poll read it, or null for a pasture with no placer. Every pasture check of the
+     * land claim gate asks about it, online or not (CD-LND-05).
+     */
+    var placer: UUID? = null
+
     private val pollPhase = ScanScheduler.phaseFor(key.pos, POLL_TICKS)
     private var polled = false
 
