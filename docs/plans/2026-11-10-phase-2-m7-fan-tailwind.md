@@ -787,6 +787,23 @@ const val PUSH = 0.01
 
 - [ ] **Step 8: Commit:** `git commit -m "Give Create fans Pokémon catalyst types and keep a fan's worker out of its air current"`.
 
+**The shadow guard (2026-11-11, a ruling on the risk of this task's mixin).** `AirCurrentMixin` shadows `caughtEntities` and
+`affectedItemHandlers`, and the mixin config has `"required": true`, so a Create 6.0.x that renamed either field would crash
+the game at load, against CD-FAN-17. `MixinPlugin.shouldApplyMixin` therefore reads each mixin and its target through
+Mixin's bytecode provider, and skips a mixin whose target lacks a member that it shadows (`MixinMembers`, unit-tested on
+synthetic class nodes in `MixinMembersTest`). A skipped mixin records no handler call, so `MixinGate` turns its role off
+with one warning. The check covers every mixin with `@Shadow` members: `AirCurrentMixin` and `EnchantmentMenuMixin`.
+Checked with `javap` on sponge-mixin 0.16.4+mixin.0.8.7, which NeoForge 21.1.265 ships:
+
+- `MixinInfo.readDeclaredTargets` asks the plugin about each target before `readTargetClasses` reads the target through
+  `ClassInfo.forName`, and the mixin class itself was read before that, through the same provider.
+- `@Shadow` is `RUNTIME` retention. An unmatched shadow field throws `InvalidMixinException` ("@Shadow field %s was not
+  located in the target class %s"). `TargetClassContext` matches a shadow by name or alias and descriptor in the target
+  class's own members.
+- The ModLauncher provider is `MixinLaunchPluginLegacy`. `getClassNode(String)` reads the transformed class, and
+  `getClassNode(name, false, flags)` throws ("does not currently support retrieval of untransformed bytecode"), so the
+  plugin calls the one-argument form.
+
 ---
 
 ### Task 3: The Fan Catalyst

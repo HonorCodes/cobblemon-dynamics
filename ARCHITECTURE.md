@@ -74,8 +74,10 @@ src/main/kotlin/codes/honor/cobblemondynamics/
 src/main/java/codes/honor/cobblemondynamics/
   MixinState.java        which mixins injected their handler call; outside the mixin package,
                          because Mixin refuses to load a class of that package
+  MixinMembers.java      the members that a mixin shadows and its target class lacks
 src/main/java/codes/honor/cobblemondynamics/mixin/
-  MixinPlugin.java       skips each mixin whose target mod is absent, records each injection
+  MixinPlugin.java       skips each mixin whose target mod is absent or whose target lacks a
+                         shadowed member, records each injection
   create/                WaterWheelBlockEntityMixin, BlazeBurnerBlockEntityMixin,
                          ItemUseOverridesMixin, AirCurrentMixin, WindmillBearingBlockEntityMixin
   vanilla/               EnchantmentMenuMixin, EnchantmentMenuAccess (an accessor, which Mixin lets
@@ -755,8 +757,10 @@ Other role parameters, as fragments of their role files:
 - **Mixins.** Java classes in `cobblemon_dynamics.mixins.json`, declared with `[[mixins]]` in
   `neoforge.mods.toml`. NeoForge ships Mixin and MixinExtras (0.5.5 in NeoForge 21.1.265), which
   provides `@ModifyExpressionValue` and `@Local`. `MixinPlugin` skips the Create and Cobblebase mixins
-  when those mods are absent. Each integration mixin sets a static flag when it applies, and a role
-  whose flag stays unset disables itself with one log warning.
+  when those mods are absent. It also skips a mixin whose target class lacks a field or method that
+  the mixin shadows, because Mixin fails the required config at load on such a shadow. Each
+  integration mixin sets a static flag when it applies, and a role whose flag stays unset disables
+  itself with one log warning.
 - **Access transformers.** `META-INF/accesstransformer.cfg`, with `validateAccessTransformers = true`.
 
 | Dependency | Coordinates | Repository | Scope |
