@@ -45,6 +45,14 @@ object BrainBridge {
         entity.brain.eraseMemory(DynamicsMemories.WORK_ORDER.get())
     }
 
+    /**
+     * CD-QWK-15: a party Pokémon whose Quick Work order ended follows its owner from the next tick. The hold of a work order renews
+     * Cobblemon's path cooldown on every tick (`WorkMoveTask`), and Cobblemon's `move_to_owner` waits for it to expire.
+     */
+    fun endHold(entity: PokemonEntity) {
+        entity.brain.eraseMemory(CobblemonMemories.PATH_COOLDOWN)
+    }
+
     fun isWorking(entity: PokemonEntity): Boolean = entity.brain.isActive(DynamicsActivities.WORK.get())
 
     fun holdsOrder(entity: PokemonEntity): Boolean = entity.brain.hasMemoryValue(DynamicsMemories.WORK_ORDER.get())

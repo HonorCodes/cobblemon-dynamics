@@ -16,8 +16,11 @@ import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
+import com.cobblemon.mod.common.net.messages.server.SendOutPokemonPacket
+import com.cobblemon.mod.common.net.serverhandling.storage.SendOutPokemonHandler
 import com.cobblemon.mod.common.pokemon.Pokemon
 import com.mojang.authlib.GameProfile
+import net.minecraft.commands.arguments.EntityAnchorArgument
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
@@ -30,6 +33,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.server.players.PlayerList
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.MenuProvider
@@ -52,6 +56,7 @@ import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.common.util.FakePlayer
 import net.neoforged.neoforge.common.util.FakePlayerFactory
 import net.neoforged.neoforge.items.IItemHandler
+import java.lang.reflect.Field
 import java.util.OptionalInt
 import java.util.UUID
 import java.util.function.Consumer
@@ -228,6 +233,33 @@ object TestKit {
     }
 
     fun pokemon(spec: String): Pokemon = PokemonProperties.parse(spec).create()
+
+    /**
+     * A fake owner at [rel] that `PlayerList.getPlayer` finds, as Cobblemon's owner lookup and Quick Work need. It joins only the player
+     * list's UUID map, so it gets no broadcast, no spawns and no ticks, and it leaves the map when the test ends.
+     */
+    fun listedOwner(helper: GameTestHelper, rel: BlockPos, name: String = "owner"): ServerPlayer {
+        val player = owner(helper, name)
+        val pos = helper.absoluteVec(rel.bottomCenter)
+        place(player, pos.x, pos.y, pos.z)
+        @Suppress("UNCHECKED_CAST")
+        val byUuid = PLAYERS_BY_UUID.get(helper.level.server.playerList) as MutableMap<UUID, ServerPlayer>
+        byUuid[player.uuid] = player
+        afterTest(helper) { byUuid.remove(player.uuid) }
+        return player
+    }
+
+    private val PLAYERS_BY_UUID: Field = PlayerList::class.java.getDeclaredField("playersByUUID").apply { isAccessible = true }
+
+    /** Turns [player]'s eyes to the center of the block at [rel], as a client's rotation packets do on a real server. */
+    fun lookAt(helper: GameTestHelper, player: ServerPlayer, rel: BlockPos) =
+        player.lookAt(EntityAnchorArgument.Anchor.EYES, helper.absoluteVec(Vec3.atCenterOf(rel)))
+
+    /** A new Pokémon in the first free slot of [player]'s party. */
+    fun partyPokemon(player: ServerPlayer, spec: String): Pokemon = pokemon(spec).also { Cobblemon.storage.getParty(player).add(it) }
+
+    /** The R key: Cobblemon's own server handler of the send-out packet for party slot [slot]. It recalls a Pokémon that is out. */
+    fun pressSendOut(player: ServerPlayer, slot: Int = 0) = SendOutPokemonHandler.handle(SendOutPokemonPacket(slot), player.server, player)
 
     fun tether(helper: GameTestHelper, pasture: PokemonPastureBlockEntity, owner: ServerPlayer, spec: String): PokemonEntity {
         val pokemon = pokemon(spec)

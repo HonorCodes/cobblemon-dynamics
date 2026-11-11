@@ -947,6 +947,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun endOrder(t: Tick, order: QuickRuntime, reason: QuickEnd) {
         drop(t, order, order.slot)
         orders.remove(order.slot.worker.pokemonId)
+        BrainBridge.endHold(order.slot.entity)
         tell(order.owner, reason.messageKey, order.slot.pokemon, order.targetName)
     }
 
