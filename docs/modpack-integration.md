@@ -52,8 +52,9 @@ mod uses no AE2 class: it reaches AE2 blocks through NeoForge's energy and item 
 ## Claim mods
 
 FTB Chunks and Open Parties and Claims are optional. `neoforge.mods.toml` lists both as optional dependencies with any
-version, as it lists Cobbleworkers and Cobblebase, so NeoForge checks no version of them. The mod was tested with these
-versions:
+version, as it lists Cobbleworkers and Cobblebase, so NeoForge checks no version of them. The checks are built against
+these versions. No automated test has run them against the real claim mods yet, because the approver deferred those tests
+on 2026-11-11.
 
 | Mod | Tested version |
 | --- | --- |
@@ -167,10 +168,9 @@ holds one INFO line that starts with `Payloads, version 3:` and names each paylo
   Create and AE2 also tests the claim checks of Quick Work with a test claim mod. The release workflow runs the build, the
   unit tests and the jar checks again for each tag.
 - **Tested at each phase gate.** The isolated test pack runs clean dedicated servers with only this mod and its pinned
-  dependencies. It checks the dependency ranges, including the NeoForge floor, plus servers with only one of Cobbleworkers,
-  Cobblebase, FTB Chunks and Open Parties and Claims, `/reload` and restarts. Two GameTest runs test Quick Work against
-  the real claim mods, one with FTB Chunks and one with Open Parties and Claims. CI does not run them. They run at each
-  phase gate and in each pull request that changes the claim checks.
+  dependencies. It checks the dependency ranges, including the NeoForge floor, plus servers with only Cobbleworkers or
+  only Cobblebase, `/reload` and restarts. The servers with only FTB Chunks or only Open Parties and Claims, and two
+  GameTest runs of Quick Work against the real claim mods, are planned. The approver deferred them on 2026-11-11.
 - **Not tested automatically:**
   - Play with two or more players. The approver ruled out multiplayer GameTests, so an audit checks the code instead,
     in [the multiplayer audit](testing/multiplayer-audit.md).
