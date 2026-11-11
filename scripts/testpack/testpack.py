@@ -60,9 +60,10 @@ SERVER_CONFIG_KEYS = (
     "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
     "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
     "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
-    "leash.pendingSelectionTicks", "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1",
-    "stamina.healerRecoveryMinutesAtLevel100", "stamina.flushIntervalTicks", "beds.speedFactors",
-    "heal.cost", "heal.lowStaminaThreshold", "roles.disabled", "compat.cobbleworkers", "compat.cobblebase",
+    "leash.pendingSelectionTicks", "quickWork.enabled", "quickWork.targetRange", "quickWork.leashRange",
+    "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1", "stamina.healerRecoveryMinutesAtLevel100",
+    "stamina.flushIntervalTicks", "beds.speedFactors", "heal.cost", "heal.lowStaminaThreshold", "roles.disabled",
+    "compat.cobbleworkers", "compat.cobblebase",
 )
 # CD-WHL-07, CD-CRK-08: Create's water wheel and hand crank carry our drive behaviour, which saves the turn direction with
 # the block entity under this key. Both blocks sit in the force-loaded chunk 0, 0, in the air above the flat floor.

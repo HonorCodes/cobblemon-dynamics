@@ -189,8 +189,7 @@ class QuickWorkRulesTest {
         assertEquals(QuickWorkRules.Pick.None, pick(listOf(wheelDriver), listOf("water", "fairy"), fairy = true))
 
     @Test
-    fun `CD-QWK-03 a block that no role fits gives nothing`() =
-        assertEquals(QuickWorkRules.Pick.None, pick(emptyList(), listOf("fire")))
+    fun `CD-QWK-03 a block that no role fits gives nothing`() = assertEquals(QuickWorkRules.Pick.None, pick(emptyList(), listOf("fire")))
 
     @Test
     fun `CD-QWK-06 to CD-QWK-09 the refusals come in their order, and the demand is asked last`() {

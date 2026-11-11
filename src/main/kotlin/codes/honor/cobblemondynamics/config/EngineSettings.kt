@@ -24,6 +24,9 @@ data class EngineSettings(
     val disabledRoles: Set<ResourceLocation> = emptySet(),
     val compatCobbleworkers: Boolean = true,
     val compatCobblebase: Boolean = true,
+    val quickWorkEnabled: Boolean = true,
+    val quickWorkTargetRange: Int = 16,
+    val quickWorkLeashRange: Int = 16,
 ) {
     companion object {
         val DEFAULT = EngineSettings()

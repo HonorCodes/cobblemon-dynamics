@@ -54,15 +54,30 @@ class ConfigTest {
         assertFalse(ClientConfig.hasKey("effects.workSounds"))
     }
 
+    @Test
+    fun `CD-CFG-16 CD-CFG-17 CD-CFG-18 Quick Work keys, ranges and defaults`() {
+        val s = EngineSettings.DEFAULT
+        assertTrue(s.quickWorkEnabled)
+        assertEquals(16, s.quickWorkTargetRange)
+        assertEquals(16, s.quickWorkLeashRange)
+        for (key in listOf("quickWork.targetRange", "quickWork.leashRange")) {
+            assertTrue(ServerConfig.isValid(key, 2), key)
+            assertTrue(ServerConfig.isValid(key, 24), key)
+            assertFalse(ServerConfig.isValid(key, 1), key)
+            assertFalse(ServerConfig.isValid(key, 25), key)
+        }
+    }
+
     private companion object {
-        /** The keys of the spec's Config section. The test pack's restart scenario looks for the same keys. */
+        /** The keys of the spec's Config section, in the order that the config file writes them. The test pack looks for the same keys. */
         val CFG_01_KEYS = listOf(
             "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
             "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
             "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
-            "leash.pendingSelectionTicks", "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1",
-            "stamina.healerRecoveryMinutesAtLevel100", "stamina.flushIntervalTicks", "beds.speedFactors",
-            "heal.cost", "heal.lowStaminaThreshold", "roles.disabled", "compat.cobbleworkers", "compat.cobblebase",
+            "leash.pendingSelectionTicks", "quickWork.enabled", "quickWork.targetRange", "quickWork.leashRange",
+            "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1", "stamina.healerRecoveryMinutesAtLevel100",
+            "stamina.flushIntervalTicks", "beds.speedFactors", "heal.cost", "heal.lowStaminaThreshold", "roles.disabled",
+            "compat.cobbleworkers", "compat.cobblebase",
         )
     }
 }
