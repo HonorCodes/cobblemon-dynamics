@@ -85,6 +85,11 @@ repositories {
         url = 'https://api.modrinth.com/maven'
         content { includeGroup 'maven.modrinth' }
     }
+    maven {
+        name = 'LDTTeam'
+        url = 'https://ldtteam.jfrog.io/ldtteam/modding/'
+        content { includeGroup 'com.ldtteam' }
+    }
     mavenCentral()
 }
 
@@ -169,6 +174,11 @@ dependencies {
     compileOnly("dev.ftb.mods:ftb-teams-neoforge:${ftb_teams_version}") { transitive = false }
     compileOnly("dev.ftb.mods:ftb-library-neoforge:${ftb_library_version}") { transitive = false }
     compileOnly("maven.modrinth:open-parties-and-claims:${opac_version}") { transitive = false }
+    // CD-LND-08, CD-LND-09, CD-LND-14: MineColonies stays optional. Only compat/minecolonies/ names it. AbstractBlockHut
+    // implements interfaces of Structurize, and IMinecoloniesAPI.getConfig() returns a class of BlockUI.
+    compileOnly("com.ldtteam:minecolonies:${minecolonies_version}") { transitive = false }
+    compileOnly("com.ldtteam:structurize:${structurize_version}") { transitive = false }
+    compileOnly("com.ldtteam:blockui:${blockui_version}") { transitive = false }
 
     localRuntime("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
     localRuntime "net.createmod.ponder:ponder-neoforge:${ponder_version}"
@@ -247,8 +257,9 @@ tasks.register('verifyJar') {
                     }
                 }
                 if (e.name.startsWith('assets/cobblemon/')) problems << "${e.name}: copies a Cobblemon asset"
-                // The claim mods are compile-only, and the FTB jars are All Rights Reserved (ADR-0013, Amendment 1).
-                if (e.name.startsWith('dev/ftb/') || e.name.startsWith('xaero/') || e.name.startsWith('dev/architectury/')) {
+                // The claim mods are compile-only, the FTB jars are All Rights Reserved (ADR-0013, Amendment 1), and the code of
+                // MineColonies is GPL 3.0 (ADR-0014).
+                if (['dev/ftb/', 'xaero/', 'dev/architectury/', 'com/minecolonies/', 'com/ldtteam/'].any { e.name.startsWith(it) }) {
                     problems << "${e.name}: bundles a class of a claim mod"
                 }
                 if (e.name.startsWith('codes/honor/cobblemondynamics/test/') || e.name.startsWith('codes/honor/cobblemondynamics/coretest/')) {

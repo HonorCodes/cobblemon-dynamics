@@ -85,3 +85,10 @@ type="optional"
 versionRange="*"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecolonies"
+type="optional"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"

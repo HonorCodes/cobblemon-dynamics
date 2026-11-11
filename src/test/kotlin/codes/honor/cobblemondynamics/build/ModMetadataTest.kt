@@ -88,6 +88,17 @@ class ModMetadataTest {
     }
 
     @Test
+    fun `CD-LND-14 minecolonies is optional with any version, and its libraries have no entry`() {
+        val d = requireDependency("minecolonies")
+        assertEquals("optional", d.getString("type"))
+        assertEquals("*", d.getString("versionRange"))
+        assertEquals("BOTH", d.getString("side"))
+        for (library in listOf("structurize", "blockui", "domum_ornamentum", "multipiston")) {
+            assertNull(dependency(library), "$library is a dependency of MineColonies, not of this mod")
+        }
+    }
+
+    @Test
     fun `CD-REL-05 the version reads MAJOR_MINOR_PATCH plus mc1_21_1`() {
         val version = mod().getString("version")!!
         assertTrue(Regex("""^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?\+mc1\.21\.1$""").matches(version), version)
