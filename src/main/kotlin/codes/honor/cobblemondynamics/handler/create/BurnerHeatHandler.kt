@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
 /**
- * The target of the Burner Keeper and the Superheater: a filled Create Blaze Burner. The worker's heat goes in through
+ * The target of the Superheater: a filled Create Blaze Burner. The worker's heat goes in through
  * [PokemonHeat], and Create's own tick writes it into the burner's block state, which basins and boilers read.
  */
 object BurnerHeatHandler : TargetHandler {

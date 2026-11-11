@@ -8,6 +8,7 @@ import codes.honor.cobblemondynamics.id
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
@@ -28,12 +29,13 @@ class DefaultPriorityTest {
         return Assigner.pickForIdle(worker, listOf(target)) { true }?.second?.id
     }
 
+    /** The approver's ruling (2026-11-10): Dragon-types alone heat Blaze Burners, so a burner has one role, and a Fire-type none. */
     @Test
-    fun `CD-ASG-16 a Fire and Dragon Turtonator on a Blaze Burner works as the Superheater`() {
+    fun `CD-ASG-16 CD-SUP-02 a Blaze Burner has only the Superheater, which a Turtonator takes and a Charmander does not`() {
         val burner = target(BURNER_HEAT)
-        assertEquals(setOf(id("burner_keeper"), id("superheater")), burner.roles.map { it.id }.toSet())
+        assertEquals(setOf(id("superheater")), burner.roles.map { it.id }.toSet())
         assertEquals(id("superheater"), roleFor(setOf("fire", "dragon"), burner))
-        assertEquals(id("burner_keeper"), roleFor(setOf("fire"), burner), "a pure Fire-type")
+        assertNull(roleFor(setOf("fire"), burner), "a pure Fire-type")
     }
 
     @Test

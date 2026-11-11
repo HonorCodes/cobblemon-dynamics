@@ -7,8 +7,10 @@ import org.junit.jupiter.api.Test
 
 class MixinGateTest {
     private val wheel = role("wheel_driver", setOf("water"), handler = "cobblemon_dynamics:water_wheel")
-    private val keeper = role("burner_keeper", setOf("fire"), handler = "cobblemon_dynamics:burner_heat")
     private val superheater = role("superheater", setOf("dragon"), priority = 10, handler = "cobblemon_dynamics:burner_heat")
+
+    /** A data pack's own role on the Superheater's handler, so that one handler serves two roles. */
+    private val packBurner = role("pack_burner", setOf("ice"), handler = "cobblemon_dynamics:burner_heat")
     private val stoker = role("stoker", setOf("fire"), handler = "cobblemon_dynamics:furnace")
     private val muse = role("muse", setOf("fairy"), autoAssign = false, handler = "cobblemon_dynamics:enchanting")
 
@@ -18,7 +20,7 @@ class MixinGateTest {
     fun `CD-WHL-10 CD-BRN-07 a missing mixin disables its roles and warns once`() {
         val warnings = mutableListOf<String>()
         val gated = MixinGate.apply(
-            set(wheel, keeper, superheater),
+            set(wheel, superheater, packBurner),
             applied = { it != MixinState.WATER_WHEEL && it != MixinState.BLAZE_BURNER },
             warn = warnings::add,
         )
@@ -52,7 +54,7 @@ class MixinGateTest {
     @Test
     fun `CD-WHL-10 an applied mixin keeps its roles, and a role that needs no mixin stays on`() {
         val warnings = mutableListOf<String>()
-        val gated = MixinGate.apply(set(wheel, keeper, stoker), applied = { it == MixinState.WATER_WHEEL }, warn = warnings::add)
+        val gated = MixinGate.apply(set(wheel, superheater, stoker), applied = { it == MixinState.WATER_WHEEL }, warn = warnings::add)
         assertEquals(listOf(stoker.id, wheel.id), gated.active.map { it.definition.id })
         assertEquals(1, warnings.size)
         assertTrue("cobblemon_dynamics:burner_heat" in warnings.single())

@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class HeatGateTest {
-    private val keeper = BuiltInRoles.parse("burner_keeper")
     private val superheater = BuiltInRoles.parse("superheater")
 
     @Test
@@ -22,8 +21,8 @@ class HeatGateTest {
     }
 
     @Test
-    fun `CD-BRN-01 the default Burner Keeper gives kindled at every level`() {
-        for (level in listOf(1, 49, 50, 100)) assertEquals("kindled", HeatGate.heatFor(keeper.params, level), "level $level")
+    fun `CD-BRN-01 CD-BRN-05 the default Superheater gives kindled at every level below 50`() {
+        for (level in listOf(1, 10, 25, 49)) assertEquals("kindled", HeatGate.heatFor(superheater.params, level), "level $level")
     }
 
     @Test
