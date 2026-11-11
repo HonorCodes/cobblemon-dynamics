@@ -43,6 +43,7 @@ object EngineEvents {
             val player = event.entity as? ServerPlayer ?: return@addListener
             PanelViewers.forget(player)
             DynamicsPayloads.forget(player.uuid)
+            WorkModeService.forget(player.uuid)
         }
         NeoForge.EVENT_BUS.addListener<LevelTickEvent.Post> { event ->
             val level = event.level as? ServerLevel ?: return@addListener

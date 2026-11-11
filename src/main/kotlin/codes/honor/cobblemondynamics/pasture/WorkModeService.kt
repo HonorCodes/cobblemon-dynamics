@@ -57,6 +57,11 @@ object WorkModeService {
         PanelViewers.broadcast(level, pasturePos)
     }
 
+    /** Forgets the last request of a player who logged out, so the map holds only players on the server. */
+    fun forget(playerId: UUID) {
+        lastAccepted.remove(playerId)
+    }
+
     /** Forgets every player's last request when a server stops, because the next server runs on another clock. */
     fun reset() {
         lastAccepted.clear()
