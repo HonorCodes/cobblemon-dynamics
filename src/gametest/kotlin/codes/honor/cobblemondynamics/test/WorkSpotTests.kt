@@ -92,4 +92,37 @@ class WorkSpotTests {
             if (worker.status == WorkerStatus.WORKING && lit && furnace.getItem(1).isEmpty) helper.succeed()
         }
     }
+
+    /**
+     * The furnace's best spot, beside it on the pasture's side, sits in a pocket of two cells that walls 2 blocks high close off, with a
+     * block on top of the furnace. The pocket's second cell makes the spot open, so the search ranks it first for the Charmander, which
+     * is held south of the furnace until it claims. With the path check, the Charmander takes a spot that it can walk to and Works well
+     * before the 600-tick timeout (CD-ASG-09).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 400)
+    fun cdAsg09UnreachablePocketGivesWayToAReachableSpot(helper: GameTestHelper) {
+        val furnaceRel = BlockPos(7, 2, 3)
+        TestKit.furnace(helper, furnaceRel, ItemStack(Items.RAW_IRON, 16))
+        helper.setBlock(furnaceRel.above(), Blocks.STONE)
+        val pocket = setOf(BlockPos(7, 2, 4), BlockPos(8, 2, 4))
+        for (wall in listOf(BlockPos(6, 2, 4), BlockPos(7, 2, 5), BlockPos(8, 2, 5), BlockPos(9, 2, 4), BlockPos(8, 2, 3))) {
+            helper.setBlock(wall, Blocks.STONE)
+            helper.setBlock(wall.above(), Blocks.STONE)
+        }
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 9), owner)
+        TestKit.workMode(pasture, true)
+        val charmander = TestKit.tether(helper, pasture, owner, "charmander level=20")
+        val hold = BlockPos(7, 2, 8)
+        helper.onEachTick {
+            if (TestKit.claimOf(helper, charmander) == null) {
+                TestKit.moveTo(helper, charmander, hold)
+                return@onEachTick
+            }
+            val worker = TestKit.workerOf(helper, charmander) ?: throw GameTestAssertException("the Charmander is no worker")
+            val spot = spotOf(helper, charmander)
+            helper.assertFalse(spot in pocket, "CD-ASG-09: the Charmander got the walled-off spot $spot")
+            if (worker.status == WorkerStatus.WORKING) helper.succeed()
+        }
+    }
 }

@@ -429,7 +429,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     private enum class Attempt { GRANTED, NO_SPOT, REFUSED }
 
-    /** A worker gets the claim only with a work spot. With none, it skips the target for `retryWaitTicks`. */
+    /**
+     * A worker gets the claim only with a work spot that its navigation reaches (CD-ASG-09). With none, it skips the target for
+     * `retryWaitTicks`, as after a travel timeout (CD-ASG-14).
+     */
     private fun claim(
         t: Tick,
         runtime: PastureRuntime,
@@ -449,7 +452,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val spot = guarded(role.handler, null) {
             // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
             val shape = TargetShape.around(target) { t.level.isLoaded(it) && role.handler.isPartOfTarget(t.level, target, it) }
-            WorkSpots.find(grid, area(t, runtime), shape, center, role.definition.range, slot.entity.position())
+            WorkSpots.findReachable(grid, area(t, runtime), shape, center, role.definition.range, entity.position(), Reach.of(entity))
         }
         if (spot == null) {
             worker.skipUntil[key] = t.now + t.settings.retryWaitTicks

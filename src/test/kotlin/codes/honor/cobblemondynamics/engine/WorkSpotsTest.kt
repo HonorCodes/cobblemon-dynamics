@@ -5,6 +5,7 @@ import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,6 +22,9 @@ class WorkSpotsTest {
     private val target = BlockPos(0, 1, 0)
     private val center = Vec3.atCenterOf(target)
     private val area = WorkArea(BlockPos(0, 1, 0), 8, 6)
+
+    /** A worker east of the target, on the floor. */
+    private val from = Vec3(1.5, 1.0, 0.5)
 
     @Test
     fun `CD-ASG-10 6_0 is in range for a ranged role and 6_1 is not`() {
@@ -183,6 +187,49 @@ class WorkSpotsTest {
         assertTrue(spot != tight, "the spot with no room for the body was chosen")
         assertTrue(grid.isStandable(spot!!.x, spot.y, spot.z) && grid.fitsBody(spot.x, spot.y, spot.z))
         assertTrue(WorkSpots.hasLineOfSight(grid, Vec3.atCenterOf(spot), center))
+    }
+
+    @Test
+    fun `CD-ASG-09 a best spot with no path gives way to the next best spot`() {
+        val grid = GridFixture(emptySet(), target)
+        val shape = TargetShape.of(target)
+        val best = WorkSpots.find(grid, area, shape, center, 6.0, from)!!
+        val spot = WorkSpots.findReachable(grid, area, shape, center, 6.0, from, reachable = { it != best })
+        assertNotNull(spot)
+        assertNotEquals(best, spot)
+        assertTrue(shape.isBeside(spot!!.x, spot.y, spot.z), "the next spot $spot is not beside the target")
+    }
+
+    @Test
+    fun `CD-ASG-14 a target whose three best spots have no path gets no spot`() {
+        val checked = mutableListOf<BlockPos>()
+        val spot = WorkSpots.findReachable(
+            GridFixture(emptySet(), target),
+            area,
+            TargetShape.of(target),
+            center,
+            6.0,
+            from,
+            reachable = {
+                checked += it
+                false
+            },
+        )
+        assertNull(spot)
+        assertEquals(WorkSpots.MAX_PATH_CHECKS, checked.size)
+        assertEquals(checked.size, checked.toSet().size, "a spot was checked twice: $checked")
+    }
+
+    @Test
+    fun `CD-ASG-09 a reachable best spot costs one path check`() {
+        val checked = mutableListOf<BlockPos>()
+        val grid = GridFixture(emptySet(), target)
+        val spot = WorkSpots.findReachable(grid, area, TargetShape.of(target), center, 6.0, from, reachable = {
+            checked += it
+            true
+        })
+        assertEquals(WorkSpots.find(grid, area, TargetShape.of(target), center, 6.0, from), spot)
+        assertEquals(1, checked.size)
     }
 }
 

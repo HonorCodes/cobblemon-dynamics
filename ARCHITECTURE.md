@@ -226,7 +226,13 @@ Transition rules:
   next, then spots at other heights. Within each group, the spot nearest to the target center wins,
   then the one nearest to the worker. A spot that a worker cannot walk into on the level, because no
   cell beside it at its height has a floor and room for a body, comes after every open spot. A worker
-  may not reach such a pit, and the old rule, nearest to the worker, avoided it by chance.
+  may not reach such a pit, and the old rule, nearest to the worker, avoided it by chance. A spot also
+  needs a path from the worker: the claim asks the worker's own navigation for a whole path to at most
+  3 spots, best first, with the call that the walk makes later. With no path to any of them, the
+  worker skips the target for `retryWaitTicks`, as after a travel timeout. A spot beyond the worker's
+  follow range counts as reachable, because the pathfinder does not plan that far, and so does a spot
+  while the navigation cannot plan at all, for example while a swimmer is in the air. The travel
+  timeout still catches both.
 - **Leash bindings.** A binding is a reservation. It takes its target away from an auto-assigned
   worker. When a leashed worker gets Tired, it keeps the binding and takes a bed claim, and its target
   stays reserved. When an auto-assigned worker gets Tired, it releases the target for another worker.

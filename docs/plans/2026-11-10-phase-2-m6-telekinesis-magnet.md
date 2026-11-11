@@ -42,11 +42,24 @@ the AE2 19.2.19 jar:
   `cobblemon:metal_sparks` exists and plays no sound. Alakazam is Psychic (hitbox 1.0 × 1.7), Klink is Steel (0.9 × 1.2)
   and Slowbro is Water and Psychic.
 
+Checked for Task 1 on 2026-11-10, with `javap -c` on the merged NeoForge jar and in the Cobblemon 1.8.4 sources:
+
+- `PokemonEntity.createAttributes()` adds `Attributes.FOLLOW_RANGE` at 32.0, so `getAttributeValue(Attributes.FOLLOW_RANGE)`
+  works on every `PokemonEntity`. Its navigation is Cobblemon's `OmniPathNavigation`, whose `createPath(BlockPos, Int)` moves
+  an air target of a Pokémon that cannot fly to the first non-solid cell above the floor, which is the spot itself for a
+  standable spot. Cobblemon's `FollowWalkTargetTask` walks to a plain `WalkTarget` with `navigation.createPath(target, 0)` and
+  tests `path.canReach()`, so the path check asks what the walk asks later.
+- `PathNavigation.createPath` returns null, with no search, while `canUpdatePath()` is false. `OmniPathNavigation` makes it false
+  for a swimmer that is neither on the ground, in a liquid, flying nor a passenger, so a null path means that the navigation
+  cannot plan now, not that the spot has no path. A path that it finds sets the navigation's `targetPos`, `reachRange` and
+  stuck timer, and a later call for that target returns the current path while it is not done. The work order of a claim
+  stops the old path: `BrainBridge.enterWork` stops every running task, and Cobblemon's `FollowWalkTargetTask.stop` stops the
+  navigation.
+
 Inferred (check before the task that uses it):
 
 - `Path.canReach()` with accuracy 0 is true for every spot that a Phase 1 GameTest worker reaches. The whole GameTest suite
   is the check, because a false negative leaves a worker without a claim (Task 1).
-- `LivingEntity.getAttributeValue(Attributes.FOLLOW_RANGE)` works on every `PokemonEntity` (Task 1).
 - A Create chute with no inventory below it holds one stack and refuses more, and Create's vault, depot and chute drop
   their contents when they break (Task 4).
 - Adjacent AE2 devices form one ad-hoc network with no controller. The interface sends its buffer to the ME chest's cell on
@@ -149,7 +162,8 @@ object Reach {
     /**
      * Whether [entity]'s own navigation finds a whole path to a spot. Cobblemon's pathfinder knows how the species walks, swims
      * or flies. A spot farther than the entity's follow range counts as reachable, because the pathfinder does not plan that
-     * far, and the travel timeout (CD-ASG-13) still catches it.
+     * far. So does a spot when the navigation gives no path at all, which means that it cannot plan at the moment. The travel
+     * timeout (CD-ASG-13) still catches both.
      */
     fun of(entity: PokemonEntity): (BlockPos) -> Boolean
 }
@@ -214,12 +228,18 @@ fun findReachable(
 
 ```kotlin
 object Reach {
-    fun of(entity: PokemonEntity): (BlockPos) -> Boolean = { spot ->
+    fun of(entity: PokemonEntity): (BlockPos) -> Boolean {
         val range = entity.getAttributeValue(Attributes.FOLLOW_RANGE)
-        entity.position().distanceTo(Vec3.atBottomCenterOf(spot)) > range || entity.navigation.createPath(spot, 0)?.canReach() == true
+        return { spot ->
+            entity.position().distanceTo(Vec3.atBottomCenterOf(spot)) > range || entity.navigation.createPath(spot, 0)?.canReach() ?: true
+        }
     }
 }
 ```
+
+  A null path counts as reachable: `createPath` gives null with no search while the navigation cannot plan, for example
+  while a swimmer is in the air, and a skip of 6,000 ticks for that reason would be worse than the Phase 1 behavior that the
+  travel timeout gives.
 
   In `WorkEngine.claim`, replace the `WorkSpots.find` call:
 
@@ -237,8 +257,9 @@ WorkSpots.findReachable(grid, area(t, runtime), shape, center, role.definition.r
 ```kotlin
 /**
  * The furnace's best spot, beside it on the pasture's side, sits in a pocket of two cells that walls 2 blocks high close off,
- * with a block on top of the furnace. The pocket's second cell makes the spot open, so the search ranks it first. With the
- * path check, the Charmander takes a spot that it can walk to and Works well before the 600-tick timeout (CD-ASG-09).
+ * with a block on top of the furnace. The pocket's second cell makes the spot open, so the search ranks it first for the
+ * Charmander, which is held south of the furnace until it claims. With the path check, the Charmander takes a spot that it
+ * can walk to and Works well before the 600-tick timeout (CD-ASG-09).
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 400)
 fun cdAsg09UnreachablePocketGivesWayToAReachableSpot(helper: GameTestHelper) {
@@ -254,14 +275,22 @@ fun cdAsg09UnreachablePocketGivesWayToAReachableSpot(helper: GameTestHelper) {
     val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 9), owner)
     TestKit.workMode(pasture, true)
     val charmander = TestKit.tether(helper, pasture, owner, "charmander level=20")
-    helper.succeedWhen {
-        val worker = TestKit.workerOf(helper, charmander) ?: throw GameTestAssertException("the Charmander is no worker yet")
-        val spot = worker.spot?.let { TestKit.relative(helper, it) } ?: throw GameTestAssertException("no spot yet")
+    val hold = BlockPos(7, 2, 8)
+    helper.onEachTick {
+        if (TestKit.claimOf(helper, charmander) == null) {
+            TestKit.moveTo(helper, charmander, hold)
+            return@onEachTick
+        }
+        val worker = TestKit.workerOf(helper, charmander) ?: throw GameTestAssertException("the Charmander is no worker")
+        val spot = spotOf(helper, charmander)
         helper.assertFalse(spot in pocket, "CD-ASG-09: the Charmander got the walled-off spot $spot")
-        helper.assertTrue(worker.status == WorkerStatus.WORKING, "the Charmander is ${worker.status} at $spot")
+        if (worker.status == WorkerStatus.WORKING) helper.succeed()
     }
 }
 ```
+
+  The hold, as in the file's other two tests, makes the pocket the best spot at claim time: a Charmander that wandered west
+  of the furnace before its first claim would rank the open spot west of it first, and the test would pass on the old code.
 
   Run `./gradlew runGameTestServer` and see the test fail on the old code (the Charmander takes (7, 2, 4) and never Works),
   then pass with Step 3. Every other GameTest still passes, which shows that the path check refuses no spot that a worker
