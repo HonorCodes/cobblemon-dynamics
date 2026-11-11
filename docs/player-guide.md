@@ -134,7 +134,8 @@ When a bind fails, the action bar shows why:
 | "Not in a Work Mode pasture" | The Pokémon is not in a pasture with Work Mode on. |
 | "No role fits" | None of the Pokémon's roles works on the block. |
 | "Outside its pasture's work area" | The block is outside the work area of the Pokémon's pasture. |
-| "Already assigned to {Pokémon}" | Another Pokémon has a binding on the block. |
+| "Already assigned to {Pokémon}" | Another of your Pokémon has a binding on the block. |
+| "Already assigned to another player's {species}" | A Pokémon of another player has a binding on the block. The message names its species, never its nickname. |
 | "Select a Pokémon first" | The selected Pokémon is no longer yours, for example after a trade or a release. |
 
 ### What a binding does

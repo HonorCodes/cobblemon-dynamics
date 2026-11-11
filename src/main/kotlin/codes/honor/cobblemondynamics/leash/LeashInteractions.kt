@@ -115,13 +115,13 @@ object LeashInteractions {
             fittingRoles = roles.map { it.definition },
             canonical = canonical,
             insideWorkArea = area?.contains(source) == true,
-            boundToOther = other?.getDisplayName()?.string,
+            boundToOther = other?.seenBy(player.uuid),
             pending = pending,
             sameAsPending = pending?.pos == canonical,
         )
         val outcome = BindRules.evaluate(input) { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE }
         when (outcome) {
-            is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other)
+            is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other?.pokemon)
 
             is BindRules.Outcome.AwaitDestination -> {
                 val name = pokemon?.getDisplayName() ?: return
@@ -175,19 +175,28 @@ object LeashInteractions {
     private fun matches(level: ServerLevel, role: ActiveRole, pos: BlockPos): Boolean =
         guarded(role.handler, false) { role.handler.matches(level, pos, level.getBlockState(pos), level.getBlockEntity(pos)) }
 
+    /** A Pokémon bound to a target, and the player whose PC or party holds it. */
+    private class OtherBound(val pokemon: Pokemon, val owner: UUID) {
+        fun seenBy(player: UUID) = BindRules.Bound(pokemon.getDisplayName().string, pokemon.species.name, ownedByPlayer = owner == player)
+    }
+
     /** The Pokémon bound to [target], when it is not [selected]. An entry whose Pokémon is gone is LeashResets' to clear. */
-    private fun otherBound(level: ServerLevel, target: BlockPos, selected: UUID?): Pokemon? {
+    private fun otherBound(level: ServerLevel, target: BlockPos, selected: UUID?): OtherBound? {
         val ref = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.get(target) ?: return null
         if (ref.pokemonId == selected) return null
         val access = level.registryAccess()
-        return Cobblemon.storage.getPC(ref.owner, access)[ref.pokemonId] ?: Cobblemon.storage.getParty(ref.owner, access)[ref.pokemonId]
+        val pokemon = Cobblemon.storage.getPC(ref.owner, access)[ref.pokemonId]
+            ?: Cobblemon.storage.getParty(ref.owner, access)[ref.pokemonId]
+            ?: return null
+        return OtherBound(pokemon, ref.owner)
     }
 
+    /** CD-LSH-05: the refusal names a Pokémon of the player by its display name, and another player's Pokémon by its species only. */
     private fun refuse(player: ServerPlayer, stack: ItemStack, refusal: BindRules.Outcome.Refuse, other: Pokemon?) {
-        val message = if (refusal.messageKey == BindRules.ALREADY_ASSIGNED) {
-            Component.translatable(refusal.messageKey, other?.getDisplayName() ?: refusal.arg)
-        } else {
-            Component.translatable(refusal.messageKey)
+        val message = when (refusal.messageKey) {
+            BindRules.ALREADY_ASSIGNED -> Component.translatable(refusal.messageKey, other?.getDisplayName() ?: refusal.arg)
+            BindRules.ALREADY_ASSIGNED_OTHER -> Component.translatable(refusal.messageKey, other?.species?.translatedName ?: refusal.arg)
+            else -> Component.translatable(refusal.messageKey)
         }
         // A selection that the server no longer finds as the player's, for example after a trade, is stale.
         if (refusal.messageKey == BindRules.NO_SELECTION) stack.remove(LeashComponents.SELECTION.get())

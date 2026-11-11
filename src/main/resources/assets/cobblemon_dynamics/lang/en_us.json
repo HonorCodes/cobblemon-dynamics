@@ -10,6 +10,7 @@
   "cobblemon_dynamics.leash.outside_area": "Outside its pasture's work area",
   "cobblemon_dynamics.leash.no_role": "No role fits",
   "cobblemon_dynamics.leash.already_assigned": "Already assigned to %s",
+  "cobblemon_dynamics.leash.already_assigned_other": "Already assigned to another player's %s",
   "cobblemon_dynamics.leash.not_work_mode": "Not in a Work Mode pasture",
   "cobblemon_dynamics.leash.no_selection": "Select a Pokémon first",
   "cobblemon_dynamics.leash.bound": "Bound %s to %s",

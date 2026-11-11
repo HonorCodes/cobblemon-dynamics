@@ -12,6 +12,7 @@ object BindRules {
     const val NO_ROLE = "cobblemon_dynamics.leash.no_role"
     const val OUTSIDE_AREA = "cobblemon_dynamics.leash.outside_area"
     const val ALREADY_ASSIGNED = "cobblemon_dynamics.leash.already_assigned"
+    const val ALREADY_ASSIGNED_OTHER = "cobblemon_dynamics.leash.already_assigned_other"
     const val DESTINATION_SAME = "cobblemon_dynamics.leash.destination_same"
 
     sealed interface Outcome {
@@ -21,6 +22,9 @@ object BindRules {
 
         data class Refuse(val messageKey: String, val arg: String? = null) : Outcome
     }
+
+    /** Another Pokémon that is bound to the target: its display name, its species name, and whether the clicking player owns it. */
+    data class Bound(val name: String, val species: String, val ownedByPlayer: Boolean)
 
     /**
      * For a click with a pending source, [fittingRoles], [insideWorkArea] and [boundToOther] describe the source, and
@@ -36,8 +40,7 @@ object BindRules {
         val fittingRoles: List<RoleDefinition>,
         val canonical: BlockPos,
         val insideWorkArea: Boolean,
-        /** The display name of another Pokémon that is bound to the target. */
-        val boundToOther: String?,
+        val boundToOther: Bound?,
         val pending: PendingSource?,
         val sameAsPending: Boolean,
     )
@@ -51,7 +54,14 @@ object BindRules {
         if (twoTargets && input.pending != null && input.sameAsPending) return Outcome.Refuse(DESTINATION_SAME)
         // The source of a two-target role is checked at its own click, so a refusal never waits for the second click.
         if (!input.insideWorkArea) return Outcome.Refuse(OUTSIDE_AREA)
-        input.boundToOther?.let { return Outcome.Refuse(ALREADY_ASSIGNED, it) }
+        // CD-LSH-05: another player's Pokémon is named by its species, so its nickname never reaches the clicking player.
+        input.boundToOther?.let { bound ->
+            return if (bound.ownedByPlayer) {
+                Outcome.Refuse(ALREADY_ASSIGNED, bound.name)
+            } else {
+                Outcome.Refuse(ALREADY_ASSIGNED_OTHER, bound.species)
+            }
+        }
         return if (twoTargets && input.pending == null) Outcome.AwaitDestination(role) else Outcome.Bind(role, input.canonical)
     }
 }
