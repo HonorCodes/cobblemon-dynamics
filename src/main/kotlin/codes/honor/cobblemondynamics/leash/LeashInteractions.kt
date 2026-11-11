@@ -122,6 +122,12 @@ object LeashInteractions {
                 pasture == null ||
                 best == null ||
                 guarded(best.handler, false) { best.handler.destinationInReach(best.definition, pasture, canonical) },
+            noSpotRefusal = best?.handler?.noSpotRefusal?.takeIf {
+                pending == null &&
+                    pasture != null &&
+                    pokemon != null &&
+                    WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
+            },
         )
         val outcome = BindRules.evaluate(input) { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE }
         when (outcome) {
@@ -222,8 +228,8 @@ object LeashInteractions {
 
     /**
      * A sneak-click with the Work Leash on a target that a worker drives reverses it, for that worker's binder, the placer of its
-     * pasture or an operator (CD-WHL-05). Returns false, with no direction changed, for any other sneak-click, which then goes on to
-     * the normal leash rules (CD-SEC-10).
+     * pasture or an operator (CD-WHL-05), and the handler's message for the flip goes to that player (CD-FAN-16). Returns false, with
+     * no direction changed, for any other sneak-click, which then goes on to the normal leash rules (CD-SEC-10).
      */
     fun onSneakBlockClick(player: ServerPlayer, clicked: BlockPos): Boolean {
         val level = player.serverLevel()
@@ -235,16 +241,17 @@ object LeashInteractions {
             val claim = engine.claims.holderOf(TargetKey.block(dimension, canonical))?.takeIf { it.kind == ClaimKind.WORK } ?: continue
             val handler = engine.roleOf(claim.worker)?.handler ?: return false
             if (!mayFlip(player, level, engine, claim)) return false
-            return guarded(handler, false) { handler.flip(level, canonical) }
+            val flipped = guarded(handler, false) { handler.flip(level, canonical) }
+            if (flipped) guarded(handler, null) { handler.flipMessage(level, canonical) }?.let { Feedback.actionBar(player, it) }
+            return flipped
         }
         return false
     }
 
     private fun mayFlip(player: ServerPlayer, level: ServerLevel, engine: WorkEngine, claim: Claim): Boolean {
-        if (player.hasPermissions(PERMISSION_OPERATOR)) return true
-        if (engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder == player.uuid) return true
-        val pasture = PastureAdapter.pastureAt(level, BlockPos.of(claim.pasture.pos)) ?: return false
-        return PastureAdapter.placer(pasture) == player.uuid
+        val binder = engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder
+        val placer = PastureAdapter.pastureAt(level, BlockPos.of(claim.pasture.pos))?.let(PastureAdapter::placer)
+        return FlipRules.mayFlip(player.uuid, player.hasPermissions(PERMISSION_OPERATOR), binder, placer)
     }
 
     /** The player's own Pokémon [pokemonId], from the PC, where pastured Pokémon live, or the party. */

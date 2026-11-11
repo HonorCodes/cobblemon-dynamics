@@ -170,16 +170,23 @@ interface TargetHandler {
     /** The lang key that refuses a Work Leash bind when the worker has no spot at the target, or null to bind and report later (CD-LSH-21). */
     val noSpotRefusal: String? get() = null
 
-    /** A work claim on [canonical] starts for [worker], or the claim follows the Pokémon to a new entity. */
-    fun onClaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) {}
+    /** A work claim on the context's target starts for its worker, or the claim follows the Pokémon to a new entity. */
+    fun onClaim(ctx: WorkContext) {}
 
-    /** The work claim of [worker] on [canonical] ends, by any path. */
-    fun onUnclaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) {}
+    /** The work claim of the context's worker ends, by any path, or leaves that entity for the Pokémon's new entity. */
+    fun onUnclaim(ctx: WorkContext) {}
 
     /** The action-bar message after a [flip] that changed the target, or null for none. */
     fun flipMessage(level: ServerLevel, canonical: BlockPos): Component? = null
 }
+```
 
+The claim hooks take a `WorkContext`, as `onStart` and `onStop` do, and no member of `TargetHandler` names `PokemonEntity` in its
+signature. JUnit reflects on the interface through the unit tests' `FakeHandler`, and `PokemonEntity` does not load in a unit test:
+it overrides `LivingEntity.getDimensions`, which is final without the game's transformers. The first build with
+`onClaim(level, canonical, worker: PokemonEntity)` failed in test discovery with that `IncompatibleClassChangeError`.
+
+```kotlin
 object WorkSpots {
     fun find(..., excluded: Set<Long> = emptySet(), allowed: (BlockPos) -> Boolean = { true }): BlockPos?
     fun findReachable(..., reachable: (BlockPos) -> Boolean, maxChecks: Int = MAX_PATH_CHECKS, allowed: (BlockPos) -> Boolean = { true }): BlockPos?
@@ -211,12 +218,16 @@ fun `CD-FAN-03 a handler that allows one spot gets that spot or none`() {
 
 // BindRulesTest: the input helper gains noSpot: String? = null, passed as noSpotRefusal = noSpot.
 @Test
-fun `CD-FAN-04 a target with no room for the worker refuses with the handler's message`() =
-    assertEquals("cobblemon_dynamics.leash.no_room_in_front", refusal(input(noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey)
+fun `CD-FAN-04 a target with no room for the worker refuses with the handler's message`() = assertEquals(
+    "cobblemon_dynamics.leash.no_room_in_front",
+    refusal(input(noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
+)
 
 @Test
-fun `CD-FAN-04 a target bound to another Pokemon is named before the room`() =
-    assertEquals(BindRules.ALREADY_ASSIGNED, refusal(input(boundTo = "Charmander", noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey)
+fun `CD-FAN-04 a target bound to another Pokemon is named before the room`() = assertEquals(
+    BindRules.ALREADY_ASSIGNED,
+    refusal(input(boundTo = own("Charmander"), noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
+)
 
 class FlipRulesTest {
     private val binder = UUID.randomUUID()
@@ -304,11 +315,12 @@ fun hasSpot(level: ServerLevel, pasture: BlockPos, pokemonId: UUID, role: Active
 }
 ```
 
-  - The claim hooks:
-    - `claim` calls `role.handler.onClaim(t.level, target, entity)`, guarded, after the registry grants the claim.
-    - `clear(slot)` calls `onUnclaim` on the slot's role and target before it drops them, when both are set. Every end of a
+  - The claim hooks get the claim's `WorkContext`, with the slot's memo:
+    - `claim` calls `role.handler.onClaim(ctx)`, guarded, after the registry grants the claim.
+    - `clear(t, slot)` calls `onUnclaim` on the slot's role and target before it drops them, when both are set. Every end of a
       work claim goes through `clear`: a release, a drop, a timeout, a Tired worker and a failed handler.
-    - `poll` calls `onClaim` for the new entity when Cobblemon gives a worker with a work claim a new entity.
+    - `poll` calls `onUnclaim` for the old entity and `onClaim` for the new one when Cobblemon gives a worker with a work claim
+      a new entity. The old entity can outlive the change, and a mark left on it would exempt it from every fan.
     - `resetRuntimeForTest` calls `onUnclaim` for every slot with a work claim.
 
 - [ ] **Step 4: Run the unit tests and see them pass.** Then run `./gradlew runGameTestServer`: every Phase 1 and M6 GameTest
@@ -871,9 +883,9 @@ object FanCatalystHandler : TargetHandler {
     override fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean =
         spot == front(level, canonical)
 
-    override fun onClaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) = FanWorkers.mark(worker, canonical)
+    override fun onClaim(ctx: WorkContext) = FanWorkers.mark(ctx.worker, ctx.target)
 
-    override fun onUnclaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) = FanWorkers.clear(worker)
+    override fun onUnclaim(ctx: WorkContext) = FanWorkers.clear(ctx.worker)
 
     /** CD-FAN-15: the fan spins, and its air current holds an item. */
     override fun hasDemand(ctx: WorkContext): Boolean {

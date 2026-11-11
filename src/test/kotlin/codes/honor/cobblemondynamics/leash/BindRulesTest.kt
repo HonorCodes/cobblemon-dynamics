@@ -28,7 +28,20 @@ class BindRulesTest {
         pending: PendingSource? = null,
         same: Boolean = false,
         reach: Boolean = true,
-    ) = BindRules.Input(selection, owned, workMode, roles, BlockPos.ZERO, inside, boundTo, pending, same, destinationInReach = reach)
+        noSpot: String? = null,
+    ) = BindRules.Input(
+        selection,
+        owned,
+        workMode,
+        roles,
+        BlockPos.ZERO,
+        inside,
+        boundTo,
+        pending,
+        same,
+        destinationInReach = reach,
+        noSpotRefusal = noSpot,
+    )
 
     /** A source click that waits for its destination, at a block other than the clicked one. */
     private val pending = PendingSource(OVERWORLD, BlockPos(1, 0, 0), Direction.UP, 0)
@@ -136,6 +149,18 @@ class BindRulesTest {
     fun `CD-TLK-10 CD-TLK-12 a destination equal to the source is named before its reach`() = assertEquals(
         BindRules.DESTINATION_SAME,
         refusal(input(roles = listOf(transfer), pending = pending, same = true, reach = false)).messageKey,
+    )
+
+    @Test
+    fun `CD-FAN-04 a target with no room for the worker refuses with the handler's message`() = assertEquals(
+        "cobblemon_dynamics.leash.no_room_in_front",
+        refusal(input(noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
+    )
+
+    @Test
+    fun `CD-FAN-04 a target bound to another Pokemon is named before the room`() = assertEquals(
+        BindRules.ALREADY_ASSIGNED,
+        refusal(input(boundTo = own("Charmander"), noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
     )
 
     private companion object {

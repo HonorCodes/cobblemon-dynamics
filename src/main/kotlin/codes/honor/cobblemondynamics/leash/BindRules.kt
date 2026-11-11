@@ -46,6 +46,8 @@ object BindRules {
         val sameAsPending: Boolean,
         /** The bound role's handler accepts the destination's distance from the pasture block (CD-TLK-12). */
         val destinationInReach: Boolean = true,
+        /** The handler's refusal when the worker has no spot at the target, or null when it has one or the handler binds anyway (CD-FAN-04). */
+        val noSpotRefusal: String? = null,
     )
 
     fun evaluate(input: Input, shapeOf: (RoleDefinition) -> BindingShape): Outcome {
@@ -67,6 +69,7 @@ object BindRules {
                 Outcome.Refuse(ALREADY_ASSIGNED_OTHER, bound.species)
             }
         }
+        input.noSpotRefusal?.let { return Outcome.Refuse(it) }
         return if (twoTargets && input.pending == null) Outcome.AwaitDestination(role) else Outcome.Bind(role, input.canonical)
     }
 }

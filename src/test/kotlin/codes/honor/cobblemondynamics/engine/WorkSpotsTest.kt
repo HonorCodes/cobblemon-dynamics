@@ -221,6 +221,15 @@ class WorkSpotsTest {
     }
 
     @Test
+    fun `CD-FAN-03 a handler that allows one spot gets that spot or none`() {
+        val front = BlockPos(1, 1, 0)
+        val shape = TargetShape.of(target)
+        val far = Vec3(-3.5, 1.0, 0.5)
+        assertEquals(front, WorkSpots.find(GridFixture(emptySet(), target), area, shape, center, 6.0, far, allowed = { it == front }))
+        assertNull(WorkSpots.find(GridFixture(setOf(front), target), area, shape, center, 6.0, far, allowed = { it == front }))
+    }
+
+    @Test
     fun `CD-ASG-09 a reachable best spot costs one path check`() {
         val checked = mutableListOf<BlockPos>()
         val grid = GridFixture(emptySet(), target)

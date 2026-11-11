@@ -169,6 +169,19 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
+     * CD-FAN-04: whether [pokemonId]'s worker has a spot at [canonical] for [role]. True while the engine knows no entity for it, so
+     * the claim decides.
+     */
+    fun hasSpot(level: ServerLevel, pasture: BlockPos, pokemonId: UUID, role: ActiveRole, canonical: BlockPos): Boolean {
+        val entity = entityOf(pokemonId) ?: return true
+        val t = tick(level)
+        val others = takenSpots(t).also { taken -> slots[pokemonId]?.worker?.spot?.let { taken.remove(it.asLong()) } }
+        val area = WorkArea.of(pasture, t.settings, PastureAdapter.maxWanderDistance())
+        // At bind time only room counts: a missing path shows later as the "cannot reach" message (CD-LSH-21).
+        return guarded(role.handler, true) { spotFor(level, area, entity, role, canonical, others) { true } != null }
+    }
+
+    /**
      * Every worker's live Work Stamina goes to its Pokémon's saved data. The server stop calls it before Cobblemon saves its stores
      * (ADR-0008).
      */
@@ -201,6 +214,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     fun resetRuntimeForTest() {
         flushAll()
         for (slot in slots.values) {
+            // A real restart loses what a handler holds for a claim, such as an unsaved attachment, with the entity.
+            pastures[slot.worker.pasture]?.let { unclaim(tick(it.level), slot, slot.entity) }
             BrainBridge.clear(slot.entity)
             removeFocus(slot)
         }
@@ -236,9 +251,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             present += tethered.pokemonId
             val slot = runtime.slots[tethered.pokemonId]
             if (slot != null) {
-                if (slot.entity !== entity) BrainBridge.clear(slot.entity)
+                val old = slot.entity
                 slot.entity = entity
                 slot.pokemon = pokemon
+                if (old !== entity) moveClaim(t, slot, old)
             } else if (tethered.pokemonId !in slots) {
                 val worker = Worker(tethered.pokemonId, runtime.key)
                 // CD-STA-05, CD-STA-11: a new worker starts at 100%, and a known one recovers for its time away.
@@ -260,6 +276,18 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             // CD-CMP-01: the Cobbleworkers shim marks each worker within one poll of Work Mode turning on.
             WorkerEvents.polled(slot.pokemon)
         }
+    }
+
+    /**
+     * Cobblemon gave the worker a new entity, which [slot] holds now. Its work claim, if it holds one, leaves [old] and follows the
+     * Pokémon, because [old] can outlive the change.
+     */
+    private fun moveClaim(t: Tick, slot: PastureRuntime.Slot, old: PokemonEntity) {
+        BrainBridge.clear(old)
+        unclaim(t, slot, old)
+        val role = slot.role ?: return
+        val target = slot.worker.target ?: return
+        guarded(role.handler, Unit) { role.handler.onClaim(context(t, slot, target, role, slot.memo)) }
     }
 
     /** A leashed worker claims its bound target and no other (CD-ASG-20). A Tired worker waits until it has rested (CD-STA-14). */
@@ -447,13 +475,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val own = worker.spot?.asLong()
         val entity = slot.entity
         val others = if (own == null) taken else taken - own
-        val grid = LevelSpotGrid(t.level, role.handler, target, others, entity.bbWidth.toDouble(), entity.bbHeight.toDouble())
-        val center = role.handler.targetCenter(target)
-        val spot = guarded(role.handler, null) {
-            // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
-            val shape = TargetShape.around(target) { t.level.isLoaded(it) && role.handler.isPartOfTarget(t.level, target, it) }
-            WorkSpots.findReachable(grid, area(t, runtime), shape, center, role.definition.range, entity.position(), Reach.of(entity))
-        }
+        val spot = guarded(role.handler, null) { spotFor(t.level, area(t, runtime), entity, role, target, others, Reach.of(entity)) }
         if (spot == null) {
             worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
             return Attempt.NO_SPOT
@@ -469,7 +491,27 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         slot.role = role
         slot.memo = ClaimMemo()
         t.machine.onClaim(worker, t.now)
+        guarded(role.handler, Unit) { role.handler.onClaim(context(t, slot, target, role, slot.memo)) }
         return Attempt.GRANTED
+    }
+
+    /** The engine's spot checks (CD-ASG-09), the handler's own rule and, with [reachable], a path from the worker. */
+    private fun spotFor(
+        level: ServerLevel,
+        area: WorkArea,
+        entity: PokemonEntity,
+        role: ActiveRole,
+        target: BlockPos,
+        others: Set<Long>,
+        reachable: (BlockPos) -> Boolean,
+    ): BlockPos? {
+        val height = entity.bbHeight.toDouble()
+        val grid = LevelSpotGrid(level, role.handler, target, others, entity.bbWidth.toDouble(), height)
+        // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
+        val shape = TargetShape.around(target) { level.isLoaded(it) && role.handler.isPartOfTarget(level, target, it) }
+        val allowed: (BlockPos) -> Boolean = { role.handler.allowsSpot(level, target, it, height) }
+        val center = role.handler.targetCenter(target)
+        return WorkSpots.findReachable(grid, area, shape, center, role.definition.range, entity.position(), reachable, allowed = allowed)
     }
 
     /** Step 5: arrival, the worker's state, and the handler calls of that state. */
@@ -521,7 +563,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 is MachineEvent.ReleaseClaim -> {
                     claims.release(worker.pokemonId)
                     event.skip?.let { worker.skipUntil[it] = event.until }
-                    clear(slot)
+                    clear(t, slot)
                 }
 
                 MachineEvent.MissedArrival -> cannotReach(t, slot, target)
@@ -624,7 +666,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val inRange = body != null && qualifies && HealTransaction.inRange(here, HealTransaction.nearestPoint(body, here))
         val event = t.machine.onHealTick(worker, t.now, qualifies, inRange) ?: return
         claims.release(worker.pokemonId)
-        clear(slot)
+        clear(t, slot)
         if (event == MachineEvent.Healed && ally != null) {
             HealTransaction.complete(worker.stamina, ally.worker.stamina, t.settings)
             EffectPlayer.playHeal(t.level, slot.entity, ally.entity)
@@ -639,7 +681,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
         worker.restSpot = null
         val event = t.machine.onRested(worker, t.now)
-        clear(slot)
+        clear(t, slot)
         if (event is MachineEvent.Rested && event.toBinding) claimBound(t, runtime, slot, takenSpots(t))
     }
 
@@ -773,11 +815,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             guarded(role.handler, Unit) { role.handler.onStop(context(t, slot, target, role, slot.memo)) }
         }
         t.machine.onRelease(worker, t.now)
-        clear(slot)
+        clear(t, slot)
     }
 
-    /** The worker has no order any more, and a worker that lay down has its own pose back (CD-AI-08). */
-    private fun clear(slot: PastureRuntime.Slot) {
+    /**
+     * The worker has no order any more, and a worker that lay down has its own pose back (CD-AI-08). Every end of a work claim comes
+     * here: a release, a drop, a timeout, a Tired worker and a failed handler. So the handler hears of each end once.
+     */
+    private fun clear(t: Tick, slot: PastureRuntime.Slot) {
+        unclaim(t, slot, slot.entity)
         slot.worker.target = null
         slot.worker.spot = null
         slot.role = null
@@ -787,9 +833,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         removeFocus(slot)
     }
 
+    /** `onUnclaim` for [entity], while [slot] holds a work claim. */
+    private fun unclaim(t: Tick, slot: PastureRuntime.Slot, entity: PokemonEntity) {
+        val role = slot.role ?: return
+        val target = slot.worker.target ?: return
+        guarded(role.handler, Unit) { role.handler.onUnclaim(context(t, slot, target, role, slot.memo, entity)) }
+    }
+
     /**
      * [memo] is the slot's for its own claim. A target that the engine only weighs for the worker gets an empty one. A binding gives its
-     * destination and faces only to its own target and role (CD-LSH-18).
+     * destination and faces only to its own target and role (CD-LSH-18). [entity] differs from the slot's only for the old entity of a
+     * claim that moves to the Pokémon's new entity.
      */
     private fun context(
         t: Tick,
@@ -797,12 +851,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         target: BlockPos,
         role: ActiveRole,
         memo: ClaimMemo = ClaimMemo(),
+        entity: PokemonEntity = slot.entity,
     ): WorkContext {
         val binding = slot.binding?.takeIf { it.target == target && it.roleId == role.definition.id }
         return WorkContext(
             t.level,
             target,
-            slot.entity,
+            entity,
             slot.pokemon,
             role.definition,
             t.now,
