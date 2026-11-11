@@ -1,9 +1,9 @@
 # Cobblemon Dynamics player guide
 
-Cobblemon Dynamics puts your pastured Pokémon to work. Turn on Work Mode for a pasture. Each of its Pokémon
+Cobblemon Dynamics puts your pastured Cobblemon to work. Turn on Work Mode for a pasture. Each of its Cobblemon
 then finds a block that fits one of its types, walks to it and works it. For example, a Fire-type keeps a
 furnace lit, a Water-type turns a Create water wheel, and an Electric-type pushes Forge Energy into a machine.
-A party Pokémon that you send out while you look at a block can work that block too, with [Quick Work](#quick-work).
+A party Cobblemon that you send out while you look at a block can work that block too, with [Quick Work](#quick-work).
 
 Install the mod on the client and on the server. The [README](../README.md#requirements) lists the versions
 of Minecraft, NeoForge, Cobblemon and the optional mods.
@@ -13,12 +13,12 @@ of Minecraft, NeoForge, Cobblemon and the optional mods.
 1. Place a Cobblemon pasture block.
 2. Place the blocks that you want worked near the pasture block. The [work area](#work-area) reaches 8
    blocks out on the x and z axes, and 6 blocks up and down.
-3. Put your Pokémon in the pasture.
+3. Put your Cobblemon in the pasture.
 4. Right-click the pasture block to open its panel.
 5. Click the **Work Mode: Off** button above **Recall**. The button then reads **Work Mode: On**.
 6. Place beds in the same area, so that Tired workers recover faster.
 
-Each Pokémon then walks to a block that one of its roles fits, and works it.
+Each Cobblemon then walks to a block that one of its roles fits, and works it.
 
 In creative mode, the **Cobblemon Dynamics** tab of the creative inventory holds every item of the mod: the Work
 Leash, the four beds and the [Charge Cell](#charge-cell).
@@ -41,8 +41,8 @@ pasture's owner can change Work Mode". A pasture with no recorded owner, for exa
 
 ### Workers
 
-While Work Mode is on, each Pokémon in the pasture is a worker, if it has an owner and has not fainted. Wild
-Pokémon never work. Pokémon in a party, or sent out from one, never work. Cobblemon's own limit of Pokémon
+While Work Mode is on, each Cobblemon in the pasture is a worker, if it has an owner and has not fainted. Wild
+Cobblemon never work. Cobblemon in a party, or sent out from one, never work. Cobblemon's own limit of Cobblemon
 per pasture applies, 16 by default.
 
 A worker's target is the block that it works on, for example a furnace. A worker with no Work Leash binding
@@ -59,7 +59,7 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
 
 - Every 2 seconds, the pasture scans its work area. Each Idle auto-assigned worker takes the nearest free
   target that one of its roles fits.
-- A Pokémon fits a role through its first or its second type. A Pokémon with two types can do the roles of
+- A Cobblemon fits a role through its first or its second type. A Cobblemon with two types can do the roles of
   both types, one role at a time.
 - Only one worker can work a target at a time, across all pastures and all players.
 - The worker walks to a work spot. A work spot is a cell in the work area where the worker can stand and
@@ -83,8 +83,8 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
 ### Turn Work Mode off
 
 When you turn Work Mode off, the workers stop at once and give up their targets, beds and heals. The
-Pokémon then act as normal pastured Pokémon. Their bindings stay, and the bound workers go back to their
-targets when you turn Work Mode on again. When the pasture block breaks, the bindings of its Pokémon clear.
+Cobblemon then act as normal pastured Cobblemon. Their bindings stay, and the bound workers go back to their
+targets when you turn Work Mode on again. When the pasture block breaks, the bindings of its Cobblemon clear.
 
 ### Worker states
 
@@ -92,7 +92,7 @@ Each worker is in one of these states:
 
 | State | Meaning |
 | --- | --- |
-| Idle | The worker has no target. It acts as a normal pastured Pokémon. |
+| Idle | The worker has no target. It acts as a normal pastured Cobblemon. |
 | Traveling | The worker walks to its target. |
 | Working | The worker is at its work spot, and the target needs work. Only this state uses Work Stamina. |
 | Standby | The worker waits at its target, which needs no work now. A bound worker also waits in Standby after it fails to reach its target. |
@@ -114,16 +114,16 @@ the worker. Work effects play no sound.
 
 ## Work Leash
 
-The Work Leash binds one of your pastured Pokémon to a target that you choose.
+The Work Leash binds one of your pastured Cobblemon to a target that you choose.
 
 **Recipe:** shapeless, 1 Lead and 1 Poké Ball.
 
-### Bind a Pokémon to a target
+### Bind a Cobblemon to a target
 
 1. Hold the Work Leash in your main hand.
-2. Right-click your Pokémon in a pasture with Work Mode on. The action bar shows "Selected {Pokémon}", and
-   the leash's tooltip names the Pokémon.
-3. Right-click the target. The action bar shows "Bound {Pokémon} to {target}". The target does not open its
+2. Right-click your Cobblemon in a pasture with Work Mode on. The action bar shows "Selected {Cobblemon}", and
+   the leash's tooltip names the Cobblemon.
+3. Right-click the target. The action bar shows "Bound {Cobblemon} to {target}". The target does not open its
    own screen.
 
 The leash forgets its selection after the bind. To move a bound worker to a new target, bind it again. The
@@ -133,12 +133,12 @@ When a bind fails, the action bar shows why:
 
 | Message | Cause |
 | --- | --- |
-| "Not in a Work Mode pasture" | The Pokémon is not in a pasture with Work Mode on. |
-| "No role fits" | None of the Pokémon's roles works on the block. |
-| "Outside its pasture's work area" | The block is outside the work area of the Pokémon's pasture. |
-| "Already assigned to {Pokémon}" | Another of your Pokémon has a binding on the block. |
-| "Already assigned to another player's {species}" | A Pokémon of another player has a binding on the block. The message names its species, never its nickname. |
-| "Select a Pokémon first" | The selected Pokémon is no longer yours, for example after a trade or a release. |
+| "Not in a Work Mode pasture" | The Cobblemon is not in a pasture with Work Mode on. |
+| "No role fits" | None of the Cobblemon's roles works on the block. |
+| "Outside its pasture's work area" | The block is outside the work area of the Cobblemon's pasture. |
+| "Already assigned to {Cobblemon}" | Another of your Cobblemon has a binding on the block. |
+| "Already assigned to another player's {species}" | A Cobblemon of another player has a binding on the block. The message names its species, never its nickname. |
+| "Select a Cobblemon first" | The selected Cobblemon is no longer yours, for example after a trade or a release. |
 | "Destination must differ from the source" | The second click of a [Telekinesis](#telekinesis) binding is on its source container. |
 | "Too far from its pasture" | The destination of a Telekinesis binding is more than 32 blocks from the pasture block on an axis. |
 
@@ -148,38 +148,38 @@ When a bind fails, the action bar shows why:
   Work Mode is off.
 - A new binding takes the target away from an auto-assigned worker at once.
 - A bound worker never moves to another target.
-- The binding stays with the Pokémon through server restarts.
+- The binding stays with the Cobblemon through server restarts.
 - A bound worker that is Tired starts on its target after it has recovered. After each rest, a bound worker
   goes back to its target.
-- If a bound worker cannot reach its target within 30 seconds, the action bar shows "{Pokémon} cannot
+- If a bound worker cannot reach its target within 30 seconds, the action bar shows "{Cobblemon} cannot
   reach {target}". The worker keeps its binding, waits 5 minutes in Standby and then tries again.
 
 ### Clear a binding
 
-Sneak and right-click your bound Pokémon with the Work Leash. The action bar shows "Cleared the binding of
-{Pokémon}". A click with the leash on your own Pokémon never opens Cobblemon's interaction wheel and never
-mounts the Pokémon.
+Sneak and right-click your bound Cobblemon with the Work Leash. The action bar shows "Cleared the binding of
+{Cobblemon}". A click with the leash on your own Cobblemon never opens Cobblemon's interaction wheel and never
+mounts the Cobblemon.
 
-A binding also clears in the cases below. The player who bound the Pokémon then gets the chat message
-"{Pokémon} lost its work binding: {reason}". If that player is offline, the message waits for their next login. The
+A binding also clears in the cases below. The player who bound the Cobblemon then gets the chat message
+"{Cobblemon} lost its work binding: {reason}". If that player is offline, the message waits for their next login. The
 server keeps up to 10 such messages per player, the newest, and a server restart drops them.
 
 | Case | Reason in the message |
 | --- | --- |
 | The target breaks or is replaced, is picked up with a Create wrench, or moves into a Create contraption. | its target was broken or replaced |
 | The destination of a Telekinesis binding breaks or is replaced. | its destination was broken or replaced |
-| The Pokémon goes back to the PC or the party. | it left its pasture |
-| The Pokémon moves to another pasture. | it moved to another pasture |
-| The Pokémon is released. | it was released |
-| The Pokémon goes to a new owner, for example in a trade. | it has a new owner |
-| The Pokémon evolves into a form that no role on its target fits. | its new form cannot do the job |
+| The Cobblemon goes back to the PC or the party. | it left its pasture |
+| The Cobblemon moves to another pasture. | it moved to another pasture |
+| The Cobblemon is released. | it was released |
+| The Cobblemon goes to a new owner, for example in a trade. | it has a new owner |
+| The Cobblemon evolves into a form that no role on its target fits. | its new form cannot do the job |
 | The pasture block breaks. | its pasture block is gone |
 | An operator runs [`/cobblemondynamics unbind`](#commands) on its target. | an operator cleared it |
 
 A binding stays when its target is in an unloaded chunk.
 
-In a shared pasture, another player can bind one of their own Pokémon to your block, and the binding then
-reserves that block. Cobblemon lets only a Pokémon's owner take it out of a pasture, so if that player does not
+In a shared pasture, another player can bind one of their own Cobblemon to your block, and the binding then
+reserves that block. Cobblemon lets only a Cobblemon's owner take it out of a pasture, so if that player does not
 come back, ask an operator to run `/cobblemondynamics unbind` on the block.
 
 ### Flip a water wheel or a hand crank
@@ -200,28 +200,28 @@ Fire](#fan-catalyst-fire)).
 
 ## Quick Work
 
-A party Pokémon can work one block on demand, with no pasture and no Work Leash.
+A party Cobblemon can work one block on demand, with no pasture and no Work Leash.
 
-1. Select a party Pokémon whose type fits a role, for example a Fire-type for a furnace.
+1. Select a party Cobblemon whose type fits a role, for example a Fire-type for a furnace.
 2. Look at the block, up to 16 blocks away.
-3. Press **R** to send the Pokémon out, as you always do.
+3. Press **R** to send the Cobblemon out, as you always do.
 
-The Pokémon walks to the block and works it, as a worker in a pasture does. Its Work Stamina drains while it works. The
+The Cobblemon walks to the block and works it, as a worker in a pasture does. Its Work Stamina drains while it works. The
 action bar tells you when the work starts, and when and why it stops.
 
 Quick Work uses only the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
-Generator, Crystal Tender, Brew Stoker and Brewer. When only a Work Leash role of the Pokémon fits the block, for example
-Telekinesis for a Psychic-type at a chest, the action bar shows "Chest needs the Work Leash". A Pokémon with a Fairy type
+Generator, Crystal Tender, Brew Stoker and Brewer. When only a Work Leash role of the Cobblemon fits the block, for example
+Telekinesis for a Psychic-type at a chest, the action bar shows "Chest needs the Work Leash". A Cobblemon with a Fairy type
 does no Quick Work, because it is a healer.
 
 ### When Quick Work does not start
 
-The Pokémon comes out as usual, with no work, and the action bar tells you why, when:
+The Cobblemon comes out as usual, with no work, and the action bar tells you why, when:
 
-- another Pokémon works the block already, or a Work Leash binding holds it
-- the Pokémon is Tired
+- another Cobblemon works the block already, or a Work Leash binding holds it
+- the Cobblemon is Tired
 - the block needs no work now, for example a furnace with nothing to smelt
-- the Pokémon cannot reach the block
+- the Cobblemon cannot reach the block
 - you may not use the block, for example inside spawn protection, or in a land claim that does not let you right-click
   the block (see [Quick Work in land claims](#quick-work-in-land-claims))
 
@@ -230,17 +230,17 @@ The Pokémon comes out as usual, with no work, and the action bar tells you why,
 The work stops for good when:
 
 - you go more than 16 blocks from the block
-- you recall the Pokémon, or it faints
-- the Pokémon gets Tired. It then recovers in your party at the rate with no bed.
+- you recall the Cobblemon, or it faints
+- the Cobblemon gets Tired. It then recovers in your party at the rate with no bed.
 - the block breaks or changes, or a Work Leash binding takes it
 - the block needs no work for 10 seconds
-- the Pokémon cannot reach the block within 30 seconds
+- the Cobblemon cannot reach the block within 30 seconds
 - you log out or go to another dimension
-- the Pokémon starts a battle
+- the Cobblemon starts a battle
 - you may no longer use the block, for example when you leave the party that owns its land claim, or when another player
   claims its chunk
 
-The Pokémon then follows you again. It does not look for other work. To work the block again, recall the Pokémon and send
+The Cobblemon then follows you again. It does not look for other work. To work the block again, recall the Cobblemon and send
 it out again while you look at the block.
 
 ### Quick Work in land claims
@@ -260,7 +260,7 @@ Each claim mod applies its own rules, so allies differ between the two. By defau
 claim of FTB Chunks, but not in a land claim of Open Parties and Claims.
 
 A refused send-out stays a normal one, and the action bar shows a message such as "You may not use Furnace". While the
-Pokémon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops when the right is gone.
+Cobblemon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops when the right is gone.
 
 Other protection mods that only stop right-clicks do not see Quick Work, because you never click the block. A server owner
 can turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and `quickWork.leashRange` change the two
@@ -274,12 +274,12 @@ Work Stamina measures how long a worker can keep working. It goes from 0% to 100
 
 - A worker loses Work Stamina only while it is Working. In every other state, it recovers.
 - A full drain takes 3 minutes of Working per level. A level 10 worker works for 30 minutes, and a level 100
-  worker works for 5 hours. Legendary and mythical Pokémon get no extra time.
+  worker works for 5 hours. Legendary and mythical Cobblemon get no extra time.
 - A worker recovers as fast as it drains: from 0% to 100% in 3 minutes per level. A [bed](#beds) makes the
   recovery faster.
 - Healers recover by their own rule (see [Healer recovery](#healer-recovery)).
-- A Pokémon starts at 100% when it first enters a pasture with Work Mode on. A level-up keeps the percentage.
-- Work Stamina stays with the Pokémon. Time in the PC, in a party or in an unloaded chunk counts as rest,
+- A Cobblemon starts at 100% when it first enters a pasture with Work Mode on. A level-up keeps the percentage.
+- Work Stamina stays with the Cobblemon. Time in the PC, in a party or in an unloaded chunk counts as rest,
   at the rate with no bed. A change of the time of day changes no Work Stamina value.
 
 ### Tired
@@ -305,7 +305,7 @@ of the time (88.9%).
 
 ### See Work Stamina
 
-- **Pasture panel.** Each Pokémon's row shows a Work Stamina bar and a state icon. The bar is green from
+- **Pasture panel.** Each Cobblemon's row shows a Work Stamina bar and a state icon. The bar is green from
   50%, yellow from 25% and red below 25%. Hover over the bar or the icon to see "{N}% Work Stamina" and the
   state name. The panel updates the values every second. The client config key `hud.panelBars` hides the
   bars.
@@ -314,7 +314,7 @@ of the time (88.9%).
 
 ## Beds
 
-A bed lets a Tired worker recover faster. A bed is a low block, 6/16 of a block high. A Pokémon of any size
+A bed lets a Tired worker recover faster. A bed is a low block, 6/16 of a block high. A Cobblemon of any size
 can lie on it.
 
 | Bed | Tier | Recovery time | Recipe |
@@ -344,7 +344,7 @@ Work Stamina of the other workers in its pasture.
 
 ### How a healer picks an ally
 
-- It heals only Pokémon in its own pasture. It never heals itself or a Fairy-type.
+- It heals only Cobblemon in its own pasture. It never heals itself or a Fairy-type.
 - In a pasture that several players share, it heals the other players' workers too, because a shared pasture
   works as one team.
 - It picks the nearest Tired ally first.
@@ -354,7 +354,7 @@ Work Stamina of the other workers in its pasture.
 ### A heal
 
 - The healer walks to within 2 blocks of the ally and heals it. The ally goes to 100% at once, whatever the
-  levels of the two Pokémon.
+  levels of the two Cobblemon.
 - Each heal costs the healer 25 points of its own Work Stamina. A healer starts a heal only with at least
   25%, and never while it is Tired.
 - If the ally stops needing the heal before the heal completes, for example because it leaves the pasture,
@@ -404,7 +404,7 @@ The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 
 
 ## Roles
 
-A role is a job that Pokémon of some types do on one kind of block. Auto-assigned workers take the roles
+A role is a job that Cobblemon of some types do on one kind of block. Auto-assigned workers take the roles
 marked "Auto". The roles marked "Work Leash" need a binding. The numbers below are the defaults of the
 built-in role files. A server can change them with a data pack (see [Role files](#role-files)).
 
@@ -495,7 +495,7 @@ cannot bind it to one.
 machines that accept FE, such as the Energy Acceptor.
 
 The Generator pushes round(m × 10 × 500^((L − 1) ÷ 99)) FE per tick into its target, where L is its level.
-The factor m is 2 for a legendary or mythical Pokémon, and 1 for any other.
+The factor m is 2 for a legendary or mythical Cobblemon, and 1 for any other.
 
 | Level | FE per tick | Legendary or mythical |
 | --- | --- | --- |
@@ -535,7 +535,7 @@ The Brew Stoker keeps the stand fueled, as if it held blaze powder. It works onl
 ingredient that can brew at least one of its bottles. It never takes blaze powder from the fuel slot. When
 it stops, the stand never has more fuel than it had before the Brew Stoker started.
 
-A brewing stand takes one worker: a Brew Stoker or a Brewer. A Pokémon that fits both roles, for example a
+A brewing stand takes one worker: a Brew Stoker or a Brewer. A Cobblemon that fits both roles, for example a
 Fire and Poison type, works a stand as a Brew Stoker.
 
 ### Brewer
@@ -600,7 +600,7 @@ A double chest or a Create item vault is one container.
 A Psychic-type moves items from one container to another. Telekinesis is leash only, so a worker never starts
 it on its own. Its binding takes three clicks:
 
-1. Select the Pokémon with the Work Leash.
+1. Select the Cobblemon with the Work Leash.
 2. Right-click the source container on the face to take items from. The source must sit inside the pasture's
    work area.
 3. Right-click the destination container on the face to put items into. The destination may sit anywhere
@@ -623,7 +623,7 @@ container. **Assignment:** Work Leash only.
 **Target:** a container that holds items through NeoForge's item capability. A double chest or a Create item
 vault is one container.
 
-A Steel-type collects dropped items into a container. The Magnet is leash only: select the Pokémon with the
+A Steel-type collects dropped items into a container. The Magnet is leash only: select the Cobblemon with the
 Work Leash, then right-click the container. The worker stands at the container and collects from the whole
 work area of its pasture, ceil(64 × L ÷ 100) items every second, where L is its level: 1 at level 1, 32 at
 level 50 and 64 at level 100. It leaves an item alone while the item still has a pickup delay, so a drop that
@@ -642,12 +642,12 @@ worker in its air current would block it.
 
 A Fire-, Water- or Ghost-type stands in the block in front of the fan and takes the place of the lava, the
 water or the soul fire there. The fan then processes the items in its air current as Create does, at
-Create's own speed. Select the Pokémon with the Work Leash, then right-click the fan. The block in front of
-the fan must have room for the Pokémon. If it has none, or if the fan faces up or down, the action bar shows
+Create's own speed. Select the Cobblemon with the Work Leash, then right-click the fan. The block in front of
+the fan must have room for the Cobblemon. If it has none, or if the fan faces up or down, the action bar shows
 "No room in front of the fan". No fan pushes, burns or harms the worker while it holds its claim. A worker
 waits in Standby while the fan stands still or no item is in its air current.
 
-Each type has its own role file. A Pokémon with two of these types works as the catalyst of its primary
+Each type has its own role file. A Cobblemon with two of these types works as the catalyst of its primary
 type: a Fire and Ghost type blasts or smokes, and a Ghost and Fire type haunts. A role file with a higher
 `priority` wins before the type order.
 
@@ -675,7 +675,7 @@ Haunting, as Create's bulk haunting does.
 
 **Target:** a windmill bearing.
 
-A Flying-type adds wind to a Create windmill. Select the Pokémon with the Work Leash, then right-click the
+A Flying-type adds wind to a Create windmill. Select the Cobblemon with the Work Leash, then right-click the
 windmill bearing. While the worker Works, the windmill counts floor(S × L ÷ 100) more sails, where S is its
 number of real sails and L the worker's level. Real and added sails together stay at 128 or less. So a
 64-sail windmill turns at 12 RPM with a level 50 worker, and at 16 RPM, Create's maximum, with a level 100
@@ -716,7 +716,7 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `stamina.ticksPerLevel` | 3,600 | 20 to 72,000 | Ticks of Working per level from 100% to 0%. The worker rule takes the same time to recover. |
 | `stamina.healerRecoveryMinutesAtLevel1` | 1,200 | 1 to 10,000 | Minutes that a level 1 healer takes from 0% to 100%. |
 | `stamina.healerRecoveryMinutesAtLevel100` | 120 | 1 to 10,000 | Minutes that a level 100 healer takes from 0% to 100%. |
-| `stamina.flushIntervalTicks` | 600 | 20 to 12,000 | Ticks between two saves of a worker's Work Stamina into the Pokémon's data. A change of state also saves it. |
+| `stamina.flushIntervalTicks` | 600 | 20 to 12,000 | Ticks between two saves of a worker's Work Stamina into the Cobblemon's data. A change of state also saves it. |
 | `beds.speedFactors` | `[2, 3, 4, 8]` | 4 values, each 1 to 64 | The number that each bed tier divides the recovery time by, Hay Bed first. A list with the wrong number of values gives the defaults. |
 | `heal.cost` | 0.25 | 0.01 to 1.0 | Share of its Work Stamina that a heal costs the healer. A healer needs at least this share to start a heal. |
 | `heal.lowStaminaThreshold` | 0.25 | 0.0 to 1.0 | Share of Work Stamina under which an ally that is not Tired needs a heal. |
@@ -745,7 +745,7 @@ The `effect` object holds these keys:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `animations` | none | The animation names to try, in order. The worker plays the first one that its model has with no sound. A file that names `cry` does not load, because the cry animation plays the Pokémon's cry. |
+| `animations` | none | The animation names to try, in order. The worker plays the first one that its model has with no sound. A file that names `cry` does not load, because the cry animation plays the Cobblemon's cry. |
 | `actor_particles` | `[]` | Cobblemon particle ids that fly from the worker to the target. |
 | `target_particles` | `[]` | Cobblemon particle ids that burst at the target. |
 | `idle_ticks` | 40 | The ticks that the worker stands idle after its animation ends, before it plays the move again. |
@@ -766,8 +766,8 @@ All three commands need permission level 2 (operator).
 | Command | Result |
 | --- | --- |
 | `/cobblemondynamics claims` | Lists each claim and each binding. A claim line reads `claim <kind> <target> <worker> (<UUID>)`, where the kind is `work`, `bed` or `heal`. A binding line reads `binding <target> <worker> (<UUID>)`. With neither, the reply is "No claims and no leash bindings". |
-| `/cobblemondynamics stamina <target>` | Shows one Pokémon's Work Stamina, state and recovery rule, for example "Charmander: 42.5% Work Stamina, Working, worker rule". |
-| `/cobblemondynamics unbind <pos>` | Clears every binding on the block at `<pos>` in your dimension. Any block of a large water wheel names the whole wheel, as with the Work Leash. Each line reads "Cleared the binding of {Pokémon} at {target}", and the player who bound the Pokémon gets the chat message "{Pokémon} lost its work binding: an operator cleared it". With no binding there, the reply is "No leash binding at {target}". |
+| `/cobblemondynamics stamina <target>` | Shows one Cobblemon's Work Stamina, state and recovery rule, for example "Charmander: 42.5% Work Stamina, Working, worker rule". |
+| `/cobblemondynamics unbind <pos>` | Clears every binding on the block at `<pos>` in your dimension. Any block of a large water wheel names the whole wheel, as with the Work Leash. Each line reads "Cleared the binding of {Cobblemon} at {target}", and the player who bound the Cobblemon gets the chat message "{Cobblemon} lost its work binding: an operator cleared it". With no binding there, the reply is "No leash binding at {target}". |
 
 A claim gives one worker one target for now: a block to work, a bed or an ally to heal. Claims are never
 saved, so the workers make them again after a restart. In a line, a block target is its dimension and its
@@ -775,7 +775,7 @@ position, and an ally is its name.
 
 The `<target>` of the stamina command is one entity, for example
 `@e[type=cobblemon:pokemon,sort=nearest,limit=1]`. The percentage is rounded down to one decimal. For a
-Pokémon that is not a worker, the state reads "not in Work Mode". The value is then its saved value plus the
+Cobblemon that is not a worker, the state reads "not in Work Mode". The value is then its saved value plus the
 recovery of its time away.
 
 The `<pos>` of the unbind command is a block position, for example the coordinates of the furnace that a worker
@@ -785,7 +785,7 @@ Nether needs `/execute in minecraft:the_nether run cobblemondynamics unbind <pos
 ## Compatibility
 
 - **Cobbleworkers.** In a pasture with Work Mode on, the mod marks each worker as resting for
-  Cobbleworkers, so Cobbleworkers gives it no job. The mark clears when Work Mode turns off or the Pokémon
+  Cobbleworkers, so Cobbleworkers gives it no job. The mark clears when Work Mode turns off or the Cobblemon
   leaves. A rest mark that a player set stays. The server config key `compat.cobbleworkers` turns this off.
 - **Cobblebase.** In a pasture with Work Mode on, Cobblebase's pasture behavior stops. This covers its idle
   and sleep behavior, wandering, moves into water, jobs, teleports back to the pasture and passive

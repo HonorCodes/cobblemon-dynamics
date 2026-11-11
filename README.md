@@ -1,9 +1,9 @@
 # Cobblemon Dynamics
 
-Cobblemon Dynamics puts your pastured Pokémon to work. Each Pokémon runs a machine
+Cobblemon Dynamics puts your pastured Cobblemon to work. Each Cobblemon runs a machine
 that matches its type. For example, it turns a Create water wheel, generates Forge
 Energy, or fuels a furnace. The design follows the base workers of Palworld: you place
-Pokémon around your base, and each one powers a specific machine.
+Cobblemon around your base, and each one powers a specific machine.
 
 Cobblemon Dynamics is an addon for [Cobblemon](https://cobblemon.com) on NeoForge
 1.21.1. It also works with [Create](https://github.com/Creators-of-Create/Create) and
@@ -26,19 +26,19 @@ Version 1.0 ships in three phases:
 
 ## How it works
 
-1. Put Pokémon in a Cobblemon Pasture Block.
+1. Put Cobblemon in a Cobblemon Pasture Block.
 2. Open the pasture and turn on **Work Mode**.
-3. Each Pokémon looks for a machine in the pasture's **work area** that matches its
+3. Each Cobblemon looks for a machine in the pasture's **work area** that matches its
    type. It walks to the machine, faces it, and loops a move effect while it works.
 
 Rules that always apply:
 
-- **One worker per block.** Only one Pokémon can work a given block, across all
+- **One worker per block.** Only one Cobblemon can work a given block, across all
   pastures.
-- **Only pastured Pokémon work, with one exception.** A Pokémon works only while it is in
-  a pasture with Work Mode on. The exception is Quick Work: a party Pokémon that you send
+- **Only pastured Cobblemon work, with one exception.** A Cobblemon works only while it is in
+  a pasture with Work Mode on. The exception is Quick Work: a party Cobblemon that you send
   out with R while you look at a machine works that machine. The
-  [player guide](docs/player-guide.md#quick-work) explains when it stops. Wild Pokémon
+  [player guide](docs/player-guide.md#quick-work) explains when it stops. Wild Cobblemon
   never work.
 - **The pasture owner controls Work Mode.** Only the player who placed the pasture, or
   an operator, can turn Work Mode on or off.
@@ -46,23 +46,23 @@ Rules that always apply:
 ### The Work Leash
 
 Workers pick the nearest free machine on their own. Use the **Work Leash** to give a
-specific Pokémon a specific machine. Some roles work only through the leash.
+specific Cobblemon a specific machine. Some roles work only through the leash.
 
 | Action | Result |
 | --- | --- |
-| Right-click your pastured Pokémon, then right-click a machine | Binds the Pokémon to that machine |
+| Right-click your pastured Cobblemon, then right-click a machine | Binds the Cobblemon to that machine |
 | Right-click a Psychic-type, then a source container, then a destination | Binds a Telekinesis worker. The faces that you click are the faces it uses. |
-| Sneak + right-click the Pokémon | Clears its binding |
+| Sneak + right-click the Cobblemon | Clears its binding |
 | Sneak + right-click a driven water wheel or hand crank | Flips the direction of that wheel or crank |
 | Sneak + right-click an encased fan with a Fire-type catalyst | Switches that fan between blasting and smoking |
 
 Only the player who bound the worker, the pasture's owner or an operator can flip a
-target. A leash binding takes the machine from a Pokémon that the mod assigned
+target. A leash binding takes the machine from a Cobblemon that the mod assigned
 automatically. Bindings stay through server restarts. A binding clears when the
-Pokémon leaves its pasture (recall, another pasture, release, trade, or a broken
+Cobblemon leaves its pasture (recall, another pasture, release, trade, or a broken
 pasture block), or when the machine is removed (broken, replaced, picked up with a
-wrench, or moved into a contraption). A leashed Pokémon stays on its machine. A
-Pokémon without a leash moves to another machine after it waits 10 seconds with
+wrench, or moved into a contraption). A leashed Cobblemon stays on its machine. A
+Cobblemon without a leash moves to another machine after it waits 10 seconds with
 nothing to do and another machine needs it.
 
 A Telekinesis source must sit in the pasture's work area. Its destination can sit
@@ -70,7 +70,7 @@ anywhere within 32 blocks of the pasture block.
 
 ## Roles
 
-A role is a job that a Pokémon of a given type does on a specific block. A Pokémon
+A role is a job that a Cobblemon of a given type does on a specific block. A Cobblemon
 with two types can do the roles of either type, one role at a time.
 
 | Type | Role | Works on | Move effect | Phase |
@@ -96,8 +96,8 @@ role. The [role catalog](docs/roles.md) covers all 18 types, including later ide
 
 ## Balance
 
-Pokémon are a strong early-game and midgame power source, and a fleet of them can
-compete. No single Pokémon replaces an engineering problem that you are meant to
+Cobblemon are a strong early-game and midgame power source, and a fleet of them can
+compete. No single Cobblemon replaces an engineering problem that you are meant to
 solve. Top-tier engineering, such as a large reactor or AE2 automation, always does
 better. For example, a level-100 legendary Generator makes 10,000 FE/t, and a small
 Extreme Reactors reactor makes about 15,000 FE/t. Roles on machines that cap their own
@@ -107,9 +107,9 @@ output, such as water wheels and windmills, are exempt. See
 ## Work Stamina, beds and healers
 
 - **Work Stamina.** Work drains a worker's Work Stamina, and rest restores it.
-  Higher-level Pokémon work longer before they get **Tired**. A Tired Pokémon stops
+  Higher-level Cobblemon work longer before they get **Tired**. A Tired Cobblemon stops
   work until it fully recovers.
-- **Beds.** A Tired Pokémon claims the nearest free bed in its work area, walks to it
+- **Beds.** A Tired Cobblemon claims the nearest free bed in its work area, walks to it
   and sleeps. Four bed tiers cut the recovery time: the Hay Bed, Wool Bed, Plush Bed
   and Starlit Bed. You craft each tier from the tier below it.
 - **Healers.** A Fairy-type with no machine binding acts as a healer. It walks to a
@@ -179,7 +179,7 @@ into a source. The art is under the repository's MPL-2.0 license.
 
 ## Compatibility
 
-- **Cobbleworkers and Cobblebase.** These mods also give jobs to pastured Pokémon. In a
+- **Cobbleworkers and Cobblebase.** These mods also give jobs to pastured Cobblemon. In a
   pasture with Work Mode on, Cobblemon Dynamics turns their jobs off for that pasture.
   Pastures with Work Mode off keep their normal Cobbleworkers or Cobblebase jobs. See
   [ADR 0009](docs/adr/0009-coexistence-with-pasture-job-mods.md).
@@ -220,7 +220,7 @@ Architecture decision records:
 | [0010](docs/adr/0010-balance-rule.md) | The balance rule |
 | [0011](docs/adr/0011-v2-roles-in-first-release.md) | The v2 roles in the first release, in phases |
 | [0012](docs/adr/0012-original-art-assets.md) | Original art assets |
-| [0013](docs/adr/0013-quick-work-for-party-pokemon.md) | Quick Work for party Pokémon |
+| [0013](docs/adr/0013-quick-work-for-party-pokemon.md) | Quick Work for party Cobblemon |
 
 ## Contributing
 
