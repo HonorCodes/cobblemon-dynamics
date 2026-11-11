@@ -851,6 +851,23 @@ if __name__ == "__main__":
     sys.exit(main())
 ````
 
+  **As built (2026-11-11).** The committed `scripts/art.py` is this listing with these changes. The file is the reference
+  from here on:
+  - Lines wrap at 120 columns, as the other scripts do for super-linter's ruff.
+  - `resolve_model` knows the box of `minecraft:block/cube_all` (`VANILLA_ELEMENTS`). The Charge Cell's model names that
+    parent, so without it CD-ART-07 checked none of its faces and the review page had no preview of it.
+  - `check_copies` also compares each texture that has no full 16 × 16 tile, such as the 70 × 12 button sprites and the
+    bar sprites, whole with every reference PNG of its size. The CD-ART-09 line names the counts:
+    `CASE cd-art-09: PASS 12088 reference PNGs read, N tiles and M whole textures compared`.
+  - `sha256` counts CRLF line ends as LF in a text source, so a Windows checkout and CI agree on a source's hash.
+  - The record's Asset column keeps `.mcmeta` for a texture's metadata (`title_of`), so the two rows of a sprite differ.
+    `write_record` creates the record's folder.
+  - `review` refuses to run while a shipped asset is not the build of its source, and deletes the old images first. It
+    previews every model: a model with boxes from above, a generated item model by its scaled `layer0`. It shows an item
+    texture in an inventory slot at GUI scales 1, 2 and 3, scales a render up to 16× and at most 512 pixels, and adds a
+    note column and a count of the verdicts.
+  - A malformed PNG, JSON file or jar exits with code 2, as an unreadable input does.
+
 - [ ] **Step 3: Run it.** `py scripts/art.py --self-check` prints `self-check passed`. `py -m ruff check scripts` passes.
   `git update-index --chmod=+x scripts/art.py` keeps the mode at 100755, as for the other scripts.
 
