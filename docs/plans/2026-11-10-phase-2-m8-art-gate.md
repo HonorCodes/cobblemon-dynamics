@@ -1326,6 +1326,22 @@ this paragraph's first three words, so keep them.
   exists. `cdFan04StoneInFrontRefusesTheBind` binds on the tick of the tether and again after the poll, and both binds
   refuse.
 
+  With the fix, two runs of `./gradlew runGameTestServer` in a row pass 205 of 205 tests, and `runGameTestServerCore`
+  passes 4 of 4. No other deferred test needed a change. These scenes read their rows in a set way:
+  - CD-TLK-06 and CD-MAG-07 time each Standby from the change that the test makes, because a time from the bind would
+    include the walk. CD-MAG-07 takes the stack off the ground while the Klink Works.
+  - CD-TLK-09 gets its refusal at the source click, which `BindRules` checks at once. The barrel click after it starts a
+    new source and binds nothing.
+  - CD-FAN-11 has no owner and no Pokémon, because `FanTests` holds the fan state directly. The test flips the fan state
+    and loads a new fan block entity from the old one's save.
+  - CD-TLK-05 also checks that each worker's claim is on its own chest. CD-TLK-11 also checks each cause in the binder's
+    chat.
+
+  One run before those two timed out `HealerTests.cdHeal17SpentHealerGoesToBedOrRestsInPlace` at 1,200 ticks, with no
+  failed assertion. The test never reaches the changed code, and a healer sees only the allies of its own pasture. It
+  is an open item for Task 8. The Quick Work rows join the deferred list with the Quick Work branch, whose Task 3 adds
+  them.
+
 - [ ] **Step 2: Failing test.** `ManualChecklistTest` drops its area filter, so it counts the Phase 2 Demo rows:
 
 ```kotlin
@@ -1339,6 +1355,9 @@ fun `CD-REL-09 the manual checklist lists every Demo test of the spec sheet`() {
 ```
 
   Delete `PHASE_2_AREAS` from the test. Run it: it fails on CD-ART-02, CD-ART-03, CD-ART-04 and CD-ART-07.
+
+  **As built (2026-11-11).** The first part of this task ran with no JVM, so a Python copy of the test showed the failure:
+  it found those four rows missing before Step 3. After Step 3, both tests of the class pass in `./gradlew build`.
 
 - [ ] **Step 3: The checklist entries,** in a new group "Art", after the last check:
 
