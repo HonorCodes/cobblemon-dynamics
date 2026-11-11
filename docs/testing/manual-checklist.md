@@ -300,3 +300,7 @@ These checks show the changes that the approver ruled after the Phase 1 play-tes
     the cell was. Expected: the tooltip reads "50,000 / 50,000 FE", and the comparator gives 15 again within a second.
 49. **CD-GEN-09.** Setup: a full Charge Cell beside an empty one, each with a comparator that reads it. Action: watch for 10
     seconds. Expected: both comparators settle at a signal of 8, and then neither signal changes.
+50. **CD-UI-16.** Setup: the play-test client in a creative world. Action: open the creative inventory and look through its
+    tabs. Expected: a tab named "Cobblemon Dynamics", with the Work Leash as its icon, holds the Work Leash, the Hay Bed, the
+    Wool Bed, the Plush Bed, the Starlit Bed and the Charge Cell, in that order. The Tools and Utilities tab and the
+    Functional Blocks tab hold none of them.

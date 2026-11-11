@@ -638,7 +638,7 @@ before its fix:
 ## Approver rulings after the play-test (2026-11-10)
 
 The approver reported the second play-test round GREEN (Task 9, Step 5) and ruled the changes below on the same day.
-The spec sheet records them as inputs R59 and R60 and in its corrections list. Each ruling is test-first, with its own
+The spec sheet records them as inputs R59 to R61 and in its corrections list. Each ruling is test-first, with its own
 commits on the branch `approver-changes`.
 
 ### Ruling: no Fire-types on Blaze Burners (R59)
@@ -647,7 +647,7 @@ commits on the branch `approver-changes`.
 holds the design.
 
 - `burner_keeper.json` is gone. The Superheater's file already gives `kindled` below level 50 and `seething` from level 50,
-  so no code changed.
+  so the handler code stays as it was.
 - Tests: `HeatGateTest` (kindled below level 50), `DefaultPriorityTest` (a burner has only the Superheater, so a Charmander
   gets no role there and a Turtonator works it as the Superheater), `BuiltInRoleFilesTest` (the Role table),
   `MixinGateTest` (a data pack's own role on the burner handler still gives one warning per handler), `BurnerTests` with a
@@ -683,3 +683,21 @@ Design, as built:
   `Block.appendHoverText`. `GameTestHelper.destroyBlock` drops nothing, so `ChargeCellTests` breaks the cell through
   `ServerLevel.destroyBlock(pos, true)`.
 - The cell has no transfer limit per tick: it gives what the blocks around it take, up to its store. The ruling names none.
+
+### Ruling: a creative tab (R61)
+
+**Rows:** CD-UI-16, new.
+
+**Files:** `registry/DynamicsTabs.kt` (new), `registry/DynamicsItems.kt` and `registry/DynamicsBlocks.kt` (no vanilla tab
+listener now), `CobblemonDynamics.kt`, the lang entry `itemGroup.cobblemon_dynamics.main`. Test:
+`CreativeTabTests.cdUi16CreativeTabListsEveryItemOfTheMod`.
+
+- The approver did not find the items in the creative menu, although the Work Leash was in the Tools and Utilities tab
+  and the beds were in the Functional Blocks tab. The tab `cobblemon_dynamics:main` comes from
+  `CreativeModeTab.builder()` through a `DeferredRegister` of `Registries.CREATIVE_MODE_TAB`. Its title is
+  "Cobblemon Dynamics", its icon is the Work Leash, and `DynamicsTabs.items()` gives its order: the Work Leash, the beds by
+  tier and the Charge Cell.
+- The items leave the vanilla tabs, because no spec row asks for them there.
+- `CreativeModeTab.buildContents` is common code (checked with `javap`): it fires NeoForge's
+  `BuildCreativeModeTabContentsEvent` and needs no client. So the GameTest builds the tab and the two vanilla tabs on the
+  server and compares each with the items that the mod registers. A new item fails the test until the tab lists it.

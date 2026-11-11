@@ -19,6 +19,9 @@ of Minecraft, NeoForge, Cobblemon and the optional mods.
 
 Each Pokémon then walks to a block that one of its roles fits, and works it.
 
+In creative mode, the **Cobblemon Dynamics** tab of the creative inventory holds every item of the mod: the Work
+Leash, the four beds and the [Charge Cell](#charge-cell).
+
 ## Work Mode
 
 Work Mode is a setting of each pasture. A new pasture starts with Work Mode off. The pasture keeps the

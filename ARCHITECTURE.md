@@ -48,6 +48,8 @@ Mixin supports only Java mixin classes.
 ```text
 src/main/kotlin/codes/honor/cobblemondynamics/
   CobblemonDynamics.kt   mod entry point, registration, event wiring
+  registry/              deferred registers: blocks, items, block entities, the Charge Cell's
+                         data component, the creative tab, the entity type, attachments
   config/                server and client config specs
   pasture/               pasture adapter, Work Mode attachment, Work Mode pasture index
   engine/                scheduler, worker state machine, scanner, assigner
@@ -103,6 +105,7 @@ files live under `assets/cobblemon_dynamics/`.
 
 | Component | Package | Responsibility | Talks to |
 |---|---|---|---|
+| Content | `registry` | Registers the blocks, the items, the block entity types, the Charge Cell's data component, the work focus entity type and the attachments. Registers the creative tab `cobblemon_dynamics:main`, which lists every item of the mod, and no vanilla tab lists them. | NeoForge registries |
 | Pasture adapter | `pasture` | Reads tethered Pokémon, the pasture's `ownerId` and the player-to-pasture link. Stores Work Mode as a NeoForge data attachment on Cobblemon's pasture block entity. Keeps an index of Work Mode pastures per level. Polls each loaded Work Mode pasture every 20 ticks, because Cobblemon fires no pasture events. | Cobblemon internals, work engine |
 | Work engine | `engine` | Owns the authoritative state of every worker. Schedules scans, runs assignment, runs each worker's state machine, applies work through handlers and drains or restores Work Stamina. Runs on the server thread only. | All server components |
 | Claim registry | `claim` | Holds work claims, bed claims and heal claims: one claim per key and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, or an entity UUID. Holds the leash bindings as reservations, at most one per worker, and their persistent index. | Work engine, leash, heal, beds |
