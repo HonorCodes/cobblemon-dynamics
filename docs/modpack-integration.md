@@ -21,6 +21,8 @@ NeoForge checks these dependencies when the game loads:
 | Applied Energistics 2 | no | `[19.2,20)` |
 | Cobbleworkers | no | any |
 | Cobblebase | no | any |
+| FTB Chunks (`ftbchunks`) | no | any |
+| Open Parties and Claims (`openpartiesandclaims`) | no | any |
 
 Without Create, the roles that need it turn off: the Wheel Driver, the Cranker, the Superheater, the Fan Catalyst and
 Tailwind. Each of their role files logs one line, and the other roles work as before. Without AE2, no role turns off. The
@@ -37,10 +39,57 @@ mod uses no AE2 class: it reaches AE2 blocks through NeoForge's energy and item 
   machine, or for another reason that [the player guide](player-guide.md#when-quick-work-stops) lists. Before an order
   starts, the server asks `ServerPlayer.mayInteract`, which checks spawn protection and the world border. A spectator
   gets no order.
-- **Claim mods do not see Quick Work.** Quick Work makes no block click, because the server traces the player's view.
-  Claim mods that only cancel block clicks, such as FTB Chunks and Open Parties and Claims, therefore do not stop it. If
-  players must not run machines in other players' claims, set `quickWork.enabled = false` in the server config.
+- **Quick Work respects the claims of FTB Chunks and Open Parties and Claims.** Before an order starts, the server asks
+  each of the two claim mods that is installed whether the owner may right-click the machine with an empty hand. It asks
+  again every 20 ticks while the order runs, and it ends the order when the answer becomes no. The claim mod's own rules
+  decide, so the members of the claim's team or party can use its machines, and its allies can where its rules allow
+  them. [Claim mods](#claim-mods) gives the details.
+- **Other claim mods do not see Quick Work.** Quick Work makes no block click, because the server traces the player's
+  view. A claim mod that only cancels block clicks therefore does not stop it. On a server with such a mod, set
+  `quickWork.enabled = false` in the server config if players must not run machines in other players' claims.
 - **Work is silent.** Workers and healers play no sounds and no cries.
+
+## Claim mods
+
+FTB Chunks and Open Parties and Claims are optional. `neoforge.mods.toml` lists both as optional dependencies with any
+version, as it lists Cobbleworkers and Cobblebase, so NeoForge checks no version of them. The mod was tested with these
+versions:
+
+| Mod | Tested version |
+| --- | --- |
+| FTB Chunks | 2101.1.23, with FTB Teams 2101.1.12, FTB Library 2101.1.39 and Architectury API 13.0.11, the versions of COHO 2.4.0 |
+| Open Parties and Claims | 0.33.0 for NeoForge 1.21.1 |
+
+Another version works as long as it keeps the calls that
+[Amendment 1 of ADR-0013](adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11) names.
+
+**When a check fails.** A check that throws an error counts as a refusal. If a call is gone or has changed, every check of
+that claim mod throws, so the server refuses every Quick Work order, also outside claims. The log holds one warning for
+each claim mod and each kind of error, in this form:
+
+```text
+Quick Work refuses orders while the claim check of ftbchunks fails: java.lang.NoSuchMethodError: ...
+```
+
+The warning means that this build of Cobblemon Dynamics cannot read the installed claim mod. Install a tested version of
+the claim mod, or a release of Cobblemon Dynamics that supports the installed one. Until then, the sent-out Pokémon come out
+as normal, with "You may not use {target}" on the action bar, and the rest of the mod works as before. A server can also
+set `quickWork.enabled = false`.
+
+Each claim mod applies its own rules. By default, the allies of an FTB Chunks team can Quick Work in its claims, and the
+allies of an Open Parties and Claims party cannot.
+
+- **FTB Chunks.** The check is the one that FTB Chunks runs for a right-click on a block. The team's block interaction
+  setting decides, with `ally_mode`, `disable_protection`, `no_wilderness` and the admin bypass of FTB Chunks. The value
+  of `fake_players` does not apply, because the check asks about the owner, not about a fake player. When FTB Chunks
+  refuses, it shows "Interaction prevented here by claim protection!" on the owner's action bar. In the same tick, Quick
+  Work replaces that text with "You may not use {target}".
+- **Open Parties and Claims.** The check is the mod's own check of a block interaction, with its messages off. The player
+  config of the claim's owner decides. By default, `claims.protection.exceptions.fullAccess` gives access to the owner's
+  party, and the value `A` gives access to allied parties too.
+- **No switch.** No config key turns these checks off. `quickWork.enabled = false` turns off all of Quick Work.
+- **Pastures do not ask claim mods.** The work area of a Work Mode pasture can reach into the claim of another player, and
+  its workers then work the machines there. Keep the work areas of pastures out of other players' claims.
 
 ## Other mods
 
@@ -67,6 +116,10 @@ lacks a field or method that the mixin needs. A mixin that does not apply turns 
 one warning: a role, the Work Leash on Create's hand crank, the worker push, a Cobblebase hook or a part of the pasture
 panel. So a renamed field in a later Create 6.0.x release turns a role off and does not crash the game.
 
+When mod loading completes, the log holds one INFO line that starts with `Mixins:`. It names each mixin as applied,
+skipped with its reason, applied with no injection, or not applied yet. On a client, the two client mixins read "not
+applied yet" until a pasture panel opens.
+
 ## Network payloads
 
 All payloads use the namespace `cobblemon_dynamics`.
@@ -77,7 +130,8 @@ All payloads use the namespace `cobblemon_dynamics`.
 | To the server | `work_mode_toggle`, `pasture_panel_open`, `pasture_panel_close`, `leash_overview_request` |
 
 The server checks each request against its own state: the sender's permission, distance, dimension and ownership, as
-the request needs them. Rate limits apply to each player. Quick Work adds no payload.
+the request needs them. Rate limits apply to each player. Quick Work adds no payload. When the payloads register, the log
+holds one INFO line that starts with `Payloads, version 3:` and names each payload by direction.
 
 ## Files and saved data
 
@@ -102,16 +156,21 @@ the request needs them. Rate limits apply to each player. Quick Work adds no pay
     Brain of every Pokémon
   - the block tag `minecraft:mineable/pickaxe`, for the Charge Cell
 
-  A data pack can override any role file. `roles.disabled` in the server config turns a role off.
+  A data pack can override any role file. `roles.disabled` in the server config turns a role off. Each load of the role
+  files logs one INFO line, such as `Roles: 16 loaded, 16 active, 0 disabled`, which names each disabled role with its
+  reason. A config change that changes the active roles logs a new line.
 
 ## What is tested
 
 - **Tested on every push and pull request to `main`.** CI runs the build with its unit tests and jar checks. GameTests
-  then run on a GameTest server, once with Create and AE2 and once without them, followed by a perf run. The release
-  workflow runs the build, the unit tests and the jar checks again for each tag.
+  then run on a GameTest server, once with Create and AE2 and once without them, followed by a perf run. The run with
+  Create and AE2 also tests the claim checks of Quick Work with a test claim mod. The release workflow runs the build, the
+  unit tests and the jar checks again for each tag.
 - **Tested at each phase gate.** The isolated test pack runs clean dedicated servers with only this mod and its pinned
-  dependencies. It checks the dependency ranges, including the NeoForge floor, plus servers with only one of Cobbleworkers
-  and Cobblebase, `/reload` and restarts.
+  dependencies. It checks the dependency ranges, including the NeoForge floor, plus servers with only one of Cobbleworkers,
+  Cobblebase, FTB Chunks and Open Parties and Claims, `/reload` and restarts. Two GameTest runs test Quick Work against
+  the real claim mods, one with FTB Chunks and one with Open Parties and Claims. CI does not run them. They run at each
+  phase gate and in each pull request that changes the claim checks.
 - **Not tested automatically:**
   - Play with two or more players. The approver ruled out multiplayer GameTests, so an audit checks the code instead,
     in [the multiplayer audit](testing/multiplayer-audit.md).

@@ -74,11 +74,17 @@ The `pr-runner` gate cannot run its super-linter mirror on Windows Git Bash (HAR
 
 1. Run ktlint, ruff and the super-linter command above; all must pass.
 2. `./gradlew build runGameTestServer` passes on the branch tip.
-3. `PR_RUNNER_BYPASS=1 git push -u origin <branch>`, then
+3. A pull request that touches the claims code also runs `./gradlew runGameTestServerFtbChunks` and
+   `./gradlew runGameTestServerOpac` on the branch tip, one JVM at a time, and records both results in its body. CI does
+   not run these two runs (the coordinator's ruling of 2026-11-11). The claims code is `compat/LandClaims.kt`,
+   `compat/ftbchunks/`, `compat/opac/`, the permission checks of `WorkEngine` (`mayUse`, `start` and `tickOrder`),
+   `src/gametest/kotlin-claims/`, `src/gametestFtbChunks/` and `src/gametestOpac/`, which the
+   [land claims plan](2026-11-11-phase-2-quick-work-claims.md) adds.
+4. `PR_RUNNER_BYPASS=1 git push -u origin <branch>`, then
    `PR_RUNNER_BYPASS=1 gh pr create --draft --base main --head <branch> --title ... --body-file <file>`.
    Say in the body that the PR was opened by hand because of HAR-809.
-4. CI runs on pull requests and on `main` only, so pushing a branch with no PR costs nothing.
-5. When CI is green, `gh pr ready <n>`, query the review threads again, and merge with a merge commit
+5. CI runs on pull requests and on `main` only, so pushing a branch with no PR costs nothing.
+6. When CI is green, `gh pr ready <n>`, query the review threads again, and merge with a merge commit
    (`gh pr merge <n> --merge`). Do not pass `--delete-branch` while a stacked branch exists locally.
 
 ## How to execute a milestone
