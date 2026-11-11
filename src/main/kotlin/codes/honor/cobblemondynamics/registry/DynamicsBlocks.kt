@@ -13,7 +13,6 @@ import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.world.item.BlockItem
-import net.minecraft.world.item.CreativeModeTabs
 import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockBehaviour
@@ -24,7 +23,6 @@ import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.ICapabilityProvider
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.neoforged.neoforge.energy.IEnergyStorage
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent
 import net.neoforged.neoforge.registries.DeferredBlock
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredItem
@@ -74,9 +72,6 @@ object DynamicsBlocks {
                 CHARGE_CELL_TYPE.get(),
                 ICapabilityProvider<ChargeCellBlockEntity, Direction?, IEnergyStorage> { cell, _ -> cell.storage },
             )
-        }
-        modBus.addListener<BuildCreativeModeTabContentsEvent> { event ->
-            if (event.tabKey == CreativeModeTabs.FUNCTIONAL_BLOCKS) BED_ITEMS.values.forEach { event.accept(it.get()) }
         }
     }
 

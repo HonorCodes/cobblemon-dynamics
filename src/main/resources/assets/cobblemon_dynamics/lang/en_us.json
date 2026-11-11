@@ -5,6 +5,7 @@
   "block.cobblemon_dynamics.plush_bed": "Plush Bed",
   "block.cobblemon_dynamics.starlit_bed": "Starlit Bed",
   "block.cobblemon_dynamics.charge_cell": "Charge Cell",
+  "itemGroup.cobblemon_dynamics.main": "Cobblemon Dynamics",
   "entity.cobblemon_dynamics.work_focus": "Work Focus",
   "cobblemon_dynamics.leash.outside_area": "Outside its pasture's work area",
   "cobblemon_dynamics.leash.no_role": "No role fits",
