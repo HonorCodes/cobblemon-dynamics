@@ -150,15 +150,16 @@ class MagnetTests {
     }
 
     /**
-     * The approver's flow (CD-MAG-09, CD-CLM-10, CD-LSH-28): 256 andesite lie on the ground. A Lv50 Klink binds chest A and collects the
-     * andesite into it, and a Lv50 Alakazam binds chest A as its source and chest B as its destination. Both binds succeed, both
-     * workers Work in the same tick under shared claims on chest A, the andesite on the ground and in both chests adds up to 256 on
-     * every tick, and chest B ends with all of it.
+     * The approver's flow (CD-MAG-09, CD-CLM-10, CD-LSH-28): a Lv25 Klink binds chest A, and a Lv50 Alakazam binds chest A as its
+     * source and chest B as its destination. When both wait in Standby at chest A, 256 andesite drop on the ground. The Klink collects
+     * them into chest A, and the Alakazam moves them on to chest B. Each Works at least once under a shared claim on chest A, the
+     * andesite on the ground and in both chests adds up to 256 on every tick, and chest B ends with all of it. Each failure message
+     * names both workers' states, claims, spots and skips.
      */
-    @GameTest(template = "floor_23x10x23", timeoutTicks = 900)
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 1_400)
     fun cdMag09Clm10MagnetFillsTheChestThatTelekinesisEmpties(helper: GameTestHelper) {
         val chestB = BlockPos(5, 2, 5)
-        val scene = scene(helper, "klink level=50")
+        val scene = scene(helper, "klink level=25")
         helper.setBlock(chestB, Blocks.CHEST)
         val alakazam = TestKit.tether(helper, scene.pasture, scene.owner, "alakazam level=50")
         val collector = TestKit.bind(helper, scene.owner, scene.worker, chestRel)
@@ -166,29 +167,50 @@ class MagnetTests {
         val mover = TestKit.bindTransfer(helper, scene.owner, alakazam, chestRel, chestB)
         val ends = mover?.target == helper.absolutePos(chestRel) && mover.destination == helper.absolutePos(chestB)
         helper.assertTrue(ends, "CD-LSH-28: the Alakazam's bind gave $mover and answered '${TestKit.lastMessage(scene.owner)}'")
-        for (rel in listOf(BlockPos(14, 2, 13), BlockPos(16, 2, 13), BlockPos(14, 2, 15), BlockPos(16, 2, 15))) {
-            drop(helper, rel, ItemStack(Items.ANDESITE, 64))
-        }
         val chestA = TestKit.keyOf(helper, helper.absolutePos(chestRel))
         val workers = listOf(scene.worker, alakazam)
         val expected = 4 * 64
-        fun total(): Int = TestKit.countOnTheGround(helper, Items.ANDESITE) + TestKit.countIn(helper, chestRel, Items.ANDESITE) +
-            TestKit.countIn(helper, chestB, Items.ANDESITE)
-        var together = false
+        fun inA(): Int = TestKit.countIn(helper, chestRel, Items.ANDESITE)
+        fun inB(): Int = TestKit.countIn(helper, chestB, Items.ANDESITE)
+        fun total(): Int = TestKit.countOnTheGround(helper, Items.ANDESITE) + inA() + inB()
+        fun states(): String = workers.joinToString("; ", postfix = "; messages ${TestKit.messages(scene.owner)}") { entity ->
+            val worker = TestKit.workerOf(helper, entity)
+            "${entity.pokemon.species.name} ${worker?.status} at ${entity.blockPosition()}, claim ${TestKit.claimOf(helper, entity)}, " +
+                "spot ${worker?.spot}, skips ${worker?.skipUntil}, missed arrival ${worker?.missedArrival}"
+        }
+        val worked = BooleanArray(workers.size)
+        var dropped = false
+        var collectedIntoA = false
         helper.onEachTick {
-            helper.assertTrue(total() == expected, "CD-MAG-09: the andesite adds up to ${total()}, not $expected")
-            if (workers.any { TestKit.workerOf(helper, it)?.status != WorkerStatus.WORKING }) return@onEachTick
-            for (worker in workers) {
-                val claim = TestKit.claimOf(helper, worker)
+            if (!dropped) return@onEachTick
+            helper.assertTrue(total() == expected, "CD-MAG-09: the andesite adds up to ${total()}, not $expected. ${states()}")
+            if (inA() > 0) collectedIntoA = true
+            workers.forEachIndexed { i, entity ->
+                if (TestKit.workerOf(helper, entity)?.status != WorkerStatus.WORKING) return@forEachIndexed
+                val claim = TestKit.claimOf(helper, entity)
                 val onChestA = claim?.key == chestA && claim.shared
-                helper.assertTrue(onChestA, "CD-CLM-10: the ${worker.pokemon.species.name} Works under $claim")
+                helper.assertTrue(onChestA, "CD-CLM-10: the ${entity.pokemon.species.name} Works under $claim. ${states()}")
+                worked[i] = true
             }
-            together = true
         }
-        helper.succeedWhen {
-            helper.assertTrue(together, "CD-MAG-09: the Klink and the Alakazam have not Worked in the same tick")
-            val moved = TestKit.countIn(helper, chestB, Items.ANDESITE)
-            helper.assertTrue(moved == expected, "CD-MAG-09: chest B holds $moved of the $expected andesite")
-        }
+        helper.startSequence()
+            .thenWaitUntil {
+                val waiting = workers.all { entity ->
+                    TestKit.workerOf(helper, entity)?.let { it.status == WorkerStatus.STANDBY && !it.missedArrival } == true
+                }
+                helper.assertTrue(waiting, "CD-MAG-09: the two workers do not both wait at chest A. ${states()}")
+            }
+            .thenExecute {
+                for (rel in listOf(BlockPos(14, 2, 13), BlockPos(16, 2, 13), BlockPos(14, 2, 15), BlockPos(16, 2, 15))) {
+                    drop(helper, rel, ItemStack(Items.ANDESITE, 64))
+                }
+                dropped = true
+            }
+            .thenWaitUntil {
+                helper.assertTrue(worked.all { it }, "CD-MAG-09: the workers that Worked: ${worked.toList()}. ${states()}")
+                helper.assertTrue(collectedIntoA, "CD-MAG-09: chest A never held andesite. ${states()}")
+                helper.assertTrue(inB() == expected, "CD-MAG-09: chest B holds ${inB()} of the $expected andesite. ${states()}")
+            }
+            .thenSucceed()
     }
 }
