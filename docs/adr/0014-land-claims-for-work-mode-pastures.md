@@ -1,7 +1,8 @@
 # ADR-0014: Land claims for Work Mode pastures
 
-Status: Proposed (2026-11-11). The coordinator accepts it with the rulings on the calls of the
-[Phase 3 plan](../plans/2026-11-11-phase-3-release.md#design-decisions-for-the-approver).
+Status: Accepted (2026-11-11). The coordinator accepted it under the approver's delegation, with the rulings on the calls
+of the [Phase 3 plan](../plans/2026-11-11-phase-3-release.md#design-decisions-for-the-approver). The calls of this record
+stand as written.
 
 ## Context
 

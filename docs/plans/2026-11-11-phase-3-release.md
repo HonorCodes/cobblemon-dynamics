@@ -20,7 +20,7 @@ APIs: FTB Chunks 2101.1.23, FTB Teams 2101.1.12, FTB Library 2101.1.39, Architec
 Domum Ornamentum 1.0.237-snapshot and Multi-Piston 1.2.58-1.21.1.
 
 **Spec:** The [spec sheet](2026-11-09-v1-spec-sheet.md): the LND area (CD-LND-01 to CD-LND-16), the amended CD-REL-04,
-and the rows of [Rows of earlier phases with a Phase 3 part](#rows-of-earlier-phases-with-a-phase-3-part). Inputs R67,
+CD-UI-03 and CD-UI-09, and the rows of [Rows of earlier phases with a Phase 3 part](#rows-of-earlier-phases-with-a-phase-3-part). Inputs R67,
 R68, R69 and RES7 hold the rulings, the request and the research. Design:
 [ADR-0014](../adr/0014-land-claims-for-work-mode-pastures.md), and Amendment 1 of
 [ADR-0013](../adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11). The model of this file is the
@@ -85,6 +85,14 @@ the beta.2 build and it just required the JAR". The coordinator's ruling:
 
 The release needs nothing from the approver. Task 6 holds the change.
 
+### The coordinator on the design calls, 2026-11-11
+
+Under the approver's delegation, the coordinator accepted calls 1 to 11, 13, 15 and 16 of
+[Design decisions for the approver](#design-decisions-for-the-approver) as written, and changed call 14: CD-UI-03 and
+CD-UI-09 rest on code reading, and their checks with two players retire. Calls 12 (Modrinth) and 17 (a play-test of the
+1.0.0 candidate) are pending the approver. The coordinator moved CD-LND-01 to CD-LND-16 to `agreed`, and ADR-0014 is
+accepted.
+
 ### Earlier rulings that still bind
 
 - **Multiplayer** (approver, 2026-11-10): every feature works in multiplayer, and no GameTest has two players. Each task
@@ -120,25 +128,26 @@ against the code and the tests.
 | 8 | The approver's pack holds 1.0.0 (CD-REL-15) | M9 | COHO 2.4.0 ships `1.0.0-beta.3` | 8 |
 | 9 | Every `MUST` row passes on the release commit, with the play-test note (CD-REL-14) | M9, the Phase 2 gate | The Phase 2 report ran on `ceec134`, before CD-QWK-26 to CD-QWK-35 and CD-CMP-08 to CD-CMP-10 existed | 8 |
 | 10 | The approver's Phase 2 play-test note: checks 6, 9, 10, 14, 15, 20, 22 and 44 to 59 | The Phase 2 gate | Pending. The approver plays `1.0.0-beta.3` | 8 |
-| 11 | The Demo checks that never ran: 5 (CD-PLAT-06), 8 (CD-UI-03), 23 (CD-UI-09), 36 (CD-CMP-01), 37 (CD-CMP-03), 38 (CD-CMP-04), 39 (CD-CMP-05), 40 (CD-REL-01) and the spark run of known issue (d) | The play-test note of the Phase 1 gate ("not reported") | Not run. CD-CMP-03 and CD-CMP-04 have no automated test at all | 8 |
+| 11 | The Demo checks that never ran: 5 (CD-PLAT-06), 8 (CD-UI-03), 23 (CD-UI-09), 36 (CD-CMP-01), 37 (CD-CMP-03), 38 (CD-CMP-04), 39 (CD-CMP-05), 40 (CD-REL-01) and the spark run of known issue (d) | The play-test note of the Phase 1 gate ("not reported") | Not run. CD-CMP-03 and CD-CMP-04 have no automated test at all. By decision 14, CD-UI-03 and CD-UI-09 now rest on code reading, so checks 8 and 23 retire | 7 (checks 8 and 23), 8 |
 | 12 | The CD-REL-12 Demo, check 41 | The Phase 1 gate | The tags `v1.0.0-alpha.1` and `v1.0.0-beta.1` are pushed. Their release runs were queued in the GitHub outage of 2026-11-11 | 8 |
-| 13 | CD-STK-07 (`SHOULD`): "set the burn duration to 1,600 ticks" | `SHOULD` check | Code and tests exist: `FurnaceHandler.applyWork` sets `litTime` and `litDuration` to 2 ticks when `litTime` is below 2, so the gauge reads full. `StokerTests.cdStk07GaugeIsNotEmptyWhileCooking` and check 29 (pass in the Phase 1 play-test) test a full gauge. The row text and `ARCHITECTURE.md` ("`litDuration = 1600`") differ from the code | 7, decision 13 |
+| 13 | CD-STK-07 (`SHOULD`): "set the burn duration to 1,600 ticks" | `SHOULD` check | Code and tests exist: `FurnaceHandler.applyWork` sets `litTime` and `litDuration` to 2 ticks when `litTime` is below 2, so the gauge reads full. `StokerTests.cdStk07GaugeIsNotEmptyWhileCooking` and check 29 (pass in the Phase 1 play-test) test a full gauge. The row text and `ARCHITECTURE.md` ("`litDuration = 1600`") differ from the code. Ruled: fix the texts, not the code | 7 |
 | 14 | CD-UI-08 (`SHOULD`): icons differ in shape | `SHOULD` check | Done: `StateIcons.kt`, `StateIconsTest`, check 11 (pass) | none |
 | 15 | CD-UI-10 (`SHOULD`): the tooltip of a stamina bar | `SHOULD` check | Done: `StaminaBar.kt`, `PanelLayout.kt`, `StaminaBarTest`, check 12 (pass) | none |
 | 16 | CD-ART-11 (`MAY`): placeholder art in private builds | `MAY` check | Done: `BedContentFilesTest`, `ArtFilesTest`. A public release follows CD-ART-12, and every asset is approved | none |
 | 17 | CD-REL-11 (`SHOULD`): the notice of no affiliation | `SHOULD` check | The README holds it, and `RepositoryFilesTest` checks it. The pages of the sites belong to the approver | 7 |
 | 18 | `mod_description` reads "Pastured Pokemon power and run the machines of your base." | The wording ruling, PR #29 | Not changed. NeoForge shows it in the mod list | 7 |
-| 19 | The internal docs still say Pokémon: spec sheet, plans, ADRs, `ARCHITECTURE.md`, testing docs | The coordinator's notes after PR #29 | Not done | 7, decision 15 |
-| 20 | Quick Work review finding 4: no message names a Brain that cannot hold an order | Known issue of the Phase 2 gate | Known issue, no plan | decision 16 |
+| 19 | The internal docs still say Pokémon: spec sheet, plans, ADRs, `ARCHITECTURE.md`, testing docs | The coordinator's notes after PR #29 | Not done. Ruled: a pass over the prose, as the last docs step of Task 7 | 7 |
+| 20 | Quick Work review finding 4: no message names a Brain that cannot hold an order | Known issue of the Phase 2 gate | Ruled: stays a known issue for 1.0.0 | none |
 | 21 | Floral Healing against CD-FX-08 and CD-FX-09 | Known issue of the Phase 2 gate | Cannot run in `[1.8.4,1.9)` | none: a known issue for the port to Cobblemon 1.9 |
 | 22 | CD-QWK-21 has no GameTest | Known issue of the Phase 2 gate | Unit tests and check 59, by a ruling | 8 (check 59) |
 | 23 | CD-SEC-04 at exactly 10.0 blocks | Known issue of the Phase 2 gate | Stricter than the row, by a ruling | none |
 | 24 | The timeout of `cdHeal17` | Known issue of the Phase 2 gate | Watch | 8 |
 | 25 | Dependabot alerts on `settings.gradle` | Known issue of the Phase 2 gate | Development scope only | none |
-| 26 | Logistics roles share their containers (R66) | `logistics-shared-targets`, in flight | Builds `1.0.0-beta.3`, merges before Task 1 | before Task 1 |
+| 26 | Logistics roles share their containers (R66) | `logistics-shared-targets`, PR #31 | Builds `1.0.0-beta.3`. This plan's branch sits on it, and it merges before Task 1 | before Task 1 |
 | 27 | Open question Q9 | The spec sheet | Answered by R67 in the spec sheet of this plan | done |
 | 28 | Known issue (a) of the Phase 1 gate: spots that no path reaches | The Phase 1 gate | Fixed in M6 (CD-ASG-09) | none |
-| 29 | G9 names Modrinth and CurseForge | G9, R69 | The approver uploads to CurseForge by hand. Nobody uploads to Modrinth yet | decision 12 |
+| 29 | G9 names Modrinth and CurseForge | G9, R69 | The approver uploads to CurseForge by hand. Nobody uploads to Modrinth yet | decision 12, pending the approver |
+| 30 | A play-test of the 1.0.0 candidate | CD-REL-14 | The play of `1.0.0-beta.3` gives the play-test note that CD-REL-14 needs | decision 17, pending the approver |
 
 ## Global Constraints
 
@@ -160,9 +169,9 @@ included. Phase 3 adds these lines:
 
 ## How to execute this plan
 
-1. **Before Task 1.** `main` holds PR #30 (the Quick Work claims build) and the logistics branch (`1.0.0-beta.3`). The
-   coordinator moves the LND rows from `draft` to `agreed` with the rulings on the
-   [design decisions](#design-decisions-for-the-approver), and the tasks follow those rulings.
+1. **Before Task 1.** `main` holds PR #30 (the Quick Work claims build) and PR #31 (the logistics branch,
+   `1.0.0-beta.3`), on which this plan's branch sits. The coordinator moved the LND rows to `agreed` on 2026-11-11 with
+   the rulings on the [design decisions](#design-decisions-for-the-approver), and the tasks follow those rulings.
 2. **Two branches.** `m9-claims`, from `main`: Tasks 1 to 5 and 7, in one pull request. `m9-release`, from `main` after
    `m9-claims` merges: Tasks 6 and 8, in one pull request, and then the tag.
 3. **References.** At the start of each branch, check every reference of [Checked references](#checked-references)
@@ -382,8 +391,9 @@ The row is done only when its last part passes:
 | CD-QWK-27, CD-QWK-28, CD-QWK-29, CD-QWK-31, CD-QWK-32 | The claims build: the code and the test claim provider | Task 4: the real-mod GameTests of the claims plan, Task 4 |
 | CD-QWK-33 | The claims build: `CompatImportsTest` | Task 5: the test pack cases of the claims plan, Task 6 |
 | CD-CMP-08, CD-CMP-09, CD-CMP-10 | The claims build: the lines in the GameTest log | Task 5: the lines in the logs of real servers |
-| CD-STK-07 | M1: the code, the GameTest and check 29 | Task 7: the text of the row or the code, by decision 13 |
-| CD-PLAT-06, CD-UI-03, CD-UI-09, CD-CMP-01, CD-CMP-03, CD-CMP-04, CD-CMP-05, CD-REL-01 | M0 to M5: automated parts, and Demos that never ran | Task 8: the Demos, by decision 14 |
+| CD-STK-07 | M1: the code, the GameTest and check 29 | Task 7: the text of the row and of `ARCHITECTURE.md`, by decision 13 |
+| CD-UI-03, CD-UI-09 | M1 and M5: unit tests, a GameTest and a Demo with two players that never ran | Task 7: checks 8 and 23 retire, because the rows now rest on code reading (decision 14) |
+| CD-PLAT-06, CD-CMP-01, CD-CMP-03, CD-CMP-04, CD-CMP-05, CD-REL-01 | M0 to M5: automated parts, and Demos that never ran | Task 8: the Demos, by decision 14 |
 
 ---
 
@@ -685,6 +695,8 @@ private fun placerMayUse(t: Tick, runtime: PastureRuntime, key: TargetKey): Bool
 }
 ```
 
+  - A shared claim of a logistics role (CD-CLM-10) is a work claim of its worker, so `claims.claimOf` returns it and the
+    same check releases it.
   - `assign` filters the pass before it builds the candidates: `val allowed = found.filter {
     LandClaims.ownerMayUse(runtime.placer, t.level, it.pos) }`, one check for each target of the pass (CD-LND-01).
   - `nearestFreeBed` skips a bed that the placer may not use, before `BedSelector.pick` (CD-LND-04).
@@ -1084,13 +1096,13 @@ CompatCase("compat_minecolonies", ("minecolonies", "structurize", "blockui", "do
 ### Task 7: Docs, wording and the SHOULD rows
 
 **Rows:** CD-LND-16 (the guide and the integration page), CD-REL-08 (the guide at the `v1.0.0` tag), CD-REL-11 (the
-notice), CD-STK-07 (by decision 13).
+notice), CD-STK-07 (the text, by decision 13), CD-UI-03 and CD-UI-09 (checks 8 and 23 retire, by decision 14).
 
 **Files:**
 - Modify: `docs/player-guide.md`, `docs/modpack-integration.md`, `README.md`, `ARCHITECTURE.md`, `gradle.properties`
+- Modify: `docs/plans/2026-11-09-v1-spec-sheet.md` (CD-STK-07), `docs/testing/manual-checklist.md` (checks 8 and 23)
 - Modify: `src/test/kotlin/codes/honor/cobblemondynamics/build/PlayerGuideTest.kt`
-- Modify, by decision 13: `docs/plans/2026-11-09-v1-spec-sheet.md` (CD-STK-07), or
-  `src/main/kotlin/codes/honor/cobblemondynamics/handler/vanilla/FurnaceHandler.kt` with its tests
+- Modify, in the wording step: the prose of the spec sheet, the plans, the ADRs, `ARCHITECTURE.md` and the testing docs
 
 - [ ] **Step 1: Failing unit test.** `PlayerGuideTest`: `CD-LND-16 the guide has a section Land claims`. The section
   names FTB Chunks, Open Parties and Claims and MineColonies, and it holds "while you are offline". `RepositoryFilesTest`
@@ -1108,12 +1120,14 @@ notice), CD-STK-07 (by decision 13).
   - `README.md`: the compatibility list names MineColonies, and the ADR table lists ADR-0014.
   - `ARCHITECTURE.md`: the sections of Step 1 of Task 7 of the claims plan, with `compat/minecolonies/`, the pasture
     question of the gate, and the checks in `poll`, `assign` and `nearestFreeBed`.
-  - `gradle.properties`: `mod_description=Pastured Cobblemon power and run the machines of your base.` (the wording
-    ruling).
-  - CD-STK-07, by decision 13. The recommendation: the row reads "keep the flame gauge full while the furnace cooks",
-    with a corrections entry, and `ARCHITECTURE.md` reads "`litTime = litDuration = 2`". The code and check 29 stay as
-    the approver play-tested them.
-  - The internal docs, by decision 15.
+  - CD-STK-07, by decision 13 (ruled): the row reads "keep the flame gauge full while the furnace cooks", with a
+    corrections entry, and the furnace line of `ARCHITECTURE.md` says that the handler raises `litTime` to 2 and sets
+    `litDuration` to 2 when `litTime` is below 2. The code and check 29 stay as the approver play-tested them.
+  - `docs/testing/manual-checklist.md`, by decision 14 (ruled): checks 8 (CD-UI-03) and 23 (CD-UI-09) retire in place, so
+    that the numbers of the other checks stay. Each keeps its number with one line that says the row rests on code
+    reading since the rulings of 2026-11-11, in a form that does not start with the bold row id. The pattern `CHECK` of
+    `scripts/gate_report.py` must not match the two new lines, so that the next report shows no checklist part for the
+    two rows.
   - CD-REL-11: the release notes of `v1.0.0` hold the notice, so that the approver can copy it to the pages of the sites.
 
 - [ ] **Step 3: Tools.** `RUNS` in `scripts/gate_report.py` gains the three claim runs, as Step 2 of Task 7 of the claims
@@ -1124,10 +1138,22 @@ notice), CD-STK-07 (by decision 13).
   of Task 7 of the claims plan gives, and equals the list of `scripts/check_plan_coverage.py`, with the rows of the
   logistics branch.
 
-- [ ] **Step 4: Run** `./gradlew build`, `py scripts/check_plan_coverage.py`, `--phase 2` and `--phase 3`. Every test passes,
+- [ ] **Step 4: Wording, the last docs step (decision 15, ruled).**
+  - `gradle.properties`: `mod_description=Pastured Cobblemon power and run the machines of your base.` NeoForge shows
+    this text in the mods list, so it is player-facing.
+  - The prose of the spec sheet, the plans, the ADRs, `ARCHITECTURE.md` and the testing docs says Cobblemon for the
+    creatures. The pass changes prose only. It never changes an API name in backticks (such as `Pokemon`,
+    `PokemonEntity` or `PokemonPastureBlockEntity`), a file name or path, a lang key, a quote, or the README's notice of
+    CD-REL-11, which `RepositoryFilesTest` reads ("The Pokémon Company").
+  - Find each case with `git grep -P "Pok\S{1,3}mon"`, because the grep of Git Bash misses the precomposed é in a class
+    such as `[eé]`.
+  - After the pass, run `check_spec_sheet.py`, the checker that the Checks section of the spec sheet names. Its counts do
+    not change.
+
+- [ ] **Step 5: Run** `./gradlew build`, `py scripts/check_plan_coverage.py`, `--phase 2` and `--phase 3`. Every test passes,
   and each mode prints `missing: 0`.
 
-- [ ] **Step 5: Commit and hand over.** `git commit -m "Document the claim checks of pastures and MineColonies [rag:2]"`. The
+- [ ] **Step 6: Commit and hand over.** `git commit -m "Document the claim checks of pastures and MineColonies [rag:2]"`. The
   coordinator opens the pull request of `m9-claims`. Its body holds the perf results of Task 2, the multiplayer check of
   Task 2, the facts that Task 4 proved, and the results of the three claim runs on the tip of the branch.
 
@@ -1136,8 +1162,8 @@ notice), CD-STK-07 (by decision 13).
 ### Task 8: The release gate and 1.0.0
 
 **Rows:** CD-REL-05 (the version), CD-REL-12 (check 41), CD-REL-14 (the release gate), CD-REL-15 (the pack), CD-REL-04
-(the tag and check 42), and the Demos of CD-PLAT-06, CD-UI-03, CD-UI-09, CD-CMP-01, CD-CMP-03, CD-CMP-04, CD-CMP-05 and
-CD-REL-01 (decision 14).
+(the tag and check 42), and the Demos of CD-PLAT-06, CD-CMP-01, CD-CMP-03, CD-CMP-04, CD-CMP-05 and CD-REL-01
+(decision 14).
 
 **Files:**
 - Modify: `gradle.properties` (`mod_version=1.0.0`)
@@ -1170,9 +1196,10 @@ CD-REL-01 (decision 14).
   - The coordinator checks check 41 (CD-REL-12): the release runs of `v1.0.0-alpha.1` and `v1.0.0-beta.1` ended, both
     GitHub releases are pre-releases, and the workflow published neither version to Modrinth or CurseForge. The
     approver's own upload of `1.0.0-beta.2` to CurseForge is not a run of the workflow.
-  - The approver runs checks 5, 36, 37, 38 and 39 in the play-test instance with the jars of the checklist, and the
-    spark run of known issue (d) of the Phase 1 gate.
-  - Checks 8 and 23 need a second player. They follow decision 14.
+  - The approver runs checks 5, 36, 37, 38 and 39 in the next play-test, in the play-test instance with the jars of the
+    checklist. The spark run of known issue (d) of the Phase 1 gate has no ruling yet, so the coordinator asks the
+    approver about it with the play-test.
+  - Checks 8 and 23 retired in Task 7, because CD-UI-03 and CD-UI-09 rest on code reading (decision 14).
 
 - [ ] **Step 6: The report.** Run `py scripts/gate_report.py --phase 3` with the saved outputs of Step 4. It writes
   `docs/testing/phase-3-gate.md` on the release commit. Every `MUST` and `MUST NOT` row passes there, except CD-REL-04 and
@@ -1185,21 +1212,28 @@ CD-REL-01 (decision 14).
 - [ ] **Step 8: The tag.** After the approver's go-ahead, the coordinator pushes `v1.0.0` on the merge commit. The release
   run builds the jar, makes a GitHub release that is not a pre-release, and shows the notices of the skipped sites. The
   approver uploads the jar to CurseForge by hand, with the optional relations to Create, Applied Energistics 2, FTB
-  Chunks, Open Parties and Claims and MineColonies. Record the run URL, its jobs and the CurseForge page in the report,
-  for check 42. CD-REL-15 completes when the next release of the approver's pack names Cobblemon Dynamics 1.0.0.
+  Chunks, Open Parties and Claims and MineColonies. Decision 12, pending the approver, says whether the approver also
+  uploads it to Modrinth. Record the run URL, its jobs and the page of each site in the report, for check 42. CD-REL-15
+  completes when the next release of the approver's pack names Cobblemon Dynamics 1.0.0.
 
 ---
 
 ## Design decisions for the approver
 
-The rulings of R67, R68 and R69 settle the features. This plan makes these further calls. The coordinator rules on them
-before Task 1, under the approver's delegation, and moves the LND rows to `agreed`.
+The rulings of R67, R68 and R69 settle the features. This plan made these further calls. On 2026-11-11, under the
+approver's delegation, the coordinator ruled on them and moved the LND rows to `agreed`:
+
+- Calls 1 to 11, 13, 15 and 16 stand as written below.
+- Call 14 changed, and the list below holds its new form. The corrections list of the spec sheet records the amendment
+  of CD-UI-03 and CD-UI-09.
+- Calls 12 and 17 are pending the approver. The coordinator relays the answers, and no row depends on them.
 
 1. **Whose rights: the placer.** The approved feature (R67) names "the pasture's owner", and the placer (`ownerId`) is the
-   owner of the pasture. The other forms are each worker's owner, or both. A binding also needs its binder's click (CD-SEC-11).
-2. **A refused binding clears.** It clears through the leash resets with a message to the binder. The other form keeps
-   the binding and holds the worker in Standby, but then the binding keeps reserving the block against the claim's own
-   players.
+   owner of the pasture. The other forms were each worker's owner, or both. A binding also needs its binder's click
+   (CD-SEC-11).
+2. **A refused binding clears.** It clears through the leash resets with the reason `land_claim` and a message to the
+   binder. The other form kept the binding and held the worker in Standby, but then the binding would keep reserving
+   the block against the claim's own players.
 3. **FTB Chunks by UUID copies the steps of its player check.** FTB Chunks has no check by UUID, and its player check
    shows the player its text. The oracle tests of Task 4 compare the copy with FTB Chunks for each tested version.
 4. **Open Parties and Claims by full access.** `hasChunkAccess` by UUID refuses the blocks of the exception lists, such
@@ -1216,24 +1250,26 @@ before Task 1, under the approver's delegation, and moves the LND rows to `agree
    2026-11-11.
 10. **No message for an auto-assigned worker.** The scan skips the target, and nobody asked for that target.
 11. **A pasture with no placer works no block in a land claim.**
-12. **Modrinth.** G9 names Modrinth and CurseForge. The approver uploads to CurseForge by hand, and the workflow uploads
-    to a site only with its settings. Does the approver also upload to Modrinth, or does 1.0.0 go to CurseForge only?
+12. **Modrinth: pending the approver.** G9 names Modrinth and CurseForge. The approver uploads to CurseForge by hand, and
+    the workflow uploads to a site only with its settings. The question for the approver: does the approver also upload
+    1.0.0 to Modrinth, or does 1.0.0 go to CurseForge only? Task 8 Step 8 follows the answer.
 13. **CD-STK-07.** The row says "set the burn duration to 1,600 ticks". The code keeps `litTime` and `litDuration` at 2
-    ticks, so the gauge reads full, and the approver play-tested that (check 29). The recommendation is to change the
-    text of the row and of `ARCHITECTURE.md`, not the code.
-14. **The Demos that never ran.** Checks 5, 8, 23 and 36 to 40 never ran, and CD-CMP-03 and CD-CMP-04 have no other test.
-    The recommendation: the coordinator runs checks 40 and 41, and the approver runs checks 5 and 36 to 39 in the
-    play-test instance. Checks 8 and 23 need two players, which the approver's ruling of 2026-11-10 ("no multiplayer game
-    tests") does not cover for Demos. Either the approver runs them with a second player, or the coordinator amends
-    CD-UI-03 and CD-UI-09 to the code reading of the multiplayer audit with a corrections entry.
+    ticks, so the gauge reads full, and the approver play-tested that (check 29). Task 7 changes the text of the row and
+    of `ARCHITECTURE.md`, not the code.
+14. **The Demos that never ran (changed by the coordinator).** Checks 5, 8, 23 and 36 to 40 never ran, and CD-CMP-03 and
+    CD-CMP-04 have no other test. By the approver's ruling of 2026-11-10 ("no multiplayer game tests, we don't have that
+    capacity"), CD-UI-03 and CD-UI-09 now rest on their automated tests and a code reading, so checks 8 and 23, which
+    need two players, retire in Task 7. The coordinator runs checks 40 and 41, and the approver runs checks 5 and 36 to
+    39 in the next play-test (Task 8 Step 5).
 15. **The internal docs.** The spec sheet, the plans, the ADRs, `ARCHITECTURE.md` and the testing docs still say Pokémon,
-    in about 274 lines. The recommendation: one commit of Task 7 replaces the word in prose, and keeps it in API names,
-    file names, quotes and the README's notice of CD-REL-11.
-16. **Quick Work review finding 4.** A Brain that cannot hold an order gets a message that blames the target. The
-    recommendation is to keep it a known issue for 1.0.0.
-17. **A play-test of 1.0.0.** CD-REL-14 needs the approver's play-test of a Phase 2 build, which the play of
-    `1.0.0-beta.3` gives. The pasture checks and MineColonies get automated tests only, unless the approver wants to play
-    the release candidate too.
+    in about 274 lines. The last docs step of Task 7 replaces the word in prose only. It keeps API names in backticks,
+    file names, lang keys, quotes and the README's notice of CD-REL-11.
+16. **Quick Work review finding 4.** A Brain that cannot hold an order gets a message that blames the target. It stays
+    a known issue for 1.0.0.
+17. **A play-test of the 1.0.0 candidate: pending the approver.** CD-REL-14 needs the approver's play-test of a Phase 2
+    build, which the play of `1.0.0-beta.3` gives. The pasture checks and MineColonies get automated tests only. The
+    question for the approver: do you want to play the release candidate before the `v1.0.0` tag? If so, Task 8 adds
+    that play-test before Step 7.
 
 ## Coverage check
 
