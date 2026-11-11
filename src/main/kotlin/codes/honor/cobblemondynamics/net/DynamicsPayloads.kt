@@ -1,6 +1,5 @@
 package codes.honor.cobblemondynamics.net
 
-import codes.honor.cobblemondynamics.client.ClientState
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.WorkModePolicy
@@ -27,15 +26,29 @@ object DynamicsPayloads {
     private val panelOpens = PlayerCooldown()
     private val toggleReplies = PlayerCooldown()
 
+    /** What a client does with the server's payloads. */
+    interface ClientHandlers {
+        fun onPanelState(payload: PasturePanelStatePayload)
+
+        fun onLeashOverview(payload: LeashOverviewPayload)
+    }
+
+    /**
+     * The client's handlers of the server-to-client payloads. The client class `ClientPayloads` installs them from `DynamicsClient`,
+     * so no common class names a client class. A dedicated server never receives these payloads and keeps none.
+     */
+    @Volatile
+    var clientHandlers: ClientHandlers? = null
+
     fun register(modBus: IEventBus) {
         modBus.addListener<RegisterPayloadHandlersEvent> { event ->
             val registrar = event.registrar(VERSION)
-            // Client handlers run only on a client, so the client classes that they call never load on a dedicated server.
+            // Both sides register every payload, so the server can encode what it sends. Only a client has handlers for these two.
             registrar.playToClient(PasturePanelStatePayload.TYPE, PasturePanelStatePayload.STREAM_CODEC) { payload, _ ->
-                ClientState.onPanelState(payload)
+                clientHandlers?.onPanelState(payload)
             }
             registrar.playToClient(LeashOverviewPayload.TYPE, LeashOverviewPayload.STREAM_CODEC) { payload, _ ->
-                ClientState.onLeashOverview(payload)
+                clientHandlers?.onLeashOverview(payload)
             }
             registrar.playToServer(WorkModeTogglePayload.TYPE, WorkModeTogglePayload.STREAM_CODEC) { payload, context ->
                 serverPlayer(context)?.let { onToggle(it, payload) }

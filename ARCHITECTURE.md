@@ -70,7 +70,7 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   net/                   payload definitions and handlers
   compat/                Cobbleworkers and Cobblebase shims
   command/               /cobblemondynamics operator commands
-  client/                pasture panel hooks, head bars, client state cache
+  client/                payload handlers, pasture panel hooks, head bars, client state cache
 src/main/java/codes/honor/cobblemondynamics/
   MixinState.java        which mixins injected their handler call; outside the mixin package,
                          because Mixin refuses to load a class of that package
@@ -354,6 +354,10 @@ game starts with every role.
 Our payloads use NeoForge `CustomPacketPayload` with a `StreamCodec`, registered in
 `RegisterPayloadHandlersEvent`. The server validates every client payload: permission, distance,
 ownership and rate.
+
+Both sides register every payload in common code (`net/DynamicsPayloads`), so the server can encode what it
+sends. The client's handlers of the two server-to-client payloads live in `client/ClientPayloads`, which
+`DynamicsClient` installs on the client dist only. No common class names a client class.
 
 | Payload id | Direction | Fields | When |
 |---|---|---|---|

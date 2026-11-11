@@ -7,6 +7,7 @@ import net.neoforged.neoforge.common.NeoForge
 /** Registers every client hook. The mod calls it only on the client dist, so no client class loads on a dedicated server. */
 object DynamicsClient {
     fun register(modBus: IEventBus) {
+        ClientPayloads.register()
         ClientEffects.register(modBus)
         PastureScreenHooks.register()
         HeldLeash.register()
