@@ -70,6 +70,13 @@ class ConfigTest {
     }
 
     @Test
+    fun `CD-CFG-19 logistics workers per container accept 1 to 16 and default to 5`() {
+        assertEquals(5, EngineSettings.DEFAULT.maxWorkersPerContainer)
+        for (n in listOf(1, 16)) assertTrue(ServerConfig.isValid(WORKERS_PER_CONTAINER, n), "$n is refused")
+        for (n in listOf(0, 17)) assertFalse(ServerConfig.isValid(WORKERS_PER_CONTAINER, n), "$n is accepted")
+    }
+
+    @Test
     fun `CD-QWK-35 the server config holds the keys of CD-CFG-01 and no other`() =
         assertEquals(CFG_01_KEYS.toSet(), keys(ServerConfig.SPEC.spec).toSet())
 
@@ -80,12 +87,14 @@ class ConfigTest {
     }
 
     private companion object {
+        const val WORKERS_PER_CONTAINER = "logistics.maxWorkersPerContainer"
+
         /** The keys of the spec's Config section, in the order that the config file writes them. The test pack looks for the same keys. */
         val CFG_01_KEYS = listOf(
             "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
             "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
             "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
-            "leash.pendingSelectionTicks", "quickWork.enabled", "quickWork.targetRange", "quickWork.leashRange",
+            "leash.pendingSelectionTicks", WORKERS_PER_CONTAINER, "quickWork.enabled", "quickWork.targetRange", "quickWork.leashRange",
             "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1", "stamina.healerRecoveryMinutesAtLevel100",
             "stamina.flushIntervalTicks", "beds.speedFactors", "heal.cost", "heal.lowStaminaThreshold", "roles.disabled",
             "compat.cobbleworkers", "compat.cobblebase",

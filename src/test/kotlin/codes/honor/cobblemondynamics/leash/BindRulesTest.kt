@@ -15,9 +15,13 @@ import java.util.UUID
 class BindRulesTest {
     private val stoker = role("stoker", setOf("fire"))
     private val transfer = role("telekinesis", setOf("psychic"), autoAssign = false)
+    private val magnet = role("magnet", setOf("steel"), autoAssign = false)
     private val shape: (RoleDefinition) -> BindingShape = {
         if (it == transfer) BindingShape.SOURCE_AND_DESTINATION else BindingShape.SINGLE
     }
+
+    /** The two logistics roles share their containers (CD-LSH-28). */
+    private val logistics: (RoleDefinition) -> Boolean = { it == transfer || it == magnet }
 
     private fun input(
         selection: LeashSelection? = LeashSelection(UUID.randomUUID(), "Charmander"),
@@ -31,6 +35,8 @@ class BindRulesTest {
         reach: Boolean = true,
         noSpot: String? = null,
         types: List<String> = emptyList(),
+        places: List<BindRules.Place> = emptyList(),
+        maxWorkers: Int = 5,
     ) = BindRules.Input(
         selection,
         owned,
@@ -44,6 +50,8 @@ class BindRulesTest {
         destinationInReach = reach,
         noSpotRefusal = noSpot,
         types = types,
+        places = places,
+        maxWorkers = maxWorkers,
     )
 
     /** A source click that waits for its destination, at a block other than the clicked one. */
@@ -52,8 +60,13 @@ class BindRulesTest {
     /** A Pokémon of the clicking player, with no nickname. */
     private fun own(species: String) = BindRules.Bound(species, species, ownedByPlayer = true)
 
+    private fun evaluate(input: BindRules.Input): BindRules.Outcome = BindRules.evaluate(input, shape, logistics)
+
     private fun refusal(input: BindRules.Input): BindRules.Outcome.Refuse =
-        assertInstanceOf(BindRules.Outcome.Refuse::class.java, BindRules.evaluate(input, shape))
+        assertInstanceOf(BindRules.Outcome.Refuse::class.java, evaluate(input))
+
+    /** A container of the binding at [at], where other bindings of logistics roles take [taken] places. */
+    private fun place(taken: Int, at: BlockPos = BlockPos.ZERO) = BindRules.Place(at, taken)
 
     @Test
     fun `CD-SEC-08 no server-side selection never binds`() {
@@ -109,11 +122,51 @@ class BindRulesTest {
     }
 
     @Test
-    fun `CD-LSH-17 a source outside the work area or bound to another Pokemon is refused at the first click`() {
+    fun `CD-LSH-17 a source outside the work area is refused at the first click`() =
         assertEquals("cobblemon_dynamics.leash.outside_area", refusal(input(roles = listOf(transfer), inside = false)).messageKey)
-        val assigned = refusal(input(roles = listOf(transfer), boundTo = own("Abra")))
-        assertEquals("cobblemon_dynamics.leash.already_assigned", assigned.messageKey)
+
+    /** A Pump's binding holds a Create basin, and a Telekinesis source click or a Magnet click on it still binds (CD-CLM-11). */
+    @Test
+    fun `CD-LSH-28 a logistics role binds a container that the exclusive binding of another Pokemon holds`() {
+        val source = evaluate(input(roles = listOf(transfer), boundTo = own("Vaporeon"), places = listOf(place(1))))
+        assertInstanceOf(BindRules.Outcome.AwaitDestination::class.java, source)
+        val collector = evaluate(input(roles = listOf(magnet), boundTo = own("Vaporeon"), places = listOf(place(1))))
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, collector)
     }
+
+    @Test
+    fun `CD-LSH-28 a logistics bind with a free place at each of its containers binds`() {
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, evaluate(input(roles = listOf(magnet), places = listOf(place(4)))))
+        val second = input(roles = listOf(transfer), pending = pending, places = listOf(place(4, pending.pos), place(4)))
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, evaluate(second))
+    }
+
+    @Test
+    fun `CD-LSH-29 a container with every place taken refuses a logistics bind and names the container and the cap`() {
+        val full = BindRules.Outcome.Refuse(BindRules.FULL, "5", BlockPos.ZERO)
+        assertEquals(full, refusal(input(roles = listOf(magnet), places = listOf(place(5)))), "the Magnet's container")
+        assertEquals(full, refusal(input(roles = listOf(transfer), places = listOf(place(5)))), "the Telekinesis source")
+        val destination = BlockPos(2, 0, 0)
+        val second = input(roles = listOf(transfer), pending = pending, places = listOf(place(3, pending.pos), place(5, destination)))
+        assertEquals(BindRules.Outcome.Refuse(BindRules.FULL, "5", destination), refusal(second), "the Telekinesis destination")
+    }
+
+    @Test
+    fun `CD-LSH-29 with a cap of 1 the refusal says that the container already has a worker`() = assertEquals(
+        BindRules.Outcome.Refuse(BindRules.FULL_ONE, "1", BlockPos.ZERO),
+        refusal(input(roles = listOf(magnet), places = listOf(place(1)), maxWorkers = 1)),
+    )
+
+    @Test
+    fun `CD-LSH-29 a machine role never counts places`() {
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, evaluate(input(places = listOf(place(5)))))
+    }
+
+    @Test
+    fun `CD-TLK-10 CD-LSH-29 a destination equal to the source is named before the places`() = assertEquals(
+        BindRules.DESTINATION_SAME,
+        refusal(input(roles = listOf(transfer), pending = pending, same = true, places = listOf(place(5), place(5)))).messageKey,
+    )
 
     @Test
     fun `CD-LSH-18 the second click binds source and destination`() {

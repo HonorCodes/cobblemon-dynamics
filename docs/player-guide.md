@@ -710,6 +710,7 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `engine.effectBroadcastRadius` | 64 | 16 to 128 | Blocks around a worker within which players receive its work effects. |
 | `workMode.toggleCooldownTicks` | 10 | 0 to 200 | Ticks after a player's accepted Work Mode change during which the server ignores that player's next change. |
 | `leash.pendingSelectionTicks` | 600 | 100 to 6,000 | Ticks that the Work Leash keeps a pending source before it clears it. No role in this guide uses a pending source. |
+| `logistics.maxWorkersPerContainer` | 5 | 1 to 16 | Most Cobblemon of the [Magnet](#magnet) and [Telekinesis](#telekinesis) roles that use one container at once, together. A double chest or a Create item vault is one container. |
 | `quickWork.enabled` | `true` | `true`, `false` | Turns [Quick Work](#quick-work) on or off. With `false`, a send-out never starts Quick Work. |
 | `quickWork.targetRange` | 16 | 2 to 24 | Blocks that your view reaches to find the block for Quick Work. Never more than `quickWork.leashRange`. |
 | `quickWork.leashRange` | 16 | 2 to 24 | Blocks between your eyes and the block at which Quick Work stops. |

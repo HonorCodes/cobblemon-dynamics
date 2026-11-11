@@ -17,6 +17,8 @@
   "cobblemon_dynamics.leash.select_destination": "Select a destination for %s",
   "cobblemon_dynamics.leash.destination_same": "Destination must differ from the source",
   "cobblemon_dynamics.leash.too_far": "Too far from its pasture",
+  "cobblemon_dynamics.leash.full": "%s already has %s workers",
+  "cobblemon_dynamics.leash.full_one": "%s already has a worker",
   "cobblemon_dynamics.leash.no_room_in_front": "No room in front of the fan",
   "cobblemon_dynamics.leash.cannot_reach": "%s cannot reach %s",
   "cobblemon_dynamics.leash.selected": "Selected %s",

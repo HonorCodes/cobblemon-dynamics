@@ -30,6 +30,7 @@ object ServerConfig {
     private val quickWorkEnabled: ModConfigSpec.BooleanValue
     private val quickWorkTargetRange: ModConfigSpec.IntValue
     private val quickWorkLeashRange: ModConfigSpec.IntValue
+    private val maxWorkersPerContainer: ModConfigSpec.IntValue
 
     val SPEC: ModConfigSpec
 
@@ -106,6 +107,15 @@ object ServerConfig {
             d.pendingSelectionTicks,
             ConfigRanges.PENDING_SELECTION,
             "Ticks that a Work Leash keeps a pending selection before it clears it.",
+        )
+        b.pop()
+
+        b.comment("The logistics roles, the Magnet and Telekinesis, share their containers.").push("logistics")
+        maxWorkersPerContainer = b.int(
+            "maxWorkersPerContainer",
+            d.maxWorkersPerContainer,
+            ConfigRanges.WORKERS_PER_CONTAINER,
+            "Most workers of logistics roles on one container at once: as a Magnet's container, a Telekinesis source or destination.",
         )
         b.pop()
 
@@ -221,6 +231,7 @@ object ServerConfig {
         quickWorkEnabled = quickWorkEnabled.get(),
         quickWorkTargetRange = quickWorkTargetRange.get(),
         quickWorkLeashRange = quickWorkLeashRange.get(),
+        maxWorkersPerContainer = maxWorkersPerContainer.get(),
     )
 
     fun hasKey(path: String): Boolean = SPEC.spec.contains(path)

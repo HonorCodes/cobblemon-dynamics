@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
@@ -24,7 +25,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 class MagnetTests {
     private val chestRel = BlockPos(11, 2, 8)
 
-    private class Scene(val owner: ServerPlayer, val worker: PokemonEntity)
+    private class Scene(val owner: ServerPlayer, val pasture: PokemonPastureBlockEntity, val worker: PokemonEntity)
 
     /** A chest at [chestRel], a Work Mode pasture at (11, 1, 11) with one Pokémon of [spec], and its owner beside the pasture. */
     private fun scene(helper: GameTestHelper, spec: String): Scene {
@@ -33,7 +34,7 @@ class MagnetTests {
         val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 11), owner)
         TestKit.workMode(pasture, true)
         TestKit.standBeside(owner, pasture)
-        return Scene(owner, TestKit.tether(helper, pasture, owner, spec))
+        return Scene(owner, pasture, TestKit.tether(helper, pasture, owner, spec))
     }
 
     /** An item entity of [stack] at the bottom center of [rel], with no motion and no pickup delay. */
@@ -146,5 +147,48 @@ class MagnetTests {
                 helper.assertTrue(stack.isAlive, "the dirt left the ground, so the Standby proves nothing about the full chest")
             }
             .thenSucceed()
+    }
+
+    /**
+     * The approver's flow (CD-MAG-09, CD-CLM-10, CD-LSH-28): 256 andesite lie on the ground. A Lv50 Klink binds chest A and collects the
+     * andesite into it, and a Lv50 Alakazam binds chest A as its source and chest B as its destination. Both binds succeed, both
+     * workers Work in the same tick under shared claims on chest A, the andesite on the ground and in both chests adds up to 256 on
+     * every tick, and chest B ends with all of it.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 900)
+    fun cdMag09Clm10MagnetFillsTheChestThatTelekinesisEmpties(helper: GameTestHelper) {
+        val chestB = BlockPos(5, 2, 5)
+        val scene = scene(helper, "klink level=50")
+        helper.setBlock(chestB, Blocks.CHEST)
+        val alakazam = TestKit.tether(helper, scene.pasture, scene.owner, "alakazam level=50")
+        val collector = TestKit.bind(helper, scene.owner, scene.worker, chestRel)
+        helper.assertTrue(collector != null, "CD-MAG-01: the Klink's bind to chest A answered '${TestKit.lastMessage(scene.owner)}'")
+        val mover = TestKit.bindTransfer(helper, scene.owner, alakazam, chestRel, chestB)
+        val ends = mover?.target == helper.absolutePos(chestRel) && mover.destination == helper.absolutePos(chestB)
+        helper.assertTrue(ends, "CD-LSH-28: the Alakazam's bind gave $mover and answered '${TestKit.lastMessage(scene.owner)}'")
+        for (rel in listOf(BlockPos(14, 2, 13), BlockPos(16, 2, 13), BlockPos(14, 2, 15), BlockPos(16, 2, 15))) {
+            drop(helper, rel, ItemStack(Items.ANDESITE, 64))
+        }
+        val chestA = TestKit.keyOf(helper, helper.absolutePos(chestRel))
+        val workers = listOf(scene.worker, alakazam)
+        val expected = 4 * 64
+        fun total(): Int = TestKit.countOnTheGround(helper, Items.ANDESITE) + TestKit.countIn(helper, chestRel, Items.ANDESITE) +
+            TestKit.countIn(helper, chestB, Items.ANDESITE)
+        var together = false
+        helper.onEachTick {
+            helper.assertTrue(total() == expected, "CD-MAG-09: the andesite adds up to ${total()}, not $expected")
+            if (workers.any { TestKit.workerOf(helper, it)?.status != WorkerStatus.WORKING }) return@onEachTick
+            for (worker in workers) {
+                val claim = TestKit.claimOf(helper, worker)
+                val onChestA = claim?.key == chestA && claim.shared
+                helper.assertTrue(onChestA, "CD-CLM-10: the ${worker.pokemon.species.name} Works under $claim")
+            }
+            together = true
+        }
+        helper.succeedWhen {
+            helper.assertTrue(together, "CD-MAG-09: the Klink and the Alakazam have not Worked in the same tick")
+            val moved = TestKit.countIn(helper, chestB, Items.ANDESITE)
+            helper.assertTrue(moved == expected, "CD-MAG-09: chest B holds $moved of the $expected andesite")
+        }
     }
 }

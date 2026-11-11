@@ -79,22 +79,24 @@ object LeashResets {
 
     /**
      * CD-UI-17: clears every binding whose target, or Telekinesis source, is the block at [pos] in [level], as the Work Leash finds that
-     * block: [pos] itself and the canonical block of each role whose handler matches it, such as the centre of a large water wheel. Each
-     * binder gets the chat message with the reason [CLEARED_BY_OPERATOR]. An entry whose Pokémon is gone loses only its reservation.
+     * block: [pos] itself and the canonical block of each role whose handler matches it, such as the centre of a large water wheel. A
+     * container of logistics roles can hold several. Each binder gets the chat message with the reason [CLEARED_BY_OPERATOR]. An entry
+     * whose Pokémon is gone loses only its reservation.
      */
     fun clearAt(level: ServerLevel, pos: BlockPos): List<Unbound> {
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return emptyList()
         val dimension = level.dimension().location()
-        return keysAt(level, pos).mapNotNull { key ->
-            val ref = index.get(key) ?: return@mapNotNull null
-            val pokemon = find(level.server, ref)
-            val binding = pokemon?.let(BindingStore::read)
-            if (pokemon != null && binding?.dimension == dimension && binding.target == key) {
-                clear(level.server, pokemon, CLEARED_BY_OPERATOR)
-            } else {
-                unindex(level, key, ref.pokemonId)
+        return keysAt(level, pos).flatMap { key ->
+            index.at(key).map { ref ->
+                val pokemon = find(level.server, ref)
+                val binding = pokemon?.let(BindingStore::read)
+                if (pokemon != null && binding?.dimension == dimension && binding.target == key) {
+                    clear(level.server, pokemon, CLEARED_BY_OPERATOR)
+                } else {
+                    unindex(level, key, ref.pokemonId)
+                }
+                Unbound(key, ref, pokemon)
             }
-            Unbound(key, ref, pokemon)
         }
     }
 
@@ -136,16 +138,20 @@ object LeashResets {
         BindingStore.write(pokemon, binding.copy(roleId = next.id))
         val level = levelOf(server, binding.dimension) ?: return true
         val index = level.getData(DynamicsAttachments.LEASH_INDEX)
-        index.get(binding.target)?.takeIf { it.pokemonId == pokemon.uuid }?.let { index.put(binding.target, it.copy(roleId = next.id)) }
+        index.at(binding.target).firstOrNull { it.pokemonId == pokemon.uuid }?.let { index.put(binding.target, it.copy(roleId = next.id)) }
         level.setData(DynamicsAttachments.LEASH_INDEX, index)
         return true
     }
 
-    /** Removes the index entry of [target] when it belongs to [pokemonId]. */
+    /** Removes the index entry of [pokemonId] at [target]. */
     fun unindex(level: ServerLevel, target: BlockPos, pokemonId: UUID) {
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return
-        if (index.get(target)?.pokemonId != pokemonId) return
-        index.remove(target)
+        if (index.remove(target, pokemonId)) level.setData(DynamicsAttachments.LEASH_INDEX, index)
+    }
+
+    private fun reindex(level: ServerLevel, target: BlockPos, ref: LeashIndex.Ref) {
+        val index = level.getData(DynamicsAttachments.LEASH_INDEX)
+        index.put(target, ref)
         level.setData(DynamicsAttachments.LEASH_INDEX, index)
     }
 
@@ -169,7 +175,10 @@ object LeashResets {
                 val reason = if (tethered == null && found != null && PastureAdapter.isTethered(found)) OTHER_PASTURE else LEFT_PASTURE
                 return lost(level, target, ref, reason, found)
             }
-            if (BindingStore.read(pokemon)?.target != target) return unindex(level, target, ref.pokemonId)
+            val bound = BindingStore.read(pokemon)
+            if (bound == null || bound.target != target) return unindex(level, target, ref.pokemonId)
+            // An entry from before the index named destinations gets its destination here, so that its place counts (CD-LSH-29).
+            if (bound.destination != ref.destination) reindex(level, target, ref.copy(destination = bound.destination))
             if (!recheckRole(level.server, pokemon)) return
             // CD-TLK-11: a two-target binding also ends when its destination is broken or replaced.
             val destination = BindingStore.read(pokemon)?.destination

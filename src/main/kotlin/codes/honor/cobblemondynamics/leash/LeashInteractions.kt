@@ -118,7 +118,15 @@ object LeashInteractions {
         val canonical = best?.let { role -> guarded(role.handler, clicked) { role.handler.canonical(level, clicked) } } ?: clicked
         // The checks of a source-and-destination binding are the source's, and the destination is the clicked block.
         val source = pending?.pos ?: canonical
-        val other = otherBound(level, source, selection?.pokemonId)
+        val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)
+        // CD-LSH-28: a bind of an exclusive role meets only the bindings of exclusive roles. A logistics bind counts places (CD-LSH-29).
+        val other = index?.exclusiveAt(source, RoleRegistry::sharesTargets)?.let { otherBound(level, it, selection?.pokemonId) }
+        val ends = if (pending == null) listOf(canonical) else listOf(pending.pos, canonical)
+        val places = if (index != null && best?.handler?.sharesTargets == true) {
+            ends.map { BindRules.Place(it, index.placesAt(it, selection?.pokemonId, RoleRegistry::sharesTargets)) }
+        } else {
+            emptyList()
+        }
         val input = BindRules.Input(
             selection = selection,
             pokemonOwnedByPlayer = pokemon != null,
@@ -139,8 +147,14 @@ object LeashInteractions {
                     WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
             },
             types = types,
+            places = places,
+            maxWorkers = WorkEngineSettings.current.maxWorkersPerContainer,
         )
-        val outcome = BindRules.evaluate(input) { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE }
+        val outcome = BindRules.evaluate(
+            input,
+            shapeOf = { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE },
+            sharesOf = { def -> RoleRegistry.sharesTargets(def.id) },
+        )
         when (outcome) {
             is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other?.pokemon)
 
@@ -201,9 +215,8 @@ object LeashInteractions {
         fun seenBy(player: UUID) = BindRules.Bound(pokemon.getDisplayName().string, pokemon.species.name, ownedByPlayer = owner == player)
     }
 
-    /** The Pokémon bound to [target], when it is not [selected]. An entry whose Pokémon is gone is LeashResets' to clear. */
-    private fun otherBound(level: ServerLevel, target: BlockPos, selected: UUID?): OtherBound? {
-        val ref = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.get(target) ?: return null
+    /** The Pokémon of the index entry [ref], when it is not [selected]. An entry whose Pokémon is gone is LeashResets' to clear. */
+    private fun otherBound(level: ServerLevel, ref: LeashIndex.Ref, selected: UUID?): OtherBound? {
         if (ref.pokemonId == selected) return null
         val access = level.registryAccess()
         val pokemon = Cobblemon.storage.getPC(ref.owner, access)[ref.pokemonId]
@@ -217,6 +230,7 @@ object LeashInteractions {
         val message = when (refusal.messageKey) {
             BindRules.ALREADY_ASSIGNED -> Component.translatable(refusal.messageKey, other?.getDisplayName() ?: refusal.arg)
             BindRules.ALREADY_ASSIGNED_OTHER -> Component.translatable(refusal.messageKey, other?.species?.translatedName ?: refusal.arg)
+            BindRules.FULL, BindRules.FULL_ONE -> Component.translatable(refusal.messageKey, containerName(player, refusal.at), refusal.arg)
             else -> Component.translatable(refusal.messageKey)
         }
         // A selection that the server no longer finds as the player's, for example after a trade, is stale.
@@ -224,13 +238,17 @@ object LeashInteractions {
         Feedback.actionBar(player, message)
     }
 
+    /** CD-LSH-29: the full container of a refusal by its block's name. */
+    private fun containerName(player: ServerPlayer, pos: BlockPos?): Any =
+        pos?.let { player.serverLevel().getBlockState(it).block.name } ?: ""
+
     /** CD-LSH-11: the new binding replaces the old one, and the old target is no longer reserved. */
     private fun bind(player: ServerPlayer, level: ServerLevel, pokemon: Pokemon, binding: Binding) {
         val old = BindingStore.read(pokemon)
         if (old != null) LeashResets.levelOf(player.server, old.dimension)?.let { LeashResets.unindex(it, old.target, pokemon.uuid) }
         BindingStore.write(pokemon, binding)
         val index = level.getData(DynamicsAttachments.LEASH_INDEX)
-        index.put(binding.target, LeashIndex.Ref(pokemon.uuid, player.uuid, binding.pasture, binding.roleId))
+        index.put(binding.target, LeashIndex.Ref(pokemon.uuid, player.uuid, binding.pasture, binding.roleId, binding.destination))
         level.setData(DynamicsAttachments.LEASH_INDEX, index)
         WorkEngine.get()?.onBound(level, pokemon.uuid, binding)
         val target = level.getBlockState(binding.target).block.name

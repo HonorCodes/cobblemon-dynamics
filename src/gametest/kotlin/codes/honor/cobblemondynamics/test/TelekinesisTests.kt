@@ -390,4 +390,48 @@ class TelekinesisTests {
         helper.assertTrue(bound?.destination == helper.absolutePos(inReach), "CD-TLK-12: the barrel at offset 32 gave $bound")
         helper.succeed()
     }
+
+    /**
+     * Two Psychic-types share one source (CD-LSH-28, CD-TLK-13): an Alakazam and an Espeon bind one chest of 256 granite, the Alakazam
+     * to barrel A and the Espeon to barrel B. Each bind keeps its own destination, both workers Work in the same tick under shared claims
+     * on the chest, the granite in the chest, in both barrels and on the ground adds up to 256 on every tick, and each barrel gets some.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun cdTlk13Lsh28TwoPsychicTypesShareOneSource(helper: GameTestHelper) {
+        val chestRel = BlockPos(7, 2, 4)
+        val barrels = listOf(BlockPos(3, 2, 4), BlockPos(11, 2, 4))
+        helper.setBlock(chestRel, Blocks.CHEST)
+        val chest = helper.getBlockEntity<ChestBlockEntity>(chestRel)
+        for (slot in 0 until 4) chest.setItem(slot, ItemStack(Items.GRANITE, 64))
+        for (rel in barrels) helper.setBlock(rel, Blocks.BARREL)
+        val scene = scene(helper, "alakazam level=25")
+        val workers = listOf(scene.worker, TestKit.tether(helper, scene.pasture, scene.owner, "espeon level=25"))
+        for ((worker, barrelRel) in workers.zip(barrels)) {
+            val binding = TestKit.bindTransfer(helper, scene.owner, worker, chestRel, barrelRel)
+            val ends = binding?.target == helper.absolutePos(chestRel) && binding.destination == helper.absolutePos(barrelRel)
+            val reply = TestKit.lastMessage(scene.owner)
+            helper.assertTrue(ends, "CD-LSH-28: the bind of the ${worker.pokemon.species.name} gave $binding and answered '$reply'")
+        }
+        val source = TestKit.keyOf(helper, helper.absolutePos(chestRel))
+        val expected = 4 * 64
+        fun total(): Int = TestKit.countIn(helper, chestRel, Items.GRANITE) + TestKit.countOnTheGround(helper, Items.GRANITE) +
+            barrels.sumOf { TestKit.countIn(helper, it, Items.GRANITE) }
+        var together = false
+        helper.onEachTick {
+            helper.assertTrue(total() == expected, "CD-TLK-13: the granite adds up to ${total()}, not $expected")
+            if (workers.any { TestKit.workerOf(helper, it)?.status != WorkerStatus.WORKING }) return@onEachTick
+            for (worker in workers) {
+                val claim = TestKit.claimOf(helper, worker)
+                val onSource = claim?.key == source && claim.shared
+                helper.assertTrue(onSource, "CD-CLM-10: the ${worker.pokemon.species.name} Works under $claim")
+            }
+            together = true
+        }
+        helper.succeedWhen {
+            helper.assertTrue(together, "CD-TLK-13: the Alakazam and the Espeon have not Worked in the same tick")
+            val moved = barrels.map { TestKit.countIn(helper, it, Items.GRANITE) }
+            val shared = moved.all { it > 0 } && moved.sum() == expected
+            helper.assertTrue(shared, "CD-TLK-13: the barrels hold $moved of the $expected granite")
+        }
+    }
 }

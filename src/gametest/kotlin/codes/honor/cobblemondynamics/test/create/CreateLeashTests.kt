@@ -46,7 +46,7 @@ class CreateLeashTests {
         val stored = Cobblemon.storage.getPC(owner)[entity.pokemon.uuid]
         helper.assertTrue(stored != null && BindingStore.read(stored) == null, "the binding remains 20 ticks after $cause")
         val index = helper.level.getData(DynamicsAttachments.LEASH_INDEX)
-        helper.assertTrue(index.get(target) == null, "the target is still reserved 20 ticks after $cause")
+        helper.assertTrue(index.at(target).isEmpty(), "the target is still reserved 20 ticks after $cause")
     }
 
     @GameTest(template = "floor_15x6x15", timeoutTicks = 400)

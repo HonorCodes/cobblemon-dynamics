@@ -203,9 +203,9 @@ object TestKit {
     /** The last message that the mod sent [player], such as the action bar reply to a leash click. */
     fun lastMessage(player: ServerPlayer): String? = messages(player).lastOrNull()
 
-    /** The leash binding that reserves the block target at [pos], as the level's leash index holds it. */
+    /** The first leash binding on the block target at [pos], as the level's leash index holds it. Only a container holds more. */
     fun reservationAt(helper: GameTestHelper, pos: BlockPos): LeashIndex.Ref? =
-        helper.level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.get(pos)
+        helper.level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.at(pos)?.firstOrNull()
 
     /** Puts [player] 2 blocks east of the pasture block, in reach of its Work Mode button. */
     fun standBeside(player: ServerPlayer, pasture: PokemonPastureBlockEntity) {

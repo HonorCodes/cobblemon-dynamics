@@ -69,8 +69,11 @@ import java.util.UUID
  * states. Runs on the server thread only, and holds nothing that a restart keeps (CD-CLM-07).
  */
 class WorkEngine private constructor(val server: MinecraftServer) {
-    /** A block target that a leash binding reserves belongs to its bound worker, read from the target level's index (CD-CLM-06). */
-    val claims = ClaimRegistry { key -> reservedFor(key) }
+    /**
+     * A block target that a binding of an exclusive role reserves belongs to its bound worker, read from the target level's index
+     * (CD-CLM-06). A target takes up to `logistics.maxWorkersPerContainer` shared claims of logistics roles (CD-CLM-10).
+     */
+    val claims = ClaimRegistry({ WorkEngineSettings.current.maxWorkersPerContainer }) { key -> reservedFor(key) }
 
     private val pastures = LinkedHashMap<PastureKey, PastureRuntime>()
     private val slots = HashMap<UUID, WorkerSlot>()
@@ -185,12 +188,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /**
-     * A new binding takes its target from any other worker in this tick (CD-CLM-05). The bound worker's pasture polls on the next
-     * engine tick, which ends the worker's claim elsewhere and claims the bound target.
+     * A new binding of an exclusive role takes its target from any other worker in this tick (CD-CLM-05). A binding of a logistics role
+     * takes nothing, because its claim is shared (CD-CLM-11). The bound worker's pasture polls on the next engine tick, which ends the
+     * worker's claim elsewhere and claims the bound target.
      */
     fun onBound(level: ServerLevel, pokemonId: UUID, binding: Binding) {
         val t = tick(level)
-        val holder = claims.holderOf(TargetKey.block(t.dimension, binding.target))
+        val shared = RoleRegistry.sharesTargets(binding.roleId)
+        val holder = if (shared) null else claims.holderOf(TargetKey.block(t.dimension, binding.target))
         if (holder != null && holder.worker != pokemonId) {
             val slot = slots[holder.worker]
             if (slot != null) release(t, slot) else claims.release(holder.worker)
@@ -549,6 +554,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     ): Attempt {
         val worker = slot.worker
         val key = TargetKey.block(t.dimension, target)
+        val shared = role.handler.sharesTargets
+        // CD-CLM-10: a container whose places are all taken refuses before the spot search and its path checks.
+        if (shared && !claims.hasPlace(key)) return Attempt.REFUSED
         val own = worker.spot?.asLong()
         val entity = slot.entity
         val others = if (own == null) taken else taken - own
@@ -563,7 +571,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             release(t, slot)
             own?.let(taken::remove)
         }
-        if (claims.tryClaim(worker.pokemonId, key, ClaimKind.WORK, site.pastureKey, t.now) !is ClaimResult.Granted) return Attempt.REFUSED
+        val granted = claims.tryClaim(worker.pokemonId, key, ClaimKind.WORK, site.pastureKey, t.now, shared)
+        if (granted !is ClaimResult.Granted) return Attempt.REFUSED
         taken += spot.asLong()
         worker.target = target
         worker.spot = spot
@@ -1056,10 +1065,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         )
     }
 
+    /** CD-CLM-11: only a binding of an exclusive role reserves its target. */
     private fun reservedFor(key: TargetKey): UUID? {
         val block = key as? TargetKey.Block ?: return null
         val level = server.getLevel(ResourceKey.create(Registries.DIMENSION, block.dimension)) ?: return null
-        return level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.get(BlockPos.of(block.pos))?.pokemonId
+        val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return null
+        return index.exclusiveAt(BlockPos.of(block.pos), RoleRegistry::sharesTargets)?.pokemonId
     }
 
     companion object {

@@ -11,6 +11,7 @@ object ConfigRanges {
     val TOGGLE_COOLDOWN = 0..200
     val PENDING_SELECTION = 100..6_000
     val QUICK_WORK_RANGE = 2..24
+    val WORKERS_PER_CONTAINER = 1..16
     val TICKS_PER_LEVEL = 20..72_000
     val HEALER_MINUTES = 1..10_000
     val FLUSH_INTERVAL = 20..12_000
