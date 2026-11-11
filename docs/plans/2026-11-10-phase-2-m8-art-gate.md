@@ -1009,6 +1009,12 @@ pixels
 - [ ] **Step 1: Write the source,** then run `py scripts/art.py build` and `py scripts/art.py review`, and look at
   `build/art-review/textures-item-work-leash-pixels.png`. Refine the rope's twist and the clasp until the icon reads as a
   lead with a clasp at 1×.
+
+  **As drawn (2026-11-11).** At inventory scale the draft read as a racket: a round loop on a short straight handle. The
+  committed source keeps the concept but lets the rope arc over from the handle loop and hang into the clasp, so the lead
+  reads as flexible. The clasp is 8 × 8 with a two-pixel button on its band. Each material has an outline in its own dark
+  hue, as Cobblemon's items have: dark brown on the rope, dark red on the clasp's top, dark grey on its bottom. The rope
+  has four tones and the clasp's red four, so the palette has 15 colors.
 - [ ] **Step 2: Run** `py scripts/art.py check --references auto`: `CASE cd-art-09: PASS` and `ART CHECK PASS`.
 - [ ] **Step 3: Multiplayer check.** An item texture holds no state.
 - [ ] **Step 4: Commit:** `git commit -m "Draw the Work Leash in Cobblemon's item style"`.
