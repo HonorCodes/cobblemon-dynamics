@@ -84,8 +84,8 @@ class FanCatalystTests {
 
     /**
      * Stone fills the block in front of a fan that faces east, so the owner's bind of a Charmander to the fan refuses with its message
-     * and binds nothing (CD-FAN-04). The bind waits until the engine knows the Charmander, because the spot check reads the worker's
-     * entity from the engine and passes while the engine has none.
+     * and binds nothing (CD-FAN-04). The first bind comes on the tick of the tether, before the engine's poll knows the Charmander,
+     * and the second after the poll.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
     fun cdFan04StoneInFrontRefusesTheBind(helper: GameTestHelper) {
@@ -94,14 +94,17 @@ class FanCatalystTests {
         helper.setBlock(fanRel.east(), Blocks.STONE)
         val scene = scene(helper)
         val charmander = TestKit.tether(helper, scene.pasture, scene.owner, "charmander level=20")
+        fun assertRefused(moment: String) {
+            val binding = TestKit.bind(helper, scene.owner, charmander, fanRel)
+            helper.assertTrue(binding == null, "CD-FAN-04: the bind $moment gave $binding")
+            val reply = TestKit.lastMessage(scene.owner)
+            helper.assertTrue(reply == "No room in front of the fan", "CD-FAN-04: the bind $moment answered '$reply'")
+        }
+        helper.assertTrue(TestKit.workerOf(helper, charmander) == null, "the engine knew the Charmander on the tick of its tether")
+        assertRefused("before the engine's poll")
         helper.startSequence()
             .thenWaitUntil { helper.assertTrue(TestKit.workerOf(helper, charmander) != null, "the engine has no Charmander yet") }
-            .thenExecute {
-                val binding = TestKit.bind(helper, scene.owner, charmander, fanRel)
-                helper.assertTrue(binding == null, "CD-FAN-04: the bind with stone in front of the fan gave $binding")
-                val reply = TestKit.lastMessage(scene.owner)
-                helper.assertTrue(reply == "No room in front of the fan", "CD-FAN-04: the bind answered '$reply'")
-            }
+            .thenExecute { assertRefused("after the engine's poll") }
             .thenSucceed()
     }
 

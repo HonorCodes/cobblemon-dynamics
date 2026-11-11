@@ -1320,6 +1320,12 @@ this paragraph's first three words, so keep them.
 - [ ] **Step 1: Write the deferred GameTests** above, each as its row's acceptance test states it. Run
   `./gradlew runGameTestServer` twice in a row.
 
+  **As built (2026-11-11).** The first run found a gap in CD-FAN-04. A bind of a newly pastured Pokémon went through until
+  the pasture's next poll, because `WorkEngine.hasSpot` passed while the engine had no entity for the Pokémon. `hasSpot` now
+  finds that entity among the pasture's tethered entities (`PastureAdapter.tetheredEntity`). It passes only when no entity
+  exists. `cdFan04StoneInFrontRefusesTheBind` binds on the tick of the tether and again after the poll, and both binds
+  refuse.
+
 - [ ] **Step 2: Failing test.** `ManualChecklistTest` drops its area filter, so it counts the Phase 2 Demo rows:
 
 ```kotlin

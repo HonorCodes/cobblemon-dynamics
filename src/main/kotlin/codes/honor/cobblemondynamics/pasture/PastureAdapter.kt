@@ -50,6 +50,12 @@ object PastureAdapter {
         .firstOrNull { it.pokemonId == pokemonId }
         ?.let { TetheredPokemon(it.pokemonId, it.playerId, it.getPokemon(), null) }
 
+    /** The entity of [pokemonId] that is tethered to the pasture at [pos], as [tethered] finds it, or null. */
+    fun tetheredEntity(level: ServerLevel, pos: BlockPos, pokemonId: UUID): PokemonEntity? {
+        val be = pastureAt(level, pos) ?: return null
+        return tethered(be).firstOrNull { it.pokemonId == pokemonId }?.entity
+    }
+
     fun pastureOf(entity: PokemonEntity): BlockPos? = entity.tethering?.pasturePos
 
     /** True while [pokemon] is tethered to some pasture. */
