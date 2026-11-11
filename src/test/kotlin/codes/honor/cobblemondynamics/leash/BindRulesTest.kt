@@ -28,7 +28,22 @@ class BindRulesTest {
         pending: PendingSource? = null,
         same: Boolean = false,
         reach: Boolean = true,
-    ) = BindRules.Input(selection, owned, workMode, roles, BlockPos.ZERO, inside, boundTo, pending, same, destinationInReach = reach)
+        noSpot: String? = null,
+        types: List<String> = emptyList(),
+    ) = BindRules.Input(
+        selection,
+        owned,
+        workMode,
+        roles,
+        BlockPos.ZERO,
+        inside,
+        boundTo,
+        pending,
+        same,
+        destinationInReach = reach,
+        noSpotRefusal = noSpot,
+        types = types,
+    )
 
     /** A source click that waits for its destination, at a block other than the clicked one. */
     private val pending = PendingSource(OVERWORLD, BlockPos(1, 0, 0), Direction.UP, 0)
@@ -137,6 +152,27 @@ class BindRulesTest {
         BindRules.DESTINATION_SAME,
         refusal(input(roles = listOf(transfer), pending = pending, same = true, reach = false)).messageKey,
     )
+
+    @Test
+    fun `CD-FAN-04 a target with no room for the worker refuses with the handler's message`() = assertEquals(
+        "cobblemon_dynamics.leash.no_room_in_front",
+        refusal(input(noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
+    )
+
+    @Test
+    fun `CD-FAN-04 a target bound to another Pokemon is named before the room`() = assertEquals(
+        BindRules.ALREADY_ASSIGNED,
+        refusal(input(boundTo = own("Charmander"), noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
+    )
+
+    /** Ruling 1 of the Phase 2 plan: a Chandelure, Ghost and Fire, is a ghost Fan Catalyst, though `fire` sorts first. */
+    @Test
+    fun `CD-LSH-16 with ruling 1 a Ghost and Fire type binds the ghost Fan Catalyst`() {
+        val fire = role("fan_catalyst_fire", setOf("fire"), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+        val ghost = role("fan_catalyst_ghost", setOf("ghost"), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")
+        val outcome = BindRules.evaluate(input(roles = listOf(fire, ghost), types = listOf("ghost", "fire")), shape)
+        assertEquals(ghost, assertInstanceOf(BindRules.Outcome.Bind::class.java, outcome).role)
+    }
 
     private companion object {
         val OVERWORLD: ResourceLocation = ResourceLocation.withDefaultNamespace("overworld")

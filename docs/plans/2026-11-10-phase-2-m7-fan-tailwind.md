@@ -63,26 +63,55 @@ MixinExtras 0.5.5 jar and the Cobblemon 1.8.4 jar:
   and `gust_target` and `gust_targethit`. None of these particle files plays a sound. Pidgey is Normal and Flying, with a
   hitbox of 0.5 × 0.7.
 
-Inferred (check before the task that uses it):
+Checked in Task 2 on 2026-11-11, with `javap` and the `FanTests` GameTests:
 
-- `caughtEntities` is a mutable list, because `Level.getEntities` returns an `ArrayList` (Task 2).
-- A positive creative motor value makes the fan in front of it blow out of its face, because `convertToDirection` folds
-  the axis sign in twice. `CreateKit.fan` checks `getAirFlowDirection()` after a tick (Task 2).
-- `createBelts` needs no shafts at its ends, an unpowered belt holds its items in place, and the fan processes them there
-  (Task 2).
-- `handleProcessingOnAllItems` with `doNothing()` changes nothing (Task 3).
-- A sheet of sails whose `FACING` is the bearing's facing assembles as one windmill, and a speed change reaches a shaft
-  behind the bearing within 1 tick (Task 4).
-- `MixinState`'s handler-call check sees the call that `@ModifyExpressionValue` injects, as it does for `@ModifyArg`
-  (Task 4).
-- A wild Pokémon with `setNoAi(true)` is still pushed by a fan (Task 2).
+- `caughtEntities` is a mutable list. `findEntities` sets it to `level.getEntities(null, bounds)`, which builds a
+  `Lists.newArrayList()`, and Create's own `tickAffectedEntities` removes entries through its iterator.
+- A positive creative motor value makes the fan in front of it blow out of its face. `CreateKit.fan` checks
+  `getAirFlowDirection()` after a tick, and the check passes in every `FanTests` scene.
+- `createBelts` reads a shaft's axis only for a vertical belt, whose x and z steps are equal, so a flat belt needs no
+  shafts at its ends. It destroys the blocks in its way. A belt has no controller until its first tick, which calls
+  `BeltBlock.initBelt` while `beltLength` is 0, so `CreateKit.belt` calls `initBelt` itself before it adds the item. An
+  unpowered belt holds its item in place, and the fan processes it there.
+- A wild Pokémon with `setNoAi(true)` is never pushed by a fan. `Mob.isEffectiveAi()` is false with no AI, and
+  `LivingEntity.travel` moves only an entity that `isControlledByLocalInstance()`, which falls back to `isEffectiveAi()`.
+  The fan still sets the entity's velocity, so `cdFan12MarkedWorkerIsNeitherPushedNorHaunted` reads the velocity.
+- `GameTestHelper.onEachTick` adds one callback for each tick that is left to the map that the test's tick walks. A call
+  from inside a callback changes that map during the walk, so `CreateKit.catalyse` registers it when the test starts.
 
-`CreateKit` additions (full test mod only):
+Checked in Task 3 on 2026-11-11, with `javap` on Create and the Cobblemon 1.8.4 sources:
+
+- `handleProcessingOnAllItems` with `doNothing()` changes nothing. `TransportedResult.doNothing()` has no outputs, so
+  `didntChangeFrom` is true, and both `DepotBehaviour.applyToAllItems` and `BeltInventory.applyToEachWithin` return or go
+  on to the next item on such a result before they change anything.
+- `DepotBlockEntity.setHeldItem(ItemStack.EMPTY)` holds a `TransportedItemStack` of an empty stack, not null, so
+  `FanItems` counts only a stack that is not empty.
+- `Pokemon.types` lists the primary type first: `FormData.types` is `listOf(primaryType, secondaryType)`, or the primary
+  type alone.
+
+Checked in Task 4 on 2026-11-11, with `javap` and the `TailwindTests` GameTests:
+
+- `WindmillBearingBlockEntity.getGeneratedSpeed()` calls `BearingContraption.getSailBlocks()` once, divides by
+  `windmillSailsPerRPM` and clamps to 1..16. `BearingContraption.assemble` compares the `sailBlocks` field itself with
+  `minimumWindmillSails`. `WindmillBearingBlock.useItemOn` with an empty hand assembles, or disassembles a running windmill,
+  for a player who `mayBuild()` and does not sneak.
+- A flat sheet of sails whose `FACING` is the bearing's facing assembles as one windmill, and a speed change reaches the
+  shaft below the bearing within 2 ticks (`cdTlw06Tlw09Tlw08TheBonusFollowsTheWork`).
+- Corrected: `MixinState`'s handler-call check does not see a call that `@ModifyExpressionValue` injects.
+  `ModifyExpressionValueInjectionInfo` extends MixinExtras' `MixinExtrasLateInjectionInfo`, whose `inject()` only queues the
+  injection, and `LateInjectionApplicatorExtension.postApply` injects it after every config plugin's `postApply`. The first
+  run of the Tailwind GameTests logged "Handler cobblemon_dynamics:tailwind is disabled: its mixin
+  create.WindmillBearingBlockEntityMixin did not apply". The mixin is therefore a `@Redirect` of the same call, which Mixin
+  injects in its own pass.
+- Kotlin reaches a Java static field through a subclass, so `BearingBlock.FACING` and `SailBlock.FACING` compile. The code
+  names the declaring classes, as the rest of `CreateKit` does.
+
+`CreateKit` additions (full test mod only). Task 2 adds all but `windmill`, which Task 4 adds with its first test:
 
 ```kotlin
 /** A creative motor at [rel] whose shaft faces [facing], turning at [rpm]. */
 fun motor(helper: GameTestHelper, rel: BlockPos, facing: Direction, rpm: Int): CreativeMotorBlockEntity {
-    helper.setBlock(rel, AllBlocks.CREATIVE_MOTOR.defaultState.setValue(CreativeMotorBlock.FACING, facing))
+    helper.setBlock(rel, AllBlocks.CREATIVE_MOTOR.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
     return helper.getBlockEntity<CreativeMotorBlockEntity>(rel).also { setRpm(it, rpm) }
 }
 
@@ -93,7 +122,7 @@ fun setRpm(motor: CreativeMotorBlockEntity, rpm: Int) {
 
 /** An encased fan at [rel] facing [facing], with a creative motor behind it at [rpm], so that it blows out of its face. */
 fun fan(helper: GameTestHelper, rel: BlockPos, facing: Direction, rpm: Int): EncasedFanBlockEntity {
-    helper.setBlock(rel, AllBlocks.ENCASED_FAN.defaultState.setValue(EncasedFanBlock.FACING, facing))
+    helper.setBlock(rel, AllBlocks.ENCASED_FAN.defaultState.setValue(DirectionalKineticBlock.FACING, facing))
     motor(helper, rel.relative(facing.opposite), facing, rpm)
     val fan = helper.getBlockEntity<EncasedFanBlockEntity>(rel)
     helper.runAfterDelay(1) {
@@ -108,33 +137,45 @@ fun depot(helper: GameTestHelper, rel: BlockPos, stack: ItemStack): DepotBlockEn
     return helper.getBlockEntity<DepotBlockEntity>(rel).also { it.setHeldItem(stack) }
 }
 
-/** An unpowered belt from [from] to [to] along one axis, with [stack] at its middle. Returns its controller. */
+/**
+ * An unpowered belt from [from] to [to] along one axis, with [stack] at its middle. Returns its controller. A belt finds its
+ * controller in its first tick, through `BeltBlock.initBelt`, which this calls at once.
+ */
 fun belt(helper: GameTestHelper, from: BlockPos, to: BlockPos, stack: ItemStack): BeltBlockEntity {
     BeltConnectorItem.createBelts(helper.level, helper.absolutePos(from), helper.absolutePos(to))
+    BeltBlock.initBelt(helper.level, helper.absolutePos(from))
     val controller = helper.getBlockEntity<BeltBlockEntity>(from).controllerBE ?: throw GameTestAssertException("no belt controller")
-    controller.inventory.addItem(TransportedItemStack(stack).apply { beltPosition = from.distManhattan(to) / 2f + 0.5f })
+    controller.getInventory().addItem(TransportedItemStack(stack).apply { beltPosition = from.distManhattan(to) / 2f + 0.5f })
     return controller
 }
 
-/** Holds [kind] (and [mode], for Fire) on [fan] for the rest of the test, as a Working worker does. Starts one tick later. */
+/**
+ * Holds [kind] (and [mode], for Fire) on [fan] for the rest of the test, as a Working worker does. Starts on the fan's first tick,
+ * when Create attaches the fan state.
+ */
 fun catalyse(helper: GameTestHelper, fan: EncasedFanBlockEntity, kind: FanCatalyst, mode: FireMode = FireMode.BLASTING) {
-    helper.runAfterDelay(1) {
-        val state = FanState.of(fan) ?: throw GameTestAssertException("the fan has no fan state")
-        if (state.fireMode != mode) state.flipMode()
-        helper.onEachTick { state.grant(kind, helper.level.gameTime) }
+    var held: FanState? = null
+    helper.onEachTick {
+        val state = held ?: FanState.of(fan)?.also {
+            if (it.fireMode != mode) it.flipMode()
+            held = it
+        } ?: return@onEachTick
+        state.grant(kind, helper.level.gameTime)
     }
 }
 
 /** A windmill bearing at [rel] that faces up, with a shaft below it and a flat sheet of [sails] sails on its face. */
 fun windmill(helper: GameTestHelper, rel: BlockPos, sails: Int): WindmillBearingBlockEntity {
-    helper.setBlock(rel.below(), AllBlocks.SHAFT.defaultState.setValue(ShaftBlock.AXIS, Direction.Axis.Y))
-    helper.setBlock(rel, AllBlocks.WINDMILL_BEARING.defaultState.setValue(BearingBlock.FACING, Direction.UP))
-    val sail = AllBlocks.SAIL.defaultState.setValue(SailBlock.FACING, Direction.UP)
+    helper.setBlock(rel.below(), AllBlocks.SHAFT.defaultState.setValue(RotatedPillarKineticBlock.AXIS, Direction.Axis.Y))
+    helper.setBlock(rel, AllBlocks.WINDMILL_BEARING.defaultState.setValue(DirectionalKineticBlock.FACING, Direction.UP))
     val width = ceil(sqrt(sails.toDouble())).toInt()
     // Row by row from one corner; the sheet always covers the block on the bearing's face, at its center.
-    for (i in 0 until sails) helper.setBlock(rel.offset(i % width - width / 2, 1, i / width - width / 2), sail)
+    for (i in 0 until sails) helper.setBlock(rel.offset(i % width - width / 2, 1, i / width - width / 2), sail())
     return helper.getBlockEntity(rel)
 }
+
+/** A sail that lies flat, as a windmill that faces up holds it. */
+fun sail() = AllBlocks.SAIL.defaultState.setValue(DirectionalBlock.FACING, Direction.UP)
 ```
 
 ---
@@ -170,16 +211,23 @@ interface TargetHandler {
     /** The lang key that refuses a Work Leash bind when the worker has no spot at the target, or null to bind and report later (CD-LSH-21). */
     val noSpotRefusal: String? get() = null
 
-    /** A work claim on [canonical] starts for [worker], or the claim follows the Pokémon to a new entity. */
-    fun onClaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) {}
+    /** A work claim on the context's target starts for its worker, or the claim follows the Pokémon to a new entity. */
+    fun onClaim(ctx: WorkContext) {}
 
-    /** The work claim of [worker] on [canonical] ends, by any path. */
-    fun onUnclaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) {}
+    /** The work claim of the context's worker ends, by any path, or leaves that entity for the Pokémon's new entity. */
+    fun onUnclaim(ctx: WorkContext) {}
 
     /** The action-bar message after a [flip] that changed the target, or null for none. */
     fun flipMessage(level: ServerLevel, canonical: BlockPos): Component? = null
 }
+```
 
+The claim hooks take a `WorkContext`, as `onStart` and `onStop` do, and no member of `TargetHandler` names `PokemonEntity` in its
+signature. JUnit reflects on the interface through the unit tests' `FakeHandler`, and `PokemonEntity` does not load in a unit test:
+it overrides `LivingEntity.getDimensions`, which is final without the game's transformers. The first build with
+`onClaim(level, canonical, worker: PokemonEntity)` failed in test discovery with that `IncompatibleClassChangeError`.
+
+```kotlin
 object WorkSpots {
     fun find(..., excluded: Set<Long> = emptySet(), allowed: (BlockPos) -> Boolean = { true }): BlockPos?
     fun findReachable(..., reachable: (BlockPos) -> Boolean, maxChecks: Int = MAX_PATH_CHECKS, allowed: (BlockPos) -> Boolean = { true }): BlockPos?
@@ -211,12 +259,16 @@ fun `CD-FAN-03 a handler that allows one spot gets that spot or none`() {
 
 // BindRulesTest: the input helper gains noSpot: String? = null, passed as noSpotRefusal = noSpot.
 @Test
-fun `CD-FAN-04 a target with no room for the worker refuses with the handler's message`() =
-    assertEquals("cobblemon_dynamics.leash.no_room_in_front", refusal(input(noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey)
+fun `CD-FAN-04 a target with no room for the worker refuses with the handler's message`() = assertEquals(
+    "cobblemon_dynamics.leash.no_room_in_front",
+    refusal(input(noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
+)
 
 @Test
-fun `CD-FAN-04 a target bound to another Pokemon is named before the room`() =
-    assertEquals(BindRules.ALREADY_ASSIGNED, refusal(input(boundTo = "Charmander", noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey)
+fun `CD-FAN-04 a target bound to another Pokemon is named before the room`() = assertEquals(
+    BindRules.ALREADY_ASSIGNED,
+    refusal(input(boundTo = own("Charmander"), noSpot = "cobblemon_dynamics.leash.no_room_in_front")).messageKey,
+)
 
 class FlipRulesTest {
     private val binder = UUID.randomUUID()
@@ -273,10 +325,12 @@ return flipped
 
 ```kotlin
 noSpotRefusal = best?.handler?.noSpotRefusal?.takeIf {
-    pending == null && pasture != null && pokemon != null &&
-        WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
+    pending == null && pasture != null && WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
 },
 ```
+
+  `pasture` comes from `pokemon?.let`, so Kotlin knows that `pokemon` is not null where `pasture` is not, and warns about a
+  `pokemon != null` check there.
 
   - `WorkEngine` finds every spot through one function, which `claim` and `hasSpot` share:
 
@@ -304,11 +358,12 @@ fun hasSpot(level: ServerLevel, pasture: BlockPos, pokemonId: UUID, role: Active
 }
 ```
 
-  - The claim hooks:
-    - `claim` calls `role.handler.onClaim(t.level, target, entity)`, guarded, after the registry grants the claim.
-    - `clear(slot)` calls `onUnclaim` on the slot's role and target before it drops them, when both are set. Every end of a
+  - The claim hooks get the claim's `WorkContext`, with the slot's memo:
+    - `claim` calls `role.handler.onClaim(ctx)`, guarded, after the registry grants the claim.
+    - `clear(t, slot)` calls `onUnclaim` on the slot's role and target before it drops them, when both are set. Every end of a
       work claim goes through `clear`: a release, a drop, a timeout, a Tired worker and a failed handler.
-    - `poll` calls `onClaim` for the new entity when Cobblemon gives a worker with a work claim a new entity.
+    - `poll` calls `onUnclaim` for the old entity and `onClaim` for the new one when Cobblemon gives a worker with a work claim
+      a new entity. The old entity can outlive the change, and a mark left on it would exempt it from every fan.
     - `resetRuntimeForTest` calls `onUnclaim` for every slot with a work claim.
 
 - [ ] **Step 4: Run the unit tests and see them pass.** Then run `./gradlew runGameTestServer`: every Phase 1 and M6 GameTest
@@ -343,9 +398,15 @@ fun hasSpot(level: ServerLevel, pasture: BlockPos, pokemonId: UUID, role: Active
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CreateCompat.kt` (`register(modBus)`: the types,
   the fan state, the `AirCurrent` class literal), `src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt`
   (`CreateCompat.register(modBus)`)
+- Modify: `src/main/resources/assets/cobblemon_dynamics/lang/en_us.json` (the two `cobblemon_dynamics.fan.mode` keys:
+  `FireMode` names them, and `LangTest` needs each key literal of the code in `en_us`)
+- Modify: `ARCHITECTURE.md` (sections 2, 4 and 8: the mixin is `AirCurrentMixin`, the mark lasts for the claim, there is no
+  nozzle mixin), `docs/adr/0011-v2-roles-in-first-release.md` (an amendment: two Create mixins, not three). This task adds
+  the mixin, so its commit fixes the text that named the wrong class.
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/FanNbtTest.kt`,
   `src/test/kotlin/codes/honor/cobblemondynamics/role/MixinGateTest.kt`
-- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/FanTests.kt`, `CreateKit.kt` (the additions above)
+- Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/FanTests.kt`, `CreateKit.kt` (the additions above,
+  except `windmill`)
 
 **Interfaces:**
 - Consumes: nothing from Task 1.
@@ -637,7 +698,7 @@ fun cdFan05Bal04BlastingOnABeltKeepsCreatesTime(helper: GameTestHelper) {
     CreateKit.catalyse(helper, fan, FanCatalyst.FIRE)
     val minimum = AllConfigs.server().kinetics.fanProcessingTime.get()
     helper.succeedWhen {
-        val stack = belt.inventory.transportedItems.firstOrNull()?.stack ?: throw GameTestAssertException("the belt holds no item")
+        val stack = belt.getInventory().transportedItems.firstOrNull()?.stack ?: throw GameTestAssertException("the belt holds no item")
         helper.assertTrue(stack.`is`(Items.IRON_INGOT), "CD-FAN-05: the belt holds $stack")
         val elapsed = helper.level.gameTime - start
         helper.assertTrue(elapsed >= minimum - 1, "CD-BAL-04: blasting took $elapsed ticks, under Create's $minimum")
@@ -693,12 +754,14 @@ fun cdFan13GhostInWaterStillHaunts(helper: GameTestHelper) {
 }
 
 /**
- * A fan at 256 RPM with a Ghost catalyst. A wild Gastly with the fan worker mark stands in the block in front of the fan, and
- * an unmarked Gastly stands 3 blocks downstream, both with no AI. After 100 ticks the marked one has not moved and has no
- * Blindness or Slowness, and the unmarked one was pushed or haunted, so the current works (CD-FAN-12).
+ * A fan at 256 RPM with a Ghost catalyst. A wild Gastly with the fan worker mark stands in the block in front of the fan, and an
+ * unmarked Gastly stands 3 blocks downstream, both with no AI. After 100 ticks the marked one has not moved and has no Blindness
+ * or Slowness, and the unmarked one was pushed or haunted, so the current works (CD-FAN-12). A mob with no AI never moves on its
+ * own velocity, so the push shows in the velocity that the fan gives it: east for the unmarked one, none for the marked one.
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
 fun cdFan12MarkedWorkerIsNeitherPushedNorHaunted(helper: GameTestHelper) {
+    helper.assertTrue(MixinState.applied(MixinState.AIR_CURRENT), "the air current mixin did not apply")
     val fan = CreateKit.fan(helper, fanRel, Direction.EAST, rpm = 256)
     CreateKit.catalyse(helper, fan, FanCatalyst.GHOST)
     val marked = TestKit.wild(helper, BlockPos(4, 2, 7), "gastly level=10").apply { isNoAi = true }
@@ -706,16 +769,29 @@ fun cdFan12MarkedWorkerIsNeitherPushedNorHaunted(helper: GameTestHelper) {
     FanWorkers.mark(marked, helper.absolutePos(fanRel))
     val markedStart = marked.position()
     val controlStart = control.position()
+    var pushed = false
+    helper.onEachTick {
+        helper.assertTrue(abs(marked.deltaMovement.x) <= PUSH, "CD-FAN-12: the fan pushed the marked Gastly: ${marked.deltaMovement}")
+        if (control.deltaMovement.x > PUSH) pushed = true
+    }
     helper.runAfterDelay(100) {
         helper.assertTrue(marked.position().distanceTo(markedStart) <= 0.5, "CD-FAN-12: the fan moved the marked Gastly")
         val harmed = marked.hasEffect(MobEffects.BLINDNESS) || marked.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)
         helper.assertFalse(harmed, "CD-FAN-12: the marked Gastly was haunted")
         val acted = control.position().distanceTo(controlStart) > 1.0 || control.hasEffect(MobEffects.BLINDNESS)
         helper.assertTrue(acted, "the current did nothing to the unmarked Gastly, so the scene proves nothing")
+        helper.assertTrue(pushed, "the current never pushed the unmarked Gastly, so the scene proves nothing about the push")
         helper.succeed()
     }
 }
+
+/** A velocity along the current above this is a push. Create's first push at 256 RPM adds about 0.3 blocks per tick. */
+const val PUSH = 0.01
 ```
+
+  The exemption scene keeps every assertion of the first draft. A fan cannot push a mob with no AI (see the checked facts
+  above), so the draft's "not moved" check alone proved nothing about the push. The velocity checks and the mixin check are
+  new.
 
   Deferred:
   - CD-FAN-11 with a real reload (`cdFan11SmokingSurvivesARestart`: flip a fan to smoking, save the fan's block entity to
@@ -732,13 +808,31 @@ fun cdFan12MarkedWorkerIsNeitherPushedNorHaunted(helper: GameTestHelper) {
 
 - [ ] **Step 8: Commit:** `git commit -m "Give Create fans Pokémon catalyst types and keep a fan's worker out of its air current"`.
 
+**The shadow guard (2026-11-11, a ruling on the risk of this task's mixin).** `AirCurrentMixin` shadows `caughtEntities` and
+`affectedItemHandlers`, and the mixin config has `"required": true`, so a Create 6.0.x that renamed either field would crash
+the game at load, against CD-FAN-17. `MixinPlugin.shouldApplyMixin` therefore reads each mixin and its target through
+Mixin's bytecode provider, and skips a mixin whose target lacks a member that it shadows (`MixinMembers`, unit-tested on
+synthetic class nodes in `MixinMembersTest`). A skipped mixin records no handler call, so `MixinGate` turns its role off
+with one warning. The check covers every mixin with `@Shadow` members: `AirCurrentMixin` and `EnchantmentMenuMixin`.
+Checked with `javap` on sponge-mixin 0.16.4+mixin.0.8.7, which NeoForge 21.1.265 ships:
+
+- `MixinInfo.readDeclaredTargets` asks the plugin about each target before `readTargetClasses` reads the target through
+  `ClassInfo.forName`, and the mixin class itself was read before that, through the same provider.
+- `@Shadow` is `RUNTIME` retention. An unmatched shadow field throws `InvalidMixinException` ("@Shadow field %s was not
+  located in the target class %s"). `TargetClassContext` matches a shadow by name or alias and descriptor in the target
+  class's own members.
+- The ModLauncher provider is `MixinLaunchPluginLegacy`. `getClassNode(String)` reads the transformed class, and
+  `getClassNode(name, false, flags)` throws ("does not currently support retrieval of untransformed bytecode"), so the
+  plugin calls the one-argument form.
+
 ---
 
 ### Task 3: The Fan Catalyst
 
 **Rows:** CD-FAN-01, CD-FAN-02, CD-FAN-03, CD-FAN-04, CD-FAN-10, CD-FAN-12, CD-FAN-14 (the Demo), CD-FAN-15, CD-FAN-16,
 CD-SEC-10 (the fan part), CD-FX-02 (the three Fan Catalyst rows), CD-CFG-10 (off without Create), CD-REL-08 (the guide
-section), CD-REL-09 (the checklist entries).
+section), CD-REL-09 (the checklist entries), CD-LSH-16 (rulings 1 and 2 of the plan index: the role of a two-type catalyst
+and the fan's facing).
 
 **Files:**
 - Create: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/FanCatalystHandler.kt` (`FanCatalystHandler`,
@@ -746,11 +840,17 @@ section), CD-REL-09 (the checklist entries).
 - Create: `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/fan_catalyst_fire.json`,
   `fan_catalyst_water.json`, `fan_catalyst_ghost.json`
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CreateCompat.kt` (registers the handler)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/FanNbt.kt` (`FanFront`: the spot rule of ruling 2)
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleSelection.kt` (`best` takes the Pokémon's types, ruling 1),
+  and its callers `leash/BindRules.kt` (`Input.types`), `leash/LeashInteractions.kt`, `leash/LeashResets.kt`,
+  `engine/Assigner.kt` and `engine/WorkEngine.kt` (`typesOf` keeps the primary type first)
 - Modify: `src/main/resources/assets/cobblemon_dynamics/lang/en_us.json`
 - Modify: `docs/player-guide.md` (`### Fan Catalyst`), `docs/testing/manual-checklist.md` (checks for CD-FAN-14 and CD-FAN-16)
-- Modify: `ARCHITECTURE.md` (sections 2, 4 and 8: the mixin is `AirCurrentMixin`, the mark lasts for the claim, there is
-  no nozzle mixin), `docs/adr/0011-v2-roles-in-first-release.md` (an amendment: two Create mixins, not three)
-- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt`
+- Task 2 made the `ARCHITECTURE.md` fixes and the ADR-0011 amendment, in the commit that adds the mixin.
+- Modify: `ARCHITECTURE.md` (section 8: the sideways fan of ruling 2 and the type order of ruling 1), `docs/roles.md`
+  (the fan faces sideways)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/role/BuiltInRoleFilesTest.kt`, `role/RoleSelectionTest.kt`,
+  `leash/BindRulesTest.kt`, `handler/create/FanNbtTest.kt`, `fx/ParticleFilesTest.kt` (one spawn that Cobblemon misnames)
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/FanCatalystTests.kt`
 - Test: `src/gametestCore/kotlin/codes/honor/cobblemondynamics/coretest/CoreTests.kt` (`createRoles` gains the three files)
 
@@ -839,7 +939,38 @@ fun `CD-FX-04 the Water Fan Catalyst blows Bubble from the worker`() {
 }
 ```
 
-- [ ] **Step 2: Run them and see them fail:** the role files do not exist.
+  Rulings 1 and 2 of the plan index each get a unit test. Ruling 1: a two-type catalyst follows its primary type, then its
+  secondary type, not the id order of the files, which CD-LSH-16 alone would give. Ruling 2: only a fan that faces sideways
+  takes a worker.
+
+```kotlin
+// BuiltInRoleFilesTest, with the real files
+@Test
+fun `CD-LSH-16 with ruling 1 a two-type Fan Catalyst takes the role of its primary type`() {
+    val roles = fanCatalysts.map { BuiltInRoles.parse(it) }
+    fun pick(vararg types: String): String? =
+        RoleSelection.best(roles.filter { RoleSelection.isEligible(it, types.toList()) }, types.toList())?.id?.path
+    assertEquals("fan_catalyst_fire", pick("fire", "ghost"), "Ceruledge")
+    assertEquals("fan_catalyst_ghost", pick("ghost", "fire"), "Chandelure")
+    assertEquals("fan_catalyst_water", pick("water", "ghost"), "Jellicent")
+}
+
+// RoleSelectionTest: between roles of one handler the type order picks, and it never beats a priority or another
+// handler's id (`pump` still wins a basin for a Psychic and Water type). BindRulesTest: a Ghost and Fire type binds
+// `fan_catalyst_ghost`.
+
+// FanNbtTest
+@Test
+fun `CD-FAN-03 a catalyst stands in front of a fan that faces sideways, and an up or down fan has no such block`() {
+    val fan = BlockPos(3, 64, 7)
+    assertEquals(BlockPos(4, 64, 7), FanFront.of(fan, Direction.EAST))
+    assertNull(FanFront.of(fan, Direction.UP))
+    assertNull(FanFront.of(fan, Direction.DOWN))
+}
+```
+
+- [ ] **Step 2: Run them and see them fail:** `FanFront` and the `types` parameter do not compile, then, with those in place,
+  the role files do not exist.
 
 - [ ] **Step 3: Write the code.**
 
@@ -867,13 +998,13 @@ object FanCatalystHandler : TargetHandler {
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = level.getBlockEntity(canonical) is EncasedFanBlockEntity
 
-    /** CD-FAN-03: only the block in front of the fan's face. A fan that faces up or down has no such spot (CD-ASG-09). */
+    /** CD-FAN-03: only the block in front of the face of a fan that faces sideways (ruling 2 of the Phase 2 plan). */
     override fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean =
         spot == front(level, canonical)
 
-    override fun onClaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) = FanWorkers.mark(worker, canonical)
+    override fun onClaim(ctx: WorkContext) = FanWorkers.mark(ctx.worker, ctx.target)
 
-    override fun onUnclaim(level: ServerLevel, canonical: BlockPos, worker: PokemonEntity) = FanWorkers.clear(worker)
+    override fun onUnclaim(ctx: WorkContext) = FanWorkers.clear(ctx.worker)
 
     /** CD-FAN-15: the fan spins, and its air current holds an item. */
     override fun hasDemand(ctx: WorkContext): Boolean {
@@ -906,8 +1037,11 @@ object FanCatalystHandler : TargetHandler {
 
     private fun fanAt(ctx: WorkContext): EncasedFanBlockEntity? = ctx.level.getBlockEntity(ctx.target) as? EncasedFanBlockEntity
 
-    private fun front(level: ServerLevel, canonical: BlockPos): BlockPos? = (level.getBlockEntity(canonical) as? EncasedFanBlockEntity)
-        ?.let { canonical.relative(it.blockState.getValue(EncasedFanBlock.FACING)) }
+    private fun front(level: ServerLevel, canonical: BlockPos): BlockPos? {
+        val fan = level.getBlockEntity(canonical) as? EncasedFanBlockEntity ?: return null
+        val facing = fan.blockState.getOptionalValue(DirectionalKineticBlock.FACING).orElse(null) ?: return null
+        return FanFront.of(canonical, facing)
+    }
 
     private fun kind(ctx: WorkContext): FanCatalyst? {
         val name = ctx.role.params.get(CATALYST)?.takeIf { it.isJsonPrimitive }?.asString
@@ -921,30 +1055,61 @@ object FanItems {
     /** Whether [fan]'s air current holds an item: an item entity that it caught, or an item on a belt or a depot under it. */
     fun any(fan: EncasedFanBlockEntity): Boolean {
         val current = (fan.airCurrent as Any) as? AirCurrentAccess ?: return false
-        if (current.`cobblemon_dynamics$caughtEntities`().any { it is ItemEntity && it.isAlive }) return true
+        if (current.`cobblemon_dynamics$caughtEntities`().any { it is ItemEntity && it.isAlive && !it.item.isEmpty }) return true
         return current.`cobblemon_dynamics$affectedHandlers`().any { holdsItem(it.left) }
     }
 
+    /** A visit that returns `doNothing()` leaves the items as they are: depots and belts skip a result that changed nothing. */
     private fun holdsItem(handler: TransportedItemStackHandlerBehaviour): Boolean {
         var found = false
-        handler.handleProcessingOnAllItems {
-            found = true
-            TransportedItemStackHandlerBehaviour.TransportedResult.doNothing()
+        handler.handleProcessingOnAllItems { transported ->
+            if (!transported.stack.isEmpty) found = true
+            TransportedResult.doNothing()
         }
         return found
     }
 }
+
+// FanNbt.kt, with no Create class
+object FanFront {
+    fun of(fan: BlockPos, facing: Direction): BlockPos? = if (facing.axis.isHorizontal) fan.relative(facing) else null
+}
 ```
 
-  Register the handler in `CreateCompat.register`. Lang keys:
+  The first draft took the block in front of any fan. A fan that faces down over a 1-block gap leaves room for a small
+  worker below it, so the spot rule refuses a vertical fan itself, as ruling 2 asks. `FanItems` counts only a stack that is
+  not empty, because a depot set to an empty stack still holds a `TransportedItemStack` (see the checked facts above).
+
+  Ruling 1 lives in `RoleSelection.best`, which every role choice calls with the Pokémon's types, primary first: a bind
+  (`BindRules`, `LeashInteractions`), a change of form (`LeashResets.recheckRole`) and auto-assignment (`Assigner`).
+
+```kotlin
+/**
+ * CD-ASG-16, CD-LSH-16: the higher priority wins, then the role id that sorts first. Between the roles of the winner's handler and
+ * priority, such as the Fan Catalyst files, the role of the Pokémon's primary type wins, then that of its secondary type (ruling 1
+ * of the Phase 2 plan), so [types] go primary first. With no types, the id order decides there too.
+ */
+fun best(candidates: Collection<RoleDefinition>, types: List<String> = emptyList()): RoleDefinition? {
+    val first = candidates.minWithOrNull(ORDER) ?: return null
+    val rank = { role: RoleDefinition -> types.indexOfFirst { it.lowercase() in role.types }.takeIf { it >= 0 } ?: types.size }
+    return candidates.filter { it.handler == first.handler && it.priority == first.priority }
+        .minWithOrNull(compareBy(rank).thenBy { it.id.toString() })
+}
+```
+
+  Register the handler in `CreateCompat.register`. Lang key (Task 2 added the two `cobblemon_dynamics.fan.mode` keys, which
+  `FireMode` names):
 
 ```json
 "cobblemon_dynamics.leash.no_room_in_front": "No room in front of the fan",
-"cobblemon_dynamics.fan.mode.blasting": "Fan mode: Blasting",
-"cobblemon_dynamics.fan.mode.smoking": "Fan mode: Smoking",
 ```
 
-- [ ] **Step 4: Run the unit tests and see them pass.**
+- [ ] **Step 4: Run the unit tests and see them pass.** `ParticleFilesTest` failed on the Fire file at first: Cobblemon
+  1.8.4's `firespin_targetburst` spawns `cobblemon:firespin_targetcinder`, but the file `firespin_targetcinder.particle.json`
+  declares the id `cobblemon:firespin_actorcinder`. Cobblemon's `ParticleEvent` (line 80 of its 1.8.4 sources) skips a spawn
+  whose effect it does not know, so the burst shows without its cinders, as it does in Cobblemon's own Fire Spin. The Fire file
+  keeps the burst, as the timeline has it (CD-FX-04), and the test lists that one id in `MISNAMED_SPAWNS`: a spawned id, never
+  a sent one, with a test that the exception is still needed.
 
 - [ ] **Step 5: GameTests** in `create/FanCatalystTests` (a real worker in a fan's current, so rule 6 keeps them). Each
   places a Work Mode pasture at (11, 1, 5) with the owner beside it, and fans at x = 3, facing east, over a stone floor.
@@ -1031,12 +1196,13 @@ fun cdFan10Fan16Sec10TheBinderFlipsOnlyADrivenFan(helper: GameTestHelper) {
 }
 
 /**
- * Three fans at 256 RPM, with a bound Charmander, Squirtle and Gastly, each with 64 items on a depot downstream. For 1,200
- * ticks of their claims, no worker moves more than 0.5 blocks from its spot, takes damage, burns, or gains Blindness or
- * Slowness (CD-FAN-12).
+ * Three fans at 256 RPM, with a bound Charmander, Squirtle and Gastly, each with 64 items on a depot downstream. Over 1,200 ticks
+ * of Working each, no worker moves more than 0.5 blocks from its spot, takes damage, burns, or gains Blindness or Slowness
+ * (CD-FAN-12). The test counts each worker's Working ticks, so a worker that never Works fails it.
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 1800)
 fun cdFan12ThreeWorkersStayPutAt256Rpm(helper: GameTestHelper) {
+    helper.assertTrue(MixinState.applied(MixinState.AIR_CURRENT), "the air current mixin did not apply")
     val scene = scene(helper)
     val workers = listOf(
         Triple("charmander level=20", 3, ItemStack(Items.RAW_IRON, 64)),
@@ -1047,22 +1213,34 @@ fun cdFan12ThreeWorkersStayPutAt256Rpm(helper: GameTestHelper) {
         CreateKit.depot(helper, BlockPos(6, 1, z), stack)
         BlockPos(3, 2, z) to TestKit.tether(helper, scene.pasture, scene.owner, spec)
     }
+    val working = IntArray(workers.size)
     helper.runAfterDelay(1) { for ((fanRel, worker) in workers) TestKit.bind(helper, scene.owner, worker, fanRel) }
     helper.onEachTick {
-        for ((fanRel, worker) in workers) {
-            val spot = TestKit.workerOf(helper, worker)?.takeIf { it.status == WorkerStatus.WORKING || it.status == WorkerStatus.STANDBY }
-                ?.spot ?: continue
+        workers.forEachIndexed { i, (fanRel, worker) ->
+            val state = TestKit.workerOf(helper, worker)
+            val spot = state?.takeIf { it.status == WorkerStatus.WORKING || it.status == WorkerStatus.STANDBY }?.spot
+                ?: return@forEachIndexed
             val name = worker.pokemon.species.name
             helper.assertTrue(spot == helper.absolutePos(fanRel.east()), "$name has the spot $spot")
             helper.assertTrue(worker.position().distanceTo(Vec3.atBottomCenterOf(spot)) <= 0.5, "CD-FAN-12: the fan moved $name")
             helper.assertTrue(worker.health >= worker.maxHealth && worker.remainingFireTicks <= 0, "CD-FAN-12: $name took damage or burns")
             val effects = worker.hasEffect(MobEffects.BLINDNESS) || worker.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)
             helper.assertFalse(effects, "CD-FAN-12: $name gained Blindness or Slowness")
+            if (state.status == WorkerStatus.WORKING) working[i]++
         }
     }
-    helper.runAfterDelay(1300) { helper.succeed() }
+    helper.succeedWhen {
+        for ((i, pair) in workers.withIndex()) {
+            val name = pair.second.pokemon.species.name
+            helper.assertTrue(working[i] >= 1200, "CD-FAN-12: $name has Worked ${working[i]} of 1,200 ticks")
+        }
+    }
 }
 ```
+
+  The exemption scene keeps every assertion of the first draft. The draft succeeded after 1,300 ticks whatever the workers
+  did, so a worker that never reached Working passed it. The count of Working ticks, the end on 1,200 of them and the mixin
+  check are new.
 
   `scene(helper)` returns the owner and the pasture. Deferred:
   - CD-FAN-04 (`cdFan04StoneInFrontRefusesTheBind`: stone in front of the fan, then a bind with "No room in front of the
@@ -1079,17 +1257,31 @@ fun cdFan12ThreeWorkersStayPutAt256Rpm(helper: GameTestHelper) {
 ```markdown
 ### Fan Catalyst
 
-A Fire-, Water- or Ghost-type stands in the block in front of a Create encased fan and takes the place of the lava, the
-water or the soul fire there. The fan then processes the items in its air current as Create does, at Create's own speed.
-The Fan Catalyst is leash only: select the Pokémon with the Work Leash, then right-click the fan. The block in front of
-the fan must hold the Pokémon, so a fan that faces up or down cannot take one ("No room in front of the fan"). The fan
-does not push, burn or harm its own worker. A worker waits in Standby while the fan stands still or no item is in its
-air current.
+**Types:** Fire, Water or Ghost. **Level:** any. **Move:** Fire Spin, Bubble or Will-O-Wisp. **Assignment:**
+Work Leash only. **Needs:** Create.
+
+**Target:** an encased fan that faces sideways. A fan that faces up or down cannot take a worker, because a
+worker in its air current would block it.
+
+A Fire-, Water- or Ghost-type stands in the block in front of the fan and takes the place of the lava, the
+water or the soul fire there. The fan then processes the items in its air current as Create does, at
+Create's own speed. Select the Pokémon with the Work Leash, then right-click the fan. The block in front of
+the fan must have room for the Pokémon. If it has none, or if the fan faces up or down, the action bar shows
+"No room in front of the fan". No fan pushes, burns or harms the worker while it holds its claim. A worker
+waits in Standby while the fan stands still or no item is in its air current.
+
+Each type has its own role file. A Pokémon with two of these types works as the catalyst of its primary
+type: a Fire and Ghost type blasts or smokes, and a Ghost and Fire type haunts. A role file with a higher
+`priority` wins before the type order.
+
+**Role file parameter:** `catalyst` (`fire`, `water` or `ghost`).
 
 #### Fan Catalyst Fire
 
-Blasting by default. Sneak and right-click the worked fan with the Work Leash to switch it to smoking, and again to switch
-it back. The action bar shows the new mode. Each fan keeps its own mode, also after a restart.
+Blasting by default. To switch the fan to smoking, hold the Work Leash, then sneak and right-click the fan
+while its worker Works. Do it again to switch it back. The action bar shows the new mode. The player who
+bound the worker, the owner of the worker's pasture and operators can switch it. Each fan keeps its own
+mode, also through restarts.
 
 #### Fan Catalyst Water
 
@@ -1098,25 +1290,32 @@ Washing, as Create's bulk washing does.
 #### Fan Catalyst Ghost
 
 Haunting, as Create's bulk haunting does.
-
-A Pokémon with two of these types takes the role whose name sorts first: Fire, then Ghost, then Water.
-
-Role file parameter: `catalyst` (`fire`, `water` or `ghost`).
 ```
+
+  The first draft said that a two-type Pokémon takes the role whose name sorts first. Ruling 1 replaced that with the
+  primary type. The roles table gains a row for each file, and the flip section of the Work Leash points at the fan.
 
   - The manual checklist, after the last check:
 
 ```markdown
-44. **CD-FAN-14.** Setup: three fans at 64 RPM in a row, with a bound Charmander, Squirtle and Gastly, each with items on
-    a depot in its air current. Action: watch the air of each fan. Expected: flame particles in the Charmander's current,
-    water drops in the Squirtle's and soul particles in the Gastly's, as Create shows for lava, water and soul fire.
-45. **CD-FAN-16.** Setup: a Charmander Working at a fan. Action: sneak and right-click the fan with the Work Leash twice.
+## Fan Catalyst
+
+These checks show the Phase 2 Fan Catalyst on a client. Record their results in the play-test note of the
+Phase 2 gate report, `docs/testing/phase-2-gate.md`.
+
+52. **CD-FAN-14.** Setup: three encased fans at 64 RPM in a row, each facing sideways with a depot of items in its air
+    current, and a bound Charmander, Squirtle and Gastly, one at each fan. Action: watch the air of each fan while its
+    worker Works. Expected: flame particles in the Charmander's current, water drops in the Squirtle's and soul particles
+    in the Gastly's, as Create shows for lava, water and soul fire.
+53. **CD-FAN-16.** Setup: a Charmander Working at a fan. Action: sneak and right-click the fan with the Work Leash twice.
     Expected: the action bar shows "Fan mode: Smoking", then "Fan mode: Blasting".
 ```
 
-  - ARCHITECTURE sections 2, 4 and 8, and an amendment at the end of ADR-0011: Phase 2 adds two Create mixins, the air
-    current's `tickAffectedEntities` and the windmill speed. The fan worker mark lasts for the worker's claim. A nozzle fills
-    the block in front of its own fan, so no nozzle mixin is needed.
+  The checklist held 51 checks when this task ran, so the new checks are 52 and 53, in a section of their own.
+
+  - Task 2 already fixed ARCHITECTURE sections 2, 4 and 8 and added the amendment at the end of ADR-0011: Phase 2 adds two
+    Create mixins, the air current's `tickAffectedEntities` and the windmill speed. The fan worker mark lasts for the
+    worker's claim. A nozzle fills the block in front of its own fan, so no nozzle mixin is needed.
 
 - [ ] **Step 7: Run** `./gradlew build`, `./gradlew runGameTestServer` and `./gradlew runGameTestServerCore`.
 
@@ -1142,7 +1341,7 @@ CD-BAL-04 (the windmill part), CD-FX-02 (the Tailwind row), CD-CFG-10 (off witho
 - Modify: `MixinState.java` (`WINDMILL_BEARING`), `cobblemon_dynamics.mixins.json`, `role/MixinGate.kt`, `handler/create/CreateCompat.kt`
   (the behaviour, the class literal, the handler)
 - Modify: `docs/player-guide.md` (`### Tailwind`), `docs/testing/manual-checklist.md` (CD-TLW-07), `ARCHITECTURE.md`
-  (section 8: the renewal and the spot rule)
+  (section 10: MixinExtras injects late; section 8: the `@Redirect`, the renewal and the spot rule)
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/handler/create/TailwindMathTest.kt`, `TailwindNbtTest.kt`,
   `src/test/kotlin/codes/honor/cobblemondynamics/role/MixinGateTest.kt`, `BuiltInRoleFilesTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/create/TailwindTests.kt`, `CoreTests.kt` (`createRoles`
@@ -1178,6 +1377,7 @@ class TailwindBonus(be: SmartBlockEntity) : BlockEntityBehaviour(be) {
     fun withdraw()
     companion object {
         val TYPE: BehaviourType<TailwindBonus>
+        fun of(bearing: WindmillBearingBlockEntity?): TailwindBonus?
         /** What the windmill mixin counts: Create's real sails plus the bonus. It never lowers Create's own count. */
         @JvmStatic fun totalSails(bearing: WindmillBearingBlockEntity, realSails: Int): Int
     }
@@ -1292,6 +1492,14 @@ fun `CD-TLW-02 the Tailwind role file sets auto_assign to false`() {
     assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "tailwind.json has auto_assign $key")
 }
 
+@Test
+fun `CD-TLW-03 CD-TLW-04 the default Tailwind file adds floor of S times L over 100 sails, up to 128 in all`() {
+    val params = TailwindParams.of(BuiltInRoles.parse("tailwind").params)
+    assertEquals(TailwindParams(0.01, 128), params)
+    assertEquals(32, TailwindMath.bonus(64, 50, params.perLevel, params.maxTotalSails))
+    assertEquals(28, TailwindMath.bonus(100, 100, params.perLevel, params.maxTotalSails))
+}
+
 /** Cobblemon's `gust` timeline sends the gust from the user, and its two hits land on the target. */
 @Test
 fun `CD-FX-04 Tailwind's Gust blows from the worker and hits the bearing`() {
@@ -1382,16 +1590,21 @@ class TailwindBonus(be: SmartBlockEntity) : BlockEntityBehaviour(be) {
 @Mixin(WindmillBearingBlockEntity.class)
 public abstract class WindmillBearingBlockEntityMixin {
     /**
-     * A Working Tailwind worker's virtual sails count toward the speed, on both sides. Assembly reads the sail field itself, so
-     * they never help a windmill assemble (CD-TLW-05), and Create's own clamp keeps the speed at 16 RPM or less (CD-BAL-04).
+     * The virtual sails count toward the speed, on both sides. Assembly reads the sail field itself, so they never help a windmill
+     * assemble (CD-TLW-05), and Create's own clamp keeps the speed at 16 RPM or less (CD-BAL-04).
      */
-    @ModifyExpressionValue(method = "getGeneratedSpeed()F", at = @At(value = "INVOKE",
+    @Redirect(method = "getGeneratedSpeed()F", at = @At(value = "INVOKE",
             target = "Lcom/simibubi/create/content/contraptions/bearing/BearingContraption;getSailBlocks()I"))
-    private int cobblemon_dynamics$virtualSails(int sails) {
-        return TailwindBonus.totalSails((WindmillBearingBlockEntity) (Object) this, sails);
+    private int cobblemon_dynamics$virtualSails(BearingContraption contraption) {
+        return TailwindBonus.totalSails((WindmillBearingBlockEntity) (Object) this, contraption.getSailBlocks());
     }
 }
 ```
+
+  The first draft used MixinExtras' `@ModifyExpressionValue` on the same call. MixinExtras injects it after the config
+  plugin's `postApply`, so `MixinState` never saw the call and the gate turned Tailwind off (see the checked facts above). A
+  `@Redirect` keeps the same rule and injects in Mixin's own pass. Another mod's `@Redirect` of this call would make one of
+  the two skip, and with `defaultRequire: 0` the skipped one turns its role off with one warning.
 
 ```kotlin
 /** Tailwind: a Flying-type adds virtual sails to a Create windmill while it Works, recomputed on every tick (CD-TLW-03). */
@@ -1407,7 +1620,7 @@ object TailwindHandler : TargetHandler {
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = level.getBlockEntity(canonical) is WindmillBearingBlockEntity
 
     override fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean {
-        val facing = level.getBlockState(canonical).takeIf { it.hasProperty(BearingBlock.FACING) }?.getValue(BearingBlock.FACING) ?: return false
+        val facing = level.getBlockState(canonical).getOptionalValue(DirectionalKineticBlock.FACING).orElse(null) ?: return false
         return TailwindMath.clearOfSails(canonical, facing, spot, bodyHeight)
     }
 
@@ -1425,12 +1638,12 @@ object TailwindHandler : TargetHandler {
         val contraption = bearing.movedContraption?.contraption as? BearingContraption ?: return
         val params = TailwindParams.of(ctx.role.params)
         val bonus = TailwindMath.bonus(contraption.sailBlocks, ctx.pokemon.level, params.perLevel, params.maxTotalSails)
-        BlockEntityBehaviour.get(bearing, TailwindBonus.TYPE)?.grant(bonus, ctx.now)
+        TailwindBonus.of(bearing)?.grant(bonus, ctx.now)
     }
 
-    /** CD-TLW-09 */
+    /** CD-TLW-09. In a chunk that is gone, the grant lapses by itself. */
     override fun onStop(ctx: WorkContext) {
-        if (ctx.level.isLoaded(ctx.target)) bearingAt(ctx)?.let { BlockEntityBehaviour.get(it, TailwindBonus.TYPE) }?.withdraw()
+        if (ctx.level.isLoaded(ctx.target)) TailwindBonus.of(bearingAt(ctx))?.withdraw()
     }
 
     private fun bearingAt(ctx: WorkContext): WindmillBearingBlockEntity? = ctx.level.getBlockEntity(ctx.target) as? WindmillBearingBlockEntity
@@ -1469,7 +1682,7 @@ fun cdTlw05SevenSailsNeverAssemble(helper: GameTestHelper) {
         .thenIdle(20)
         .thenExecute {
             helper.assertFalse(bearing.isRunning, "CD-TLW-05: the windmill assembled with 7 real sails")
-            helper.setBlock(bearingRel.offset(0, 1, 1), AllBlocks.SAIL.defaultState.setValue(SailBlock.FACING, Direction.UP))
+            helper.setBlock(bearingRel.offset(0, 1, 1), CreateKit.sail())
             click()
         }
         .thenIdle(20)
@@ -1484,6 +1697,7 @@ fun cdTlw05SevenSailsNeverAssemble(helper: GameTestHelper) {
  */
 @GameTest(template = "floor_15x6x15", timeoutTicks = 1000)
 fun cdTlw06Tlw09Tlw08TheBonusFollowsTheWork(helper: GameTestHelper) {
+    helper.assertTrue(MixinState.applied(MixinState.WINDMILL_BEARING), "the windmill mixin did not apply")
     val bearing = CreateKit.windmill(helper, bearingRel, sails = 64)
     val scene = scene(helper)
     val pidgey = TestKit.tether(helper, scene.pasture, scene.owner, "pidgey level=50")
@@ -1529,32 +1743,48 @@ fun cdBal04Tlw04TheWindmillNeverPassesSixteenRpm(helper: GameTestHelper) {
         .thenWaitUntil { helper.assertTrue(TestKit.workerOf(helper, pidgey)?.status == WorkerStatus.WORKING, "not Working") }
         .thenExecuteFor(200) { helper.assertTrue(rpm() <= 16f, "CD-BAL-04: the windmill turns at ${rpm()} RPM") }
         .thenExecute {
-            helper.assertTrue(BlockEntityBehaviour.get(bearing, TailwindBonus.TYPE)?.sails == 28, "CD-TLW-04: the bonus is not 28")
+            helper.assertTrue(TailwindBonus.of(bearing)?.sails == 28, "CD-TLW-04: the bonus is ${TailwindBonus.of(bearing)?.sails}, not 28")
             helper.assertTrue(rpm() == 16f, "the worked windmill turns at ${rpm()} RPM, not 16")
         }
         .thenSucceed()
 }
 ```
 
-  `CoreTests.createRoles` gains `tailwind` (CD-CFG-10). CD-TLW-07 is a Demo: manual checklist, below.
+  `CoreTests.createRoles` gains `tailwind` (CD-CFG-10). CD-TLW-07 is a Demo: manual checklist, below. The scenes keep every
+  assertion of the first draft. The check that the windmill mixin applied is new, and it caught the late injection above.
 
 - [ ] **Step 6: Docs.** The guide section and the checklist entry:
 
 ```markdown
 ### Tailwind
 
-A Flying-type adds wind to a Create windmill. Tailwind is leash only: select the Pokémon with the Work Leash, then
-right-click the windmill bearing. While the worker Works, the windmill counts floor(real sails × level ÷ 100) more sails,
-and real and added sails together stay at 128 or less. So a 64-sail windmill turns at 12 RPM with a level 50 worker, and
-at 16 RPM, Create's maximum, with a level 100 worker. A windmill still needs 8 real sails to assemble. The worker stands
-beside or behind the bearing, never where the sails turn. Under a windmill that faces up, the worker needs room below
-the sails, so assemble the windmill before you bind. A worker waits in Standby while the windmill is not assembled.
+**Types:** Flying. **Level:** the bonus grows with level. **Move:** Gust. **Assignment:** Work Leash only.
+**Needs:** Create.
 
-Role file parameters: `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
+**Target:** a windmill bearing.
+
+A Flying-type adds wind to a Create windmill. Select the Pokémon with the Work Leash, then right-click the
+windmill bearing. While the worker Works, the windmill counts floor(S × L ÷ 100) more sails, where S is its
+number of real sails and L the worker's level. Real and added sails together stay at 128 or less. So a
+64-sail windmill turns at 12 RPM with a level 50 worker, and at 16 RPM, Create's maximum, with a level 100
+worker. The added sails end within 2 ticks of the end of the work. A windmill still needs 8 real sails to
+assemble.
+
+The worker stands beside or behind the bearing, never where the sails turn. Under a windmill that faces up,
+the worker needs room below the sails, so assemble the windmill before you bind. A worker waits in Standby
+while the windmill is not assembled.
+
+**Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
 ```
 
+  The roles table gains a Tailwind row, and the sentence on the roles whose output follows the level names Tailwind.
+
 ```markdown
-46. **CD-TLW-07.** Setup: a 64-sail windmill with a bound level 50 Flying-type that Works. Action: watch the sails for 30
+## Tailwind
+
+This check shows the Phase 2 Tailwind on a client. Record its result in the play-test note of the Phase 2 gate report.
+
+54. **CD-TLW-07.** Setup: a 64-sail windmill with a bound level 50 Flying-type that Works. Action: watch the sails for 30
     seconds. Expected: the sails turn smoothly at the faster speed, and they never snap back.
 ```
 

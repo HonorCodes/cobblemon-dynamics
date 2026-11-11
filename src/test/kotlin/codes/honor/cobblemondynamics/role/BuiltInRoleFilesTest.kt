@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.engine.WorkSpots
+import codes.honor.cobblemondynamics.handler.create.TailwindMath
+import codes.honor.cobblemondynamics.handler.create.TailwindParams
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
@@ -34,7 +36,13 @@ class BuiltInRoleFilesTest {
         "muse" to Row("cobblemon_dynamics:enchanting", setOf("fairy"), false, 0, "fairywind"),
         "telekinesis" to Row("cobblemon_dynamics:telekinesis", setOf("psychic"), false, 0, "kinesis"),
         "magnet" to Row("cobblemon_dynamics:magnet", setOf("steel"), false, 0, "special"),
+        "fan_catalyst_fire" to Row("cobblemon_dynamics:fan_catalyst", setOf("fire"), false, 0, "firespin"),
+        "fan_catalyst_water" to Row("cobblemon_dynamics:fan_catalyst", setOf("water"), false, 0, "bubble"),
+        "fan_catalyst_ghost" to Row("cobblemon_dynamics:fan_catalyst", setOf("ghost"), false, 0, "willowisp"),
+        "tailwind" to Row("cobblemon_dynamics:tailwind", setOf("flying"), false, 0, "gust"),
     )
+
+    private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
 
     /** The `auto_assign` key as the file writes it, so that a missing key fails as well as `true`. */
     private fun autoAssignKey(name: String): JsonElement? {
@@ -235,6 +243,101 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("special"), effect.animations)
         assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:metal_sparks"), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-FAN-01 Charmander, Squirtle and Gastly may be a Fan Catalyst, and Pikachu may not`() {
+        val roles = fanCatalysts.map { BuiltInRoles.parse(it) }
+        fun eligible(vararg types: String) = roles.any { RoleSelection.isEligible(it, types.toList()) }
+        assertTrue(eligible("fire"), "Charmander")
+        assertTrue(eligible("water"), "Squirtle")
+        assertTrue(eligible("ghost", "poison"), "Gastly")
+        assertFalse(eligible("electric"), "Pikachu")
+    }
+
+    @Test
+    fun `CD-FAN-02 every Fan Catalyst role file sets auto_assign to false`() {
+        for (name in fanCatalysts) {
+            val key = autoAssignKey(name)
+            assertTrue(
+                key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+                "$name.json has auto_assign $key",
+            )
+        }
+    }
+
+    /**
+     * Ruling 1 of the Phase 2 plan: a Pokémon with two catalyst types works as the catalyst of its primary type, then of its secondary
+     * type, not by the id order of the role files.
+     */
+    @Test
+    fun `CD-LSH-16 with ruling 1 a two-type Fan Catalyst takes the role of its primary type`() {
+        val roles = fanCatalysts.map { BuiltInRoles.parse(it) }
+        fun pick(vararg types: String): String? =
+            RoleSelection.best(roles.filter { RoleSelection.isEligible(it, types.toList()) }, types.toList())?.id?.path
+        assertEquals("fan_catalyst_fire", pick("fire", "ghost"), "Ceruledge")
+        assertEquals("fan_catalyst_ghost", pick("ghost", "fire"), "Chandelure")
+        assertEquals("fan_catalyst_water", pick("water", "ghost"), "Jellicent")
+        assertEquals("fan_catalyst_fire", pick("fire", "water"), "Volcanion")
+        assertEquals("fan_catalyst_ghost", pick("ghost", "poison"), "Gastly")
+    }
+
+    /** Fire Spin and Will-O-Wisp split their particles as Cobblemon's timelines do. */
+    @Test
+    fun `CD-FX-04 the Fire and Ghost Fan Catalysts split their particles as their timelines do`() {
+        for ((file, move) in listOf("fan_catalyst_fire" to "firespin", "fan_catalyst_ghost" to "willowisp")) {
+            val effect = BuiltInRoles.parse(file).effect
+            val timeline = MoveTimeline.read(move)
+            assertEquals(timeline.animations, effect.animations, file)
+            assertEquals(timeline.userParticles, effect.actorParticles.map { it.toString() }, file)
+            assertEquals(timeline.targetParticles, effect.targetParticles.map { it.toString() }, file)
+        }
+    }
+
+    /**
+     * Bubble emits `bubble_actor` from the user inside a `sequence` step, which `MoveTimeline` does not read. Its target step names
+     * `cobblemon:bubble_target`, which no particle file of Cobblemon 1.8.4 defines, so the role names no target particle.
+     */
+    @Test
+    fun `CD-FX-04 the Water Fan Catalyst blows Bubble from the worker`() {
+        val effect = BuiltInRoles.parse("fan_catalyst_water").effect
+        assertEquals(MoveTimeline.read("bubble").animations, effect.animations)
+        assertEquals(listOf("cobblemon:bubble_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(emptyList<String>(), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-TLW-01 Pidgey may be a Tailwind worker, and Pikachu may not`() {
+        val tailwind = BuiltInRoles.parse("tailwind")
+        assertTrue(RoleSelection.isEligible(tailwind, listOf("normal", "flying")), "Pidgey")
+        assertFalse(RoleSelection.isEligible(tailwind, listOf("electric")), "Pikachu")
+    }
+
+    @Test
+    fun `CD-TLW-02 the Tailwind role file sets auto_assign to false`() {
+        val key = autoAssignKey("tailwind")
+        assertTrue(
+            key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+            "tailwind.json has auto_assign $key",
+        )
+    }
+
+    @Test
+    fun `CD-TLW-03 CD-TLW-04 the default Tailwind file adds floor of S times L over 100 sails, up to 128 in all`() {
+        val params = TailwindParams.of(BuiltInRoles.parse("tailwind").params)
+        assertEquals(TailwindParams(0.01, 128), params)
+        assertEquals(32, TailwindMath.bonus(64, 50, params.perLevel, params.maxTotalSails))
+        assertEquals(28, TailwindMath.bonus(100, 100, params.perLevel, params.maxTotalSails))
+    }
+
+    /** Cobblemon's `gust` timeline sends the gust from the user, and its two hits land on the target. */
+    @Test
+    fun `CD-FX-04 Tailwind's Gust blows from the worker and hits the bearing`() {
+        val effect = BuiltInRoles.parse("tailwind").effect
+        val gust = MoveTimeline.read("gust")
+        assertEquals(gust.animations, effect.animations)
+        assertEquals(gust.userParticles, effect.actorParticles.map { it.toString() })
+        assertEquals(gust.targetParticles, effect.targetParticles.map { it.toString() })
     }
 
     /** The Cranker is the only role whose move needs contact. */

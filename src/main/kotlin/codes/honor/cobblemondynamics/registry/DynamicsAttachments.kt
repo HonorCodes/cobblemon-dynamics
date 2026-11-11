@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.pasture.WorkModeData
 import codes.honor.cobblemondynamics.pasture.WorkPastureIndex
 import codes.honor.cobblemondynamics.stamina.StaminaView
+import net.minecraft.core.BlockPos
 import net.neoforged.neoforge.attachment.AttachmentType
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredRegister
@@ -32,6 +33,10 @@ object DynamicsAttachments {
     val STAMINA_VIEW: DeferredHolder<AttachmentType<*>, AttachmentType<StaminaView>> =
         REGISTER.register("stamina_view", Supplier { staminaView() })
 
+    /** On a fan worker's `PokemonEntity`, for the length of its claim: the fan's position. Synced to tracking clients, never saved. */
+    val FAN_WORKER: DeferredHolder<AttachmentType<*>, AttachmentType<BlockPos>> =
+        REGISTER.register("fan_worker", Supplier { fanWorker() })
+
     private fun workMode(): AttachmentType<WorkModeData> =
         AttachmentType.builder(Supplier { WorkModeData.OFF }).serialize(WorkModeData.CODEC) { it.enabled }.build()
 
@@ -43,4 +48,7 @@ object DynamicsAttachments {
 
     private fun staminaView(): AttachmentType<StaminaView> =
         AttachmentType.builder(Supplier { StaminaView.FULL }).sync(StaminaView.STREAM_CODEC).build()
+
+    private fun fanWorker(): AttachmentType<BlockPos> =
+        AttachmentType.builder(Supplier { BlockPos.ZERO }).sync(BlockPos.STREAM_CODEC).build()
 }

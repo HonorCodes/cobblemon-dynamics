@@ -9,9 +9,11 @@
     "compat.cobblebase.BaseManagerMixin",
     "compat.cobblebase.NavigationHelperMixin",
     "compat.cobblebase.PassiveXpMixin",
+    "create.AirCurrentMixin",
     "create.BlazeBurnerBlockEntityMixin",
     "create.ItemUseOverridesMixin",
     "create.WaterWheelBlockEntityMixin",
+    "create.WindmillBearingBlockEntityMixin",
     "vanilla.EnchantmentMenuAccess",
     "vanilla.EnchantmentMenuMixin",
     "vanilla.WorkerPushMixin"

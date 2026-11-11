@@ -9,6 +9,7 @@ import java.util.UUID
 data class WorkerView(
     val id: UUID,
     val pos: Vec3,
+    /** Primary first, which picks between the roles of one handler (ruling 1 of the Phase 2 plan). */
     val types: Set<String>,
     val hasFairyType: Boolean,
     val tired: Boolean,
@@ -54,7 +55,7 @@ object Assigner {
 
     /** CD-ASG-05: a role whose auto-assign flag is false never counts. */
     private fun roleFor(w: WorkerView, candidate: CandidateView): RoleDefinition? =
-        RoleSelection.best(candidate.roles.filter { it.autoAssign && RoleSelection.isEligible(it, w.types) })
+        RoleSelection.best(candidate.roles.filter { it.autoAssign && RoleSelection.isEligible(it, w.types) }, w.types.toList())
 
     /** Nearest first. Ties go to the lowest key, so the choice is stable. */
     private fun nearestTo(w: WorkerView): Comparator<Pair<CandidateView, RoleDefinition>> =

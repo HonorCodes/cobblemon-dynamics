@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:tailwind",
+  "types": ["flying"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {
+    "bonus_per_level_of_real_sails": 0.01,
+    "max_total_sails": 128
+  },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["gust", "flying", "special"],
+    "actor_particles": ["cobblemon:gust_actor"],
+    "target_particles": ["cobblemon:gust_target", "cobblemon:gust_targethit"]
+  }
+}

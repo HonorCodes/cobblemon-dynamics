@@ -188,6 +188,9 @@ direction reverses at once. The player who bound the worker, the owner of the wo
 can flip it. Each wheel and each crank keeps its own direction, also through restarts and when another
 worker takes over.
 
+The same click switches a fan that a Fan Catalyst works between blasting and smoking (see [Fan Catalyst
+Fire](#fan-catalyst-fire)).
+
 ### While you hold the Work Leash
 
 - A Work Stamina bar and a state icon show over each worker within 16 blocks of you. The client config key
@@ -350,9 +353,13 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
 | [Magnet](#magnet) | `cobblemon_dynamics:magnet` | Steel | A container | Work Leash | |
+| [Fan Catalyst Fire](#fan-catalyst-fire) | `cobblemon_dynamics:fan_catalyst_fire` | Fire | Encased fan that faces sideways | Work Leash | Create |
+| [Fan Catalyst Water](#fan-catalyst-water) | `cobblemon_dynamics:fan_catalyst_water` | Water | Encased fan that faces sideways | Work Leash | Create |
+| [Fan Catalyst Ghost](#fan-catalyst-ghost) | `cobblemon_dynamics:fan_catalyst_ghost` | Ghost | Encased fan that faces sideways | Work Leash | Create |
+| [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
 
-Level changes the output of the Generator, the Pump, the Muse, Telekinesis and the Magnet. The Superheater
-superheats only from level 50. Every other role works the same at every level.
+Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet and Tailwind. The
+Superheater superheats only from level 50. Every other role works the same at every level.
 
 ### Stoker
 
@@ -555,6 +562,62 @@ a player just threw stays theirs for a moment. What does not fit stays on the gr
 Standby while no item lies in range or the container is full.
 
 **Role file parameter:** `items_per_second_at_level_100` (64).
+
+### Fan Catalyst
+
+**Types:** Fire, Water or Ghost. **Level:** any. **Move:** Fire Spin, Bubble or Will-O-Wisp. **Assignment:**
+Work Leash only. **Needs:** Create.
+
+**Target:** an encased fan that faces sideways. A fan that faces up or down cannot take a worker, because a
+worker in its air current would block it.
+
+A Fire-, Water- or Ghost-type stands in the block in front of the fan and takes the place of the lava, the
+water or the soul fire there. The fan then processes the items in its air current as Create does, at
+Create's own speed. Select the Pokémon with the Work Leash, then right-click the fan. The block in front of
+the fan must have room for the Pokémon. If it has none, or if the fan faces up or down, the action bar shows
+"No room in front of the fan". No fan pushes, burns or harms the worker while it holds its claim. A worker
+waits in Standby while the fan stands still or no item is in its air current.
+
+Each type has its own role file. A Pokémon with two of these types works as the catalyst of its primary
+type: a Fire and Ghost type blasts or smokes, and a Ghost and Fire type haunts. A role file with a higher
+`priority` wins before the type order.
+
+**Role file parameter:** `catalyst` (`fire`, `water` or `ghost`).
+
+#### Fan Catalyst Fire
+
+Blasting by default. To switch the fan to smoking, hold the Work Leash, then sneak and right-click the fan
+while its worker Works. Do it again to switch it back. The action bar shows the new mode. The player who
+bound the worker, the owner of the worker's pasture and operators can switch it. Each fan keeps its own
+mode, also through restarts.
+
+#### Fan Catalyst Water
+
+Washing, as Create's bulk washing does.
+
+#### Fan Catalyst Ghost
+
+Haunting, as Create's bulk haunting does.
+
+### Tailwind
+
+**Types:** Flying. **Level:** the bonus grows with level. **Move:** Gust. **Assignment:** Work Leash only.
+**Needs:** Create.
+
+**Target:** a windmill bearing.
+
+A Flying-type adds wind to a Create windmill. Select the Pokémon with the Work Leash, then right-click the
+windmill bearing. While the worker Works, the windmill counts floor(S × L ÷ 100) more sails, where S is its
+number of real sails and L the worker's level. Real and added sails together stay at 128 or less. So a
+64-sail windmill turns at 12 RPM with a level 50 worker, and at 16 RPM, Create's maximum, with a level 100
+worker. The added sails end within 2 ticks of the end of the work. A windmill still needs 8 real sails to
+assemble.
+
+The worker stands beside or behind the bearing, never where the sails turn. Under a windmill that faces up,
+the worker needs room below the sails, so assemble the windmill before you bind. A worker waits in Standby
+while the windmill is not assembled.
+
+**Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
 
 ## Configuration
 

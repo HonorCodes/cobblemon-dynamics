@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:fan_catalyst",
+  "types": ["fire"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {
+    "catalyst": "fire"
+  },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["firespin", "special"],
+    "actor_particles": ["cobblemon:firespin_actorburst", "cobblemon:firespin_actor"],
+    "target_particles": ["cobblemon:firespin_targetburst", "cobblemon:firespin_target"]
+  }
+}

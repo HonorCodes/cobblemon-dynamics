@@ -143,8 +143,8 @@ object WorkSpots {
      * play-test ruling, 2026-11-10). Within each, the spot nearest to the target wins, then the one nearest to the worker, then the
      * lowest `BlockPos.asLong()`. A spot that a worker cannot walk into on the level, such as a pit beside the target, comes after every
      * open spot, because the worker may not reach it. A spot is standable only with room for the worker's body ([SpotGrid.fitsBody]).
-     * The search asks for line of sight, openness and room only of a spot that could still be the best so far. It skips the cells in
-     * [excluded], as `BlockPos.asLong()`.
+     * The search asks for the handler's own rule ([allowed]), line of sight, openness and room only of a spot that could still be the
+     * best so far. It skips the cells in [excluded], as `BlockPos.asLong()`.
      */
     fun find(
         grid: SpotGrid,
@@ -154,6 +154,7 @@ object WorkSpots {
         range: Double,
         from: Vec3,
         excluded: Set<Long> = emptySet(),
+        allowed: (BlockPos) -> Boolean = { true },
     ): BlockPos? {
         val r = ceil(range).toInt()
         val cx = floor(targetCenter.x).toInt()
@@ -177,7 +178,7 @@ object WorkSpots {
                     val asOpen = Rank(false, place, c.distanceToSqr(targetCenter), c.distanceToSqr(from), pos.asLong())
                     val current = bestRank
                     if (current != null && asOpen >= current) continue
-                    if (!hasLineOfSight(grid, c, targetCenter)) continue
+                    if (!allowed(pos) || !hasLineOfSight(grid, c, targetCenter)) continue
                     val rank = if (isOpen(grid, x, y, z)) asOpen else asOpen.copy(closed = true)
                     if ((current == null || rank < current) && grid.fitsBody(x, y, z)) {
                         best = pos
@@ -202,10 +203,11 @@ object WorkSpots {
         from: Vec3,
         reachable: (BlockPos) -> Boolean,
         maxChecks: Int = MAX_PATH_CHECKS,
+        allowed: (BlockPos) -> Boolean = { true },
     ): BlockPos? {
         val excluded = HashSet<Long>()
         repeat(maxChecks) {
-            val spot = find(grid, area, target, targetCenter, range, from, excluded) ?: return null
+            val spot = find(grid, area, target, targetCenter, range, from, excluded, allowed) ?: return null
             if (reachable(spot)) return spot
             excluded += spot.asLong()
         }

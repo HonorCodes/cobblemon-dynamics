@@ -5,6 +5,7 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -17,7 +18,11 @@ enum class ScanKind { BLOCK_ENTITY, BLOCK, NONE }
 /** How many targets one Work Leash binding of this handler's roles names. */
 enum class BindingShape { SINGLE, SOURCE_AND_DESTINATION }
 
-/** Finds, checks and works one kind of target. Roles name a handler by [id]. */
+/**
+ * Finds, checks and works one kind of target. Roles name a handler by [id]. No member names `PokemonEntity` in its signature, because
+ * JUnit reflects on this interface and that class does not load without the game's transformers. A hook gets the worker in a
+ * [WorkContext].
+ */
 interface TargetHandler {
     val id: ResourceLocation
     val scanKind: ScanKind
@@ -46,6 +51,21 @@ interface TargetHandler {
 
     /** CD-TLK-12: whether a two-target binding of [role] may name [destination] for a pasture at [pasture]. */
     fun destinationInReach(role: RoleDefinition, pasture: BlockPos, destination: BlockPos): Boolean = true
+
+    /** Whether a worker [bodyHeight] blocks high may work this target from [spot]. The engine asks only of a spot that passes its own checks. */
+    fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean = true
+
+    /** The lang key that refuses a Work Leash bind when the worker has no spot at the target, or null to bind and report later (CD-LSH-21). */
+    val noSpotRefusal: String? get() = null
+
+    /** A work claim on the context's target starts for its worker, or the claim follows the Pokémon to a new entity. */
+    fun onClaim(ctx: WorkContext) {}
+
+    /** The work claim of the context's worker ends, by any path, or leaves that entity for the Pokémon's new entity. */
+    fun onUnclaim(ctx: WorkContext) {}
+
+    /** The action-bar message after a [flip] that changed the target, or null for none. */
+    fun flipMessage(level: ServerLevel, canonical: BlockPos): Component? = null
 }
 
 class WorkContext(

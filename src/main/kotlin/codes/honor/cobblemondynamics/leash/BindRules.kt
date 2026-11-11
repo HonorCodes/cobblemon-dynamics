@@ -46,13 +46,17 @@ object BindRules {
         val sameAsPending: Boolean,
         /** The bound role's handler accepts the destination's distance from the pasture block (CD-TLK-12). */
         val destinationInReach: Boolean = true,
+        /** The handler's refusal when the worker has no spot at the target, or null when it has one or the handler binds anyway (CD-FAN-04). */
+        val noSpotRefusal: String? = null,
+        /** The Pokémon's types, primary first, which pick between the fitting roles of one handler (ruling 1 of the Phase 2 plan). */
+        val types: List<String> = emptyList(),
     )
 
     fun evaluate(input: Input, shapeOf: (RoleDefinition) -> BindingShape): Outcome {
         if (input.selection == null || !input.pokemonOwnedByPlayer) return Outcome.Refuse(NO_SELECTION)
         if (!input.pastureInWorkMode) return Outcome.Refuse(NOT_WORK_MODE)
         // CD-LSH-16: one click gives one predictable role.
-        val role = RoleSelection.best(input.fittingRoles) ?: return Outcome.Refuse(NO_ROLE)
+        val role = RoleSelection.best(input.fittingRoles, input.types) ?: return Outcome.Refuse(NO_ROLE)
         val twoTargets = shapeOf(role) == BindingShape.SOURCE_AND_DESTINATION
         if (twoTargets && input.pending != null && input.sameAsPending) return Outcome.Refuse(DESTINATION_SAME)
         // CD-TLK-12: the destination may sit outside the work area, but not past the role's range from the pasture block.
@@ -67,6 +71,7 @@ object BindRules {
                 Outcome.Refuse(ALREADY_ASSIGNED_OTHER, bound.species)
             }
         }
+        input.noSpotRefusal?.let { return Outcome.Refuse(it) }
         return if (twoTargets && input.pending == null) Outcome.AwaitDestination(role) else Outcome.Bind(role, input.canonical)
     }
 }
