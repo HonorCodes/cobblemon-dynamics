@@ -115,7 +115,8 @@ object ServerConfig {
             "maxWorkersPerContainer",
             d.maxWorkersPerContainer,
             ConfigRanges.WORKERS_PER_CONTAINER,
-            "Most workers of logistics roles on one container at once: as a Magnet's container, a Telekinesis source or destination.",
+            "Most workers of logistics roles on one container at once: as a Magnet's container, a Telekinesis source or destination. " +
+                "A destination counts only when the Work Leash binds it. A lower value clears no binding.",
         )
         b.pop()
 
