@@ -21,7 +21,7 @@ design of every task. This note holds what the plan does not.
   push per review round; no AI attribution or `Co-Authored-By` anywhere; stage explicit paths only; a
   commit with a `.md` file needs a ` [rag:N]` subject suffix (hook-enforced).
 
-## State at the time of writing (Phase 2: M8 Tasks 1 to 5 merged, Quick Work next)
+## State at the time of writing (Phase 2 at its gate, waiting for the approver)
 
 | Item | State |
 | --- | --- |
@@ -36,7 +36,7 @@ design of every task. This note holds what the plan does not.
 | Play-test | The operator plays in the CurseForge instance `C:\Users\admin\curseforge\minecraft\Instances\Cobblemon Dynamics Play-test` (world `test1`, with the `cdtest` kit datapack: `/function cdtest:help`). The instance came from `run/testpack/cobblemon-dynamics-playtest-curseforge.zip`. Round 1 (2026-11-10) found five issues: the heal crash, a too-flashy Flamethrower, cut-off animation loops, work cries and workers standing on top of their targets. PR #12 (`69e4399`) fixed all five, and the instance runs that jar. After each session, read the instance's `logs/latest.log` and `crash-reports/`. Copy a new jar into its `mods/` only while the game is closed. |
 | Shared machine | The COHO-2 session runs large COHO server and client tests on this PC. It asks over cross-session messages to hold JVM runs when free memory is low. Run JVMs one at a time. Run `./gradlew --stop` when idle, and cap the GameTest JVM at 3 GB with an init script passed through `-I`. Never raise a heap setting. |
 | Phase 1 close | The approver play-tested Phase 1 GREEN (CD-REL-13, recorded in the gate report). Their rulings then merged: PR #13 (`62b75ca`) removes the Burner Keeper and adds the Charge Cell (50,000 FE) and the creative tab. PR #15 (`89918aa`) holds the 9 multiplayer audit fixes. The approver ruled "no multiplayer game tests", so the code is checked by reading it. |
-| Phase 2 | The plan is `docs/plans/2026-11-10-phase-2-plan.md` with M6, M7 and M8 files (PR #14, `1dccc06`). It holds rulings on its open questions and the approver's art scope: new pixel art only for items that are never placed, and blocks keep art that represents their 3D object. Merged: M6 (PR #16), M7 (PR #17, `a791a8f`) and M8 Tasks 1 to 5 (PR #18, `7685e7e`). PR #18 holds the art pipeline, the Work Leash, the UI sprites and the review spritesheet `build/art-review/spritesheet.png`, which replaced the review page by the approver's ruling of 2026-11-11. The approver's art verdicts are pending. Quick Work (R63, ADR-0013, `docs/plans/2026-11-11-phase-2-quick-work.md`) is designed, and it is built before M8 Tasks 6 to 8. |
+| Phase 2 | The plan is `docs/plans/2026-11-10-phase-2-plan.md` with M6, M7 and M8 files (PR #14, `1dccc06`). It holds rulings on its open questions and the approver's art scope: new pixel art only for items that are never placed, and blocks keep art that represents their 3D object. Merged: M6 (PR #16), M7 (PR #17, `a791a8f`) and M8 Tasks 1 to 5 (PR #18, `7685e7e`). PR #18 holds the art pipeline, the Work Leash, the UI sprites and the review spritesheet `build/art-review/spritesheet.png`, which replaced the review page by the approver's ruling of 2026-11-11. Then merged: the path-check fix (#20), the multiplayer audit (#21, `docs/testing/multiplayer-audit.md`), Quick Work (design #19, build #22; R63, ADR-0013), the end-of-phase pass (#23, #24) and the gate (#25, `5d8dca2`). The gate report `docs/testing/phase-2-gate.md` is for the run on `ceec134`: all 360 rows with automated tests pass, 5 rows wait for the art review, and 2 stay open after Phase 2. The play-test jar is `1.0.0-beta.1`, SHA-1 `c8d8edf4d22e96efe686cd1b6000e149f99c28be`. It is in the play-test instance (with the kits `cdtest:kit/phase2` and `cdtest:pokemon_phase2`) and in `run/testpack/cobblemon-dynamics-playtest-curseforge.zip`. COHO-2 got the handoff and ships the jar in COHO 2.4.0-rc3 with `quickWork.enabled = false`, because COHO runs FTB Chunks claims. |
 
 ## Environment
 
@@ -160,18 +160,29 @@ The repository's `CLAUDE.md` holds them; add new ones there.
 
 ## Next steps, in order
 
-Phase 1 is play-tested GREEN. Phase 2 runs from [`2026-11-10-phase-2-plan.md`](2026-11-10-phase-2-plan.md).
+Phase 2 has reached its gate (M8 Task 8 Step 5). The work is stopped for the approver's art review and play-test.
 
-1. `git pull` on `main`. Merge each open pull request when its CI is green: the path-check fix on
-   `fix-reach-cannot-plan` (a worker whose navigation cannot plan claims nothing in that scan), and the Quick
-   Work design.
-2. Build Quick Work from its plan, test first, on a branch from `main`.
-3. Run M8 Task 6, the multiplayer code audit (branch `m8-mp-audit`), and Task 7, the end-of-phase pass, which
-   includes the deferred Quick Work rows.
-4. Run M8 Task 8, the Phase 2 gate: the gate report, the play-test client, a new CurseForge zip, the
-   approver's art verdicts in `docs/testing/art-review.md`, and the approver's play-test.
-5. At the gate, send the COHO-2 session the integration handoff: the jar's path, version and SHA-1, the sides,
-   the dependencies, the mixin targets and network channels, the files written and data added, the
-   Cobbleworkers interplay, and what is tested. Never touch the COHO pack or its server folder.
+1. `git pull` on `main`.
+2. Record each art verdict, in the approver's words, in `docs/testing/art-review.md`. That covers the review
+   spritesheet (`py scripts/art.py review`, then `build/art-review/spritesheet.png`) and the logo files. After the
+   verdict, delete the Work Leash candidates that the approver did not choose.
+3. Record the play-test note in `docs/testing/phase-2-gate.md`, covering checks 6, 9, 10, 14, 15, 20, 22 and 44
+   to 59. CD-REL-14 completes then.
+4. Fix what the approver rejects, test first, in a follow-up pull request. If the jar changes, send COHO-2 the
+   new SHA-1.
+5. Offer the follow-up that the gate report's known issues name: Quick Work compat with FTB Chunks and Open
+   Parties and Claims, so that COHO can turn Quick Work on.
 6. Ask the operator before the CD-REL-12 demo, which pushes `v1.0.0-alpha.1` and then `v1.0.0-beta.1`.
-   Each tag creates a public GitHub pre-release.
+   Each tag creates a public GitHub pre-release. The `v1.0.0` tag and publication are M9 (Phase 3).
+
+Gotchas that Phase 2 workers found, for `CLAUDE.md` once it has room (it is at its line limit):
+- `./gradlew --stop` stops every Gradle daemon of the user, including another worker's running build. Two
+  workers on one machine pass `--no-daemon` instead.
+- A GameTest compile that fails on an unchanged file can be stale incremental state. Delete that source set's
+  `build/kotlin/compile*Kotlin` and `build/classes/kotlin/*` outputs.
+- `git worktree remove` fails on deep build paths on Windows ("Filename too long"). Use `rm -rf`, then
+  `git worktree prune`.
+- Cobblemon 1.8.4 clears a battle id with no live battle on the entity's next tick, and it discards a party
+  Pokémon's entity when it cannot find the owner.
+- A work hold renews Cobblemon's path cooldown, which also blocks `move_to_owner`. Clear it when a hold ends.
+- `Arrival.isAt` counts a worker as arrived up to 1.5 blocks above its spot.
