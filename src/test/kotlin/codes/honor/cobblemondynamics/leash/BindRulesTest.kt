@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.role
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Test
@@ -82,18 +83,20 @@ class BindRulesTest {
 
     @Test
     fun `CD-LSH-18 the second click binds source and destination`() {
-        assertInstanceOf(
-            BindRules.Outcome.Bind::class.java,
-            BindRules.evaluate(input(roles = listOf(transfer), pending = PendingSource(BlockPos(1, 0, 0), Direction.UP, 0)), shape),
-        )
+        val pending = PendingSource(OVERWORLD, BlockPos(1, 0, 0), Direction.UP, 0)
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, BindRules.evaluate(input(roles = listOf(transfer), pending = pending), shape))
     }
 
     @Test
     fun `CD-LSH-18 a destination equal to the source is refused`() {
-        val pending = PendingSource(BlockPos.ZERO, Direction.UP, 0)
+        val pending = PendingSource(OVERWORLD, BlockPos.ZERO, Direction.UP, 0)
         assertEquals(
             "cobblemon_dynamics.leash.destination_same",
             refusal(input(roles = listOf(transfer), pending = pending, same = true)).messageKey,
         )
+    }
+
+    private companion object {
+        val OVERWORLD: ResourceLocation = ResourceLocation.withDefaultNamespace("overworld")
     }
 }

@@ -12,8 +12,11 @@ import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /** Every payload of the mod. None is optional, so a client without the mod cannot join (CD-PLAT-06). Handlers run on the main thread. */
 object DynamicsPayloads {
-    /** 2: no `work_sound` payload, because work is silent (CD-FX-09). */
-    private const val VERSION = "2"
+    /**
+     * 2: no `work_sound` payload, because work is silent (CD-FX-09). 3: the Work Leash's synced pending source carries its dimension,
+     * so a client of an older build is refused at login instead of failing to read the item.
+     */
+    private const val VERSION = "3"
 
     fun register(modBus: IEventBus) {
         modBus.addListener<RegisterPayloadHandlersEvent> { event ->

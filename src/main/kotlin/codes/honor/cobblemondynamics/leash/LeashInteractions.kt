@@ -22,6 +22,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
@@ -95,10 +96,9 @@ object LeashInteractions {
     fun onBlockClick(player: ServerPlayer, stack: ItemStack, clicked: BlockPos, face: Direction) {
         val level = player.serverLevel()
         val now = level.gameTime
+        val dimension = level.dimension().location()
         val selection = stack.get(LeashComponents.SELECTION.get())
-        val pending = stack.get(LeashComponents.PENDING_SOURCE.get())?.takeUnless {
-            it.expired(now, WorkEngineSettings.current.pendingSelectionTicks)
-        }
+        val pending = livePending(stack, dimension, now)
         val pokemon = selection?.let { ownedPokemon(player, it.pokemonId) }
         val pasture = pokemon?.let { PastureAdapter.workModePastureOf(level, it) }
         val roles = fittingRoles(level, pokemon, clicked, pending)
@@ -125,13 +125,12 @@ object LeashInteractions {
 
             is BindRules.Outcome.AwaitDestination -> {
                 val name = pokemon?.getDisplayName() ?: return
-                stack.set(LeashComponents.PENDING_SOURCE.get(), PendingSource(canonical, face, now))
+                stack.set(LeashComponents.PENDING_SOURCE.get(), PendingSource(dimension, canonical, face, now))
                 Feedback.actionBar(player, Component.translatable(SELECT_DESTINATION, name))
             }
 
             is BindRules.Outcome.Bind -> {
                 if (pokemon == null || pasture == null) return
-                val dimension = level.dimension().location()
                 val binding = if (pending == null) {
                     Binding(outcome.role.id, dimension, pasture, canonical, face, player.uuid)
                 } else {
@@ -145,8 +144,19 @@ object LeashInteractions {
     }
 
     /**
+     * The pending source of [stack], if it counts for a click in [dimension] at [now]. A source that expired, or that a click in another
+     * level left, is removed from the stack, and the click counts as a first click.
+     */
+    private fun livePending(stack: ItemStack, dimension: ResourceLocation, now: Long): PendingSource? {
+        val pending = stack.get(LeashComponents.PENDING_SOURCE.get()) ?: return null
+        if (pending.liveIn(dimension, now, WorkEngineSettings.current.pendingSelectionTicks)) return pending
+        stack.remove(LeashComponents.PENDING_SOURCE.get())
+        return null
+    }
+
+    /**
      * The roles that [pokemon]'s types make it eligible for, whose handler matches the clicked block. With a pending source, only
-     * source-and-destination roles that match the source and the clicked destination.
+     * source-and-destination roles whose handler still matches the source, in its own level, and the clicked destination.
      */
     private fun fittingRoles(level: ServerLevel, pokemon: Pokemon?, clicked: BlockPos, pending: PendingSource?): List<ActiveRole> {
         pokemon ?: return emptyList()
