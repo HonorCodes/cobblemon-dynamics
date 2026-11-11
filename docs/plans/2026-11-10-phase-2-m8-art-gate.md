@@ -1472,6 +1472,21 @@ PHASES = {
 
   Run `py scripts/gate_report.py --self-check` and `py -m ruff check scripts`.
 
+  **As built (2026-11-11).** This step ran with no JVM. The code differs from the block above in three points:
+  - `holds` takes a row id and its area. CD-CFG-16 to CD-CFG-18 are Phase 2 work in a Phase 1 area, as
+    `scripts/check_plan_coverage.py` counts them, so the Phase 1 gate holds a row only when `is_phase_2` rejects it.
+  - `art_review` maps each row to the art case that reads the review record for the row. CD-ART-02, CD-ART-03 and
+    CD-ART-04 have no case of their own, so they take `cd-art-10`, as CD-ART-10 does. CD-ART-12 takes `cd-art-12`.
+  - The row of `earlier` gets the play-test note of the earlier report as its test. The test passes when the note has a
+    date.
+
+  From the same made-up inputs, the old script and the new one wrote the same Phase 1 blocks, character for character.
+  With `--phase 2`, the same inputs left seven rows with no test. Which rows have a test depends only on the sources and
+  the lists, not on the results. The end-of-phase pass is writing the deferred `QuickWorkTests` of CD-QWK-08, CD-QWK-10,
+  CD-QWK-17 and CD-QWK-22. No test cited CD-ART-01, CD-QWK-23 or CD-QWK-24 then. Pull request #24 then added a test for
+  each of the seven rows: the `QuickWorkTests` GameTests, `ArtFilesTest` (CD-ART-01) and `QuickWorkSourceTest`
+  (CD-QWK-23, CD-QWK-24).
+
 - [ ] **Step 2: The report skeleton.** Create `docs/testing/phase-2-gate.md` in the shape of the Phase 1 report: a short
   introduction, the two generated blocks (`summary` and `rows`), and these sections that the script keeps:
   - "For the approver": the play-test client (`py scripts/testpack/testpack.py client`), the review spritesheet and the

@@ -197,6 +197,7 @@ The spec sheet area CMP holds the exact compatibility rules.
 | Document | Contents |
 | --- | --- |
 | [docs/player-guide.md](docs/player-guide.md) | How to play: Work Mode, the Work Leash, Quick Work, Work Stamina, beds, healers, every role, config and commands |
+| [docs/modpack-integration.md](docs/modpack-integration.md) | For pack and server maintainers: dependencies, server defaults, other mods, mixins, payloads, saved data and what is tested |
 | [docs/testing/manual-checklist.md](docs/testing/manual-checklist.md) | The manual play-test checklist for the Demo rows |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Components, data flow, integration points, art and milestones |
 | [docs/roles.md](docs/roles.md) | Role catalog for all 18 types: Phase 1, Phase 2 and later ideas |
@@ -219,6 +220,7 @@ Architecture decision records:
 | [0010](docs/adr/0010-balance-rule.md) | The balance rule |
 | [0011](docs/adr/0011-v2-roles-in-first-release.md) | The v2 roles in the first release, in phases |
 | [0012](docs/adr/0012-original-art-assets.md) | Original art assets |
+| [0013](docs/adr/0013-quick-work-for-party-pokemon.md) | Quick Work for party Pokémon |
 
 ## Contributing
 
