@@ -43,6 +43,9 @@ interface TargetHandler {
     fun onStop(ctx: WorkContext) {}
 
     fun flip(level: ServerLevel, canonical: BlockPos): Boolean = false
+
+    /** CD-TLK-12: whether a two-target binding of [role] may name [destination] for a pasture at [pasture]. */
+    fun destinationInReach(role: RoleDefinition, pasture: BlockPos, destination: BlockPos): Boolean = true
 }
 
 class WorkContext(
@@ -52,9 +55,13 @@ class WorkContext(
     val pokemon: Pokemon,
     val role: RoleDefinition,
     val now: Long,
+    /** The destination of the worker's two-target binding, given only for that binding's own target and role. */
     val destination: BlockPos? = null,
+    /** The face that the player clicked on the target, which is the source of a two-target binding. Null for an auto-assigned worker. */
     val sourceFace: Direction? = null,
     val destinationFace: Direction? = null,
+    /** The worker's pasture block, so that a handler finds the work area (CD-MAG-04). */
+    val pasture: BlockPos? = null,
     /**
      * What the handler keeps between the ticks of this claim. A context outside a claim, as when the engine weighs a target for a
      * worker, has an empty memo of its own.

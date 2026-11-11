@@ -706,10 +706,11 @@ object LeashResets {
 ```
 
 - [ ] **Step 1: Failing unit tests.** In `BindRulesTest`, add `reach: Boolean = true` to the `input` helper and pass it as
-  `destinationInReach = reach`. Then:
+  `destinationInReach = reach`. `PendingSource` takes the dimension of the source click first since the multiplayer review
+  (`OVERWORLD` is the test class's own constant). Then:
 
 ```kotlin
-private val pending = PendingSource(BlockPos(1, 0, 0), Direction.UP, 0)
+private val pending = PendingSource(OVERWORLD, BlockPos(1, 0, 0), Direction.UP, 0)
 
 @Test
 fun `CD-TLK-12 a destination out of reach is refused at the second click`() =
@@ -723,12 +724,17 @@ fun `CD-TLK-12 a destination in reach binds`() {
 @Test
 fun `CD-TLK-12 the reach of a destination is never asked of a one-target role or of a source click`() {
     assertInstanceOf(BindRules.Outcome.Bind::class.java, BindRules.evaluate(input(reach = false), shape))
-    assertInstanceOf(BindRules.Outcome.AwaitDestination::class.java, BindRules.evaluate(input(roles = listOf(transfer), reach = false), shape))
+    assertInstanceOf(
+        BindRules.Outcome.AwaitDestination::class.java,
+        BindRules.evaluate(input(roles = listOf(transfer), reach = false), shape),
+    )
 }
 
 @Test
-fun `CD-TLK-10 CD-TLK-12 a destination equal to the source is named before its reach`() =
-    assertEquals(BindRules.DESTINATION_SAME, refusal(input(roles = listOf(transfer), pending = pending, same = true, reach = false)).messageKey)
+fun `CD-TLK-10 CD-TLK-12 a destination equal to the source is named before its reach`() = assertEquals(
+    BindRules.DESTINATION_SAME,
+    refusal(input(roles = listOf(transfer), pending = pending, same = true, reach = false)).messageKey,
+)
 ```
 
   In `WorkAreaTest`:
@@ -757,17 +763,30 @@ if (twoTargets && input.pending != null && !input.destinationInReach) return Out
   `LeashInteractions.onBlockClick` passes, for a click with a pending source:
 
 ```kotlin
-destinationInReach = pending == null || pasture == null || best == null ||
+destinationInReach = pending == null ||
+    pasture == null ||
+    best == null ||
     guarded(best.handler, false) { best.handler.destinationInReach(best.definition, pasture, canonical) },
 ```
 
   `WorkEngine.context` gives a binding's destination and faces only to the binding's own target and role:
 
 ```kotlin
-private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: ActiveRole, memo: ClaimMemo = ClaimMemo()): WorkContext {
+private fun context(
+    t: Tick,
+    slot: PastureRuntime.Slot,
+    target: BlockPos,
+    role: ActiveRole,
+    memo: ClaimMemo = ClaimMemo(),
+): WorkContext {
     val binding = slot.binding?.takeIf { it.target == target && it.roleId == role.definition.id }
     return WorkContext(
-        t.level, target, slot.entity, slot.pokemon, role.definition, t.now,
+        t.level,
+        target,
+        slot.entity,
+        slot.pokemon,
+        role.definition,
+        t.now,
         destination = binding?.destination,
         sourceFace = binding?.face,
         destinationFace = binding?.destinationFace,
@@ -783,7 +802,9 @@ private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: 
 // CD-TLK-11: a two-target binding also ends when its destination is broken or replaced.
 val destination = BindingStore.read(pokemon)?.destination
 val handler = RoleRegistry.current.get(ref.roleId)?.handler
-if (destination != null && handler != null && level.isLoaded(destination) &&
+if (destination != null &&
+    handler != null &&
+    level.isLoaded(destination) &&
     !guarded(handler, true) { handler.stillValid(level, destination) }
 ) {
     return lost(level, target, ref, DESTINATION_GONE, pokemon)

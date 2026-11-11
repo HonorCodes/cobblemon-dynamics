@@ -787,9 +787,32 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         removeFocus(slot)
     }
 
-    /** [memo] is the slot's for its own claim. A target that the engine only weighs for the worker gets an empty one. */
-    private fun context(t: Tick, slot: PastureRuntime.Slot, target: BlockPos, role: ActiveRole, memo: ClaimMemo = ClaimMemo()) =
-        WorkContext(t.level, target, slot.entity, slot.pokemon, role.definition, t.now, memo = memo)
+    /**
+     * [memo] is the slot's for its own claim. A target that the engine only weighs for the worker gets an empty one. A binding gives its
+     * destination and faces only to its own target and role (CD-LSH-18).
+     */
+    private fun context(
+        t: Tick,
+        slot: PastureRuntime.Slot,
+        target: BlockPos,
+        role: ActiveRole,
+        memo: ClaimMemo = ClaimMemo(),
+    ): WorkContext {
+        val binding = slot.binding?.takeIf { it.target == target && it.roleId == role.definition.id }
+        return WorkContext(
+            t.level,
+            target,
+            slot.entity,
+            slot.pokemon,
+            role.definition,
+            t.now,
+            destination = binding?.destination,
+            sourceFace = binding?.face,
+            destinationFace = binding?.destinationFace,
+            pasture = BlockPos.of(slot.worker.pasture.pos),
+            memo = memo,
+        )
+    }
 
     private fun area(t: Tick, runtime: PastureRuntime): WorkArea = WorkArea.of(runtime.pos, t.settings, PastureAdapter.maxWanderDistance())
 

@@ -28,4 +28,11 @@ class WorkAreaTest {
         assertTrue(wide.contains(pasture.offset(20, 0, 0)))
         assertFalse(wide.contains(pasture.offset(21, 0, 0)))
     }
+
+    @Test
+    fun `CD-MAG-04 the box of the default area holds offset 8 and not offset 9`() {
+        val box = WorkArea(BlockPos(0, 64, 0), 8, 6).box()
+        assertTrue(box.contains(8.5, 64.5, 0.5))
+        assertFalse(box.contains(9.5, 64.5, 0.5))
+    }
 }

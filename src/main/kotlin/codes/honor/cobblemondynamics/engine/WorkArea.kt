@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.config.EngineSettings
 import net.minecraft.core.BlockPos
 import net.minecraft.core.SectionPos
 import net.minecraft.world.level.ChunkPos
+import net.minecraft.world.phys.AABB
 import kotlin.math.abs
 
 /** The box of block offsets around a pasture block in which its workers find targets and work spots. */
@@ -17,6 +18,9 @@ data class WorkArea(val center: BlockPos, val horizontal: Int, val vertical: Int
 
     fun contains(pos: BlockPos): Boolean =
         abs(pos.x - center.x) <= horizontal && abs(pos.z - center.z) <= horizontal && abs(pos.y - center.y) <= vertical
+
+    /** The blocks of the area as one box, for entity queries. */
+    fun box(): AABB = AABB(minX.toDouble(), minY.toDouble(), minZ.toDouble(), maxX + 1.0, maxY + 1.0, maxZ + 1.0)
 
     /** The chunks of the lowest and the highest corner. */
     fun chunkRange(): Pair<ChunkPos, ChunkPos> = ChunkPos(SectionPos.blockToSectionCoord(minX), SectionPos.blockToSectionCoord(minZ)) to

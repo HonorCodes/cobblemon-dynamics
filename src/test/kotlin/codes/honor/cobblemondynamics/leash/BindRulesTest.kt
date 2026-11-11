@@ -27,7 +27,11 @@ class BindRulesTest {
         boundTo: BindRules.Bound? = null,
         pending: PendingSource? = null,
         same: Boolean = false,
-    ) = BindRules.Input(selection, owned, workMode, roles, BlockPos.ZERO, inside, boundTo, pending, same)
+        reach: Boolean = true,
+    ) = BindRules.Input(selection, owned, workMode, roles, BlockPos.ZERO, inside, boundTo, pending, same, destinationInReach = reach)
+
+    /** A source click that waits for its destination, at a block other than the clicked one. */
+    private val pending = PendingSource(OVERWORLD, BlockPos(1, 0, 0), Direction.UP, 0)
 
     /** A Pokémon of the clicking player, with no nickname. */
     private fun own(species: String) = BindRules.Bound(species, species, ownedByPlayer = true)
@@ -109,6 +113,30 @@ class BindRulesTest {
             refusal(input(roles = listOf(transfer), pending = pending, same = true)).messageKey,
         )
     }
+
+    @Test
+    fun `CD-TLK-12 a destination out of reach is refused at the second click`() =
+        assertEquals(BindRules.TOO_FAR, refusal(input(roles = listOf(transfer), pending = pending, reach = false)).messageKey)
+
+    @Test
+    fun `CD-TLK-12 a destination in reach binds`() {
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, BindRules.evaluate(input(roles = listOf(transfer), pending = pending), shape))
+    }
+
+    @Test
+    fun `CD-TLK-12 the reach of a destination is never asked of a one-target role or of a source click`() {
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, BindRules.evaluate(input(reach = false), shape))
+        assertInstanceOf(
+            BindRules.Outcome.AwaitDestination::class.java,
+            BindRules.evaluate(input(roles = listOf(transfer), reach = false), shape),
+        )
+    }
+
+    @Test
+    fun `CD-TLK-10 CD-TLK-12 a destination equal to the source is named before its reach`() = assertEquals(
+        BindRules.DESTINATION_SAME,
+        refusal(input(roles = listOf(transfer), pending = pending, same = true, reach = false)).messageKey,
+    )
 
     private companion object {
         val OVERWORLD: ResourceLocation = ResourceLocation.withDefaultNamespace("overworld")

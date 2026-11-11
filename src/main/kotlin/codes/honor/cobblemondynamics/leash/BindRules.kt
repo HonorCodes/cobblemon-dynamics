@@ -14,6 +14,7 @@ object BindRules {
     const val ALREADY_ASSIGNED = "cobblemon_dynamics.leash.already_assigned"
     const val ALREADY_ASSIGNED_OTHER = "cobblemon_dynamics.leash.already_assigned_other"
     const val DESTINATION_SAME = "cobblemon_dynamics.leash.destination_same"
+    const val TOO_FAR = "cobblemon_dynamics.leash.too_far"
 
     sealed interface Outcome {
         data class Bind(val role: RoleDefinition, val canonical: BlockPos) : Outcome
@@ -28,7 +29,7 @@ object BindRules {
 
     /**
      * For a click with a pending source, [fittingRoles], [insideWorkArea] and [boundToOther] describe the source, and
-     * [canonical] is the destination.
+     * [canonical] and [destinationInReach] describe the destination.
      */
     data class Input(
         /** Read from the server's copy of the stack only (CD-SEC-08). */
@@ -43,6 +44,8 @@ object BindRules {
         val boundToOther: Bound?,
         val pending: PendingSource?,
         val sameAsPending: Boolean,
+        /** The bound role's handler accepts the destination's distance from the pasture block (CD-TLK-12). */
+        val destinationInReach: Boolean = true,
     )
 
     fun evaluate(input: Input, shapeOf: (RoleDefinition) -> BindingShape): Outcome {
@@ -52,6 +55,8 @@ object BindRules {
         val role = RoleSelection.best(input.fittingRoles) ?: return Outcome.Refuse(NO_ROLE)
         val twoTargets = shapeOf(role) == BindingShape.SOURCE_AND_DESTINATION
         if (twoTargets && input.pending != null && input.sameAsPending) return Outcome.Refuse(DESTINATION_SAME)
+        // CD-TLK-12: the destination may sit outside the work area, but not past the role's range from the pasture block.
+        if (twoTargets && input.pending != null && !input.destinationInReach) return Outcome.Refuse(TOO_FAR)
         // The source of a two-target role is checked at its own click, so a refusal never waits for the second click.
         if (!input.insideWorkArea) return Outcome.Refuse(OUTSIDE_AREA)
         // CD-LSH-05: another player's Pokémon is named by its species, so its nickname never reaches the clicking player.
