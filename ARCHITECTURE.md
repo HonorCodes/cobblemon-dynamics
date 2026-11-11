@@ -803,12 +803,9 @@ sheet's ART rows are normative.
 
 | Asset | Description |
 |---|---|
-| Hay Bed | A round straw nest. Block model, textures and item model. |
-| Wool Bed | A round wool cushion on a low wooden frame. |
-| Plush Bed | A thick velvet cushion with gold trim. |
-| Starlit Bed | A midnight-blue cushion with a gold star pattern, a faint glow and an occasional sparkle. |
-| Work Leash | A lead with a red-and-white clasp. |
-| Charge Cell | A block that stores FE. It ships a placeholder texture until M8. |
+| Beds (Hay, Wool, Plush, Starlit) | The block model and textures that represent the placed block, accepted as release art on 2026-11-10. Each bed's item model renders its block model. |
+| Charge Cell | The block model and textures that represent the placed block, accepted as release art on 2026-11-10. |
+| Work Leash | A lead with a red-and-white clasp, in Cobblemon's item style. |
 | UI sprites | The Work Mode button in 4 states (on, off, disabled, hover), the stamina bar, and 7 state icons (Idle, Traveling, Working, Standby, Tired, Sleeping, Healing). |
 | Logo | The operator's own pixel-art image of Machop turning a gear machine. The source is `art/logo/logo-source-1254.png` (1254 × 1254). It ships as a 256 × 256 `logo.png` (`art/logo/logo-256.png`) with `logoBlur=false` in `neoforge.mods.toml`, and as a 512 × 512 project-page icon (`art/logo/icon-512.png`). |
 
@@ -816,8 +813,9 @@ Rules:
 
 - No pixel comes from Mojang, Cobblemon, Create or AE2.
 - Textures use the vanilla 16×16 style. Block models use a format that Blockbench can open.
-- Source files live under `art/`: Blockbench models and layered textures. The exported models and
-  textures live under `assets/cobblemon_dynamics/`. Both are under the repository's MPL-2.0 license.
+- Source files live under `art/`: a `.pixels` text source for each texture and the JSON model files.
+  `py scripts/art.py build` writes the shipped models and textures under `assets/cobblemon_dynamics/`
+  from them. Both are under the repository's MPL-2.0 license.
 - Claude drafts each asset. The operator approves each one on a screenshot review page before the
   public release.
 - Private builds may use placeholder art. The final art lands in milestone M8.

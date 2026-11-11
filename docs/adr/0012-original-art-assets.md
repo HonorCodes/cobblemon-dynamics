@@ -60,3 +60,11 @@ vanilla 16×16 style.
   part of the same dependency.
 - **32×32 textures.** Room for detail on the Plush and Starlit beds, but they look out of place next to
   vanilla and Create blocks.
+
+## Amendment (2026-11-10)
+
+The approver ruled: "the block art can just be a representative of the actual 3d object, like it currently is for the
+beds -- things like the work leash that you never place, are the only ones that need better art." Blocks therefore keep art
+that represents their placed 3D object: an item model that renders the block model, as the beds have. That art is release
+art. The bed concepts above no longer bind. Original pixel art in Cobblemon's item style is for items that are never placed,
+which is the Work Leash. The UI sprites stay as decided. Every asset still goes through the approver's review.

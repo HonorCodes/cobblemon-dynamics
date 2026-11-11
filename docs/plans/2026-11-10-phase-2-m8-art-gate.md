@@ -34,8 +34,9 @@ Before Task 1:
 - Checked in the jars on 2026-11-10: GUI sprites live in `assets/<namespace>/textures/gui/sprites/`, with a
   `.png.mcmeta` for nine-slice scaling (vanilla's `widget/button.png.mcmeta`). `GuiGraphics.blitSprite(ResourceLocation,
   int, int, int, int)` and `WidgetSprites` exist.
-- Inferred: the Charge Cell's block id is `cobblemon_dynamics:charge_cell`, with its models and textures under that name.
-  Read the merged approver-changes pull request for the real names before Task 2.
+- Checked on 2026-11-11: the Charge Cell's block id is `cobblemon_dynamics:charge_cell`. It ships
+  `blockstates/charge_cell.json`, `models/block/charge_cell.json` (parent `minecraft:block/cube_all`),
+  `models/item/charge_cell.json` (parent `cobblemon_dynamics:block/charge_cell`) and `textures/block/charge_cell.png`.
 
 ---
 

@@ -1,0 +1,23 @@
+# working: imported from working.png
+size 16 16
+palette
+  . transparent
+  a #181818
+  b #64c85a
+pixels
+......aaaa......
+..aaa.abba.aaa..
+.aabaaabbaaabaa.
+.abbbbbbbbbbbba.
+.aabbbbbbbbbbaa.
+..abbbbaabbbba..
+aaabbbaaaabbbaaa
+abbbbaa..aabbbba
+abbbbaa..aabbbba
+aaabbbaaaabbbaaa
+..abbbbaabbbba..
+.aabbbbbbbbbbaa.
+.abbbbbbbbbbbba.
+.aabaaabbaaabaa.
+..aaa.abba.aaa..
+......aaaa......

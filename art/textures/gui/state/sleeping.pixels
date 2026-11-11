@@ -1,0 +1,23 @@
+# sleeping: imported from sleeping.png
+size 16 16
+palette
+  . transparent
+  a #181818
+  b #a078eb
+pixels
+................
+................
+..aaaaaaaaaaaa..
+..abbbbbbbbbba..
+..abbbbbbbbbbaa.
+..aaaaaaaabbbba.
+......aabbbbbaa.
+....aaabbbbaaa..
+..aaabbbbaaa....
+.aabbbbbaa......
+.abbbbaaaaaaaa..
+.aabbbbbbbbbba..
+..abbbbbbbbbba..
+..aaaaaaaaaaaa..
+................
+................

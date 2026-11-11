@@ -40,6 +40,12 @@ class ArtFilesTest {
     }
 
     @Test
+    fun `CD-ART-08 every shipped texture and model has its source under art`() {
+        val missing = (shipped("textures") + shipped("models")).filterNot { sourceOf(it).isFile }.map { it.relativeTo(root).path }
+        assertTrue(missing.isEmpty(), "no source under art/ for $missing")
+    }
+
+    @Test
     fun `CD-ART-13 LICENSE is MPL-2_0 and no asset states a license of its own`() {
         assertTrue(File(root, "LICENSE").readText().contains("Mozilla Public License Version 2.0"))
         val texts = (art.walk() + assets.walk()).filter { it.isFile && it.extension in TEXT_EXTENSIONS }
