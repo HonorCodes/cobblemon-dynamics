@@ -95,7 +95,7 @@ class LeashResetTests {
                 helper.assertTrue(BindingStore.read(it) == null, "Charmander $i keeps ${BindingStore.read(it)}")
             }
             val index = helper.level.getData(DynamicsAttachments.LEASH_INDEX)
-            for (rel in furnaces) helper.assertTrue(index.get(helper.absolutePos(rel)) == null, "$rel is still reserved")
+            for (rel in furnaces) helper.assertTrue(index.at(helper.absolutePos(rel)).isEmpty(), "$rel is still reserved")
             val lost = Feedback.recorded[owner.uuid].orEmpty().map { it.string }.filter { "lost its work binding" in it }
             val left = "Charmander lost its work binding: it left its pasture"
             val gone = "Charmander lost its work binding: its target was broken or replaced"

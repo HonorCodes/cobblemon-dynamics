@@ -82,5 +82,11 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         rebuild()
     }
 
+    /**
+     * Whether the role [id] is a logistics role, whose handler shares its targets (CD-CLM-10). The role files of the last load decide,
+     * also while the config or a failed handler turns the role off, so its bindings never start to reserve their containers.
+     */
+    fun sharesTargets(id: ResourceLocation): Boolean = parsed[id]?.let { HandlerRegistry.get(it.handler) }?.sharesTargets == true
+
     private fun handlerFor(id: ResourceLocation): TargetHandler? = if (disabledHandlers.isDisabled(id)) null else HandlerRegistry.get(id)
 }

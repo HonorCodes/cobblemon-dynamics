@@ -44,7 +44,7 @@ object DynamicsAttachments {
         AttachmentType.builder(Supplier { WorkPastureIndex(HashSet()) }).serialize(WorkPastureIndex.CODEC).build()
 
     private fun leashIndex(): AttachmentType<LeashIndex> =
-        AttachmentType.builder(Supplier { LeashIndex(HashMap()) }).serialize(LeashIndex.CODEC).build()
+        AttachmentType.builder(Supplier { LeashIndex() }).serialize(LeashIndex.CODEC).build()
 
     private fun staminaView(): AttachmentType<StaminaView> =
         AttachmentType.builder(Supplier { StaminaView.FULL }).sync(StaminaView.STREAM_CODEC).build()

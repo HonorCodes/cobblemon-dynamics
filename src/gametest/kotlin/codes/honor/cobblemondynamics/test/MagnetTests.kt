@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
@@ -24,7 +25,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 class MagnetTests {
     private val chestRel = BlockPos(11, 2, 8)
 
-    private class Scene(val owner: ServerPlayer, val worker: PokemonEntity)
+    private class Scene(val owner: ServerPlayer, val pasture: PokemonPastureBlockEntity, val worker: PokemonEntity)
 
     /** A chest at [chestRel], a Work Mode pasture at (11, 1, 11) with one Pokémon of [spec], and its owner beside the pasture. */
     private fun scene(helper: GameTestHelper, spec: String): Scene {
@@ -33,7 +34,7 @@ class MagnetTests {
         val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 11), owner)
         TestKit.workMode(pasture, true)
         TestKit.standBeside(owner, pasture)
-        return Scene(owner, TestKit.tether(helper, pasture, owner, spec))
+        return Scene(owner, pasture, TestKit.tether(helper, pasture, owner, spec))
     }
 
     /** An item entity of [stack] at the bottom center of [rel], with no motion and no pickup delay. */
@@ -144,6 +145,71 @@ class MagnetTests {
                 helper.assertTrue(status() == WorkerStatus.STANDBY, "the Klink is ${status()} with a full chest")
                 helper.assertTrue(helper.level.gameTime - since <= 20, "CD-MAG-07: no Standby within 20 ticks of the chest filling")
                 helper.assertTrue(stack.isAlive, "the dirt left the ground, so the Standby proves nothing about the full chest")
+            }
+            .thenSucceed()
+    }
+
+    /**
+     * The approver's flow (CD-MAG-09, CD-CLM-10, CD-LSH-28): a Lv25 Klink binds chest A, and a Lv50 Alakazam binds chest A as its
+     * source and chest B as its destination. When both wait in Standby at chest A, 256 andesite drop on the ground. The Klink collects
+     * them into chest A, and the Alakazam moves them on to chest B. Each Works at least once under a shared claim on chest A, the
+     * andesite on the ground and in both chests adds up to 256 on every tick, and chest B ends with all of it. Each failure message
+     * names both workers' states, claims, spots and skips.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 1_400)
+    fun cdMag09Clm10MagnetFillsTheChestThatTelekinesisEmpties(helper: GameTestHelper) {
+        val chestB = BlockPos(5, 2, 5)
+        val scene = scene(helper, "klink level=25")
+        helper.setBlock(chestB, Blocks.CHEST)
+        val alakazam = TestKit.tether(helper, scene.pasture, scene.owner, "alakazam level=50")
+        val collector = TestKit.bind(helper, scene.owner, scene.worker, chestRel)
+        helper.assertTrue(collector != null, "CD-MAG-01: the Klink's bind to chest A answered '${TestKit.lastMessage(scene.owner)}'")
+        val mover = TestKit.bindTransfer(helper, scene.owner, alakazam, chestRel, chestB)
+        val ends = mover?.target == helper.absolutePos(chestRel) && mover.destination == helper.absolutePos(chestB)
+        helper.assertTrue(ends, "CD-LSH-28: the Alakazam's bind gave $mover and answered '${TestKit.lastMessage(scene.owner)}'")
+        val chestA = TestKit.keyOf(helper, helper.absolutePos(chestRel))
+        val workers = listOf(scene.worker, alakazam)
+        val expected = 4 * 64
+        fun inA(): Int = TestKit.countIn(helper, chestRel, Items.ANDESITE)
+        fun inB(): Int = TestKit.countIn(helper, chestB, Items.ANDESITE)
+        fun total(): Int = TestKit.countOnTheGround(helper, Items.ANDESITE) + inA() + inB()
+        fun states(): String = workers.joinToString("; ", postfix = "; messages ${TestKit.messages(scene.owner)}") { entity ->
+            val worker = TestKit.workerOf(helper, entity)
+            "${entity.pokemon.species.name} ${worker?.status} at ${entity.blockPosition()}, claim ${TestKit.claimOf(helper, entity)}, " +
+                "spot ${worker?.spot}, skips ${worker?.skipUntil}, missed arrival ${worker?.missedArrival}"
+        }
+        val worked = BooleanArray(workers.size)
+        var dropped = false
+        var collectedIntoA = false
+        helper.onEachTick {
+            if (!dropped) return@onEachTick
+            helper.assertTrue(total() == expected, "CD-MAG-09: the andesite adds up to ${total()}, not $expected. ${states()}")
+            if (inA() > 0) collectedIntoA = true
+            workers.forEachIndexed { i, entity ->
+                if (TestKit.workerOf(helper, entity)?.status != WorkerStatus.WORKING) return@forEachIndexed
+                val claim = TestKit.claimOf(helper, entity)
+                val onChestA = claim?.key == chestA && claim.shared
+                helper.assertTrue(onChestA, "CD-CLM-10: the ${entity.pokemon.species.name} Works under $claim. ${states()}")
+                worked[i] = true
+            }
+        }
+        helper.startSequence()
+            .thenWaitUntil {
+                val waiting = workers.all { entity ->
+                    TestKit.workerOf(helper, entity)?.let { it.status == WorkerStatus.STANDBY && !it.missedArrival } == true
+                }
+                helper.assertTrue(waiting, "CD-MAG-09: the two workers do not both wait at chest A. ${states()}")
+            }
+            .thenExecute {
+                for (rel in listOf(BlockPos(14, 2, 13), BlockPos(16, 2, 13), BlockPos(14, 2, 15), BlockPos(16, 2, 15))) {
+                    drop(helper, rel, ItemStack(Items.ANDESITE, 64))
+                }
+                dropped = true
+            }
+            .thenWaitUntil {
+                helper.assertTrue(worked.all { it }, "CD-MAG-09: the workers that Worked: ${worked.toList()}. ${states()}")
+                helper.assertTrue(collectedIntoA, "CD-MAG-09: chest A never held andesite. ${states()}")
+                helper.assertTrue(inB() == expected, "CD-MAG-09: chest B holds ${inB()} of the $expected andesite. ${states()}")
             }
             .thenSucceed()
     }

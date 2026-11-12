@@ -18,8 +18,8 @@ import net.minecraft.world.phys.Vec3
 
 /**
  * Telekinesis: a Psychic-type moves items from its bound source to its bound destination, through the faces that the player clicked
- * (CD-TLK-04), in one batch every 20 ticks (R52). Only the source is claimed (CD-TLK-05). The engine gives it the destination and both
- * faces through the work context.
+ * (CD-TLK-04), in one batch every 20 ticks (R52). Only the source is claimed, with a shared claim (CD-TLK-05). The engine gives it the
+ * destination and both faces through the work context.
  */
 object TelekinesisHandler : TargetHandler {
     override val id: ResourceLocation = id("telekinesis")
@@ -27,6 +27,9 @@ object TelekinesisHandler : TargetHandler {
     /** Leash only (CD-TLK-02, CD-ASG-05), so no scan looks for its targets. */
     override val scanKind: ScanKind = ScanKind.NONE
     override val bindingShape: BindingShape = BindingShape.SOURCE_AND_DESTINATION
+
+    /** CD-TLK-13: other Telekinesis workers and Magnets share the source and the destination. */
+    override val sharesTargets: Boolean = true
 
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         ItemCapability.exposes(level, pos, state, blockEntity)

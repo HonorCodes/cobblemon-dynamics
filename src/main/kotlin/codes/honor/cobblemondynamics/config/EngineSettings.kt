@@ -27,6 +27,7 @@ data class EngineSettings(
     val quickWorkEnabled: Boolean = true,
     val quickWorkTargetRange: Int = 16,
     val quickWorkLeashRange: Int = 16,
+    val maxWorkersPerContainer: Int = 5,
 ) {
     companion object {
         val DEFAULT = EngineSettings()

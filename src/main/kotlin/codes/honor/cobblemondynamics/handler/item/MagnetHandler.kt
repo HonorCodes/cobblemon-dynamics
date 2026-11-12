@@ -28,6 +28,9 @@ object MagnetHandler : TargetHandler {
     /** Leash only (CD-MAG-02, CD-ASG-05), so no scan looks for its targets. */
     override val scanKind: ScanKind = ScanKind.NONE
 
+    /** CD-MAG-09: other Magnets and Telekinesis workers share the container. */
+    override val sharesTargets: Boolean = true
+
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         ItemCapability.exposes(level, pos, state, blockEntity)
 

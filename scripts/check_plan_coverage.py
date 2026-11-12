@@ -2,10 +2,11 @@
 """Checks that every spec row of a phase is cited by the milestone plan files of that phase.
 
 Phase 1 (the default): every row outside the TLK, MAG, FAN, TLW, QWK and ART areas and outside PHASE_2_ROWS, cited anywhere in a
-Phase 1 milestone file. PHASE_2_ROWS holds the Quick Work keys of the server config and the INFO lines at load.
+Phase 1 milestone file. PHASE_2_ROWS holds the Quick Work keys of the server config, the INFO lines at load and the shared
+containers of the logistics roles.
 Phase 2: every row of those six areas and of PHASE_2_ROWS, and each Phase 1 row with a Phase 2 part (the split-row table of the
-Phase 2 plan index), cited inside a task section of a Phase 2 milestone file. A task section runs from a "### Task" heading to the
-next heading of level 1 to 3.
+Phase 2 plan index), cited inside a task section of a Phase 2 milestone file or of the Phase 2 plan index. A task section runs
+from a "### Task" heading to the next heading of level 1 to 3.
 Usage: py scripts/check_plan_coverage.py [--phase {1,2}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
@@ -19,12 +20,20 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SPEC = ROOT / "docs/plans/2026-11-09-v1-spec-sheet.md"
 PLANS = {
     1: ("2026-11-09-phase-1-m*.md",),
-    2: ("2026-11-10-phase-2-m*.md", "2026-11-11-phase-2-quick-work.md", "2026-11-11-phase-2-quick-work-claims.md"),
+    2: (
+        "2026-11-10-phase-2-m*.md",
+        "2026-11-10-phase-2-plan.md",
+        "2026-11-11-phase-2-quick-work.md",
+        "2026-11-11-phase-2-quick-work-claims.md",
+    ),
 }
 PHASE_2_AREAS = {"TLK", "MAG", "FAN", "TLW", "QWK", "ART"}
-# Rows outside the Phase 2 areas that are Phase 2 work as a whole: the Quick Work keys of the server config (R63), and the
-# INFO lines at load (R65).
-PHASE_2_ROWS = ("CD-CFG-16", "CD-CFG-17", "CD-CFG-18", "CD-CMP-08", "CD-CMP-09", "CD-CMP-10")
+# Rows outside the Phase 2 areas that are Phase 2 work as a whole: the Quick Work keys of the server config (R63), the INFO
+# lines at load (R65), and the shared containers of the logistics roles (R66).
+PHASE_2_ROWS = (
+    "CD-CFG-16", "CD-CFG-17", "CD-CFG-18", "CD-CMP-08", "CD-CMP-09", "CD-CMP-10",
+    "CD-CLM-10", "CD-CLM-11", "CD-LSH-28", "CD-LSH-29", "CD-CFG-19",
+)
 # Phase 1 rows whose last part is Phase 2 work: the split-row table of docs/plans/2026-11-10-phase-2-plan.md.
 PHASE_2_PARTS = (
     "CD-LSH-16", "CD-LSH-17", "CD-LSH-18", "CD-LSH-19", "CD-LSH-20", "CD-SEC-11",

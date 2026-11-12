@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.leash
 
+import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.handler.BindingShape
 import codes.honor.cobblemondynamics.role.RoleDefinition
@@ -16,17 +17,26 @@ object BindRules {
     const val ALREADY_ASSIGNED_OTHER = "cobblemon_dynamics.leash.already_assigned_other"
     const val DESTINATION_SAME = "cobblemon_dynamics.leash.destination_same"
     const val TOO_FAR = "cobblemon_dynamics.leash.too_far"
+    const val FULL = "cobblemon_dynamics.leash.full"
+    const val FULL_ONE = "cobblemon_dynamics.leash.full_one"
 
     sealed interface Outcome {
         data class Bind(val role: RoleDefinition, val canonical: BlockPos) : Outcome
 
         data class AwaitDestination(val role: RoleDefinition) : Outcome
 
-        data class Refuse(val messageKey: String, val arg: String? = null) : Outcome
+        /** [at] is the container that a [FULL] or [FULL_ONE] refusal names (CD-LSH-29). */
+        data class Refuse(val messageKey: String, val arg: String? = null, val at: BlockPos? = null) : Outcome
     }
 
-    /** Another Pokémon that is bound to the target: its display name, its species name, and whether the clicking player owns it. */
+    /**
+     * Another Pokémon whose binding of an exclusive role holds the target: its display name, its species name, and whether the clicking
+     * player owns it.
+     */
     data class Bound(val name: String, val species: String, val ownedByPlayer: Boolean)
+
+    /** CD-LSH-29: a container that a binding of a logistics role names, and the places that other bindings take there. */
+    data class Place(val container: BlockPos, val taken: Int)
 
     /**
      * For a click with a pending source, [fittingRoles], [insideWorkArea] and [boundToOther] describe the source, and
@@ -51,6 +61,10 @@ object BindRules {
         val noSpotRefusal: String? = null,
         /** The Pokémon's types, primary first, which pick between the fitting roles of one handler (ruling 1 of the Phase 2 plan). */
         val types: List<String> = emptyList(),
+        /** For a logistics role, each container that the binding names, source first (CD-LSH-29). */
+        val places: List<Place> = emptyList(),
+        /** `logistics.maxWorkersPerContainer` (CD-CFG-19). */
+        val maxWorkers: Int = EngineSettings.DEFAULT.maxWorkersPerContainer,
     )
 
     /** What a block click does with the leash's pending source before it reads any block of it (CD-SEC-08). */
@@ -79,7 +93,8 @@ object BindRules {
         else -> PendingCheck.READ
     }
 
-    fun evaluate(input: Input, shapeOf: (RoleDefinition) -> BindingShape): Outcome {
+    /** [sharesOf] tells a logistics role, whose containers other bindings share (CD-LSH-28). */
+    fun evaluate(input: Input, shapeOf: (RoleDefinition) -> BindingShape, sharesOf: (RoleDefinition) -> Boolean = { false }): Outcome {
         if (input.selection == null || !input.pokemonOwnedByPlayer) return Outcome.Refuse(NO_SELECTION)
         if (!input.pastureInWorkMode) return Outcome.Refuse(NOT_WORK_MODE)
         // CD-LSH-16: one click gives one predictable role.
@@ -90,12 +105,19 @@ object BindRules {
         if (twoTargets && input.pending != null && !input.destinationInReach) return Outcome.Refuse(TOO_FAR)
         // The source of a two-target role is checked at its own click, so a refusal never waits for the second click.
         if (!input.insideWorkArea) return Outcome.Refuse(OUTSIDE_AREA)
-        // CD-LSH-05: another player's Pokémon is named by its species, so its nickname never reaches the clicking player.
-        input.boundToOther?.let { bound ->
-            return if (bound.ownedByPlayer) {
-                Outcome.Refuse(ALREADY_ASSIGNED, bound.name)
-            } else {
-                Outcome.Refuse(ALREADY_ASSIGNED_OTHER, bound.species)
+        if (sharesOf(role)) {
+            input.places.firstOrNull { it.taken >= input.maxWorkers }?.let { full ->
+                val key = if (input.maxWorkers == 1) FULL_ONE else FULL
+                return Outcome.Refuse(key, input.maxWorkers.toString(), full.container)
+            }
+        } else {
+            // CD-LSH-05: another player's Pokémon is named by its species, so its nickname never reaches the clicking player.
+            input.boundToOther?.let { bound ->
+                return if (bound.ownedByPlayer) {
+                    Outcome.Refuse(ALREADY_ASSIGNED, bound.name)
+                } else {
+                    Outcome.Refuse(ALREADY_ASSIGNED_OTHER, bound.species)
+                }
             }
         }
         input.noSpotRefusal?.let { return Outcome.Refuse(it) }

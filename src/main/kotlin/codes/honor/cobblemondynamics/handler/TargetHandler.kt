@@ -28,6 +28,12 @@ interface TargetHandler {
     val scanKind: ScanKind
     val bindingShape: BindingShape get() = BindingShape.SINGLE
 
+    /**
+     * True for a logistics handler, which only moves items into or out of containers, so several workers can share one target with
+     * no item lost or made. Its claims are shared claims, and its bindings take places instead of reserving (CD-CLM-10, CD-LSH-29).
+     */
+    val sharesTargets: Boolean get() = false
+
     fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean
 
     /** The one position that keys the claim of a multi-block target (CD-CLM-04). */
