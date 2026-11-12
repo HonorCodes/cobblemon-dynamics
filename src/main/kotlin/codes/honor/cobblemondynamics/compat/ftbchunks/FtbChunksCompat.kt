@@ -9,6 +9,7 @@ import dev.ftb.mods.ftbchunks.api.FTBChunksTags
 import dev.ftb.mods.ftbchunks.api.Protection
 import dev.ftb.mods.ftbchunks.util.DimensionFilter
 import dev.ftb.mods.ftblibrary.math.ChunkDimPos
+import dev.ftb.mods.ftbteams.api.property.PrivacyMode
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -51,12 +52,22 @@ object FtbChunksCompat {
                     wildernessClosed = FTBChunksWorldConfig.noWilderness(null) ||
                         DimensionFilter.isNoWildernessDimension(level.dimension()),
                     whitelisted = level.getBlockState(pos).`is`(FTBChunksTags.Blocks.INTERACT_WHITELIST_TAG),
-                    mode = team?.getProperty(FTBChunksProperties.BLOCK_INTERACT_MODE)?.let { FtbInteractRule.Mode.valueOf(it.name) },
+                    mode = team?.getProperty(FTBChunksProperties.BLOCK_INTERACT_MODE)?.let(::mode),
                     ally = ownerId != null && data != null && data.isAlly(ownerId),
                     memberOrBetter = ownerId != null && team != null && team.getRankForPlayer(ownerId).isMemberOrBetter,
                     hasOwner = ownerId != null,
                 ),
             )
+        }
+
+        /**
+         * `PrivacyMode` has a public field `name` that holds the lower-case serialized name, which Kotlin's `name` reads instead of the
+         * enum constant's name, so the mode maps by constant.
+         */
+        private fun mode(mode: PrivacyMode): FtbInteractRule.Mode = when (mode) {
+            PrivacyMode.PUBLIC -> FtbInteractRule.Mode.PUBLIC
+            PrivacyMode.ALLIES -> FtbInteractRule.Mode.ALLIES
+            PrivacyMode.PRIVATE -> FtbInteractRule.Mode.PRIVATE
         }
     }
 }
