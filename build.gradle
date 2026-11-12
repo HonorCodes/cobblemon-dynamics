@@ -299,7 +299,7 @@ tasks.named('test', Test) {
     // Unit tests read these files by path. As inputs, a change to one runs the tests again instead of reusing a cached pass.
     inputs.files(fileTree(projectDir) {
         include 'LICENSE', 'README.md', 'build.gradle', 'gradle.properties', '.github/**', 'scripts/**', 'src/main/**', 'art/**',
-                'docs/player-guide.md', 'docs/testing/**', 'docs/plans/2026-11-09-v1-spec-sheet.md'
+                'docs/player-guide.md', 'docs/modpack-integration.md', 'docs/testing/**', 'docs/plans/2026-11-09-v1-spec-sheet.md'
         exclude '**/__pycache__/**'
     }).withPropertyName('repositoryFiles').withPathSensitivity(PathSensitivity.RELATIVE)
 }

@@ -15,7 +15,6 @@ Marks after the row id:
 
 - **(scripted):** a test pack command runs the check and prints the result.
 - **(server):** the check needs the [server](#server-for-the-server-checks).
-- **(2 players):** the check needs the server and a second player.
 - **(restart):** the check needs a real restart. In single player, click **Save and Quit to Title**, then open
   the world again. On the server, run `stop` and start it again. You can set up several restart checks and
   restart once.
@@ -102,9 +101,8 @@ world.
 7. **CD-UI-02.** Setup: two pastures, one with Work Mode on and one with Work Mode off. Action: open each
    panel, then click one of the buttons. Expected: within 1 second of each opening, the buttons read
    "Work Mode: On" and "Work Mode: Off", as set. After the click, the label changes within 1 second.
-8. **CD-UI-03** (2 players). Setup: a pasture that player A placed. Player B is not an operator. Action: as
-   player B, open the pasture's panel, hover over the Work Mode button and click it. Expected: the button is
-   disabled, the click changes nothing, and the tooltip reads "Only the pasture's owner can change Work Mode".
+8. Retired: since the rulings of 2026-11-11, CD-UI-03 rests on its unit tests and a code reading, so this check with
+   two players no longer runs.
 9. **CD-UI-04.** Setup: a Work Mode pasture with 4 workers in mixed states. A Charmander works at a furnace
    with 64 raw iron (Working). A second Charmander waits at an empty furnace (Standby). A Squirtle has no
    target (Idle), and a Clefairy has nobody to heal (Idle). Action: open the panel. Expected: each of the 4
@@ -167,10 +165,8 @@ world.
     teleport to `<x + 16> <y> <z>` with `/tp @s`. Then move 0.1 blocks farther with `/tp @s ~0.1 ~ ~`. Then
     select another item. Expected: the bar and the icon show over the worker at 16.0 blocks. They do not show
     at 16.1 blocks, and they do not show after the item switch.
-23. **CD-UI-09** (2 players). Setup: player A binds two workers to two furnaces. Player B places a pasture,
-    turns Work Mode on and binds a worker to a third furnace nearby. Action: player A holds the Work Leash and
-    looks at the three furnaces. Expected: player A sees an outline around each of the two furnaces of player
-    A, and none around the furnace of player B.
+23. Retired: since the rulings of 2026-11-11, CD-UI-09 rests on its unit tests, its GameTest and a code reading, so this
+    check with two players no longer runs.
 24. **CD-LSH-07** (restart). Setup: a Charmander bound to a furnace. Action: restart. Wait 5 seconds and run
     `/cobblemondynamics claims`. Then turn Work Mode off and on in the panel. Wait 5 seconds and run the
     command again. Expected: both replies hold a `binding` line with the furnace's position and the

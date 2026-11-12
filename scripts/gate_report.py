@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Writes a gate report: each MUST and MUST NOT row of the spec sheet that the gate holds, with its tests, result and commit.
 
-The Phase 1 gate (the default) holds every row outside the TLK, MAG, FAN, TLW, QWK and ART areas, except CD-CFG-16 to
-CD-CFG-18, which are Phase 2 work in a Phase 1 area. The Phase 2 gate holds every row, because CD-REL-14 needs every MUST
+The Phase 1 gate (the default) holds every row outside the TLK, MAG, FAN, TLW, QWK and ART areas, except the rows of
+PHASE_2_ROWS, which are Phase 2 work in a Phase 1 area: the Quick Work keys CD-CFG-16 to CD-CFG-18, the INFO lines at load
+CD-CMP-08 to CD-CMP-10, and the shared containers CD-CLM-10, CD-CLM-11, CD-LSH-28, CD-LSH-29 and CD-CFG-19. The Phase 2 gate holds every row, because CD-REL-14 needs every MUST
 and MUST NOT row of the sheet to pass on one commit. The script reads the spec sheet, the JUnit XML reports of
 `./gradlew build`, the GameTest sources with the log of each GameTest run, the deferred lists of the gate's plans, the
 manual checklist, the test pack's README and the output of each test pack command. The Phase 2 gate also reads the output
@@ -50,8 +51,12 @@ CLIENT_MODS = ROOT / "run/testpack/client/mods"
 BUILD_LIBS = ROOT / "build/libs"
 PERF_TEST = ROOT / "src/gametest/kotlin/codes/honor/cobblemondynamics/test/PerfTests.kt"
 PHASE_2_AREAS = {"TLK", "MAG", "FAN", "TLW", "QWK", "ART"}
-# The Quick Work keys sit in the CFG area but are Phase 2 work, as in scripts/check_plan_coverage.py.
-PHASE_2_ROWS = {"CD-CFG-16", "CD-CFG-17", "CD-CFG-18"}
+# Rows outside the Phase 2 areas that are Phase 2 work, the same list as PHASE_2_ROWS of scripts/check_plan_coverage.py: the
+# Quick Work keys (R63), the INFO lines at load (R65) and the shared containers of the logistics roles (R66).
+PHASE_2_ROWS = {
+    "CD-CFG-16", "CD-CFG-17", "CD-CFG-18", "CD-CMP-08", "CD-CMP-09", "CD-CMP-10",
+    "CD-CLM-10", "CD-CLM-11", "CD-LSH-28", "CD-LSH-29", "CD-CFG-19",
+}
 LEVELS = ("MUST", "MUST NOT")
 PASS = "pass"
 FINISHED = "finished"
@@ -69,7 +74,8 @@ class Run(NamedTuple):
     namespace: str
 
 
-# The three gameTestServer runs of build.gradle.
+# The gameTestServer runs of build.gradle. CI runs the first three. The three claim runs run outside CI, in each pull
+# request that touches the claims code and at each gate.
 RUNS = (
     Run("full", "GameTests, full mod set", "runGameTestServer", ROOT / "run/gametest/logs/latest.log",
         ("src/gametest/kotlin", "src/gametest/kotlin-shared"), "cobblemon_dynamics"),
@@ -78,6 +84,13 @@ RUNS = (
     Run("perf", "GameTests, server time of 64 Working workers", "runGameTestServerPerf",
         ROOT / "run/gametest-perf/logs/latest.log", ("src/gametest/kotlin", "src/gametest/kotlin-shared"),
         "cobblemon_dynamics_perf"),
+    Run("ftbchunks", "GameTests with FTB Chunks", "runGameTestServerFtbChunks", ROOT / "run/gametest-ftbchunks/logs/latest.log",
+        ("src/gametestFtbChunks/kotlin", "src/gametest/kotlin-claims", "src/gametest/kotlin-shared"), "cobblemon_dynamics"),
+    Run("opac", "GameTests with Open Parties and Claims", "runGameTestServerOpac", ROOT / "run/gametest-opac/logs/latest.log",
+        ("src/gametestOpac/kotlin", "src/gametest/kotlin-claims", "src/gametest/kotlin-shared"), "cobblemon_dynamics"),
+    Run("minecolonies", "GameTests with MineColonies", "runGameTestServerMineColonies",
+        ROOT / "run/gametest-minecolonies/logs/latest.log",
+        ("src/gametestMineColonies/kotlin", "src/gametest/kotlin-claims", "src/gametest/kotlin-shared"), "cobblemon_dynamics"),
 )
 
 

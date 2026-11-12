@@ -118,6 +118,10 @@ Corrections after agreement:
   capacity"), CD-UI-03 and CD-UI-09 drop their Demos with two players. Their acceptance tests are now their unit tests,
   the GameTest of CD-UI-09 and a code reading against the multiplayer rules, as the multiplayer audit reads the code.
   Calls 12 (Modrinth) and 17 (a play-test of the 1.0.0 candidate) wait for the approver, and no row depends on them.
+- 2026-11-11, the coordinator's ruling on call 13 of the Phase 3 plan, under the approver's delegation: CD-STK-07 reads
+  "keep the flame gauge full while the furnace cooks". It read "set the burn duration to 1,600 ticks". Since M1 the handler
+  raises `litTime` to 2 ticks and sets `litDuration` to the same value while `litTime` is below 2, so the gauge reads
+  full, and the approver play-tested that (check 29). The code does not change.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all
@@ -596,7 +600,7 @@ and default priority. The default role files hold these values.
 | CD-STK-04 | When a Stoker starts heating an unlit furnace, the handler MUST set the furnace's `LIT` block state to true. | MUST | RES3 | Vanilla sets `LIT` only when it burns its own fuel. | GameTest: read the block state 1 tick after Working starts. Fails if: `LIT` is false. | target handler (vanilla) | agreed |
 | CD-STK-05 | The Stoker handler MUST report demand only while the furnace's recipe can run. | MUST | R24 | An empty or blocked furnace needs no heat. | GameTest: fill the output slot to 64. Fails if: the worker is not in Standby within 20 ticks. | target handler (vanilla) | agreed |
 | CD-STK-06 | When a Stoker stops Working, the handler MUST return the furnace to vanilla fuel rules within 2 ticks. | MUST | R24 | Players keep a normal furnace after the worker leaves. | GameTest: with no fuel, the furnace goes out within 2 ticks, and with 1 coal it burns that coal. Fails if: it stays lit with no fuel, or ignores the coal. | target handler (vanilla) | agreed |
-| CD-STK-07 | While a Stoker heats a furnace, the handler SHOULD set the burn duration to 1,600 ticks, so the flame gauge reads as a coal burn. | SHOULD | R6 | The gauge shows why the furnace runs. Acceptable to skip for a modded furnace that draws its own gauge. | Demo: watch the flame gauge of a worked furnace. Fails if: the gauge shows empty while the furnace cooks. | target handler (vanilla) | agreed |
+| CD-STK-07 | While a Stoker heats a furnace, the handler SHOULD keep the flame gauge full while the furnace cooks. | SHOULD | R6 | The gauge shows why the furnace runs. The handler raises `litTime` to 2 ticks and sets `litDuration` to the same value, so the gauge reads full. Acceptable to skip for a modded furnace that draws its own gauge. | Demo: watch the flame gauge of a worked furnace. Fails if: the gauge shows empty while the furnace cooks. | target handler (vanilla) | agreed |
 
 ### BRN: Blaze Burner heat
 

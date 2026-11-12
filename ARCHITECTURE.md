@@ -72,7 +72,10 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   heal/                  healer target selection, heal transaction
   leash/                 Work Leash item, interaction handlers, pending selections
   net/                   payload definitions and handlers
-  compat/                Cobbleworkers and Cobblebase shims
+  compat/                Cobbleworkers and Cobblebase shims, LandClaims.kt (the land claim gate)
+    ftbchunks/           FTB Chunks checks, FtbInteractRule (its right-click rule by UUID)
+    opac/                Open Parties and Claims checks
+    minecolonies/        MineColonies checks, ColonyRightClick (a colony's right-click rule)
   command/               /cobblemondynamics operator commands
   client/                payload handlers, pasture panel hooks, head bars, client state cache
 src/main/java/codes/honor/cobblemondynamics/
@@ -99,6 +102,10 @@ src/main/resources/
   assets/cobblemon_dynamics/                                models, textures, sprites, lang
 src/test/kotlin/         JUnit 5 unit tests, no game runtime
 src/gametest/kotlin/     NeoForge GameTests, loaded only by the gameTestServer run
+src/gametest/kotlin-shared/  test code of every run, which names no class of Create or of a claim mod
+src/gametest/kotlin-claims/  the scene and the oracle of the three claim runs
+src/gametestCore/, src/gametestFtbChunks/, src/gametestOpac/, src/gametestMineColonies/
+                         the test mods of the core run and of the three claim runs
 art/                     art source files: Blockbench models and layered textures
 ```
 
@@ -125,7 +132,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Heal | `heal` | Picks the next ally for each healer and applies the heal as one transaction. | Claim registry, stamina |
 | Work Leash | `leash` | Handles the two-click binding, the three-click Telekinesis binding, the pending selection, the clear gesture and the flip gesture. Sends action-bar feedback. | Claim registry, handlers |
 | Network | `net` | Defines our payloads and validates every client payload on the server. | Client, engine |
-| Compat | `compat` | Sets and clears the Cobbleworkers rest flag. Gates the Cobblebase mixins. | Cobbleworkers data, Cobblebase |
+| Compat | `compat` | Sets and clears the Cobbleworkers rest flag. Gates the Cobblebase mixins. Holds the land claim gate, `LandClaims`, which asks each loaded claim mod one of two questions: may the online owner of a Quick Work order right-click a block, or may the placer of a Work Mode pasture use it, by UUID. A check that throws refuses, with one warning per asker, claim mod and cause. Only `compat/ftbchunks/`, `compat/opac/` and `compat/minecolonies/` name a class of a claim mod, and each loads only behind `ModList.isLoaded`. | Cobbleworkers data, Cobblebase, FTB Chunks, Open Parties and Claims, MineColonies |
 | Commands | `command` | `/cobblemondynamics claims`, `/cobblemondynamics stamina` and `/cobblemondynamics unbind` for operators. `unbind <pos>` clears the bindings on a block through the leash resets, for a binding whose binder does not come back. | Claim registry, stamina, leash |
 | Client | `client` | Adds the Work Mode button to the pasture panel. Draws panel stamina bars and head bars. Outlines bound targets while the player holds the Work Leash. Answers the fan and windmill checks that Create runs on the client. | Cobblemon client GUI, payloads, Create client |
 
@@ -294,21 +301,29 @@ writes are safe in any order against block entity ticks (see section 8).
    depends on the worker kind (worker or healer) and on the bed, if the worker sleeps on one.
 3. Every tick, the engine writes each worker's work order into its Brain memory.
 4. Every tick, after the pasture workers, each Quick Work order checks whether it ends (CD-QWK-13 to
-   CD-QWK-21). An order that goes on ticks its worker as steps 1 to 3 do. With no order, a level tick
-   runs only one Quick Work check: whether an order exists (CD-QWK-24).
+   CD-QWK-21). An order that goes on ticks its worker as steps 1 to 3 do. On every 20th tick of the order,
+   it asks the permission of its start again: the spectator check, `ServerPlayer.mayInteract` and the land
+   claim gate about the owner (CD-QWK-29). With no order, a level tick runs only one Quick Work check:
+   whether an order exists (CD-QWK-24).
 5. Every 20 ticks per loaded Work Mode pasture, staggered by position, the pasture adapter compares
    the tethered Pokémon with the known workers. It adds new workers and releases departed ones. The
-   compat layer sets or clears the Cobbleworkers rest flag at the same time.
+   compat layer sets or clears the Cobbleworkers rest flag at the same time. The poll also reads the
+   pasture's placer and asks the land claim gate about the placer's UUID for each claim, bound target and
+   Telekinesis destination of the pasture's workers. A refused binding clears through the leash resets,
+   and a refused work claim or bed claim ends (CD-LND-02, CD-LND-03).
 6. Scans run per pasture:
    - A scan pass reads the block entity maps of the chunks that overlap the work area. That finds every
      machine target. A worker that gets Tired reads the same maps for the beds of its work area at that
-     moment, so it claims a bed in the same tick, also on its first tick after a restart.
+     moment, so it claims a bed in the same tick, also on its first tick after a restart. It skips a bed
+     that the land claim gate refuses to the placer (CD-LND-04).
    - Budding blocks have no block entity. Only a pasture with a Crystal Tender candidate iterates block
      positions for them, at up to 512 checks per pasture per tick.
    - A pass can span several 40-tick intervals. The next pass starts at the first 40-tick boundary
      after the previous pass completes. Pasture start ticks are staggered by a position hash.
    - Leash-only roles need no scan. Their targets come from bindings.
-7. When a scan pass completes, the assigner runs. Idle workers take targets, and healers choose allies.
+7. When a scan pass completes, the land claim gate first drops each target that the pasture's placer may
+   not use, with one check per target (CD-LND-01, CD-LND-12). Then the assigner runs. Idle workers take
+   targets, and healers choose allies.
 8. The effect player sends the role's effect when a worker starts Working. It sends the next one when the
    worker's animation has ended and the role's `idle_ticks` (40) have passed, so that the model returns to
    its idle pose first. A worker whose model has none of the role's animations gets the particles every
@@ -650,6 +665,31 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
   idle behaviour, sleep lock, wander, unstick or job, and gives no passive experience. At start, the mod logs one
   warning that names each hook that did not apply.
 
+### Claim mods: FTB Chunks 2101.1.23, Open Parties and Claims 0.33.0 and MineColonies 1.1.1419
+
+All three are optional, with any version ([Amendment 1 of ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11),
+[ADR-0014](docs/adr/0014-land-claims-for-work-mode-pastures.md)). Each compat package registers one `LandClaimCheck`
+with the gate. A check asks about the canonical block of a target, as a right-click with an empty main hand.
+
+- **FTB Chunks.** Quick Work asks `ClaimedChunkManager.shouldPreventInteraction(owner, MAIN_HAND, pos,
+  Protection.INTERACT_BLOCK, null)`, the check of a right-click, and refuses while the manager is not loaded or the
+  owner is in another level. FTB Chunks has no check by UUID, so the pasture check takes steps 1, 3, 4 and 5 of that
+  check through the APIs of FTB Chunks and FTB Teams: `disable_protection`, `getBypassProtection(UUID)`,
+  `noWilderness(null)` with the dimension list, the tag `ftbchunks:interact_whitelist`, and the team's
+  `BLOCK_INTERACT_MODE` with `ChunkTeamData.isAlly(UUID)` or `Team.getRankForPlayer(UUID)`. `FtbInteractRule` holds the
+  order of the steps.
+- **Open Parties and Claims.** Quick Work asks `IChunkProtectionAPI.onBlockInteraction` with the messages off. The
+  pasture check asks `hasChunkAccess(UUID, dimension, chunkX, chunkZ)`, which is the full access of the claim's player
+  config and sends nothing.
+- **MineColonies.** Both checks find the colony with `IColonyManager.getColonyByPosFromWorld` and
+  `IColony.isCoordInColony`, after `isLoaded`, because the lookup loads the chunk. `ColonyRightClick` holds the order of
+  the rules of `ColonyPermissionEventHandler.onPlayerInteract`: huts, the protection exception tag, doors and fence
+  gates, `enableColonyProtection`, `RIGHTCLICK_BLOCK`, and `OPEN_CONTAINER` for a block with an item handler. Quick
+  Work asks `IPermissions.hasPermission(Player, Action)`, which adds the operator bypass of a player in creative mode.
+  The pasture check asks `hasPermission(getRank(UUID), Action)`, with no bypass and no free blocks of the colony.
+- **Silent.** The pasture checks call no check that messages a player or counts an attempt, and they post no event
+  (CD-LND-10).
+
 ### NeoForge 21.1 and vanilla 1.21.1
 
 - **Capabilities.** `Capabilities.EnergyStorage.BLOCK` (`IEnergyStorage`),
@@ -679,9 +719,9 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
 - **Furnace family.** Access transformer entries for `AbstractFurnaceBlockEntity.litTime`, `litDuration`
   and `canBurn`, and for `quickCheck` to look up the recipe the same way `serverTick` does (inferred).
   The NeoForge-patched `canBurn` descriptor has an extra trailing `AbstractFurnaceBlockEntity`
-  parameter. While a recipe can run, the handler sets `litTime = max(litTime, 2)` and
-  `litDuration = 1600`. It sets `LIT=true` itself on the unlit-to-heated change, because `serverTick`
-  reads `wasLit` after our write. The furnace consumes no fuel item while it stays lit.
+  parameter. While a recipe can run and `litTime` is below 2, the handler raises `litTime` to 2 and sets
+  `litDuration` to 2, so the flame gauge reads full (CD-STK-07). It sets `LIT=true` itself on the unlit-to-heated change,
+  because `serverTick` reads `wasLit` after our write. The furnace consumes no fuel item while it stays lit.
 - **Brewing stand.** Access transformer entries for `BrewingStandBlockEntity.fuel` and `brewTime`. The
   Brew Stoker keeps `fuel >= 1` while a brew can start. The Brewer lowers `brewTime` by one extra
   step per tick and never below 1, so vanilla finishes the brew.
@@ -820,14 +860,27 @@ Other role parameters, as fragments of their role files:
 | Flywheel | `dev.engine-room.flywheel:flywheel-neoforge-1.21.1:1.0.6` | `https://maven.createmod.net` | localRuntime |
 | Registrate | `com.tterrag.registrate:Registrate:MC1.21-1.3.0+67` | `https://maven.ithundxr.dev/snapshots` | compileOnly, localRuntime |
 | AE2 | `org.appliedenergistics:appliedenergistics2:19.2.19` | Maven Central | localRuntime (GameTests) |
+| FTB Chunks | `dev.ftb.mods:ftb-chunks-neoforge:2101.1.23`, `transitive = false` | `https://maven.ftb.dev/releases` | compileOnly, claim run |
+| FTB Teams | `dev.ftb.mods:ftb-teams-neoforge:2101.1.12`, `transitive = false` | `https://maven.ftb.dev/releases` | compileOnly, claim run |
+| FTB Library | `dev.ftb.mods:ftb-library-neoforge:2101.1.39`, `transitive = false` | `https://maven.ftb.dev/releases` | compileOnly, claim run |
+| Architectury API | `maven.modrinth:architectury-api:13.0.11+neoforge`, `transitive = false` | `https://api.modrinth.com/maven` | claim run |
+| Open Parties and Claims | `maven.modrinth:open-parties-and-claims:neoforge-1.21.1-0.33.0`, `transitive = false` | `https://api.modrinth.com/maven` | compileOnly, claim run |
+| MineColonies | `com.ldtteam:minecolonies:1.1.1419-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
+| Structurize | `com.ldtteam:structurize:1.0.839-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
+| BlockUI | `com.ldtteam:blockui:1.0.212-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
+| Domum Ornamentum | `com.ldtteam:domum-ornamentum:1.0.237-snapshot:main`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | claim run |
 
 Create build 280 is the only 6.0.10 build whose manifest `Git-Hash` equals the release tag. Cobblemon's
 POM lists no dependencies, so KotlinForForge must be declared. If Ponder fails to resolve, add Fuzss's
 maven, as Create's own build does. AE2 pulls GuideME in at runtime. The main code has no AE2 import.
+The claim mods are compile-only dependencies and mods of their claim runs. `verifyJar` fails a jar that holds a class of
+`dev.ftb`, `xaero`, `dev.architectury`, `com.minecolonies` or `com.ldtteam`. The jars of FTB are "All Rights Reserved"
+and the code of MineColonies is GPL 3.0, so no jar or artifact of the mod holds a part of them.
 
 `neoforge.mods.toml` dependencies: `minecraft` `[1.21.1,1.21.2)`, `neoforge` `[21.1.219,)`,
 `cobblemon` `[1.8.4,1.9)` and `kotlinforforge` `[5.10,)` are required. `create` `[6.0.10,6.1)` and
-`ae2` `[19.2,20)` are optional. `cobbleworkers` and `cobblebase` are optional and set load order only.
+`ae2` `[19.2,20)` are optional. `cobbleworkers`, `cobblebase`, `ftbchunks`, `openpartiesandclaims` and `minecolonies` are
+optional with the version range `*`, so NeoForge checks no version of them, and a claim check that fails refuses.
 
 ## 11. Art
 
@@ -869,7 +922,7 @@ Rules:
 | 2, private | M7 | Fan Catalyst and Tailwind |
 | 2, private | M8 | Final art and the operator's review |
 | Gate 2 | | Every v2 MUST row passes, and the operator tests again. |
-| 3, public | M9 | Release on Modrinth and CurseForge, and addition to the operator's pack |
+| 3, public | M9 | Land claims for Work Mode pastures, MineColonies, the release of 1.0.0, and addition to the operator's pack |
 
 ## 13. Test architecture
 
@@ -895,6 +948,15 @@ Rules:
   that owner into the player list's UUID map for the test, because Cobblemon and Quick Work find an
   owner through `PlayerList.getPlayer`. The tests run in their own batch, `quick_work`, and read the
   owner's action-bar messages from `Feedback.recorded`.
+- **Land claim GameTests.** The full run registers the test claim provider `TestLandClaims`, which refuses or throws for
+  the absolute positions that a test adds and records the UUIDs that the pasture question gets. `QuickWorkClaimTests` and
+  `PastureClaimTests` test the engine path with it, so CI tests that path.
+- **Claim runs.** `runGameTestServerFtbChunks`, `runGameTestServerOpac` and `runGameTestServerMineColonies` each load the
+  mod set of the core run and one claim mod with its libraries. CI does not run them. A pull request that touches the
+  claims code runs them, and so does each gate. Their owners come from `TestKit.plainOwner`: a player of the exact class
+  `ServerPlayer`, which FTB Chunks judges as a player, whose connection keeps every packet. Each claim test has its own
+  batch, because a claim covers a whole chunk and a colony the chunks around its center. `PastureOracle` compares each
+  pasture check with the claim mod's own check for each player, online and after `PlayerList.remove`.
 - **GameTest mechanics.** Test classes carry `@GameTestHolder("cobblemon_dynamics")`. Kotlin test
   methods must be `@JvmStatic` or sit in a class with a public no-argument constructor, because vanilla
   calls them by reflection. Structures live in `data/cobblemon_dynamics/structure/` or come from a
@@ -907,8 +969,9 @@ Rules:
   level ticks, the leash index check, the panel sends and the work Brain tasks. The test checks the mean and
   p95 budgets (CD-PERF-01, CD-PERF-02) and that Dynamics logs only once-per-cause warnings (CD-PERF-05).
 - **Isolated test pack.** `scripts/testpack/testpack.py` starts clean dedicated servers with pinned mods for
-  the dependency ranges, the compatibility cases, a real `/reload` and a real restart. Its servers have no
-  player, so the checks that need a pastured worker stay in the GameTests.
+  the dependency ranges, the compatibility cases (Cobbleworkers, Cobblebase and each claim mod), the three load lines,
+  a real `/reload` and a real restart. Its servers have no player, so the checks that need a pastured worker stay in the
+  GameTests.
 - **Manual checklist.** `docs/testing/manual-checklist.md` (written in milestone M5) covers what tests
   cannot see: animations, the pasture panel button and bars, head bars, sleep visuals, leash messages,
   fan particles on the client, and coexistence with Cobbleworkers and Cobblebase. The spec sheet's

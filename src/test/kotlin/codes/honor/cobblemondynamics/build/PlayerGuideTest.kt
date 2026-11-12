@@ -51,6 +51,30 @@ class PlayerGuideTest {
         assertTrue(missing.isEmpty(), "commands missing from the guide: $missing")
     }
 
+    @Test
+    fun `CD-LND-16 the guide has a section Land claims, and the integration page names the tested claim mods`() {
+        assertSections(listOf("Land claims"))
+        val section = section("Land claims")
+        for (text in listOf("FTB Chunks", "Open Parties and Claims", "MineColonies", "while you are offline")) {
+            assertTrue(text in section, "the section Land claims of the guide does not say $text")
+        }
+        val integration = File(root, "docs/modpack-integration.md").readText()
+        for (version in listOf("FTB Chunks 2101.1.23", "Open Parties and Claims 0.33.0", "MineColonies 1.1.1419-1.21.1-snapshot")) {
+            assertTrue(version in integration, "docs/modpack-integration.md does not name $version")
+        }
+    }
+
+    /** The lines of the guide's section [name], from its heading to the next heading of the same or a higher level. */
+    private fun section(name: String): String {
+        val lines = guide.readLines()
+        val start = lines.indexOfFirst { HEADING.matchEntire(it)?.groupValues?.get(1).equals(name, ignoreCase = true) }
+        val level = lines[start].takeWhile { it == '#' }.length
+        val end = (start + 1 until lines.size).firstOrNull { i ->
+            HEADING.matchEntire(lines[i]) != null && lines[i].takeWhile { it == '#' }.length <= level
+        } ?: lines.size
+        return lines.subList(start, end).joinToString("\n")
+    }
+
     private fun assertSections(names: List<String>) {
         val headings = guide.readLines().mapNotNull { HEADING.matchEntire(it)?.groupValues?.get(1) }
         val missing = names.filterNot { name -> headings.any { it.equals(name, ignoreCase = true) } }

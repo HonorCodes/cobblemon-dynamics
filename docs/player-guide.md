@@ -231,7 +231,7 @@ The Cobblemon comes out as usual, with no work, and the action bar tells you why
 - the block needs no work now, for example a furnace with nothing to smelt
 - the Cobblemon cannot reach the block
 - you may not use the block, for example inside spawn protection, or in a land claim that does not let you right-click
-  the block (see [Quick Work in land claims](#quick-work-in-land-claims))
+  the block (see [Land claims](#land-claims))
 
 ### When Quick Work stops
 
@@ -251,28 +251,56 @@ The work stops for good when:
 The Cobblemon then follows you again. It does not look for other work. To work the block again, recall the Cobblemon and send
 it out again while you look at the block.
 
-### Quick Work in land claims
+## Land claims
 
-With FTB Chunks or Open Parties and Claims on the server, Quick Work follows their land claims. You can Quick Work a block
-in a land claim only if the claim lets you right-click that block with an empty hand. The claim mod decides, with its own
-rules:
+Cobblemon Dynamics follows the land claims of three claim mods: FTB Chunks, Open Parties and Claims and MineColonies.
+Each claim mod decides with its own rules who may use a block. A Cobblemon works a block in a land claim only if the claim
+lets the right player right-click that block with an empty hand:
 
-- **FTB Chunks.** The members of the team that owns the claim can. Its allies can too, while the team's setting for block
-  interaction is "allies", which is the default. A team can set it to "public" for every player, or to "private" for its
-  members only.
+- **Quick Work** asks about you, the owner of the Cobblemon that you send out.
+- **A Work Mode pasture** asks about the owner of the pasture, the player who placed the pasture block. Its workers work
+  a machine only if the claim lets that player right-click the machine. This holds also while you are offline: your
+  pasture keeps your rights when you log out, and it never gets more rights than you have.
+
+### What each claim mod allows
+
+- **FTB Chunks.** The members of the team that owns the claim can use its blocks. Its allies can too, while the team's
+  setting for block interaction is "allies", which is the default. A team can set it to "public" for every player, or to
+  "private" for its members only.
 - **Open Parties and Claims.** The owner of the claim can, and by default the members of the owner's party can too. The
   members of an allied party can only if the owner sets `claims.protection.exceptions.fullAccess` to `A` in the owner's
   player config.
+- **MineColonies.** The ranks of the colony decide. By default, an Officer can use the blocks of the colony. A Friend can
+  use a block with no inventory, but not a container such as a furnace. A player outside the colony has the Neutral rank.
+  The Neutral and the Hostile rank can use neither. Huts need the rank's permission to access huts. An operator in
+  creative mode can Quick Work in any colony, as that player's own click can, if the operator's permission level is at
+  least the colony setting `permissionEventMinBypassPermLevel` (2 by default). A pasture gets no such exception.
 
-Each claim mod applies its own rules, so allies differ between the two. By default, an ally can Quick Work in a land
+Each claim mod applies its own rules, so allies differ between them. By default, an ally can use the machines in a land
 claim of FTB Chunks, but not in a land claim of Open Parties and Claims.
 
-A refused send-out stays a normal one, and the action bar shows a message such as "You may not use Furnace". While the
-Cobblemon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops when the right is gone.
+### What a refusal does
 
-Other protection mods that only stop right-clicks do not see Quick Work, because you never click the block. A server owner
-can turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and `quickWork.leashRange` change the two
-distances of 16 blocks.
+- **Quick Work.** A refused send-out stays a normal one, and the action bar shows a message such as "You may not use
+  Furnace". While the Cobblemon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops
+  when the right is gone.
+- **Pastures.** A worker skips a machine that its pasture's owner may not use. Nobody gets a message for that. When the
+  right ends, a worker lets go of the machine or the bed that it holds within 20 ticks. A Tired worker takes no bed that
+  the owner may not use, and rests where it stands if no other bed is free.
+- **Work Leash bindings.** A binding to a block that the pasture's owner may not use ends within 20 ticks, and the binder
+  gets a chat message such as "Charmander lost its work binding: the owner of its pasture may not use its target". For
+  Telekinesis, the destination counts too.
+
+### Limits
+
+- A pasture with no owner works no block in a land claim.
+- If a claim mod fails with an error, for example after an update that changes its code, Quick Work refuses every order,
+  and the pastures work no target, also outside land claims. The log holds one warning for each kind of error. Install a
+  tested version of the claim mod, or a release of Cobblemon Dynamics that supports the installed one.
+  [Modpack integration](modpack-integration.md#claim-mods) lists the tested versions.
+- Other protection mods that only stop right-clicks do not see Quick Work or the pastures, because nobody clicks the
+  block. A server owner can turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and
+  `quickWork.leashRange` change the two distances of 16 blocks.
 
 ## Work Stamina
 
@@ -807,13 +835,11 @@ Nether needs `/execute in minecraft:the_nether run cobblemondynamics unbind <pos
   experience. Pastures with Work Mode off keep Cobblebase as usual. If a Cobblebase version lacks a method
   that the mod hooks, the log holds one warning, and the game goes on. The server config key
   `compat.cobblebase` turns this off.
-- **FTB Chunks and Open Parties and Claims.** Quick Work asks the claim mod whether you may right-click
-  the block, before the work starts and every 20 ticks while it runs. See
-  [Quick Work in land claims](#quick-work-in-land-claims). If the claim mod fails with an error, Quick
-  Work refuses the work, and the log holds one warning.
-- **Work Mode pastures and land claims.** The workers of a pasture do not ask claim mods. A pasture near
-  the border of another player's claim can work machines inside that claim, so keep its work area out of
-  other players' claims.
+- **FTB Chunks, Open Parties and Claims and MineColonies.** Quick Work asks the claim mod whether you may
+  right-click the block, before the work starts and every 20 ticks while it runs. The workers of a Work Mode
+  pasture ask whether the pasture's owner may right-click each machine, also while that player is offline.
+  See [Land claims](#land-claims). If the claim mod fails with an error, Quick Work and the pastures refuse
+  the work, and the log holds one warning.
 - **Other mods.** The Stoker works any furnace that extends the vanilla furnace. The Generator works any
   block that accepts Forge Energy, and the Pump any block that accepts water, through NeoForge's
   capabilities.
