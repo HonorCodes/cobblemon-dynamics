@@ -10,12 +10,11 @@ import com.cobblemon.mod.common.pokemon.Pokemon
 import com.minecolonies.api.colony.IColony
 import com.minecolonies.api.colony.IColonyManager
 import com.minecolonies.api.colony.permissions.Action
+import com.minecolonies.api.colony.permissions.Rank
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
 import net.neoforged.neoforge.gametest.GameTestHolder
@@ -119,73 +118,106 @@ class ColonyClaimTests {
         helper.succeed()
     }
 
+    /** One turn of CD-LND-09: [setup] gives the owner a rank or a game mode, then the owner sends out the next Charmander at furnace A. */
+    private class Turn(val name: String, val setup: () -> Unit)
+
     /**
-     * Each of [owners] sends out a Charmander at its own furnace in [furnaces]. Each gets an order within 100 ticks exactly where the
-     * colony does not cancel its posted click, and otherwise no order on any tick and "You may not use Furnace" (CD-LND-09).
+     * The owner holds each setup of [turns] in turn and sends out a new Charmander at furnace A each time. Each send-out starts an
+     * order within 100 ticks exactly where the colony does not cancel the click that the test posts for the owner, and otherwise gets
+     * no order on any tick and "You may not use Furnace" (CD-LND-09). An order that a later turn would find on furnace A ends first.
      */
-    private fun followsTheClick(helper: GameTestHelper, owners: List<ServerPlayer>, furnaces: List<BlockPos>) {
-        val expected = owners.zip(furnaces).map { (owner, rel) -> ColonyFixture.colonyAllows(owner, helper.absolutePos(rel)) }
-        val charmanders = owners.map { TestKit.partyPokemon(it, "charmander level=10") }
-        for ((i, owner) in owners.withIndex()) ClaimScenes.sendOutAt(helper, owner, charmanders[i], rel = furnaces[i])
-        val start = helper.tick
+    private fun inTurn(helper: GameTestHelper, owner: ServerPlayer, furnace: BlockPos, turns: List<Turn>) {
+        val charmanders = turns.map { TestKit.partyPokemon(owner, "charmander level=10") }
+        val refused = ArrayList<Pokemon>()
+        var step = -1
+        var allowed = false
+        var sentAt = 0L
+        var refusalsBefore = 0
+        fun refusals() = TestKit.messages(owner).count { it == ClaimScenes.REFUSAL }
+        fun next() {
+            step++
+            turns[step].setup()
+            allowed = ColonyFixture.colonyAllows(owner, furnace)
+            refusalsBefore = refusals()
+            ClaimScenes.sendOutAt(helper, owner, charmanders[step], slot = step)
+            sentAt = helper.tick
+        }
+        next()
+        var recalling = false
         helper.onEachTick {
-            var done = true
-            for ((i, owner) in owners.withIndex()) {
-                val name = owner.gameProfile.name
-                val ordered = ClaimScenes.hasOrder(helper, charmanders[i])
-                if (expected[i]) {
-                    done = done && ordered
-                } else {
-                    helper.assertFalse(ordered, "CD-LND-09: $name got an order, although the colony cancels $name's click")
-                    done = done && ClaimScenes.REFUSAL in TestKit.messages(owner)
+            for (pokemon in refused) helper.assertFalse(ClaimScenes.hasOrder(helper, pokemon), "CD-LND-09: a refused send-out got an order")
+            val turn = turns[step]
+            val charmander = charmanders[step]
+            val ordered = ClaimScenes.hasOrder(helper, charmander)
+            if (recalling) {
+                if (ordered) return@onEachTick
+                recalling = false
+                return@onEachTick next()
+            }
+            val age = helper.tick - sentAt
+            if (allowed) {
+                if (!ordered) {
+                    return@onEachTick helper.assertTrue(
+                        age < 100,
+                        "CD-LND-09: ${turn.name} got no order: ${TestKit.messages(owner)}",
+                    )
                 }
+            } else {
+                helper.assertFalse(ordered, "CD-LND-09: ${turn.name} got an order, although the colony cancels the click")
+                if (refusals() == refusalsBefore) return@onEachTick helper.assertTrue(age < 100, "CD-LND-09: ${turn.name} got no refusal")
+                refused += charmander
             }
-            if (done) return@onEachTick helper.succeed()
-            val late = owners.indices.filter { i ->
-                if (expected[i]) !ClaimScenes.hasOrder(helper, charmanders[i]) else ClaimScenes.REFUSAL !in TestKit.messages(owners[i])
-            }
-            helper.assertTrue(
-                helper.tick - start < 100,
-                "CD-LND-09: after 100 ticks, wrong results for ${late.map {
-                    owners[it].gameProfile.name
-                }}",
-            )
-        }
-    }
+            when {
+                step == turns.lastIndex -> helper.succeed()
 
-    /** CD-LND-09: the Owner, an Officer, a Friend, a stranger and a Hostile player each send out a Charmander at their own furnace. */
-    @GameTest(template = "floor_23x10x23", timeoutTicks = 300, batch = "mc_lnd09_ranks")
-    fun cdLnd09QuickWorkFollowsTheOwnersClickInTheColony(helper: GameTestHelper) {
-        val rows = listOf(3, 7, 11, 15, 19)
-        val furnaces = rows.map { BlockPos(4, 2, it) }
-        for (rel in furnaces) TestKit.furnace(helper, rel, ItemStack(Items.RAW_IRON, 8))
-        val scene = scene(helper, rows)
-        followsTheClick(helper, scene.players, furnaces)
+                // The order of this turn holds furnace A, so the Charmander goes back before the next send-out.
+                allowed -> {
+                    TestKit.pressSendOut(owner, step)
+                    recalling = true
+                }
+
+                else -> next()
+            }
+        }
     }
 
     /**
-     * CD-LND-09: a stranger who is an operator of level 2 passes in creative mode, as that player's own click does, and in survival mode
-     * gets no order.
+     * CD-LND-09: the owner of the send-outs is a Friend, a stranger with the Neutral rank, a Hostile player and an Officer of A's
+     * colony in turn, and sends out a Charmander at furnace A each time.
      */
-    @GameTest(template = "floor_23x10x23", timeoutTicks = 300, batch = "mc_lnd09_operator")
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 600, batch = "mc_lnd09_ranks")
+    fun cdLnd09QuickWorkFollowsTheOwnersClickInTheColony(helper: GameTestHelper) {
+        val furnace = ClaimScenes.furnaceA(helper)
+        val a = ClaimScenes.owner(helper, "a")
+        val b = ClaimScenes.owner(helper, "b").player
+        val colony = ColonyFixture.colony(helper, a.player)
+        val permissions = colony.permissions
+        fun rank(rank: Rank) = permissions.setPlayerRank(b.uuid, rank, helper.level)
+        ColonyFixture.rank(colony, b) { it.rankFriend }
+        val turns = listOf(
+            Turn("a Friend") { rank(permissions.rankFriend) },
+            Turn("a stranger") { permissions.removePlayer(b.uuid) },
+            Turn("a Hostile player") { ColonyFixture.rank(colony, b) { it.rankHostile } },
+            Turn("an Officer") { rank(permissions.rankOfficer) },
+        )
+        inTurn(helper, b, furnace, turns)
+    }
+
+    /**
+     * CD-LND-09: a stranger to A's colony who is an operator of level 2 gets no order in survival mode, and gets one in creative mode, as
+     * that player's own click does.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 600, batch = "mc_lnd09_operator")
     fun cdLnd09OperatorInCreativeModePassesAndInSurvivalDoesNot(helper: GameTestHelper) {
-        val furnaces = listOf(BlockPos(4, 2, 7), BlockPos(4, 2, 15))
-        for (rel in furnaces) TestKit.furnace(helper, rel, ItemStack(Items.RAW_IRON, 8))
-        val x = ClaimScenes.owner(helper, "x")
-        ColonyFixture.colony(helper, x.player)
-        val operators = furnaces.mapIndexed { i, rel ->
-            ClaimScenes.owner(helper, "op$i", rel = BlockPos(14, 2, rel.z), at = rel, permissionLevel = 2).player
-        }
-        operators[0].setGameMode(GameType.CREATIVE)
-        helper.assertTrue(
-            ColonyFixture.colonyAllows(operators[0], helper.absolutePos(furnaces[0])),
-            "the colony cancels the creative operator",
+        val furnace = ClaimScenes.furnaceA(helper)
+        val a = ClaimScenes.owner(helper, "a")
+        ColonyFixture.colony(helper, a.player)
+        val operator = ClaimScenes.owner(helper, "op", permissionLevel = 2).player
+        val turns = listOf(
+            Turn("an operator in survival mode") { operator.setGameMode(GameType.SURVIVAL) },
+            Turn("an operator in creative mode") { operator.setGameMode(GameType.CREATIVE) },
         )
-        helper.assertFalse(
-            ColonyFixture.colonyAllows(operators[1], helper.absolutePos(furnaces[1])),
-            "the colony allows the survival operator",
-        )
-        followsTheClick(helper, operators, furnaces)
+        inTurn(helper, operator, furnace, turns)
     }
 
     /** CD-LND-09, CD-QWK-29: A lowers Officer B to Neutral while B's order runs. 21 ticks later the order is gone, with the refusal. */
