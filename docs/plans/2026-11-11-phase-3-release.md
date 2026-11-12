@@ -112,6 +112,22 @@ The coordinator's rulings on the design:
 4. **Records.** The ruling goes into the corrections of the spec sheet, the new row CD-QWK-36 holds the flag, and the role file
    docs and the Quick Work section of the player guide name the flag. Task 9 holds the work.
 
+### The approver and the coordinator on the Muse with Apotheosis, 2026-11-11 (R71)
+
+The approver: "also the fairy types should give Quanta, not Eterna, if apotheosis is active (for enchanting). it seems like they currently give eterna bonus."
+
+The coordinator's rulings on the design:
+
+1. **Quanta, not bookshelves.** Where Apothic Enchanting, the enchanting module of Apotheosis, is loaded, the Muse adds
+   Quanta to its table, and no Eterna or bookshelf power. Without it, the Muse keeps its vanilla behavior.
+2. **The scale of Apothic Enchanting.** A level 100 Muse gives about what a strong setup of Quanta shelves gives. A new
+   parameter of the role file holds the amount, and the docs give the value and the reason.
+3. **The compat of the other mods.** The mixin config plugin skips the hook without `apothic_enchanting`, and only
+   classes that load with the mod name it. `neoforge.mods.toml` lists the mod as optional with the version range `*`.
+   The build compiles against the jar of COHO 2.4.0, from the Maven of Shadows of Fire if it is there.
+4. **Records.** The ruling goes into the corrections of the spec sheet, the new row CD-MUS-07 holds it, and the player
+   guide and the integration page name the Quanta. Task 10 holds the work.
+
 ### The approver on the GameTests, 2026-11-11
 
 The approver, who wanted to play: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". The coordinator cut the runs of the `m9-claims` build to
@@ -433,12 +449,13 @@ The row is done only when its last part passes:
 | CD-QWK-26, CD-QWK-30 | The claims build: the test claim provider | Tasks 3 and 4: MineColonies as a claim mod |
 | CD-QWK-27, CD-QWK-28, CD-QWK-29, CD-QWK-31, CD-QWK-32 | The claims build: the code and the test claim provider | Task 4: the real-mod GameTests of the claims plan, Task 4 |
 | CD-QWK-33 | The claims build: `CompatImportsTest` | Task 5: the test pack cases of the claims plan, Task 6 |
-| CD-CMP-08, CD-CMP-09, CD-CMP-10 | The claims build: the lines in the GameTest log | Task 5: the lines in the logs of real servers |
+| CD-CMP-08, CD-CMP-09, CD-CMP-10 | The claims build: the lines in the GameTest log | Task 5: the lines in the logs of real servers. Task 10: the stats hook of Apothic Enchanting in the mixin line of CD-CMP-08 (R71) |
 | CD-STK-07 | M1: the code, the GameTest and check 29 | Task 7: the text of the row and of `ARCHITECTURE.md`, by decision 13 |
 | CD-UI-03, CD-UI-09 | M1 and M5: unit tests, a GameTest and a Demo with two players that never ran | Task 7: checks 8 and 23 retire, because the rows now rest on code reading (decision 14) |
 | CD-PLAT-06, CD-CMP-01, CD-CMP-03, CD-CMP-04, CD-CMP-05, CD-REL-01 | M0 to M5: automated parts, and Demos that never ran | Task 8: the Demos, by decision 14 |
 | CD-QWK-05, CD-QWK-09, CD-QWK-19 | Quick Work: the rules, their unit tests and GameTests | Task 9: the exceptions for a role that opts in to Quick Work (R70) |
 | CD-CFG-07, CD-MUS-02 | M1 and M4: the role file and the Muse's role file | Task 9: the Quick Work flag of the role file (R70) |
+| CD-MUS-03, CD-MUS-06 | M4: the bookshelf bonus and the gate of the enchanting-table mixin | Task 10: no bookshelves with Apothic Enchanting, and the stats hook in the gate (R71) |
 
 ---
 
@@ -1332,6 +1349,82 @@ order). Ruling: R70.
 
 ---
 
+### Task 10: Quanta for the Muse with Apothic Enchanting
+
+**Rows:** CD-MUS-07 (Quanta and no bookshelves), CD-MUS-03 (the exception for Apothic Enchanting), CD-MUS-06 (the stats
+hook in the gate), CD-CMP-08 (the hook in the mixin line of the test pack). Ruling: R71.
+
+**Research.** `javap` on Apothic Enchanting 1.21.1-1.6.4, the jar of COHO 2.4.0, with the SHA-1
+`d88e75b60e97dae8054ee10f3a92aa2bb812b8b9`. The jar `dev.shadowsoffire:ApothicEnchanting:1.21.1-1.6.4` on the Maven of
+Shadows of Fire has the same SHA-1.
+
+- Apothic Enchanting replaces the block of `minecraft:enchanting_table` with `ApothEnchantingTableBlock`. Its menu is
+  `ApothEnchantmentMenu`, a subclass of `EnchantmentMenu`, whose `slotsChanged` never calls vanilla's code. So the mixin
+  of CD-MUS-03 never runs there, and the Muse of the `1.0.0` candidate added nothing at such a table.
+- `ApothEnchantmentMenu.gatherStats()` takes its stats from the static method
+  `EnchantmentTableStats.gatherStats(LevelReader, BlockPos)` and sends them to the player in a `StatsPayload`. The
+  offers then read Eterna (the cost), Quanta and Arcana from these stats.
+- `EnchantmentTableStats$Builder` starts at 15 Quanta and 1 clue, and adds the Quanta of each shelf. The constructor of
+  the record clamps Eterna, Quanta and Arcana to 0 to 100.
+- Quanta is a percentage. `ApothEnchantmentHelper.getQuantaFactor` multiplies the enchanting power by
+  1 + Quanta × r ÷ 100. Here r is a Gaussian ÷ 3 clamped to -1 to 1, or a value from 0 to 1 with Quantic Stability.
+  The advancements of Apothic Enchanting mark 50% and 100% Quanta.
+- The shelf data in `data/apothic_enchanting/enchanting_stats/` gives each shelf its Quanta. The hellshelf gives 3.
+  The infused and glowing hellshelves, the deepshelf and the endshelf give 5. The pearl endshelf gives 7.5, the
+  blazing hellshelf and the echoing sculkshelf give 10, and the soul-touched deepshelf and sculkshelf give 15. A
+  vanilla bookshelf gives 2 Eterna and no Quanta.
+- COHO overrides no enchanting stats. Apotheosis 8.9.0, Placebo 9.9.4 and Apothic Attributes 2.11.0 add no stats to a
+  table.
+
+**The amount.** `quanta_at_level_100` is 45, so a Muse adds ceil(45 × L ÷ 100) Quanta, at most 100. That is the
+Quanta of 3 soul-touched shelves or 15 hellshelves, as the vanilla bonus is 15 bookshelves. A level 100 Muse takes a
+table without Quanta shelves from 15% to 60%, past the 50% mark and under the 100% that shelves reach (R25).
+
+**Files:**
+- Create: `src/main/java/codes/honor/cobblemondynamics/mixin/compat/apothic/EnchantmentTableStatsMixin.java`,
+  `src/main/kotlin/codes/honor/cobblemondynamics/compat/apothic/ApothicCompat.kt`
+- Modify: `handler/vanilla/MuseBonus.kt`, `role/MixinGate.kt`, `role/RoleRegistry.kt`, `CobblemonDynamics.kt`,
+  `mixin/MixinPlugin.java`, `MixinState.java`, `cobblemon_dynamics.mixins.json`, `roles/muse.json`,
+  `META-INF/neoforge.mods.toml`, `build.gradle`, `gradle.properties`, `scripts/testpack/testpack.py`
+- Test: `handler/vanilla/MuseBonusTest.kt`, `role/MixinGateTest.kt`, `build/CompatImportsTest.kt`,
+  `build/ModMetadataTest.kt`, `compat/ApothicStatsHookTest.kt`
+- Modify: the spec sheet, `scripts/check_plan_coverage.py`, `docs/player-guide.md`, `docs/modpack-integration.md`,
+  `docs/testing/manual-checklist.md`, `docs/roles.md`, `ARCHITECTURE.md`, `README.md`
+
+- [ ] **Step 1: Failing tests.**
+  - `MuseBonusTest`: `CD-MUS-07 the default Muse adds 1, 5, 12, 23, 34 and 45 Quanta at levels 1, 10, 25, 50, 75 and
+    100`, `CD-MUS-07 with Apothic Enchanting a Muse adds Quanta and no bookshelves, and without it bookshelves and no
+    Quanta` and `CD-MUS-07 a role file without the Quanta formula takes 45, and a pack's formula applies up to Apothic's
+    cap of 100`.
+  - `MixinGateTest`: `CD-MUS-06 CD-MUS-07 with Apothic Enchanting the Muse needs the stats mixin, not the menu mixin`.
+  - `ApothicStatsHookTest` reads the jar on the test classpath. The hooked static method and the constructor of the
+    record exist. The menu calls the hooked method and never vanilla's `EnchantmentHelper.getEnchantmentCost`.
+  - `ModMetadataTest`: `apothic_enchanting` is optional with `*`. `CompatImportsTest`: only the `compat/apothic`
+    packages name `dev.shadowsoffire`, and `ApothicCompat.register` runs only with the mod.
+
+- [ ] **Step 2: Code.**
+  - `MuseBonus.bonus(level, params, apothicEnchanting)` gives Quanta and no bookshelves with Apothic Enchanting, and
+    bookshelves and no Quanta without it. `of` gives the bookshelves to the vanilla menu mixin, and `quantaOf` gives the
+    Quanta to the stats hook. Both give 0 on a client level or off the server thread.
+  - `EnchantmentTableStatsMixin`, a `@Pseudo` mixin, injects at the RETURN of `gatherStats(LevelReader, BlockPos)` and
+    returns a copy of the stats with the Muse's Quanta added. It is a Mixin `@Inject`, so `MixinState` sees its call.
+  - `MixinPlugin` skips `compat.apothic.` without `apothic_enchanting`. `MixinGate.required(true)` makes the Muse need
+    the stats hook instead of the menu mixin, and `RoleRegistry` passes whether the mod is loaded.
+  - `ApothicCompat.register` loads `EnchantmentTableStats` at common setup, so Mixin applies the hook before the role
+    files load.
+  - `muse.json` gets `"quanta_at_level_100": 45`. `neoforge.mods.toml` lists `apothic_enchanting` as optional with
+    `*`. `build.gradle` adds the Maven of Shadows of Fire, with the jar compile-only and on the test runtime classpath.
+  - The smoke line of the test pack counts 5 skipped mixins, with the stats hook first.
+
+- [ ] **Step 3: Run** `./gradlew build` and `./gradlew runGameTestServer` under the JVM rules of the shared machine. The
+  GameTest run has no Apothic Enchanting, so the Muse's GameTests check that the vanilla behavior stays the same. The run
+  also holds `QuickWorkTests.cdQwk36FairyAtAClosedEnchantingTableWaitsAndWorks`, whose fix `73baeb1` never ran. Check
+  60 of the manual checklist (CD-MUS-07) runs on the COHO server.
+
+- [ ] **Step 4: Commit:** `git commit -m "Let the Muse add Quanta, not bookshelves, with Apothic Enchanting [rag:2]"`.
+
+---
+
 ## Design decisions for the approver
 
 The rulings of R67, R68 and R69 settle the features. This plan made these further calls. On 2026-11-11, under the
@@ -1387,8 +1480,9 @@ approver's delegation, the coordinator ruled on them and moved the LND rows to `
 
 ## Coverage check
 
-`scripts/check_plan_coverage.py --phase 3` selects every row of the LND area, and the Phase 3 parts of the rows of
-[Rows of earlier phases with a Phase 3 part](#rows-of-earlier-phases-with-a-phase-3-part). It checks that a task section of
-this file cites each one. A task section runs from a `### Task` heading to the next heading of level 1 to 3. The Phase 1
-mode leaves out the LND area, and the Phase 2 mode does not change. Run the three modes after any plan edit. Each mode
-prints each missing row and `missing: N`, and exits non-zero when a row is missing.
+`scripts/check_plan_coverage.py --phase 3` selects every row of the LND area, the rows CD-QWK-36 and CD-MUS-07, and the
+Phase 3 parts of the rows of [Rows of earlier phases with a Phase 3 part](#rows-of-earlier-phases-with-a-phase-3-part). It
+checks that a task section of this file cites each one. A task section runs from a `### Task` heading to the next heading
+of level 1 to 3. The Phase 1 mode leaves out the LND area and CD-MUS-07, and the Phase 2 mode leaves out CD-QWK-36. Run
+the three modes after any plan edit. Each mode prints each missing row and `missing: N`, and exits non-zero when a row is
+missing.

@@ -24,6 +24,7 @@ NeoForge checks these dependencies when the game loads:
 | FTB Chunks (`ftbchunks`) | no | any |
 | Open Parties and Claims (`openpartiesandclaims`) | no | any |
 | MineColonies (`minecolonies`) | no | any |
+| Apothic Enchanting (`apothic_enchanting`) | no | any |
 
 Without Create, the roles that need it turn off: the Wheel Driver, the Cranker, the Superheater, the Fan Catalyst and
 Tailwind. Each of their role files logs one line, and the other roles work as before. Without AE2, no role turns off. The
@@ -142,6 +143,12 @@ the allies of an Open Parties and Claims party cannot.
   `compat.cobblebase = false` in the server config turns this off.
 - **Both.** Pastures with Work Mode off keep their Cobbleworkers and Cobblebase jobs. See
   [ADR-0009](adr/0009-coexistence-with-pasture-job-mods.md).
+- **Apothic Enchanting**, the enchanting module of Apotheosis. Its enchanting table computes the offers from the
+  table's stats and reads no bookshelf count. So with it, a Muse adds Quanta to those stats and no bookshelves. By
+  default it adds ceil(45 × L ÷ 100) Quanta, from `quanta_at_level_100` in the Muse's role file. A level 100 Muse
+  takes a table without Quanta shelves from 15% to 60%. A mixin on `EnchantmentTableStats.gatherStats` adds the Quanta, and the
+  unit tests read Apothic Enchanting 1.21.1-1.6.4, the version of COHO 2.4.0. If the mixin does not apply, the Muse role
+  turns off with one warning.
 
 ## Mixins
 
@@ -150,12 +157,14 @@ the allies of an Open Parties and Claims party cannot.
 | Always | `EnchantmentMenu`, `LivingEntity` |
 | With Create | `AirCurrent`, `BlazeBurnerBlockEntity`, `ItemUseOverrides`, `WaterWheelBlockEntity`, `WindmillBearingBlockEntity` |
 | With Cobblebase | `AmbientBehavior`, `BaseManager`, `NavigationHelper`, `PassiveXp` |
+| With Apothic Enchanting | `EnchantmentTableStats` |
 | Client only | Cobblemon's `PastureWidget` and `PasturePokemonScrollList` |
 
-A config plugin skips the Create and Cobblebase mixins when their mod is absent. It also skips a mixin whose target class
-lacks a field or method that the mixin needs. A mixin that does not apply turns off only the part that it serves, with
-one warning: a role, the Work Leash on Create's hand crank, the worker push, a Cobblebase hook or a part of the pasture
-panel. So a renamed field in a later Create 6.0.x release turns a role off and does not crash the game.
+A config plugin skips the Create, Cobblebase and Apothic Enchanting mixins when their mod is absent. It also skips a
+mixin whose target class lacks a field or method that the mixin needs. A mixin that does not apply turns off only the
+part that it serves, with one warning: a role, the Work Leash on Create's hand crank, the worker push, a Cobblebase hook
+or a part of the pasture panel. So a renamed field in a later Create 6.0.x release turns a role off and does not crash
+the game.
 
 When mod loading completes, the log holds one INFO line that starts with `Mixins:`. It names each mixin as applied,
 skipped with its reason, applied with no injection, or not applied yet. On a client, the two client mixins read "not

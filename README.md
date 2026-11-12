@@ -189,6 +189,9 @@ into a source. The art is under the repository's MPL-2.0 license.
   [ADR 0009](docs/adr/0009-coexistence-with-pasture-job-mods.md).
 - **Modded furnaces.** The Stoker works with any furnace that extends the vanilla
   furnace.
+- **Apothic Enchanting.** Its enchanting table reads no bookshelf count, so there a Muse
+  adds Quanta to the table's stats instead of bookshelves. See
+  [the player guide](docs/player-guide.md#muse).
 - **Modded machines.** The Generator works with any block that accepts Forge Energy
   through NeoForge's energy capability. The Pump works with any block that accepts
   water through NeoForge's fluid capability. Telekinesis and the Magnet work with any
@@ -200,7 +203,7 @@ into a source. The art is under the repository's MPL-2.0 license.
   [the player guide](docs/player-guide.md#land-claims) and
   [ADR 0014](docs/adr/0014-land-claims-for-work-mode-pastures.md).
 
-The spec sheet areas CMP, QWK and LND hold the exact compatibility rules.
+The spec sheet areas CMP, QWK and LND, and the row CD-MUS-07, hold the exact compatibility rules.
 
 ## Documentation
 

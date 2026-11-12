@@ -225,7 +225,7 @@ Work Leash role of the Cobblemon fits the block, for example Telekinesis for a P
 ### Quick Work at an enchanting table
 
 Send out a Fairy-type while you look at an enchanting table. The Cobblemon waits by the table. While you have the table's
-menu open, it adds its bookshelves, as a Muse with a Work Leash binding does (see [Muse](#muse)). It stays while you close
+menu open, it adds its bonus, as a Muse with a Work Leash binding does (see [Muse](#muse)). It stays while you close
 the table to fetch lapis or books, and it does not leave because the table needs no work. It stops for the other reasons
 of [When Quick Work stops](#when-quick-work-stops), for example when you go more than 16 blocks away or recall it.
 
@@ -619,19 +619,24 @@ table, where L is its level. The table never counts more than 15 bookshelves in 
 table, the Muse waits in Standby. The open menu shows the new offers as soon as the Muse starts, also for an
 item that the player put in first.
 
-| Level | Bookshelves |
-| --- | --- |
-| 1 | 1 |
-| 10 | 2 |
-| 25 | 4 |
-| 50 | 8 |
-| 75 | 12 |
-| 100 | 15 |
+With Apothic Enchanting installed, the Muse adds Quanta and no bookshelves, because Apothic Enchanting's table
+reads no bookshelf count. The Muse adds ceil(45 × L ÷ 100) Quanta to the table's stats, as a Quanta shelf does.
+A level 100 Muse takes a table without Quanta shelves from 15% to 60% Quanta. The table never counts more than
+100% Quanta.
+
+| Level | Bookshelves | Quanta with Apothic Enchanting |
+| --- | --- | --- |
+| 1 | 1 | 1 |
+| 10 | 2 | 5 |
+| 25 | 4 | 12 |
+| 50 | 8 | 23 |
+| 75 | 12 | 34 |
+| 100 | 15 | 45 |
 
 Fairy-types heal by default, so the Muse needs a binding or a Quick Work order. A Muse follows the worker
 rule of Work Stamina and heals no ally.
 
-**Role file parameter:** `bookshelves_at_level_100` (15).
+**Role file parameters:** `bookshelves_at_level_100` (15) and `quanta_at_level_100` (45).
 
 ### Telekinesis
 

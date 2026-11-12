@@ -358,3 +358,14 @@ This check shows Quick Work on a client. Record its result in the play-test note
     Charmander Works the furnace. Run `/pokespawn rattata level=5`, and step 4 blocks back from the Rattata. Action: look at
     the Rattata and press R, so that a battle with it starts. Expected: when the battle starts, the action bar reads
     "Charmander stopped working for a battle".
+
+## Apothic Enchanting
+
+This check needs Apothic Enchanting 1.21.1-1.6.4 with Placebo 1.21.1-9.9.4 and Apothic Attributes 1.21.1-2.11.0. Run it
+on the COHO server, which has these mods, and record its result in the Phase 3 gate report.
+
+60. **CD-MUS-07.** Setup: an enchanting table with no shelves within 2 blocks of it, a level 100 Fairy-type as the selected
+    Cobblemon of your party, and a book. Look at the table and press R. The action bar reads that the Cobblemon goes to
+    work on the Enchanting Table. Action: open the table's menu, put the book in, and wait 5 seconds. Then close the menu,
+    recall the Cobblemon, open the menu again and put the book in. Expected: while the Cobblemon Works, the Quanta bar of
+    the menu reads 60% and the Eterna bar reads 0. After the recall, the Quanta bar reads 15%.

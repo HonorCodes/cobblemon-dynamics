@@ -73,6 +73,7 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   leash/                 Work Leash item, interaction handlers, pending selections
   net/                   payload definitions and handlers
   compat/                Cobbleworkers and Cobblebase shims, LandClaims.kt (the land claim gate)
+    apothic/             ApothicCompat (loads the stats class of Apothic Enchanting at common setup)
     ftbchunks/           FTB Chunks checks, FtbInteractRule (its right-click rule by UUID)
     opac/                Open Parties and Claims checks
     minecolonies/        MineColonies checks, ColonyRightClick (a colony's right-click rule)
@@ -92,6 +93,7 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
   cobblemon/client/      PastureWidgetMixin (stamina bars), PasturePokemonScrollListMixin (list height)
   compat/cobblebase/     AmbientBehaviorMixin, NavigationHelperMixin, BaseManagerMixin, PassiveXpMixin
                          (@Pseudo hooks in Cobblebase's helpers)
+  compat/apothic/        EnchantmentTableStatsMixin (the Muse's Quanta in Apothic Enchanting's table stats)
 src/main/resources/
   META-INF/neoforge.mods.toml
   META-INF/accesstransformer.cfg
@@ -732,6 +734,14 @@ with the gate. A check asks about the canonical block of a target, as a right-cl
   equal those of a table with that many shelves. NeoForge's `EnchantmentLevelSetEvent` still gets the
   table's own count. A menu that has no such call gets no injection, and `MixinGate` turns the Muse off
   with one warning (CD-MUS-06).
+  - Apothic Enchanting gives `minecraft:enchanting_table` its own block and menu, `ApothEnchantmentMenu`, whose
+    `slotsChanged` never runs the vanilla code above (`javap` on 1.21.1-1.6.4). Its offers read the Eterna, Quanta and
+    Arcana that the static `EnchantmentTableStats.gatherStats(LevelReader, BlockPos)` returns. Mixin
+    `EnchantmentTableStatsMixin` injects at that method's RETURN and returns a copy with the Muse's Quanta added.
+    `MuseBonus` then gives the vanilla mixin no bookshelves (CD-MUS-07). The record clamps Quanta to 100.
+  - Where Apothic Enchanting is loaded, `MixinGate` makes the Muse need the stats mixin instead of
+    `EnchantmentMenuMixin`. `ApothicCompat` loads the stats class at common setup, so the mixin applies before the
+    role files load.
 - **Cauldrons.** NeoForge's `CauldronWrapper` moves water in 1,000 mB steps only, so it cannot fill a
   cauldron at level 1 or 2. The Pump raises a cauldron one level per 333 mB delivered by setting the
   block state, as vanilla's `receiveStalactiteDrip` does. A cauldron has demand while it is empty or a
@@ -847,7 +857,7 @@ Other role parameters, as fragments of their role files:
   `neoforge.mods.toml`. NeoForge ships Mixin and MixinExtras (0.5.5 in NeoForge 21.1.265), which
   provides `@ModifyExpressionValue` and `@Local`. MixinExtras injects `@ModifyExpressionValue` late,
   after the config plugin's `postApply`, so a mixin whose role `MixinGate` checks uses Mixin's own
-  injectors. `MixinPlugin` skips the Create and Cobblebase mixins
+  injectors. `MixinPlugin` skips the Create, Cobblebase and Apothic Enchanting mixins
   when those mods are absent. It also skips a mixin whose target class lacks a field or method that
   the mixin shadows, because Mixin fails the required config at load on such a shadow. Each
   integration mixin sets a static flag when it applies, and a role whose flag stays unset disables
@@ -873,6 +883,7 @@ Other role parameters, as fragments of their role files:
 | Structurize | `com.ldtteam:structurize:1.0.839-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
 | BlockUI | `com.ldtteam:blockui:1.0.212-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
 | Domum Ornamentum | `com.ldtteam:domum-ornamentum:1.0.237-snapshot:main`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | claim run |
+| Apothic Enchanting | `dev.shadowsoffire:ApothicEnchanting:1.21.1-1.6.4`, `transitive = false` | `https://maven.shadowsoffire.dev/releases` | compileOnly, testRuntimeOnly |
 
 Create build 280 is the only 6.0.10 build whose manifest `Git-Hash` equals the release tag. Cobblemon's
 POM lists no dependencies, so KotlinForForge must be declared. If Ponder fails to resolve, add Fuzss's
@@ -883,8 +894,9 @@ and the code of MineColonies is GPL 3.0, so no jar or artifact of the mod holds 
 
 `neoforge.mods.toml` dependencies: `minecraft` `[1.21.1,1.21.2)`, `neoforge` `[21.1.219,)`,
 `cobblemon` `[1.8.4,1.9)` and `kotlinforforge` `[5.10,)` are required. `create` `[6.0.10,6.1)` and
-`ae2` `[19.2,20)` are optional. `cobbleworkers`, `cobblebase`, `ftbchunks`, `openpartiesandclaims` and `minecolonies` are
-optional with the version range `*`, so NeoForge checks no version of them, and a claim check that fails refuses.
+`ae2` `[19.2,20)` are optional. `cobbleworkers`, `cobblebase`, `ftbchunks`, `openpartiesandclaims`, `minecolonies` and
+`apothic_enchanting` are optional with the version range `*`, so NeoForge checks no version of them, and a claim check
+that fails refuses.
 
 ## 11. Art
 
