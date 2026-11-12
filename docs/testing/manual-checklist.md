@@ -369,3 +369,22 @@ on the COHO server, which has these mods, and record its result in the Phase 3 g
     work on the Enchanting Table. Action: open the table's menu, put the book in, and wait 5 seconds. Then close the menu,
     recall the Cobblemon, open the menu again and put the book in. Expected: while the Cobblemon Works, the Quanta bar of
     the menu reads 60% and the Eterna bar reads 0. After the recall, the Quanta bar reads 15%.
+
+## Farming (1.1)
+
+These checks need a 1.1 build. Check 61 runs on a client with the pinned mods of the test pack. Check 62 runs on a COHO
+2.5.0 server, where the approver plays. Record the results in the play-test note of the 1.1 gate report,
+`docs/testing/v1.1-gate.md`.
+
+61. **CD-CUL-07, CD-CRP-14, CD-HRV-10, CD-HRV-11.** Setup: a Work Mode pasture with a level 50 Diglett and a level 50
+    Bulbasaur. In its work area: 4 wheat crops at age 0 on hydrated farmland, hearty grains at age 0 on farmland, and an
+    Oran Berry tree at age 0 on farmland. Game sounds at full volume. Action: watch and listen for up to 10 minutes. Expected: at
+    each growth use, green sparkles show on the crop, with no sound from the work. The Bulbasaur harvests each wheat crop,
+    the hearty grains (the upper half goes, the lower half stays) and the berry tree (age 3 again), and the items lie
+    beside each crop.
+62. **CD-CRP-18.** Setup: on a COHO 2.5.0 server, one Work Mode pasture with a level 50 Ground-type and a level 50
+    Grass-type, and in its work area one crop of each family of the adapter table of
+    [ADR-0015](../adr/0015-farming-roles-and-crop-adapters.md#the-crop-families-of-coho-250) at its first growth stage,
+    on its own soil. Action: wait until each crop is grown and harvested once, up to 20 minutes. Expected: each family is
+    grown to its full stage, then harvested as the table states. The drops, the replant and the state after the harvest
+    match the table, and no family is left untouched.
