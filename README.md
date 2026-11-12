@@ -12,9 +12,10 @@ and with any mod that uses NeoForge energy, fluid or item capabilities.
 
 ## Status
 
-**Phase 1 in progress.** There is no release yet. The design is in the
-[spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md), and the build follows the
-[Phase 1 plan](docs/plans/2026-11-09-phase-1-plan.md).
+**Version 1.0.0 is released.** Download it from the
+[GitHub releases](https://github.com/HonorCodes/cobblemon-dynamics/releases) or CurseForge. The design is in the
+[spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md), and the release plan is the
+[1.0.0 plan](docs/plans/2026-11-11-phase-3-release.md).
 
 Version 1.0 ships in three phases:
 
