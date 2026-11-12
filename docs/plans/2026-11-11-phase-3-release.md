@@ -929,7 +929,9 @@ dependencies {
 ```
 
   The run `gameTestServerMineColonies` logs to `run/gametest-minecolonies/` and enables the namespace
-  `cobblemon_dynamics_mctest`. `ColonyFixture` makes a colony with `IColonyManager.getInstance().createColony(level,
+  `cobblemon_dynamics`, as the other two claim runs do, so that its tests use the structures of
+  `src/gametest/resources-shared`. NeoForge takes a test's namespace as its structure namespace, and a namespace of its own
+  would need its own copy of each structure. `ColonyFixture` makes a colony with `IColonyManager.getInstance().createColony(level,
   center, owner, "cdtest", "cdtest")`, gives players ranks with `IPermissions.addPlayer(GameProfile, Rank)` and
   `setPlayerRank`, and deletes the colony in `TestKit.afterTest` with `deleteColonyByWorld(colony.getID(), false,
   level)`. Each colony test has its own batch, because a colony claims chunks around its center. The oracle of the run
@@ -1134,7 +1136,7 @@ notice), CD-STK-07 (the text, by decision 13), CD-UI-03 and CD-UI-09 (checks 8 a
   plan gives the first two:
   `Run("minecolonies", "GameTests with MineColonies", "runGameTestServerMineColonies",
   ROOT / "run/gametest-minecolonies/logs/latest.log", ("src/gametestMineColonies/kotlin", "src/gametest/kotlin-claims",
-  "src/gametest/kotlin-shared"), "cobblemon_dynamics_mctest")`. Its `PHASE_2_ROWS` gains CD-CMP-08 to CD-CMP-10, as Step 2
+  "src/gametest/kotlin-shared"), "cobblemon_dynamics")`. Its `PHASE_2_ROWS` gains CD-CMP-08 to CD-CMP-10, as Step 2
   of Task 7 of the claims plan gives, and equals the list of `scripts/check_plan_coverage.py`, with the rows of the
   logistics branch.
 
