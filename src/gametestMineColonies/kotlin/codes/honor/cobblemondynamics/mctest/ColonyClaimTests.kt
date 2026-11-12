@@ -21,7 +21,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
 /**
- * The claim checks against the real MineColonies 1.1.1419 (CD-LND-08, CD-LND-09, CD-LND-10, and CD-QWK-26 and CD-QWK-30 for
+ * The claim checks against the real MineColonies 1.1.1420 (CD-LND-08, CD-LND-09, CD-LND-10, and CD-QWK-26 and CD-QWK-30 for
  * MineColonies). Player A owns a colony around the test's center: B is an Officer, C a Friend, D a stranger, whom the colony gives the
  * Neutral rank, and E is Hostile. The colony's own decision is the cancellation of a `RightClickBlock` that the test posts. Each test
  * has its own batch, because a colony claims the chunks around its center.

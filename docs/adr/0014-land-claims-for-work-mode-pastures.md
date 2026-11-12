@@ -218,5 +218,7 @@ the repository on 2026-11-11 is `1.1.1420-1.21.1-snapshot`. COHO pins 1.1.1419, 
   after a change of rights.
 - **A mixin into a claim mod.** It breaks when the claim mod changes its internals.
 - **The newest MineColonies, 1.1.1420.** COHO pins 1.1.1419, and the tests must run the pack's jars. The entry
-  `versionRange="*"` lets a pack load any version, and a check that fails refuses.
+  `versionRange="*"` lets a pack load any version, and a check that fails refuses. Since 2026-11-12, COHO 2.5.0 ships
+  1.1.1420, whose change since 1.1.1419 is blueprints only, so the build and the test pack pin it (R74 of the spec
+  sheet).
 - **A config switch.** The "must never" of R67 rules it out (CD-LND-15).

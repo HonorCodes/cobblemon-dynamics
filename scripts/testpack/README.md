@@ -62,7 +62,7 @@ and the log has no `Cobblebase hooks ... did not apply` warning and no mixin fai
 | `compat_cobbleworkers` | Cobbleworkers 2.0.7 | `compat.CobbleworkersCompat` | `compat.Cobblebase*` and `mixin.compat.cobblebase.*` (CD-CMP-07), and the three claim packages (CD-QWK-33, CD-LND-13) |
 | `compat_ftbchunks` | FTB Chunks 2101.1.23, FTB Teams 2101.1.12, FTB Library 2101.1.39 and Architectury API 13.0.11 | `compat.ftbchunks.FtbChunksCompat` | `compat.opac.*` and `compat.minecolonies.*` (CD-QWK-33, CD-LND-13) |
 | `compat_opac` | Open Parties and Claims 0.33.0 | `compat.opac.OpacCompat` | `compat.ftbchunks.*` and `compat.minecolonies.*` (CD-QWK-33, CD-LND-13) |
-| `compat_minecolonies` | MineColonies 1.1.1419, Structurize 1.0.839, BlockUI 1.0.212, Domum Ornamentum 1.0.237 and Multi-Piston 1.2.58, the jars of COHO 2.4.0 | `compat.minecolonies.MineColoniesCompat` | `compat.ftbchunks.*` and `compat.opac.*` (CD-QWK-33, CD-LND-13) |
+| `compat_minecolonies` | MineColonies 1.1.1420, Structurize 1.0.839, BlockUI 1.0.212, Domum Ornamentum 1.0.237 and Multi-Piston 1.2.58, the jars of COHO 2.5.0 | `compat.minecolonies.MineColoniesCompat` | `compat.ftbchunks.*` and `compat.opac.*` (CD-QWK-33, CD-LND-13) |
 
 Class names are under `codes.honor.cobblemondynamics.`. The three claim packages are `compat.ftbchunks.*`, `compat.opac.*` and `compat.minecolonies.*`.
 

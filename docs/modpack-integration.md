@@ -65,7 +65,7 @@ code runs them, and so does each release gate. The test pack also starts a dedic
 | --- | --- |
 | FTB Chunks | FTB Chunks 2101.1.23, with FTB Teams 2101.1.12, FTB Library 2101.1.39 and Architectury API 13.0.11, the versions of COHO 2.4.0 |
 | Open Parties and Claims | Open Parties and Claims 0.33.0 for NeoForge 1.21.1 |
-| MineColonies | MineColonies 1.1.1419-1.21.1-snapshot, with Structurize 1.0.839-1.21.1-snapshot, BlockUI 1.0.212-1.21.1-snapshot and Domum Ornamentum 1.0.237-snapshot, the versions of COHO 2.4.0 |
+| MineColonies | MineColonies 1.1.1420-1.21.1-snapshot, with Structurize 1.0.839-1.21.1-snapshot, BlockUI 1.0.212-1.21.1-snapshot and Domum Ornamentum 1.0.237-snapshot, the versions of COHO 2.5.0 |
 
 Another version works as long as it keeps the calls that
 [Amendment 1 of ADR-0013](adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11) and

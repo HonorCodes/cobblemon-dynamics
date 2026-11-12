@@ -59,7 +59,7 @@ class PlayerGuideTest {
             assertTrue(text in section, "the section Land claims of the guide does not say $text")
         }
         val integration = File(root, "docs/modpack-integration.md").readText()
-        for (version in listOf("FTB Chunks 2101.1.23", "Open Parties and Claims 0.33.0", "MineColonies 1.1.1419-1.21.1-snapshot")) {
+        for (version in listOf("FTB Chunks 2101.1.23", "Open Parties and Claims 0.33.0", "MineColonies 1.1.1420-1.21.1-snapshot")) {
             assertTrue(version in integration, "docs/modpack-integration.md does not name $version")
         }
     }
