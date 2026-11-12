@@ -1,0 +1,23 @@
+modLoader="kotlinforforge"
+loaderVersion="[5.10,)"
+license="MPL-2.0"
+
+[[mods]]
+modId="cobblemon_dynamics_opactest"
+version="0.0.0"
+displayName="Cobblemon Dynamics GameTests with Open Parties and Claims"
+description='''GameTests for Cobblemon Dynamics on a server with Cobblemon, KotlinForForge and Open Parties and Claims. Never shipped.'''
+
+[[dependencies.cobblemon_dynamics_opactest]]
+modId="cobblemon_dynamics"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.cobblemon_dynamics_opactest]]
+modId="openpartiesandclaims"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="BOTH"

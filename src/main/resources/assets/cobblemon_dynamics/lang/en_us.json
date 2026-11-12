@@ -35,6 +35,8 @@
   "cobblemon_dynamics.binding.reason.no_role": "its new form cannot do the job",
   "cobblemon_dynamics.binding.reason.pasture_gone": "its pasture block is gone",
   "cobblemon_dynamics.binding.reason.cleared_by_operator": "an operator cleared it",
+  "cobblemon_dynamics.binding.reason.land_claim": "the owner of its pasture may not use its target",
+  "cobblemon_dynamics.binding.reason.land_claim_destination": "the owner of its pasture may not use its destination",
   "cobblemon_dynamics.quick_work.started": "%1$s goes to work on %2$s",
   "cobblemon_dynamics.quick_work.needs_leash": "%2$s needs the Work Leash",
   "cobblemon_dynamics.quick_work.no_permission": "You may not use %2$s",

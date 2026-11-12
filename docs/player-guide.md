@@ -217,10 +217,17 @@ A party Cobblemon can work one block on demand, with no pasture and no Work Leas
 The Cobblemon walks to the block and works it, as a worker in a pasture does. Its Work Stamina drains while it works. The
 action bar tells you when the work starts, and when and why it stops.
 
-Quick Work uses only the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
-Generator, Crystal Tender, Brew Stoker and Brewer. When only a Work Leash role of the Cobblemon fits the block, for example
-Telekinesis for a Psychic-type at a chest, the action bar shows "Chest needs the Work Leash". A Cobblemon with a Fairy type
-does no Quick Work, because it is a healer.
+Quick Work uses the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
+Generator, Crystal Tender, Brew Stoker and Brewer. It also uses the Muse, whose role file opts in to Quick Work. When only a
+Work Leash role of the Cobblemon fits the block, for example Telekinesis for a Psychic-type at a chest, the action bar shows
+"Chest needs the Work Leash". A Cobblemon with a Fairy type does Quick Work only as a Muse, because it is otherwise a healer.
+
+### Quick Work at an enchanting table
+
+Send out a Fairy-type while you look at an enchanting table. The Cobblemon waits by the table. While you have the table's
+menu open, it adds its bonus, as a Muse with a Work Leash binding does (see [Muse](#muse)). It stays while you close
+the table to fetch lapis or books, and it does not leave because the table needs no work. It stops for the other reasons
+of [When Quick Work stops](#when-quick-work-stops), for example when you go more than 16 blocks away or recall it.
 
 ### When Quick Work does not start
 
@@ -228,10 +235,11 @@ The Cobblemon comes out as usual, with no work, and the action bar tells you why
 
 - another Cobblemon works the block already, or a Work Leash binding holds it
 - the Cobblemon is Tired
-- the block needs no work now, for example a furnace with nothing to smelt
+- the block needs no work now, for example a furnace with nothing to smelt. A Muse at an enchanting table starts anyway
+  and waits for the menu.
 - the Cobblemon cannot reach the block
 - you may not use the block, for example inside spawn protection, or in a land claim that does not let you right-click
-  the block (see [Quick Work in land claims](#quick-work-in-land-claims))
+  the block (see [Land claims](#land-claims))
 
 ### When Quick Work stops
 
@@ -241,7 +249,7 @@ The work stops for good when:
 - you recall the Cobblemon, or it faints
 - the Cobblemon gets Tired. It then recovers in your party at the rate with no bed.
 - the block breaks or changes, or a Work Leash binding takes it
-- the block needs no work for 10 seconds
+- the block needs no work for 10 seconds, except at an enchanting table
 - the Cobblemon cannot reach the block within 30 seconds
 - you log out or go to another dimension
 - the Cobblemon starts a battle
@@ -251,28 +259,56 @@ The work stops for good when:
 The Cobblemon then follows you again. It does not look for other work. To work the block again, recall the Cobblemon and send
 it out again while you look at the block.
 
-### Quick Work in land claims
+## Land claims
 
-With FTB Chunks or Open Parties and Claims on the server, Quick Work follows their land claims. You can Quick Work a block
-in a land claim only if the claim lets you right-click that block with an empty hand. The claim mod decides, with its own
-rules:
+Cobblemon Dynamics follows the land claims of three claim mods: FTB Chunks, Open Parties and Claims and MineColonies.
+Each claim mod decides with its own rules who may use a block. A Cobblemon works a block in a land claim only if the claim
+lets the right player right-click that block with an empty hand:
 
-- **FTB Chunks.** The members of the team that owns the claim can. Its allies can too, while the team's setting for block
-  interaction is "allies", which is the default. A team can set it to "public" for every player, or to "private" for its
-  members only.
+- **Quick Work** asks about you, the owner of the Cobblemon that you send out.
+- **A Work Mode pasture** asks about the owner of the pasture, the player who placed the pasture block. Its workers work
+  a machine only if the claim lets that player right-click the machine. This holds also while you are offline: your
+  pasture keeps your rights when you log out, and it never gets more rights than you have.
+
+### What each claim mod allows
+
+- **FTB Chunks.** The members of the team that owns the claim can use its blocks. Its allies can too, while the team's
+  setting for block interaction is "allies", which is the default. A team can set it to "public" for every player, or to
+  "private" for its members only.
 - **Open Parties and Claims.** The owner of the claim can, and by default the members of the owner's party can too. The
   members of an allied party can only if the owner sets `claims.protection.exceptions.fullAccess` to `A` in the owner's
   player config.
+- **MineColonies.** The ranks of the colony decide. By default, an Officer can use the blocks of the colony. A Friend can
+  use a block with no inventory, but not a container such as a furnace. A player outside the colony has the Neutral rank.
+  The Neutral and the Hostile rank can use neither. Huts need the rank's permission to access huts. An operator in
+  creative mode can Quick Work in any colony, as that player's own click can, if the operator's permission level is at
+  least the colony setting `permissionEventMinBypassPermLevel` (2 by default). A pasture gets no such exception.
 
-Each claim mod applies its own rules, so allies differ between the two. By default, an ally can Quick Work in a land
+Each claim mod applies its own rules, so allies differ between them. By default, an ally can use the machines in a land
 claim of FTB Chunks, but not in a land claim of Open Parties and Claims.
 
-A refused send-out stays a normal one, and the action bar shows a message such as "You may not use Furnace". While the
-Cobblemon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops when the right is gone.
+### What a refusal does
 
-Other protection mods that only stop right-clicks do not see Quick Work, because you never click the block. A server owner
-can turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and `quickWork.leashRange` change the two
-distances of 16 blocks.
+- **Quick Work.** A refused send-out stays a normal one, and the action bar shows a message such as "You may not use
+  Furnace". While the Cobblemon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops
+  when the right is gone.
+- **Pastures.** A worker skips a machine that its pasture's owner may not use. Nobody gets a message for that. When the
+  right ends, a worker lets go of the machine or the bed that it holds within 20 ticks. A Tired worker takes no bed that
+  the owner may not use, and rests where it stands if no other bed is free.
+- **Work Leash bindings.** A binding to a block that the pasture's owner may not use ends within 20 ticks, and the binder
+  gets a chat message such as "Charmander lost its work binding: the owner of its pasture may not use its target". For
+  Telekinesis, the destination counts too.
+
+### Limits
+
+- A pasture with no owner works no block in a land claim.
+- If a claim mod fails with an error, for example after an update that changes its code, Quick Work refuses every order,
+  and the pastures work no target, also outside land claims. The log holds one warning for each kind of error. Install a
+  tested version of the claim mod, or a release of Cobblemon Dynamics that supports the installed one.
+  [Modpack integration](modpack-integration.md#claim-mods) lists the tested versions.
+- Other protection mods that only stop right-clicks do not see Quick Work or the pastures, because nobody clicks the
+  block. A server owner can turn Quick Work off with `quickWork.enabled`. The keys `quickWork.targetRange` and
+  `quickWork.leashRange` change the two distances of 16 blocks.
 
 ## Work Stamina
 
@@ -573,8 +609,8 @@ The Pump needs a binding, so that it never fills a tank that you keep for anothe
 
 ### Muse
 
-**Types:** Fairy. **Level:** the bonus grows with level. **Move:** Fairy Wind. **Assignment:** Work Leash
-only.
+**Types:** Fairy. **Level:** the bonus grows with level. **Move:** Fairy Wind. **Assignment:** Work Leash,
+or Quick Work at an enchanting table.
 
 **Target:** an enchanting table.
 
@@ -583,19 +619,24 @@ table, where L is its level. The table never counts more than 15 bookshelves in 
 table, the Muse waits in Standby. The open menu shows the new offers as soon as the Muse starts, also for an
 item that the player put in first.
 
-| Level | Bookshelves |
-| --- | --- |
-| 1 | 1 |
-| 10 | 2 |
-| 25 | 4 |
-| 50 | 8 |
-| 75 | 12 |
-| 100 | 15 |
+With Apothic Enchanting installed, the Muse adds Quanta and no bookshelves, because Apothic Enchanting's table
+reads no bookshelf count. The Muse adds ceil(45 × L ÷ 100) Quanta to the table's stats, as a Quanta shelf does.
+A level 100 Muse takes a table without Quanta shelves from 15% to 60% Quanta. The table never counts more than
+100% Quanta.
 
-Fairy-types heal by default, so the Muse needs a binding. A Muse follows the worker rule of Work Stamina and
-heals no ally.
+| Level | Bookshelves | Quanta with Apothic Enchanting |
+| --- | --- | --- |
+| 1 | 1 | 1 |
+| 10 | 2 | 5 |
+| 25 | 4 | 12 |
+| 50 | 8 | 23 |
+| 75 | 12 | 34 |
+| 100 | 15 | 45 |
 
-**Role file parameter:** `bookshelves_at_level_100` (15).
+Fairy-types heal by default, so the Muse needs a binding or a Quick Work order. A Muse follows the worker
+rule of Work Stamina and heals no ally.
+
+**Role file parameters:** `bookshelves_at_level_100` (15) and `quanta_at_level_100` (45).
 
 ### Telekinesis
 
@@ -754,7 +795,9 @@ Each role is a JSON file in a data pack, at `data/<namespace>/cobblemon_dynamics
 built-in files use the namespace `cobblemon_dynamics`, and a data pack file at the same path replaces one.
 A role file holds the role's types, its auto-assign flag, its priority, its range, its handler, the handler's
 parameters and its effect. The range is the largest distance from the work spot to the target. The role
-sections above name each parameter.
+sections above name each parameter. The optional key `quick_work` (default `false`) lets a role whose
+`auto_assign` is false take Quick Work orders, if the role has one target. Such an order starts while the target
+needs no work, and its Cobblemon waits there with no time limit. Only the Muse's file sets it.
 
 The `effect` object holds these keys:
 
@@ -807,13 +850,11 @@ Nether needs `/execute in minecraft:the_nether run cobblemondynamics unbind <pos
   experience. Pastures with Work Mode off keep Cobblebase as usual. If a Cobblebase version lacks a method
   that the mod hooks, the log holds one warning, and the game goes on. The server config key
   `compat.cobblebase` turns this off.
-- **FTB Chunks and Open Parties and Claims.** Quick Work asks the claim mod whether you may right-click
-  the block, before the work starts and every 20 ticks while it runs. See
-  [Quick Work in land claims](#quick-work-in-land-claims). If the claim mod fails with an error, Quick
-  Work refuses the work, and the log holds one warning.
-- **Work Mode pastures and land claims.** The workers of a pasture do not ask claim mods. A pasture near
-  the border of another player's claim can work machines inside that claim, so keep its work area out of
-  other players' claims.
+- **FTB Chunks, Open Parties and Claims and MineColonies.** Quick Work asks the claim mod whether you may
+  right-click the block, before the work starts and every 20 ticks while it runs. The workers of a Work Mode
+  pasture ask whether the pasture's owner may right-click each machine, also while that player is offline.
+  See [Land claims](#land-claims). If the claim mod fails with an error, Quick Work and the pastures refuse
+  the work, and the log holds one warning.
 - **Other mods.** The Stoker works any furnace that extends the vanilla furnace. The Generator works any
   block that accepts Forge Energy, and the Pump any block that accepts water, through NeoForge's
   capabilities.

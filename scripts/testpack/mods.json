@@ -110,6 +110,78 @@
       "filename": "cloth-config-15.0.140-neoforge.jar",
       "url": "https://cdn.modrinth.com/data/9s6osm5g/versions/izKINKFg/cloth-config-15.0.140-neoforge.jar",
       "sha512": "aaf9b010955b8cd294e5a92f069985b18729fd5e2cf22d351f1dff9680f15488688803ec41e77e941cbde130ceb535014ca4c868047d80ab69c2d508e216654d"
+    },
+    "ftbchunks": {
+      "source": "maven",
+      "version": "2101.1.23",
+      "filename": "ftb-chunks-neoforge-2101.1.23.jar",
+      "url": "https://maven.ftb.dev/releases/dev/ftb/mods/ftb-chunks-neoforge/2101.1.23/ftb-chunks-neoforge-2101.1.23.jar",
+      "sha512": "78a48e8a1f789827836c88046ad0ce07e3eb5b29cc8c681c8d22a556308c0fe13fad66475535e9a810450b86f660db51f8c582dabdee026bd80e4ae959fbac89"
+    },
+    "ftbteams": {
+      "source": "maven",
+      "version": "2101.1.12",
+      "filename": "ftb-teams-neoforge-2101.1.12.jar",
+      "url": "https://maven.ftb.dev/releases/dev/ftb/mods/ftb-teams-neoforge/2101.1.12/ftb-teams-neoforge-2101.1.12.jar",
+      "sha512": "c2c8853615c1ec97e0ace07c320db8f0ad4a18c59746e1d30c86f7af0e6ad36d9bbfe0ca6a365aa63d29244e1690323296fb29d99a38bab97e2c19181a57e376"
+    },
+    "ftblibrary": {
+      "source": "maven",
+      "version": "2101.1.39",
+      "filename": "ftb-library-neoforge-2101.1.39.jar",
+      "url": "https://maven.ftb.dev/releases/dev/ftb/mods/ftb-library-neoforge/2101.1.39/ftb-library-neoforge-2101.1.39.jar",
+      "sha512": "e28a5c032395b96ce696800ca7689315074110e572186d8ba08bdf326e0ff43f6fcce942c35a3fe60637dc2bf2077f04b3e222892e60016fe545339dcc7529aa"
+    },
+    "architectury": {
+      "project": "architectury-api",
+      "version": "13.0.11",
+      "version_number": "13.0.11+neoforge",
+      "filename": "architectury-13.0.11-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/lhGA9TYQ/versions/1IiqEQGl/architectury-13.0.11-neoforge.jar",
+      "sha512": "d9f7c3bb8162577dfb461ffdf04bd6a3563c7586934a0e2a744c14421beffb8286f0d88d4c758317003f20f99fe8072a39b9d675af061e036970d36db36027f0"
+    },
+    "openpartiesandclaims": {
+      "project": "open-parties-and-claims",
+      "version": "0.33.0",
+      "version_number": "neoforge-1.21.1-0.33.0",
+      "filename": "open-parties-and-claims-neoforge-1.21.1-0.33.0.jar",
+      "url": "https://cdn.modrinth.com/data/gF3BGWvG/versions/yWmXD7GW/open-parties-and-claims-neoforge-1.21.1-0.33.0.jar",
+      "sha512": "646fd9796ef2dfd1132e22aacf1a417639233d90fb7eb862a718badfed955d54714c88327b7ddc651f98cd5b7d2a80e8c91233d2232680d4998fdd10ef392ffb"
+    },
+    "minecolonies": {
+      "source": "maven",
+      "version": "1.1.1419-1.21.1-snapshot",
+      "filename": "minecolonies-1.1.1419-1.21.1-snapshot.jar",
+      "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/minecolonies/1.1.1419-1.21.1-snapshot/minecolonies-1.1.1419-1.21.1-snapshot.jar",
+      "sha512": "b82c4132afef7de53bcea9a49bada2ab7a3b59a989bf4c3ef6f65d4822b60cdc8996c7fe2d251767a98a6018960bb8118b4469fe1e1de6dc52c6d40e1e609df3"
+    },
+    "structurize": {
+      "source": "maven",
+      "version": "1.0.839-1.21.1-snapshot",
+      "filename": "structurize-1.0.839-1.21.1-snapshot.jar",
+      "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/structurize/1.0.839-1.21.1-snapshot/structurize-1.0.839-1.21.1-snapshot.jar",
+      "sha512": "cb65848c8b999bb814561c272d9ac5e93f1e08c1d8a43d829b49f4025fdda87259682e981c33aa3c3e71fa5f37ff10cc389374afc210c62e3c92b9ed047c7715"
+    },
+    "blockui": {
+      "source": "maven",
+      "version": "1.0.212-1.21.1-snapshot",
+      "filename": "blockui-1.0.212-1.21.1-snapshot.jar",
+      "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/blockui/1.0.212-1.21.1-snapshot/blockui-1.0.212-1.21.1-snapshot.jar",
+      "sha512": "defaae595ade0f82e4be5f426978b71cbe9e7a84301f8f8e4e096581b8aefe3b053d8f5e6e0ee55844c3d4e07f3db781e70aab4663fd222a61e20c30f66cd3a3"
+    },
+    "domum_ornamentum": {
+      "source": "maven",
+      "version": "1.0.237-snapshot",
+      "filename": "domum-ornamentum-1.0.237-snapshot-main.jar",
+      "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/domum-ornamentum/1.0.237-snapshot/domum-ornamentum-1.0.237-snapshot-main.jar",
+      "sha512": "f0d56073a6053ff1318701ec1b9bfcb5aae40be658ec6e7cb4211613dfb170288e4cf408c8ff676d5369bf3789492d1a629ba8736422ee8d2fb9fa0d019e9d60"
+    },
+    "multipiston": {
+      "source": "maven",
+      "version": "1.2.58-1.21.1",
+      "filename": "multipiston-1.2.58-1.21.1.jar",
+      "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/multipiston/1.2.58-1.21.1/multipiston-1.2.58-1.21.1.jar",
+      "sha512": "60007e72516857228c45cbfee14ec18c9c4e89b626ecdd659fff3a146d5dc527d52563645e3348b79820f7eeb0b6d3aeab4394e7b6d6a065666ed04333c05a48"
     }
   }
 }

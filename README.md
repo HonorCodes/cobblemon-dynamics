@@ -189,19 +189,28 @@ into a source. The art is under the repository's MPL-2.0 license.
   [ADR 0009](docs/adr/0009-coexistence-with-pasture-job-mods.md).
 - **Modded furnaces.** The Stoker works with any furnace that extends the vanilla
   furnace.
+- **Apothic Enchanting.** Its enchanting table reads no bookshelf count, so there a Muse
+  adds Quanta to the table's stats instead of bookshelves. See
+  [the player guide](docs/player-guide.md#muse).
 - **Modded machines.** The Generator works with any block that accepts Forge Energy
   through NeoForge's energy capability. The Pump works with any block that accepts
   water through NeoForge's fluid capability. Telekinesis and the Magnet work with any
   block that has NeoForge's item capability.
+- **Land claims.** With FTB Chunks, Open Parties and Claims or MineColonies on the server,
+  Quick Work and the workers of Work Mode pastures follow their land claims. Quick Work
+  asks about the player who sends the Cobblemon out. A pasture asks about its owner, also
+  while that player is offline. Each claim mod decides by its own rules. See
+  [the player guide](docs/player-guide.md#land-claims) and
+  [ADR 0014](docs/adr/0014-land-claims-for-work-mode-pastures.md).
 
-The spec sheet area CMP holds the exact compatibility rules.
+The spec sheet areas CMP, QWK and LND, and the row CD-MUS-07, hold the exact compatibility rules.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
-| [docs/player-guide.md](docs/player-guide.md) | How to play: Work Mode, the Work Leash, Quick Work, Work Stamina, beds, healers, every role, config and commands |
-| [docs/modpack-integration.md](docs/modpack-integration.md) | For pack and server maintainers: dependencies, server defaults, other mods, mixins, payloads, saved data and what is tested |
+| [docs/player-guide.md](docs/player-guide.md) | How to play: Work Mode, the Work Leash, Quick Work, land claims, Work Stamina, beds, healers, every role, config and commands |
+| [docs/modpack-integration.md](docs/modpack-integration.md) | For pack and server maintainers: dependencies, server defaults, claim mods, other mods, mixins, payloads, saved data and what is tested |
 | [docs/testing/manual-checklist.md](docs/testing/manual-checklist.md) | The manual play-test checklist for the Demo rows |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Components, data flow, integration points, art and milestones |
 | [docs/roles.md](docs/roles.md) | Role catalog for all 18 types: Phase 1, Phase 2 and later ideas |
@@ -225,6 +234,7 @@ Architecture decision records:
 | [0011](docs/adr/0011-v2-roles-in-first-release.md) | The v2 roles in the first release, in phases |
 | [0012](docs/adr/0012-original-art-assets.md) | Original art assets |
 | [0013](docs/adr/0013-quick-work-for-party-pokemon.md) | Quick Work for party Cobblemon |
+| [0014](docs/adr/0014-land-claims-for-work-mode-pastures.md) | Land claims for Work Mode pastures |
 
 ## Contributing
 

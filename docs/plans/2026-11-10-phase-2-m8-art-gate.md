@@ -1320,8 +1320,8 @@ this paragraph's first three words, so keep them.
 - [ ] **Step 1: Write the deferred GameTests** above, each as its row's acceptance test states it. Run
   `./gradlew runGameTestServer` twice in a row.
 
-  **As built (2026-11-11).** The first run found a gap in CD-FAN-04. A bind of a newly pastured Pokémon went through until
-  the pasture's next poll, because `WorkEngine.hasSpot` passed while the engine had no entity for the Pokémon. `hasSpot` now
+  **As built (2026-11-11).** The first run found a gap in CD-FAN-04. A bind of a newly pastured Cobblemon went through until
+  the pasture's next poll, because `WorkEngine.hasSpot` passed while the engine had no entity for the Cobblemon. `hasSpot` now
   finds that entity among the pasture's tethered entities (`PastureAdapter.tetheredEntity`). It passes only when no entity
   exists. `cdFan04StoneInFrontRefusesTheBind` binds on the tick of the tether and again after the poll, and both binds
   refuse.
@@ -1332,7 +1332,7 @@ this paragraph's first three words, so keep them.
     include the walk. CD-MAG-07 takes the stack off the ground while the Klink Works.
   - CD-TLK-09 gets its refusal at the source click, which `BindRules` checks at once. The barrel click after it starts a
     new source and binds nothing.
-  - CD-FAN-11 has no owner and no Pokémon, because `FanTests` holds the fan state directly. The test flips the fan state
+  - CD-FAN-11 has no owner and no Cobblemon, because `FanTests` holds the fan state directly. The test flips the fan state
     and loads a new fan block entity from the old one's save.
   - CD-TLK-05 also checks that each worker's claim is on its own chest. CD-TLK-11 also checks each cause in the binder's
     chat.
@@ -1349,7 +1349,7 @@ this paragraph's first three words, so keep them.
   blocks above its spot, so the order outlived the travel timeout. The furnace now stands on a stone pillar, 2 blocks
   above any spot. These scenes read their rows in a set way:
   - CD-QWK-06 has one owner in two phases. `mayInteract` refuses it first, and then it is a spectator.
-  - CD-QWK-20 takes the owner out of the player list. Cobblemon then removes the party Pokémon's entity on its next tick,
+  - CD-QWK-20 takes the owner out of the player list. Cobblemon then removes the party Cobblemon's entity on its next tick,
     because it finds no owner (`PokemonServerDelegate`), so the order ends as for a recall. The unit test of the end rule
     checks the reason of an owner who left.
   - Each refusal test checks that the send-out aimed at its block, so that a missed aim cannot pass it.

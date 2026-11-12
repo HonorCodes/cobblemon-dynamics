@@ -40,6 +40,10 @@ object LeashResets {
     const val PASTURE_GONE = "pasture_gone"
     const val CLEARED_BY_OPERATOR = "cleared_by_operator"
 
+    /** CD-LND-03: the placer of the binding's pasture may not use its target, or its Telekinesis destination, in a land claim. */
+    const val LAND_CLAIM = "land_claim"
+    const val LAND_CLAIM_DESTINATION = "land_claim_destination"
+
     private const val CHECK_TICKS = 10L
     private const val LOST = "cobblemon_dynamics.binding.lost"
     private const val REASON = "cobblemon_dynamics.binding.reason"

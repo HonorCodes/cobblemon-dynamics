@@ -5,13 +5,13 @@ their containers.
 
 ## Context
 
-The operator's rule: only one Pokémon may perform an action on any individual block or entity,
-across all pastures. For example, two Pokémon cannot power the same water wheel, even from two
-different pastures. Wild Pokémon never act.
+The operator's rule: only one Cobblemon may perform an action on any individual block or entity,
+across all pastures. For example, two Cobblemon cannot power the same water wheel, even from two
+different pastures. Wild Cobblemon never act.
 
 The prior art handles this in a weaker way:
 
-- **Cobbleworkers** keeps a global map from block position to Pokémon UUID, with a 30 s expiry. The
+- **Cobbleworkers** keeps a global map from block position to Cobblemon UUID, with a 30 s expiry. The
   key has no dimension, so the same coordinates in two dimensions collide (inferred). It had a claim
   leak with no expiry (#73), fixed on 2026-07-01.
 - **Cobblebase** keeps one soft reservation per executor, with no shared ledger.
@@ -43,8 +43,8 @@ has eight structural blocks around its controller.
     sleeps.
   - A Telekinesis binding reserves its source only. Any number of Telekinesis workers can use one
     destination ([ADR-0011](0011-v2-roles-in-first-release.md)).
-- A leash binding persists in two places. The Pokémon's `persistentData` holds the binding, and a
-  per-level index maps the target to the Pokémon UUID.
+- A leash binding persists in two places. The Cobblemon's `persistentData` holds the binding, and a
+  per-level index maps the target to the Cobblemon UUID.
 - Work, bed and heal claims are never saved. After a restart, scans rebuild them.
 - The registry releases a work, bed or heal claim when:
   - its target is broken, replaced or unloaded
@@ -58,11 +58,11 @@ has eight structural blocks around its controller.
   off its bound target.
 - A binding clears when:
   - its target is broken, replaced, picked up with a Create wrench, or moved into a Create contraption
-  - its Pokémon is recalled to the PC or the party, moves to another pasture, is released or traded,
+  - its Cobblemon is recalled to the PC or the party, moves to another pasture, is released or traded,
     or loses its pasture block
-  - an evolution leaves no role that fits the Pokémon
+  - an evolution leaves no role that fits the Cobblemon
   - the owner clears it with the Work Leash
-- A Pokémon that reaches a new owner carries no binding data.
+- A Cobblemon that reaches a new owner carries no binding data.
 - A leashed worker that has not arrived 600 ticks after its work claim keeps the binding. It waits in
   Standby for 6,000 ticks, the owner gets a message, and then it tries again.
 

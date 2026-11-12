@@ -34,7 +34,7 @@ Design (checked against the Cobblemon 1.8.4 jar):
 - The button is 70 × 12, as wide as Recall, at panel offset (6, 139). Its label scales down to fit, because
   "Work Mode: Off" is 73 pixels wide in the vanilla font.
 - Cobblemon's list rectangle is (6, 27, 70 × 120) and reaches y = 147, under the button. A list row's move
-  button there would take the same click and unpasture its Pokémon. `PasturePokemonScrollListMixin` changes the
+  button there would take the same click and unpasture its Cobblemon. `PasturePokemonScrollListMixin` changes the
   height that `PasturePokemonScrollList.correctSize()` passes to `setRectangle` to `PanelLayout.LIST_HEIGHT` = 110,
   so the list ends 2 pixels above the button. If that mixin does not apply, the client logs one warning.
 - The button takes the clicks on its rectangle in `ScreenEvent.MouseButtonPressed.Pre` and cancels the event,
@@ -115,7 +115,7 @@ because the server's overview reply holds only those (CD-UI-09).
 
 Design (checked against the NeoForge 21.1.265 and Cobblemon 1.8.4 jars):
 
-- Cobblemon's `PokemonRenderer.render` calls `super.render`, so `RenderLivingEvent.Post` fires for Pokémon. The head
+- Cobblemon's `PokemonRenderer.render` calls `super.render`, so `RenderLivingEvent.Post` fires for Cobblemon. The head
   bar draws as vanilla draws a name tag: turned to the camera, scale 0.025, y down, 0.75 blocks above the bounding
   box. The icon, 8 × 8, sits left of the bar, 30 × 4 (`HeadBarRange.ICON`, `HeadBarRange.BAR`). The bar's frame,
   fill and empty part are quads that do not overlap (`StaminaBar.parts`), so the coplanar quads never fight over
@@ -151,7 +151,7 @@ optional).
 `CobbleworkersRest.mark(data)` sets `cobbleworkers.resting = true` and our ownership key
 `cobblemon_dynamics.set_cw_rest = true` only when the flag was not already set; `unmark(data)` clears the
 flag only when our key is present (CD-CMP-02). The engine calls `mark` on each Work Mode worker at its
-20-tick poll (CD-CMP-01) and `unmark` when Work Mode turns off or the Pokémon leaves. The Cobblebase mixin
+20-tick poll (CD-CMP-01) and `unmark` when Work Mode turns off or the Cobblemon leaves. The Cobblebase mixin
 targets the method that Cobblebase's own `PokemonPastureBlockEntityMixin` calls at `TICKER$lambda$0` TAIL;
 when it fails to apply, `MixinState` records nothing and the compat logs one warning (CD-CMP-05). Class
 loading: the compat classes sit behind `ModList.isLoaded` checks in their own packages (CD-CMP-06,
@@ -180,7 +180,7 @@ Design (checked against the Cobbleworkers 2.0.7 and Cobblebase 2.0.1 jars, decom
   - `BaseManagerMixin`: `tickPokemon`, which runs Cobblebase's jobs and its return-to-pasture teleports, does
     nothing for a Work Mode pasture.
   - `PassiveXpMixin`: `tick` gives no passive experience in a Work Mode pasture.
-  `CobblebaseCompat` answers for a pasture through the level's Work Mode index, and for a Pokémon through the
+  `CobblebaseCompat` answers for a pasture through the level's Work Mode index, and for a Cobblemon through the
   work engine, on the server thread only. Both answers are false with `compat.cobblebase = false`.
 - CD-CMP-05: `MixinState.handlerApplied` records each handler that some target calls. At common setup, with
   Cobblebase loaded, `CobblebaseHooks.check` loads the four classes without initializing them, which makes Mixin
@@ -309,7 +309,7 @@ Real restarts and `/reload` in the test pack (as built):
   reports none after the restart).
 - `reload` checks CD-CFG-08 for real: a world data pack replaces the Stoker's role file with one that names an
   unregistered handler, and after `/reload` the role registry logs that the Stoker is disabled for that handler.
-- A dedicated test server has no player, so it cannot pasture a Pokémon. The checks that need a worker stay in
+- A dedicated test server has no player, so it cannot pasture a Cobblemon. The checks that need a worker stay in
   the GameTests, which simulate the restart: claims held before a restart (CD-CLM-07,
   `cdClm07ClaimsAreNotSaved`), the binding (CD-LSH-07, `cdLsh07BindingSurvivesRestartAndToggle`), flips by a
   worker (CD-WHL-07, CD-CRK-08, `DriveBehaviourTests`), Work Stamina (CD-STA-04,
@@ -468,7 +468,7 @@ Steps 1 to 3 as built:
   script marks CD-REL-04, CD-REL-14 and CD-REL-15 open after Phase 1, and CD-REL-13 play-test. It refuses to write when
   tracked files differ from the commit, and it counts a log older than the commit as stale.
 - The first gate run, on `662e02c`, failed `RestTests.cdAi07NightSleepEndsWhenWorkStarts` once. Cobblemon's drowsy
-  sensor rouses a drowsy Pokémon by chance (1 in 240 for each run, once a second), and its wake-up task then wakes it in
+  sensor rouses a drowsy Cobblemon by chance (1 in 240 for each run, once a second), and its wake-up task then wakes it in
   the same Brain tick, before the test sets the memory again. A confirmation run then failed
   `EffectPacketTests.cdFx10Heal15SleepAndHealEffectsReachANearbyPlayer` once, because the ally's sleep loop (CD-FX-10)
   reached the player before the heal ended. Commit `0cddb71` fixed both tests: the first waits for the next sleep, and the
@@ -715,14 +715,14 @@ command), `LangTest` (the reason has its lang entry) and manual check 51 for the
 
 - The command reads the leash index of the operator's level at the block and at the canonical block of each role whose
   handler matches it, as `onSneakBlockClick` does, so any block of a large water wheel names the wheel. A binding whose
-  Pokémon its owner's PC or party holds clears through `LeashResets.clear`, which tells the engine and sends the binder the
-  chat message. An entry whose Pokémon is gone loses only its reservation.
-- The pasture's placer cannot take the other player's Pokémon out instead: Cobblemon 1.8.4's `UnpasturePokemonHandler`
-  releases a tethered Pokémon only for the player who tethered it, and `PasturePermissions.canUnpastureOthers` only shows the
+  Cobblemon its owner's PC or party holds clears through `LeashResets.clear`, which tells the engine and sends the binder the
+  chat message. An entry whose Cobblemon is gone loses only its reservation.
+- The pasture's placer cannot take the other player's Cobblemon out instead: Cobblemon 1.8.4's `UnpasturePokemonHandler`
+  releases a tethered Cobblemon only for the player who tethered it, and `PasturePermissions.canUnpastureOthers` only shows the
   button in the client.
 - The root literal needs permission level 2, so CD-SEC-09 covers the new command too.
-- CD-LSH-05: a target bound to another player's Pokémon refuses with "Already assigned to another player's {species}".
-  `BindRules` picks the message from whether the clicking player owns the bound Pokémon, which `LeashInteractions` reads
+- CD-LSH-05: a target bound to another player's Cobblemon refuses with "Already assigned to another player's {species}".
+  `BindRules` picks the message from whether the clicking player owns the bound Cobblemon, which `LeashInteractions` reads
   from the store that holds it. Test: `BindRulesTest`.
 - CD-LSH-13: `Feedback.chat` queues the message of an offline binder in `OfflineMessages`, which keeps the 10 newest per
   player. `PlayerLoggedInEvent` delivers them and `ServerStoppedEvent` drops them. Test: `OfflineMessagesTest`.

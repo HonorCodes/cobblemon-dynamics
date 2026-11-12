@@ -73,7 +73,7 @@ Checked in Task 2 on 2026-11-11, with `javap` and the `FanTests` GameTests:
   shafts at its ends. It destroys the blocks in its way. A belt has no controller until its first tick, which calls
   `BeltBlock.initBelt` while `beltLength` is 0, so `CreateKit.belt` calls `initBelt` itself before it adds the item. An
   unpowered belt holds its item in place, and the fan processes it there.
-- A wild Pokémon with `setNoAi(true)` is never pushed by a fan. `Mob.isEffectiveAi()` is false with no AI, and
+- A wild Cobblemon with `setNoAi(true)` is never pushed by a fan. `Mob.isEffectiveAi()` is false with no AI, and
   `LivingEntity.travel` moves only an entity that `isControlledByLocalInstance()`, which falls back to `isEffectiveAi()`.
   The fan still sets the entity's velocity, so `cdFan12MarkedWorkerIsNeitherPushedNorHaunted` reads the velocity.
 - `GameTestHelper.onEachTick` adds one callback for each tick that is left to the map that the test's tick walks. A call
@@ -377,7 +377,7 @@ fun hasSpot(level: ServerLevel, pasture: BlockPos, pokemonId: UUID, role: Active
 
 ---
 
-### Task 2: Fan state, the Pokémon catalyst types and the air current mixin
+### Task 2: Fan state, the Cobblemon catalyst types and the air current mixin
 
 **Rows:** CD-FAN-05, CD-FAN-06, CD-FAN-07, CD-FAN-08, CD-FAN-09, CD-FAN-11, CD-FAN-12 (the exemption), CD-FAN-13, CD-FAN-14
 (the synced state), CD-FAN-17, CD-BAL-04 (the fan part).
@@ -686,7 +686,7 @@ public abstract class AirCurrentMixin implements AirCurrentAccess {
 - [ ] **Step 4: Run the unit tests and see them pass.**
 
 - [ ] **Step 5: GameTests** in `create/FanTests` (Create fans and the mixin, so rule 6 keeps them). Each places its fan at
-  `fanRel` = (3, 2, 7), facing east, and holds the catalyst with `CreateKit.catalyse`, with no Pokémon:
+  `fanRel` = (3, 2, 7), facing east, and holds the catalyst with `CreateKit.catalyse`, with no Cobblemon:
 
 ```kotlin
 /** Raw iron on an unpowered belt under the current of a fan with a Fire catalyst in blasting mode becomes an iron ingot, no sooner than Create's processing time (CD-FAN-05, CD-BAL-04). */
@@ -841,7 +841,7 @@ and the fan's facing).
   `fan_catalyst_water.json`, `fan_catalyst_ghost.json`
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/CreateCompat.kt` (registers the handler)
 - Modify: `src/main/kotlin/codes/honor/cobblemondynamics/handler/create/FanNbt.kt` (`FanFront`: the spot rule of ruling 2)
-- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleSelection.kt` (`best` takes the Pokémon's types, ruling 1),
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleSelection.kt` (`best` takes the Cobblemon's types, ruling 1),
   and its callers `leash/BindRules.kt` (`Input.types`), `leash/LeashInteractions.kt`, `leash/LeashResets.kt`,
   `engine/Assigner.kt` and `engine/WorkEngine.kt` (`typesOf` keeps the primary type first)
 - Modify: `src/main/resources/assets/cobblemon_dynamics/lang/en_us.json`
@@ -1080,7 +1080,7 @@ object FanFront {
   worker below it, so the spot rule refuses a vertical fan itself, as ruling 2 asks. `FanItems` counts only a stack that is
   not empty, because a depot set to an empty stack still holds a `TransportedItemStack` (see the checked facts above).
 
-  Ruling 1 lives in `RoleSelection.best`, which every role choice calls with the Pokémon's types, primary first: a bind
+  Ruling 1 lives in `RoleSelection.best`, which every role choice calls with the Cobblemon's types, primary first: a bind
   (`BindRules`, `LeashInteractions`), a change of form (`LeashResets.recheckRole`) and auto-assignment (`Assigner`).
 
 ```kotlin
@@ -1292,7 +1292,7 @@ Washing, as Create's bulk washing does.
 Haunting, as Create's bulk haunting does.
 ```
 
-  The first draft said that a two-type Pokémon takes the role whose name sorts first. Ruling 1 replaced that with the
+  The first draft said that a two-type Cobblemon takes the role whose name sorts first. Ruling 1 replaced that with the
   primary type. The roles table gains a row for each file, and the flip section of the Work Leash points at the fan.
 
   - The manual checklist, after the last check:

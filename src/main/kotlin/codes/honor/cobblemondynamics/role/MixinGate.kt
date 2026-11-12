@@ -15,10 +15,16 @@ object MixinGate {
         id("tailwind") to MixinState.WINDMILL_BEARING,
     )
 
+    /** CD-MUS-07: with Apothic Enchanting, the Muse needs the stats hook, because that mod's table menu never runs the menu mixin. */
+    fun required(apothicEnchanting: Boolean): Map<ResourceLocation, String> =
+        if (apothicEnchanting) REQUIRED + (id("enchanting") to MixinState.APOTHIC_TABLE_STATS) else REQUIRED
+
+    fun apply(roles: RoleSet, applied: (String) -> Boolean, warn: (String) -> Unit): RoleSet = apply(roles, applied, REQUIRED, warn)
+
     /** Disables each role whose mixin is missing, with one warning per handler (CD-WHL-10, CD-BRN-07, CD-MUS-06, CD-FAN-17, CD-TLW-10). */
-    fun apply(roles: RoleSet, applied: (String) -> Boolean, warn: (String) -> Unit): RoleSet {
+    fun apply(roles: RoleSet, applied: (String) -> Boolean, required: Map<ResourceLocation, String>, warn: (String) -> Unit): RoleSet {
         val missing = roles.active.map { it.definition.handler }.distinct().mapNotNull { handler ->
-            REQUIRED[handler]?.takeUnless(applied)?.let { handler to it }
+            required[handler]?.takeUnless(applied)?.let { handler to it }
         }
         if (missing.isEmpty()) return roles
         for ((handler, mixin) in missing) warn("Handler $handler is disabled: its mixin $mixin did not apply")

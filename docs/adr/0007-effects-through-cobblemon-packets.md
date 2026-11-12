@@ -25,7 +25,7 @@ Cobblemon 1.8.4 facts:
   attack poses. Of 759 pose files, 105 define `special`, 116 define `physical`, 616 define `cry` and
   406 define `sleep`.
 - An action-effect timeline can run outside battle with a custom context. Its animation and particle
-  steps need the Pokémon as the user, and some steps read battle-only queries such as `missed` and
+  steps need the Cobblemon as the user, and some steps read battle-only queries such as `missed` and
   `target_fainted`. Timelines also carry their own sounds.
 - Cobblemon particles can aim only at entities. The client skips an unknown particle id with no error.
   Vanilla Marker entities are never sent to clients (inferred).
@@ -53,7 +53,7 @@ Cobblemon 1.8.4 facts:
 - One extra entity per Working claim on a block target.
 - A renamed particle id or a missing pose shows a weaker effect, never a crash. The server cannot see
   client particle assets, so the effects checklist catches a renamed id.
-- Most Pokémon will play `cry` as their work pose, because few models have attack poses.
+- Most Cobblemon will play `cry` as their work pose, because few models have attack poses.
 
 ## Alternatives considered
 
@@ -61,7 +61,7 @@ Cobblemon 1.8.4 facts:
   queries and `is_user` rules, and it bakes in sounds.
 - **A client packet that builds `ParticleStorm` with a block target.** No extra entity, but
   `ParticleStorm` is Cobblemon client code marked `internal`.
-- **Position-only particles.** Simple, but the stream would not aim from the Pokémon to the target.
+- **Position-only particles.** Simple, but the stream would not aim from the Cobblemon to the target.
 
 ## Amendment (2026-11-09, M1 Task 10 follow-up)
 
@@ -101,4 +101,4 @@ checks that no particle that the mod sends plays a sound through a particle even
 the role file key `sound` and the client option `effects.workSounds` are gone, because nothing plays a
 sound. The Floral Healing timeline (CD-HEAL-16) is the one exception: Cobblemon 1.8.4 has none, and a
 later Cobblemon timeline plays as Cobblemon defines it, sounds included. The Consequences line above that
-most Pokémon play `cry` no longer holds. Most play no animation, and their particles show the work.
+most Cobblemon play `cry` no longer holds. Most play no animation, and their particles show the work.

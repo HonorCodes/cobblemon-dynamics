@@ -77,7 +77,7 @@ class ConfigTest {
     }
 
     @Test
-    fun `CD-QWK-35 the server config holds the keys of CD-CFG-01 and no other`() =
+    fun `CD-QWK-35 CD-LND-15 the server config holds the keys of CD-CFG-01 and no claim key`() =
         assertEquals(CFG_01_KEYS.toSet(), keys(ServerConfig.SPEC.spec).toSet())
 
     /** The full path of every value, as PlayerGuideTest reads it. */

@@ -93,6 +93,47 @@ CD-UI-09 rest on code reading, and their checks with two players retire. Calls 1
 1.0.0 candidate) are pending the approver. The coordinator moved CD-LND-01 to CD-LND-16 to `agreed`, and ADR-0014 is
 accepted.
 
+### The approver and the coordinator on the Muse, 2026-11-11 (R70)
+
+The approver: "fairy types should be able to be thrown out from inventory at enchantment tables to grant it the bonus that they'd normally grant in the pasture/working (similarly to how fire tpyes can be thrown out at furnances to power them from player inventory)".
+
+The coordinator's rulings on the design:
+
+1. **An opt-in flag.** A role file field, `"quick_work": true`, lets a role with `auto_assign: false` take Quick Work orders.
+   Only `muse.json` sets it. Every other leash-only role still gets "{target} needs the Work Leash" (CD-QWK-04).
+2. **CD-QWK-05 changes.** A Fairy-type gets a Quick Work order only for a role that opts in, which today is the Muse at an
+   enchanting table. On that order it grants the table the bonus of a leashed Muse. A Quick Worker never takes a heal claim.
+   A Fairy-type sent out at a water wheel, or at any machine whose role does not opt in, still gets no order (CD-ASG-04).
+3. **No demand at the start, and no Standby end.** The Muse's demand is an open menu, and Cobblemon's R key does nothing while
+   a screen is open, so the order of a role that opts in skips the no-demand refusal of CD-QWK-09, and its Cobblemon waits by
+   the table in Standby. It also has no Standby end of CD-QWK-19, because a player often closes the table to fetch lapis or
+   books and comes back. The order ends only on its other conditions, and in Standby it still costs one order tick and starts
+   no scan (CD-QWK-23).
+4. **Records.** The ruling goes into the corrections of the spec sheet, the new row CD-QWK-36 holds the flag, and the role file
+   docs and the Quick Work section of the player guide name the flag. Task 9 holds the work.
+
+### The approver and the coordinator on the Muse with Apotheosis, 2026-11-11 (R71)
+
+The approver: "also the fairy types should give Quanta, not Eterna, if apotheosis is active (for enchanting). it seems like they currently give eterna bonus."
+
+The coordinator's rulings on the design:
+
+1. **Quanta, not bookshelves.** Where Apothic Enchanting, the enchanting module of Apotheosis, is loaded, the Muse adds
+   Quanta to its table, and no Eterna or bookshelf power. Without it, the Muse keeps its vanilla behavior.
+2. **The scale of Apothic Enchanting.** A level 100 Muse gives about what a strong setup of Quanta shelves gives. A new
+   parameter of the role file holds the amount, and the docs give the value and the reason.
+3. **The compat of the other mods.** The mixin config plugin skips the hook without `apothic_enchanting`, and only
+   classes that load with the mod name it. `neoforge.mods.toml` lists the mod as optional with the version range `*`.
+   The build compiles against the jar of COHO 2.4.0, from the Maven of Shadows of Fire if it is there.
+4. **Records.** The ruling goes into the corrections of the spec sheet, the new row CD-MUS-07 holds it, and the player
+   guide and the integration page name the Quanta. Task 10 holds the work.
+
+### The approver on the GameTests, 2026-11-11
+
+The approver, who wanted to play: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". The coordinator cut the runs of the `m9-claims` build to
+`./gradlew build` and `./gradlew runGameTestServerFtbChunks`, because the UUID rule of FTB Chunks decides pasture work on
+COHO's live server. Every other run of Tasks 4, 5 and 9 is deferred by this ruling, and the tasks mark each part.
+
 ### Earlier rulings that still bind
 
 - **Multiplayer** (approver, 2026-11-10): every feature works in multiplayer, and no GameTest has two players. Each task
@@ -148,6 +189,23 @@ against the code and the tests.
 | 28 | Known issue (a) of the Phase 1 gate: spots that no path reaches | The Phase 1 gate | Fixed in M6 (CD-ASG-09) | none |
 | 29 | G9 names Modrinth and CurseForge | G9, R69 | The approver uploads to CurseForge by hand. Nobody uploads to Modrinth yet | decision 12, pending the approver |
 | 30 | A play-test of the 1.0.0 candidate | CD-REL-14 | The play of `1.0.0-beta.3` gives the play-test note that CD-REL-14 needs | decision 17, pending the approver |
+| 31 | Fairy-types Quick Work an enchanting table as the Muse | R70 | Not built. New row CD-QWK-36, amended CD-QWK-05, CD-QWK-09, CD-QWK-19 and CD-CFG-07 | 9 |
+| 32 | `TailwindTests.cdTlw06Tlw09Tlw08TheBonusFollowsTheWork` fails now and then with "the Pidgey is STANDBY after the skip" | The coordinator, after `1.0.0-beta.3` | A known issue, with the cause below. The fix is deferred by the approver's ruling on the GameTests | none: a known issue |
+
+### Known issue: the Tailwind flake (item 32)
+
+`TailwindTests.cdTlw06Tlw09Tlw08TheBonusFollowsTheWork` releases its bound Pidgey with `TestKit.release`, which keeps the
+Pidgey off the bearing for 200 ticks, and then waits for it to Work again. A probe ran eight copies of the scene in one
+GameTest run on 2026-11-11, with the Pidgey's position, flight flag and state every 100 ticks. Seven passed. In copy 3, the
+idle Pidgey flew up during the skip, as Cobblemon's `wanders_hover` lets a pastured flyer do (up to 6 blocks). At tick 280 it
+was 4.5 blocks above the bearing. At its new claim it flew down to its spot under the turning sails, and landed on the sail
+sheet, which is a Create contraption that the pathfinder does not see. From tick 380 to 880 it rode the sails, 1.6 blocks
+above the bearing and `onGround`, so it never reached its spot. After 600 ticks its travel timed out, and a bound worker
+then waits in Standby until its retry (CD-ASG-17), which the test read as "STANDBY after the skip". In a second run, eight
+copies that held the Pidgey on its spot during the skip all passed. The fix holds the Pidgey on its spot until it claims
+again, as other tests hold a worker. It is deferred by the approver's ruling on the GameTests. In play, a bound Tailwind
+worker is rarely idle long enough to fly over its sails, and one that gets stuck gets the "cannot reach" message of
+CD-LSH-21 and travels again after `engine.retryWaitTicks`.
 
 ## Global Constraints
 
@@ -172,7 +230,7 @@ included. Phase 3 adds these lines:
 1. **Before Task 1.** `main` holds PR #30 (the Quick Work claims build) and PR #31 (the logistics branch,
    `1.0.0-beta.3`), on which this plan's branch sits. The coordinator moved the LND rows to `agreed` on 2026-11-11 with
    the rulings on the [design decisions](#design-decisions-for-the-approver), and the tasks follow those rulings.
-2. **Two branches.** `m9-claims`, from `main`: Tasks 1 to 5 and 7, in one pull request. `m9-release`, from `main` after
+2. **Two branches.** `m9-claims`, from `main`: Tasks 1 to 5, 7 and 9, in one pull request. `m9-release`, from `main` after
    `m9-claims` merges: Tasks 6 and 8, in one pull request, and then the tag.
 3. **References.** At the start of each branch, check every reference of [Checked references](#checked-references)
    against the jars that Gradle downloaded. Treat an "(inferred)" fact as unverified. Where the code differs from this
@@ -337,7 +395,8 @@ each under `com/ldtteam/<artifact>/<version>/` of the repository.
 The `[[mods]]` ids are `minecolonies`, `structurize`, `blockui`, `domum_ornamentum` and `multipiston`. MineColonies
 requires the first four, and nothing in the set requires `multipiston`.
 
-Inferred, and checked by Step 1 of Task 4:
+Inferred, and checked by Step 1 of Task 4. The MineColonies run is deferred by the approver's ruling on the GameTests, so only
+the last fact is checked: `./gradlew build` compiled `compat/minecolonies/` without Domum Ornamentum on 2026-11-11.
 
 - MineColonies, Structurize, BlockUI and Domum Ornamentum load on `GameTestServer`. A colony that `createColony` makes for
   a test player claims the chunks around its center at once (`ChunkDataHelper.claimColonyChunks`), so
@@ -390,10 +449,13 @@ The row is done only when its last part passes:
 | CD-QWK-26, CD-QWK-30 | The claims build: the test claim provider | Tasks 3 and 4: MineColonies as a claim mod |
 | CD-QWK-27, CD-QWK-28, CD-QWK-29, CD-QWK-31, CD-QWK-32 | The claims build: the code and the test claim provider | Task 4: the real-mod GameTests of the claims plan, Task 4 |
 | CD-QWK-33 | The claims build: `CompatImportsTest` | Task 5: the test pack cases of the claims plan, Task 6 |
-| CD-CMP-08, CD-CMP-09, CD-CMP-10 | The claims build: the lines in the GameTest log | Task 5: the lines in the logs of real servers |
+| CD-CMP-08, CD-CMP-09, CD-CMP-10 | The claims build: the lines in the GameTest log | Task 5: the lines in the logs of real servers. Task 10: the stats hook of Apothic Enchanting in the mixin line of CD-CMP-08 (R71) |
 | CD-STK-07 | M1: the code, the GameTest and check 29 | Task 7: the text of the row and of `ARCHITECTURE.md`, by decision 13 |
 | CD-UI-03, CD-UI-09 | M1 and M5: unit tests, a GameTest and a Demo with two players that never ran | Task 7: checks 8 and 23 retire, because the rows now rest on code reading (decision 14) |
 | CD-PLAT-06, CD-CMP-01, CD-CMP-03, CD-CMP-04, CD-CMP-05, CD-REL-01 | M0 to M5: automated parts, and Demos that never ran | Task 8: the Demos, by decision 14 |
+| CD-QWK-05, CD-QWK-09, CD-QWK-19 | Quick Work: the rules, their unit tests and GameTests | Task 9: the exceptions for a role that opts in to Quick Work (R70) |
+| CD-CFG-07, CD-MUS-02 | M1 and M4: the role file and the Muse's role file | Task 9: the Quick Work flag of the role file (R70) |
+| CD-MUS-03, CD-MUS-06 | M4: the bookshelf bonus and the gate of the enchanting-table mixin | Task 10: no bookshelves with Apothic Enchanting, and the stats hook in the gate (R71) |
 
 ---
 
@@ -883,6 +945,18 @@ object MineColoniesCompat {
 
 ### Task 4: GameTests with the real claim mods
 
+> **Partly deferred by the approver's ruling of 2026-11-11.** The approver: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". Only
+> `./gradlew runGameTestServerFtbChunks` ran, on the code of the `m9-claims` build. Its first run passed 9 of 10 tests. Its
+> oracle test `cdLnd06PastureCheckEqualsFtbChunksForEachPlayer` failed: the pasture check threw for every claimed chunk,
+> because `PrivacyMode` of FTB Teams 2101.1.12 has a public field `name` with the lower-case serialized name, which
+> Kotlin's `name` reads before `Enum.name()`, so `Mode.valueOf("allies")` failed. The check failed closed, with the warning
+> "Pastures work no target while the claim check of ftbchunks fails". With the mode mapped by its constant, the second run
+> passed all 10 tests: the fixture test, the oracle test of CD-LND-06, CD-LND-10, and the seven Quick Work tests of the
+> claims plan. The run also proved the first three facts of the "Inferred" list of the
+> [claims plan](2026-11-11-phase-2-quick-work-claims.md). The
+> `runGameTestServerOpac` and `runGameTestServerMineColonies` runs, the "Inferred" facts of MineColonies, and Step 4's check
+> with each `register` call commented out wait for a follow-up.
+
 **Rows:** CD-QWK-27, CD-QWK-28, CD-QWK-29, CD-QWK-31 and CD-QWK-32 (the real-mod tests of the claims plan), CD-LND-06,
 CD-LND-07 and CD-LND-08 (the oracle tests), CD-LND-09 (Quick Work in a colony), CD-LND-10 (no packet to the placer), and
 CD-QWK-26 and CD-QWK-30 for MineColonies.
@@ -929,7 +1003,9 @@ dependencies {
 ```
 
   The run `gameTestServerMineColonies` logs to `run/gametest-minecolonies/` and enables the namespace
-  `cobblemon_dynamics_mctest`. `ColonyFixture` makes a colony with `IColonyManager.getInstance().createColony(level,
+  `cobblemon_dynamics`, as the other two claim runs do, so that its tests use the structures of
+  `src/gametest/resources-shared`. NeoForge takes a test's namespace as its structure namespace, and a namespace of its own
+  would need its own copy of each structure. `ColonyFixture` makes a colony with `IColonyManager.getInstance().createColony(level,
   center, owner, "cdtest", "cdtest")`, gives players ranks with `IPermissions.addPlayer(GameProfile, Rank)` and
   `setPlayerRank`, and deletes the colony in `TestKit.afterTest` with `deleteColonyByWorld(colony.getID(), false,
   level)`. Each colony test has its own batch, because a colony claims chunks around its center. The oracle of the run
@@ -992,6 +1068,10 @@ fun colonyAllows(player: ServerPlayer, pos: BlockPos): Boolean =
 ---
 
 ### Task 5: The test pack
+
+> **Deferred by the approver's ruling of 2026-11-11.** The approver: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". The pins, the cases and the
+> README are written, and ruff passes, but `py scripts/testpack/testpack.py compat`, `smoke` and `deps` have not run, before
+> or after the change. A follow-up runs them.
 
 **Rows:** CD-QWK-33 (a dedicated server with each claim mod), CD-CMP-08, CD-CMP-09 and CD-CMP-10 (the load lines in the
 logs of real servers), CD-LND-13 (the server with MineColonies).
@@ -1134,7 +1214,7 @@ notice), CD-STK-07 (the text, by decision 13), CD-UI-03 and CD-UI-09 (checks 8 a
   plan gives the first two:
   `Run("minecolonies", "GameTests with MineColonies", "runGameTestServerMineColonies",
   ROOT / "run/gametest-minecolonies/logs/latest.log", ("src/gametestMineColonies/kotlin", "src/gametest/kotlin-claims",
-  "src/gametest/kotlin-shared"), "cobblemon_dynamics_mctest")`. Its `PHASE_2_ROWS` gains CD-CMP-08 to CD-CMP-10, as Step 2
+  "src/gametest/kotlin-shared"), "cobblemon_dynamics")`. Its `PHASE_2_ROWS` gains CD-CMP-08 to CD-CMP-10, as Step 2
   of Task 7 of the claims plan gives, and equals the list of `scripts/check_plan_coverage.py`, with the rows of the
   logistics branch.
 
@@ -1218,6 +1298,133 @@ notice), CD-STK-07 (the text, by decision 13), CD-UI-03 and CD-UI-09 (checks 8 a
 
 ---
 
+### Task 9: Quick Work for Fairy-types at enchanting tables
+
+**Rows:** CD-QWK-36 (the Quick Work flag), CD-QWK-05 (a Fairy-type's order only for a role that opts in), CD-QWK-09 (no
+demand at the start), CD-QWK-19 (no Standby end), CD-CFG-07 (the flag in the role file), CD-MUS-02 (the rationale names the
+order). Ruling: R70.
+
+**Files:**
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleDefinition.kt`, `role/RoleCodec.kt`,
+  `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/muse.json`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/QuickWorkRules.kt`, `engine/WorkEngine.kt` (`start`, `tickOrder`)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/engine/QuickWorkRulesTest.kt`, `role/RoleCodecTest.kt`,
+  `role/BuiltInRoleFilesTest.kt`, `src/gametest/kotlin/codes/honor/cobblemondynamics/test/QuickWorkTests.kt`
+- Modify: the spec sheet, Amendment 2 of ADR-0013, `docs/player-guide.md`, `ARCHITECTURE.md`
+
+- [ ] **Step 1: Failing tests.**
+  - `QuickWorkRulesTest`: `CD-QWK-36 a role that opts in takes an order with no auto-assign flag and no scan, but not with two
+    targets`, `CD-QWK-05 CD-QWK-36 a Fairy-type gets an order only for a role that opts in` (the Muse at an enchanting table,
+    no role at a water wheel), `CD-QWK-09 CD-QWK-36 the order of a role that opts in starts with no demand, after the other
+    refusals` and `CD-QWK-19 CD-QWK-36 the order of a role that opts in has no Standby end, and keeps every other end`.
+  - `RoleCodecTest`: `CD-QWK-36 CD-CFG-07 the Quick Work flag defaults to false, and a file can set it`.
+  - `BuiltInRoleFilesTest`: `CD-QWK-36 only the Muse role file opts in to Quick Work`.
+  - `QuickWorkTests.cdQwk36FairyAtAClosedEnchantingTableWaitsAndWorks`: a Lv50 Clefairy sent out at enchanting table A, whose
+    menu is closed, gets an order and waits in Standby. A player opens the menu with a pickaxe in it: the Clefairy Works within
+    20 ticks, and the offers equal those of a table with 8 bookshelves, as `MuseTests.cdMus03Lv50MuseGivesATableTheOffersOfEightShelves`
+    compares them. The menu closes, and the order still holds 210 ticks later.
+
+- [ ] **Step 2: Run** `./gradlew test --tests "*QuickWorkRulesTest" --tests "*RoleCodecTest" --tests "*BuiltInRoleFilesTest"`.
+  The tests fail to compile: `quickWork` and `waitsForDemand` do not exist.
+
+- [ ] **Step 3: Code.**
+  - `RoleDefinition` gets `quickWork: Boolean = false`, and `RoleCodec` reads `Codec.BOOL.optionalFieldOf("quick_work", false)`.
+    `muse.json` sets `"quick_work": true`.
+  - `QuickWorkRules.mayOrder`: `((role.autoAssign && scanned) || role.quickWork) && shape == BindingShape.SINGLE`.
+  - `QuickWorkRules.pick`: a Fairy-type's candidates are the fitting roles that opt in, and with none it gets `Pick.None`.
+  - `QuickWorkRules.refusal` gets `waitsForDemand`, and `Watch` gets `waitsForDemand`. `endReason` skips the Standby end while
+    it is true. `WorkEngine.start` passes `role.definition.quickWork`, and `tickOrder` passes the flag of the order's role.
+
+- [ ] **Step 4: Run** `./gradlew build` and `./gradlew runGameTestServer`. Every test passes, `QuickWorkTests.cdQwk05FairyTypeGetsNoOrder`
+  and `QuickWorkSourceTest` (CD-QWK-23) included.
+
+  > **Partly deferred by the approver's ruling of 2026-11-11.** The approver: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". On the code
+  > before this task, the unit tests of Step 1 did not compile, and `cdQwk36FairyAtAClosedEnchantingTableWaitsAndWorks`
+  > got no order. With the code, `./gradlew build` passed, and one `runGameTestServer` showed a bug that the test caught.
+  > The order started and then ended with "Clefairy stopped working: Enchanting Table can no longer be worked", because the
+  > engine's `mayKeep` released each claim of a role that is neither bound nor auto-assign. `mayKeep` now keeps the claim of a
+  > Quick Worker whose role opts in. That fix passed `./gradlew build`, and the GameTest run after it is deferred.
+
+- [ ] **Step 5: Commit:** `git commit -m "Let a Fairy-type Quick Work an enchanting table as the Muse [rag:2]"`.
+
+---
+
+### Task 10: Quanta for the Muse with Apothic Enchanting
+
+**Rows:** CD-MUS-07 (Quanta and no bookshelves), CD-MUS-03 (the exception for Apothic Enchanting), CD-MUS-06 (the stats
+hook in the gate), CD-CMP-08 (the hook in the mixin line of the test pack). Ruling: R71.
+
+**Research.** `javap` on Apothic Enchanting 1.21.1-1.6.4, the jar of COHO 2.4.0, with the SHA-1
+`d88e75b60e97dae8054ee10f3a92aa2bb812b8b9`. The jar `dev.shadowsoffire:ApothicEnchanting:1.21.1-1.6.4` on the Maven of
+Shadows of Fire has the same SHA-1.
+
+- Apothic Enchanting replaces the block of `minecraft:enchanting_table` with `ApothEnchantingTableBlock`. Its menu is
+  `ApothEnchantmentMenu`, a subclass of `EnchantmentMenu`, whose `slotsChanged` never calls vanilla's code. So the mixin
+  of CD-MUS-03 never runs there, and the Muse of the `1.0.0` candidate added nothing at such a table.
+- `ApothEnchantmentMenu.gatherStats()` takes its stats from the static method
+  `EnchantmentTableStats.gatherStats(LevelReader, BlockPos)` and sends them to the player in a `StatsPayload`. The
+  offers then read Eterna (the cost), Quanta and Arcana from these stats.
+- `EnchantmentTableStats$Builder` starts at 15 Quanta and 1 clue, and adds the Quanta of each shelf. The constructor of
+  the record clamps Eterna, Quanta and Arcana to 0 to 100.
+- Quanta is a percentage. `ApothEnchantmentHelper.getQuantaFactor` multiplies the enchanting power by
+  1 + Quanta × r ÷ 100. Here r is a Gaussian ÷ 3 clamped to -1 to 1, or a value from 0 to 1 with Quantic Stability.
+  The advancements of Apothic Enchanting mark 50% and 100% Quanta.
+- The shelf data in `data/apothic_enchanting/enchanting_stats/` gives each shelf its Quanta. The hellshelf gives 3.
+  The infused and glowing hellshelves, the deepshelf and the endshelf give 5. The pearl endshelf gives 7.5, the
+  blazing hellshelf and the echoing sculkshelf give 10, and the soul-touched deepshelf and sculkshelf give 15. A
+  vanilla bookshelf gives 2 Eterna and no Quanta.
+- COHO overrides no enchanting stats. Apotheosis 8.9.0, Placebo 9.9.4 and Apothic Attributes 2.11.0 add no stats to a
+  table.
+
+**The amount.** `quanta_at_level_100` is 45, so a Muse adds ceil(45 × L ÷ 100) Quanta, at most 100. That is the
+Quanta of 3 soul-touched shelves or 15 hellshelves, as the vanilla bonus is 15 bookshelves. A level 100 Muse takes a
+table without Quanta shelves from 15% to 60%, past the 50% mark and under the 100% that shelves reach (R25).
+
+**Files:**
+- Create: `src/main/java/codes/honor/cobblemondynamics/mixin/compat/apothic/EnchantmentTableStatsMixin.java`,
+  `src/main/kotlin/codes/honor/cobblemondynamics/compat/apothic/ApothicCompat.kt`
+- Modify: `handler/vanilla/MuseBonus.kt`, `role/MixinGate.kt`, `role/RoleRegistry.kt`, `CobblemonDynamics.kt`,
+  `mixin/MixinPlugin.java`, `MixinState.java`, `cobblemon_dynamics.mixins.json`, `roles/muse.json`,
+  `META-INF/neoforge.mods.toml`, `build.gradle`, `gradle.properties`, `scripts/testpack/testpack.py`
+- Test: `handler/vanilla/MuseBonusTest.kt`, `role/MixinGateTest.kt`, `build/CompatImportsTest.kt`,
+  `build/ModMetadataTest.kt`, `compat/ApothicStatsHookTest.kt`
+- Modify: the spec sheet, `scripts/check_plan_coverage.py`, `docs/player-guide.md`, `docs/modpack-integration.md`,
+  `docs/testing/manual-checklist.md`, `docs/roles.md`, `ARCHITECTURE.md`, `README.md`
+
+- [ ] **Step 1: Failing tests.**
+  - `MuseBonusTest`: `CD-MUS-07 the default Muse adds 1, 5, 12, 23, 34 and 45 Quanta at levels 1, 10, 25, 50, 75 and
+    100`, `CD-MUS-07 with Apothic Enchanting a Muse adds Quanta and no bookshelves, and without it bookshelves and no
+    Quanta` and `CD-MUS-07 a role file without the Quanta formula takes 45, and a pack's formula applies up to Apothic's
+    cap of 100`.
+  - `MixinGateTest`: `CD-MUS-06 CD-MUS-07 with Apothic Enchanting the Muse needs the stats mixin, not the menu mixin`.
+  - `ApothicStatsHookTest` reads the jar on the test classpath. The hooked static method and the constructor of the
+    record exist. The menu calls the hooked method and never vanilla's `EnchantmentHelper.getEnchantmentCost`.
+  - `ModMetadataTest`: `apothic_enchanting` is optional with `*`. `CompatImportsTest`: only the `compat/apothic`
+    packages name `dev.shadowsoffire`, and `ApothicCompat.register` runs only with the mod.
+
+- [ ] **Step 2: Code.**
+  - `MuseBonus.bonus(level, params, apothicEnchanting)` gives Quanta and no bookshelves with Apothic Enchanting, and
+    bookshelves and no Quanta without it. `of` gives the bookshelves to the vanilla menu mixin, and `quantaOf` gives the
+    Quanta to the stats hook. Both give 0 on a client level or off the server thread.
+  - `EnchantmentTableStatsMixin`, a `@Pseudo` mixin, injects at the RETURN of `gatherStats(LevelReader, BlockPos)` and
+    returns a copy of the stats with the Muse's Quanta added. It is a Mixin `@Inject`, so `MixinState` sees its call.
+  - `MixinPlugin` skips `compat.apothic.` without `apothic_enchanting`. `MixinGate.required(true)` makes the Muse need
+    the stats hook instead of the menu mixin, and `RoleRegistry` passes whether the mod is loaded.
+  - `ApothicCompat.register` loads `EnchantmentTableStats` at common setup, so Mixin applies the hook before the role
+    files load.
+  - `muse.json` gets `"quanta_at_level_100": 45`. `neoforge.mods.toml` lists `apothic_enchanting` as optional with
+    `*`. `build.gradle` adds the Maven of Shadows of Fire, with the jar compile-only and on the test runtime classpath.
+  - The smoke line of the test pack counts 5 skipped mixins, with the stats hook first.
+
+- [ ] **Step 3: Run** `./gradlew build` and `./gradlew runGameTestServer` under the JVM rules of the shared machine. The
+  GameTest run has no Apothic Enchanting, so the Muse's GameTests check that the vanilla behavior stays the same. The run
+  also holds `QuickWorkTests.cdQwk36FairyAtAClosedEnchantingTableWaitsAndWorks`, whose fix `73baeb1` never ran. Check
+  60 of the manual checklist (CD-MUS-07) runs on the COHO server.
+
+- [ ] **Step 4: Commit:** `git commit -m "Let the Muse add Quanta, not bookshelves, with Apothic Enchanting [rag:2]"`.
+
+---
+
 ## Design decisions for the approver
 
 The rulings of R67, R68 and R69 settle the features. This plan made these further calls. On 2026-11-11, under the
@@ -1273,8 +1480,9 @@ approver's delegation, the coordinator ruled on them and moved the LND rows to `
 
 ## Coverage check
 
-`scripts/check_plan_coverage.py --phase 3` selects every row of the LND area, and the Phase 3 parts of the rows of
-[Rows of earlier phases with a Phase 3 part](#rows-of-earlier-phases-with-a-phase-3-part). It checks that a task section of
-this file cites each one. A task section runs from a `### Task` heading to the next heading of level 1 to 3. The Phase 1
-mode leaves out the LND area, and the Phase 2 mode does not change. Run the three modes after any plan edit. Each mode
-prints each missing row and `missing: N`, and exits non-zero when a row is missing.
+`scripts/check_plan_coverage.py --phase 3` selects every row of the LND area, the rows CD-QWK-36 and CD-MUS-07, and the
+Phase 3 parts of the rows of [Rows of earlier phases with a Phase 3 part](#rows-of-earlier-phases-with-a-phase-3-part). It
+checks that a task section of this file cites each one. A task section runs from a `### Task` heading to the next heading
+of level 1 to 3. The Phase 1 mode leaves out the LND area and CD-MUS-07, and the Phase 2 mode leaves out CD-QWK-36. Run
+the three modes after any plan edit. Each mode prints each missing row and `missing: N`, and exits non-zero when a row is
+missing.

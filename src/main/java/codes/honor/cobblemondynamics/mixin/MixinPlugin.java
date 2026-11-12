@@ -25,7 +25,8 @@ public final class MixinPlugin implements IMixinConfigPlugin {
     private static final String BASE = "codes.honor.cobblemondynamics.mixin.";
     private static final Map<String, String> REQUIRED_MOD_BY_PACKAGE = Map.of(
             BASE + "create.", "create",
-            BASE + "compat.cobblebase.", "cobblebase");
+            BASE + "compat.cobblebase.", "cobblebase",
+            BASE + "compat.apothic.", "apothic_enchanting");
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {

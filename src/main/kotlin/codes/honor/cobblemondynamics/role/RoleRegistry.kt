@@ -6,6 +6,7 @@ import codes.honor.cobblemondynamics.MixinState
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.TargetHandler
+import codes.honor.cobblemondynamics.handler.vanilla.MuseBonus
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.mojang.logging.LogUtils
@@ -68,7 +69,8 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
     @Synchronized
     fun rebuild() {
         val roles = RoleSet(parsed, ::handlerFor, WorkEngineSettings.current.disabledRoles, log::info)
-        current = MixinGate.apply(roles, MixinState::applied) { if (mixinWarnings.add(it)) LOGGER.warn(it) }
+        val required = MixinGate.required(MuseBonus.withApothicEnchanting)
+        current = MixinGate.apply(roles, MixinState::applied, required) { if (mixinWarnings.add(it)) LOGGER.warn(it) }
         log.info(LoadLines.roles(parsed.size, current.active.size, current.disabled))
     }
 

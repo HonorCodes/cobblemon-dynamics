@@ -38,6 +38,7 @@ object RoleCodec {
         val range: Double,
         val params: JsonElement,
         val effect: EffectDefinition,
+        val quickWork: Boolean,
     )
 
     // auto_assign has no default, so a leash-only role file that leaves it out fails to parse (CD-PMP-02, CD-MUS-02).
@@ -51,6 +52,7 @@ object RoleCodec {
             Codec.DOUBLE.optionalFieldOf("range", 6.0).forGetter { it.range },
             ExtraCodecs.JSON.optionalFieldOf("params", JsonObject()).forGetter { it.params },
             EFFECT.fieldOf("effect").forGetter { it.effect },
+            Codec.BOOL.optionalFieldOf("quick_work", false).forGetter { it.quickWork },
         ).apply(i, ::Body)
     }
 
@@ -76,6 +78,7 @@ object RoleCodec {
                     range = b.range,
                     params = b.params.asJsonObject,
                     effect = b.effect,
+                    quickWork = b.quickWork,
                 ),
             )
         }

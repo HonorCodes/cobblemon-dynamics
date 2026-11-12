@@ -26,6 +26,7 @@ import codes.honor.cobblemondynamics.heal.HealTargets
 import codes.honor.cobblemondynamics.heal.HealTransaction
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.leash.BindingStore
+import codes.honor.cobblemondynamics.leash.LeashResets
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.pasture.TetheredPokemon
@@ -324,6 +325,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             removePasture(t, runtime, fromIndex = true)
             return
         }
+        // CD-LND-05: every pasture check of this poll and of the next scan pass asks about the placer that this poll reads.
+        runtime.placer = PastureAdapter.placer(be)
         val present = HashSet<UUID>()
         for (tethered in PastureAdapter.tethered(be)) {
             val pokemon = tethered.pokemon ?: continue
@@ -351,12 +354,45 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         for (slot in runtime.slots.values.toList()) {
             // A binding counts only for the pasture that it names. LeashResets clears one that names another.
             slot.binding = BindingStore.read(slot.pokemon)?.takeIf { it.dimension == t.dimension && it.pasture == runtime.pos }
+            // CD-LND-03: a binding whose target or destination the placer may not use clears, and the binder learns why.
+            slot.binding?.let { binding ->
+                landRefusal(t, runtime, binding)?.let { reason ->
+                    LeashResets.clear(server, slot.pokemon, reason)
+                    slot.binding = null
+                }
+            }
+            // CD-LND-02: a work claim or a bed claim on a block that the placer may no longer use ends in this poll.
+            claims.claimOf(slot.worker.pokemonId)?.let { claim ->
+                if (!placerMayUse(t, runtime, claim.key)) {
+                    when (claim.kind) {
+                        ClaimKind.WORK -> release(t, slot)
+
+                        // tickRest then finds no bed claim and moves the sleeper to RestingInPlace (CD-BED-11).
+                        ClaimKind.BED -> claims.release(slot.worker.pokemonId)
+
+                        ClaimKind.HEAL -> {}
+                    }
+                }
+            }
             slot.worker.leashed = slot.binding != null
             slot.rule = RecoveryRule.of(hasFairyType(slot.pokemon), slot.binding != null)
             claimBound(t, runtime, slot, taken)
             // CD-CMP-01: the Cobbleworkers shim marks each worker within one poll of Work Mode turning on.
             WorkerEvents.polled(slot.pokemon)
         }
+    }
+
+    /** CD-LND-03: the reason that clears [binding], or null while the placer may use its target and its destination. */
+    private fun landRefusal(t: Tick, runtime: PastureRuntime, binding: Binding): String? = when {
+        !LandClaims.ownerMayUse(runtime.placer, t.level, binding.target) -> LeashResets.LAND_CLAIM
+        binding.destination?.let { !LandClaims.ownerMayUse(runtime.placer, t.level, it) } == true -> LeashResets.LAND_CLAIM_DESTINATION
+        else -> null
+    }
+
+    /** A heal claim names an entity of the same pasture, so only a claim on a block asks the pasture check (CD-LND-02). */
+    private fun placerMayUse(t: Tick, runtime: PastureRuntime, key: TargetKey): Boolean {
+        val block = key as? TargetKey.Block ?: return true
+        return block.dimension != t.dimension || LandClaims.ownerMayUse(runtime.placer, t.level, BlockPos.of(block.pos))
     }
 
     /**
@@ -432,9 +468,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** After a reload, a worker keeps a claim only while its role still takes it. */
-    private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean =
-        RoleSelection.isEligible(role, typesOf(slot.pokemon)) && (slot.worker.leashed || role.autoAssign)
+    /**
+     * After a reload, a worker keeps a claim only while its role still takes it: through its binding, an auto claim, or the Quick Work
+     * order of a role that opts in (CD-QWK-36). A Quick Worker has no pasture.
+     */
+    private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean = RoleSelection.isEligible(role, typesOf(slot.pokemon)) &&
+        (slot.worker.leashed || role.autoAssign || (slot.worker.pasture == null && role.quickWork))
 
     /** Steps 3 and 4: the pasture's scan pass, and the assignment when the pass completes. */
     private fun scan(t: Tick, runtime: PastureRuntime) {
@@ -500,7 +539,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     private fun assign(t: Tick, runtime: PastureRuntime, found: List<FoundTarget>) {
         if (found.isEmpty()) return
-        val byKey: Map<TargetKey, FoundTarget> = found.associateBy { TargetKey.block(t.dimension, it.pos) }
+        // CD-LND-01, CD-LND-12: one pasture check for each target of the pass, before the pass offers its targets to the workers.
+        val allowed = found.filter { LandClaims.ownerMayUse(runtime.placer, t.level, it.pos) }
+        if (allowed.isEmpty()) return
+        val byKey: Map<TargetKey, FoundTarget> = allowed.associateBy { TargetKey.block(t.dimension, it.pos) }
         val taken = takenSpots(t)
         for (slot in runtime.slots.values) {
             val worker = slot.worker
@@ -718,6 +760,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun nearestFreeBed(t: Tick, runtime: PastureRuntime, slot: WorkerSlot): BedCandidate? {
         val beds = t.world.blockEntitiesIn(runtime.area(t.settings)).mapNotNull { (pos, blockEntity) ->
             val bed = blockEntity as? BedBlockEntity ?: return@mapNotNull null
+            // CD-LND-04: a bed that the placer may not use is no candidate.
+            if (!LandClaims.ownerMayUse(runtime.placer, t.level, pos)) return@mapNotNull null
             BedCandidate(TargetKey.block(t.dimension, pos), BedCandidate.sleepPoint(pos), bed.tier.tier)
         }.toList()
         return BedSelector.pick(slot.entity.position(), beds) { claims.isFree(it, slot.worker.pokemonId) }
@@ -923,6 +967,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             mayUse = mayUse(owner, t.level, canonical),
             tired = worker.tired,
             targetFree = claims.isFree(TargetKey.block(t.dimension, canonical), pokemon.uuid),
+            // CD-QWK-36: the Muse's order starts while the table's menu is closed, because R does nothing while a screen is open.
+            waitsForDemand = role.definition.quickWork,
         ) { guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, canonical, role)) } }
         if (refusal != null) return tell(aim.owner, refusal, pokemon, name)
         when (claim(t, order, slot, canonical, role, takenSpots(t), moving = false)) {
@@ -966,6 +1012,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             status = worker.status,
             ticksInStatus = t.now - worker.statusSince,
             standbyLimit = t.settings.standbyMoveTicks,
+            waitsForDemand = slot.role?.definition?.quickWork == true,
         )
         QuickWorkRules.endReason(watch)?.let { return endOrder(t, order, it) }
         // CD-QWK-29: the end rule passed, so the owner is online and in the order's level, which the FTB Chunks check needs.

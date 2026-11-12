@@ -146,7 +146,7 @@ Write the three `BalanceFilesTest` bodies in full: parse the file, compute the s
 bound. CD-BAL-07's test lands in Task 2 with the file.
 
 As built, `FeCurveTest` also checks the default file through `GeneratorParams` (CD-CFG-03; CD-GEN-03 with a
-Lv100 `ultra_beast` and a Lv100 `paradox` Pokémon at 5,000 FE/t), a level-100 rate of 2,500 (CD-CFG-03) and of
+Lv100 `ultra_beast` and a Lv100 `paradox` Cobblemon at 5,000 FE/t), a level-100 rate of 2,500 (CD-CFG-03) and of
 20,000 for a Lv100 legendary (40,000, CD-CFG-13), the level clamp and the int bound. `EnergyPortTest` covers
 CD-GEN-05 and CD-GEN-06 with a fake battery, `NearestFacesTest` the face order of CD-GEN-04. CD-BAL-01 takes
 the highest rate over levels 1 to 100 of every built-in `fe_push` file. CD-BAL-05 reads

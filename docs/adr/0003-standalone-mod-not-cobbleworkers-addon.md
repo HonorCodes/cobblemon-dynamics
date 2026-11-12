@@ -14,7 +14,7 @@ Two mods already turn Cobblemon pastures into job sites:
   toggle "by design". The 2.0.7 jar declares MPL-2.0 but ships no license file.
 - **Cobblebase 2.0.1** (97,000 downloads, MPL-2.0, Fabric and NeoForge). It assigns 45 skills per
   species from about 1,367 hand-made files. It adds a button to the pasture panel. Its idle behaviour
-  wipes the Brain and pins the position of Pokémon it has not assigned.
+  wipes the Brain and pins the position of Cobblemon it has not assigned.
 
 Neither mod drives Create kinetics, generates FE or touches AE2. Cobblebase's changelog lists
 Create's Blaze Burner as "not yet supported". Our design also needs a global claim, the Work Leash,

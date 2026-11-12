@@ -19,11 +19,11 @@ Run each command from the repository root, for example `py scripts/testpack/test
 
 | Command | Result |
 |---|---|
-| `resolve` | Finds each pin of `mods.json` on Modrinth or on the NeoForge maven, then writes its file name, URL and SHA-512 back to `mods.json`. A version without a NeoForge 1.21.1 release gets `null`. |
-| `smoke` | Starts a server with the pinned mods and the built jar. Checks that the mod loads and that RCON answers `list`, then stops the server. Prints `SMOKE PASS` or `SMOKE FAIL: <reason>`. |
+| `resolve` | Finds each pin of `mods.json` on Modrinth or on the NeoForge maven, then writes its file name, URL and SHA-512 back to `mods.json`. A version without a NeoForge 1.21.1 release gets `null`. A pin with `"source": "maven"` (FTB Chunks, FTB Teams, FTB Library and the mods of LDTTeam) stays as written. |
+| `smoke` | Starts a server with the pinned mods and the built jar. Checks that the mod loads, that the log holds each load line once (the mixins with the 4 Cobblebase mixins skipped because `cobblebase` is absent, the 6 payloads of version 3, and `Roles: 16 loaded, 16 active, 0 disabled`; CD-CMP-08, CD-CMP-09, CD-CMP-10), and that RCON answers `list`, then stops the server. Prints `SMOKE PASS` or `SMOKE FAIL: <reason>`. |
 | `reload` | Starts the same server and runs `cobblemondynamics claims` over RCON (it must answer that there are no claims). Then it writes the world data pack `cd_reload_probe`, whose Stoker role file names a handler that nobody registers, runs `reload` and waits for the reload to end. The log must say that the Stoker is disabled for that handler (CD-CFG-08) and have no `Skipping role file` line. Prints `RELOAD PASS` or `RELOAD FAIL: <reason>`. |
 | `restart` | Starts the same server and checks that `config/cobblemon_dynamics-server.toml` holds every key of the CD-CFG-01 list in `ConfigTest` (CD-CFG-01). It force-loads chunk 0, 0, places a Create water wheel and a hand crank, and sets the turn direction that they save (`cd_direction`) to -1 with `data merge block`. Then it stops and starts the server: both blocks must still read -1 (CD-WHL-07, CD-CRK-08), `cobblemondynamics claims` must report none (CD-CLM-07), and the new log must have no error of ours. Prints `RESTART PASS` or `RESTART FAIL: <reason>`. |
-| `deps` | Runs the dependency-range cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `DEPS PASS` or `DEPS FAIL`. |
+| `deps` | Runs the dependency-range cases below, among them the roles line without Create (CD-CMP-10). Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `DEPS PASS` or `DEPS FAIL`. |
 | `compat` | Runs the compatibility cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `COMPAT PASS` or `COMPAT FAIL`. |
 | `client` | Fills `run/testpack/client/mods/` with the pinned mods and the built jar, for a manual play-test in a clean NeoForge 21.1.265 launcher instance. |
 
@@ -44,7 +44,7 @@ After a rejection, the server exits with code 0. So the script checks the log, n
 | `cobblemon-below-floor` | Cobblemon 1.8.3 | FML rejects `cobblemon` `[1.8.4,1.9)` |
 | `create-below-floor` | Create 6.0.9 | FML rejects `create` `[6.0.10,6.1)` |
 | `ae2-below-floor` | The latest AE2 19.1 release | FML rejects `ae2` `[19.2,20)` |
-| `without-create-ae2` | No Create, AE2 or GuideME | The server loads |
+| `without-create-ae2` | No Create, AE2 or GuideME | The server loads, and logs `Roles: 16 loaded, 9 active, 7 disabled` once, with the Wheel Driver, the Cranker, the Superheater, the three Fan Catalysts and Tailwind, each with its reason (CD-CMP-10) |
 | `kff-floor` | None, because the pin is Kotlin for Forge 5.10.0, the floor of `[5.10,)` | The server loads |
 
 A case is `SKIPPED` when `resolve` found no release for its version.
@@ -58,10 +58,13 @@ and the log has no `Cobblebase hooks ... did not apply` warning and no mixin fai
 
 | Case | Added mods | Must load | Must never load |
 |---|---|---|---|
-| `compat_cobblebase` | Cobblebase 2.0.1 and Cloth Config 15.0.140, which Cobblebase needs at run time | `compat.CobblebaseHooks` | `compat.Cobbleworkers*` (CD-CMP-06) |
-| `compat_cobbleworkers` | Cobbleworkers 2.0.7 | `compat.CobbleworkersCompat` | `compat.Cobblebase*` and `mixin.compat.cobblebase.*` (CD-CMP-07) |
+| `compat_cobblebase` | Cobblebase 2.0.1 and Cloth Config 15.0.140, which Cobblebase needs at run time | `compat.CobblebaseHooks` | `compat.Cobbleworkers*` (CD-CMP-06), and the three claim packages (CD-QWK-33, CD-LND-13) |
+| `compat_cobbleworkers` | Cobbleworkers 2.0.7 | `compat.CobbleworkersCompat` | `compat.Cobblebase*` and `mixin.compat.cobblebase.*` (CD-CMP-07), and the three claim packages (CD-QWK-33, CD-LND-13) |
+| `compat_ftbchunks` | FTB Chunks 2101.1.23, FTB Teams 2101.1.12, FTB Library 2101.1.39 and Architectury API 13.0.11 | `compat.ftbchunks.FtbChunksCompat` | `compat.opac.*` and `compat.minecolonies.*` (CD-QWK-33, CD-LND-13) |
+| `compat_opac` | Open Parties and Claims 0.33.0 | `compat.opac.OpacCompat` | `compat.ftbchunks.*` and `compat.minecolonies.*` (CD-QWK-33, CD-LND-13) |
+| `compat_minecolonies` | MineColonies 1.1.1419, Structurize 1.0.839, BlockUI 1.0.212, Domum Ornamentum 1.0.237 and Multi-Piston 1.2.58, the jars of COHO 2.4.0 | `compat.minecolonies.MineColoniesCompat` | `compat.ftbchunks.*` and `compat.opac.*` (CD-QWK-33, CD-LND-13) |
 
-Class names are under `codes.honor.cobblemondynamics.`.
+Class names are under `codes.honor.cobblemondynamics.`. The three claim packages are `compat.ftbchunks.*`, `compat.opac.*` and `compat.minecolonies.*`.
 
 ## Files
 
@@ -103,5 +106,5 @@ The `Server` object has these methods:
 - `restart()` stops the server and starts it again in the same folder. The log methods then read the
   new run only.
 
-A dedicated test server has no player, so a scenario cannot pasture a Pokémon. Checks that need a
+A dedicated test server has no player, so a scenario cannot pasture a Cobblemon. Checks that need a
 worker stay in the GameTests.

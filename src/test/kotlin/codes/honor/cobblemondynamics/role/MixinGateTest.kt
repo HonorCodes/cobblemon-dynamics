@@ -51,6 +51,23 @@ class MixinGateTest {
         assertTrue(warnings.isEmpty(), warnings.toString())
     }
 
+    /** Apothic Enchanting's table menu never reads the vanilla menu's bookshelf count, so there the Muse needs the stats hook. */
+    @Test
+    fun `CD-MUS-06 CD-MUS-07 with Apothic Enchanting the Muse needs the stats mixin, not the menu mixin`() {
+        assertEquals(MixinGate.REQUIRED, MixinGate.required(apothicEnchanting = false))
+        val required = MixinGate.required(apothicEnchanting = true)
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(muse, stoker), { it == MixinState.ENCHANTMENT_MENU }, required, warnings::add)
+        assertEquals(listOf(stoker.id), gated.active.map { it.definition.id })
+        assertTrue(
+            "cobblemon_dynamics:enchanting" in warnings.single() && MixinState.APOTHIC_TABLE_STATS in warnings.single(),
+            warnings.toString(),
+        )
+        val kept = MixinGate.apply(set(muse, stoker), { it == MixinState.APOTHIC_TABLE_STATS }, required, warnings::add)
+        assertEquals(listOf(muse.id, stoker.id), kept.active.map { it.definition.id })
+        assertEquals(1, warnings.size, warnings.toString())
+    }
+
     @Test
     fun `CD-CMP-10 the gate adds each role that it removes to disabled, with its mixin, and keeps the earlier reasons`() {
         val set = RoleSet(mapOf(wheel.id to wheel, stoker.id to stoker, muse.id to muse), { FakeHandler(it) }, setOf(muse.id)) { }

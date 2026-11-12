@@ -28,6 +28,7 @@ public final class MixinState {
     public static final String COBBLEBASE_NAVIGATION = "compat.cobblebase.NavigationHelperMixin";
     public static final String COBBLEBASE_BASE_MANAGER = "compat.cobblebase.BaseManagerMixin";
     public static final String COBBLEBASE_PASSIVE_XP = "compat.cobblebase.PassiveXpMixin";
+    public static final String APOTHIC_TABLE_STATS = "compat.apothic.EnchantmentTableStatsMixin";
 
     static final String MIXIN_PACKAGE = "codes.honor.cobblemondynamics.mixin.";
 

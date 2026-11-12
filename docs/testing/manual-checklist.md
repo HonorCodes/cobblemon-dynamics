@@ -15,7 +15,6 @@ Marks after the row id:
 
 - **(scripted):** a test pack command runs the check and prints the result.
 - **(server):** the check needs the [server](#server-for-the-server-checks).
-- **(2 players):** the check needs the server and a second player.
 - **(restart):** the check needs a real restart. In single player, click **Save and Quit to Title**, then open
   the world again. On the server, run `stop` and start it again. You can set up several restart checks and
   restart once.
@@ -36,8 +35,8 @@ Marks after the row id:
    `options.txt` before the first start, as `run/client/options.txt` does. Otherwise the game first opens the
    accessibility onboarding screen, which you can also click through.
 7. Start the game. Make a creative flat world with cheats on.
-8. Run `/gamerule doPokemonSpawning false`, so that no wild Pokémon walk into the test area.
-9. Give yourself Pokémon with `/pokegive <species> level=<n>`, for example `/pokegive charmander level=1`.
+8. Run `/gamerule doPokemonSpawning false`, so that no wild Cobblemon walk into the test area.
+9. Give yourself Cobblemon with `/pokegive <species> level=<n>`, for example `/pokegive charmander level=1`.
    Put them in a pasture through its panel.
 
 ### Optional mods for the compatibility checks
@@ -73,7 +72,7 @@ world.
 - With the default config, a level 1 worker is Tired after 3 minutes of Working. It loses 1% of Work
   Stamina about every 2 seconds. Use level 1 workers for the checks that need a Tired worker.
 - `/cobblemondynamics stamina @e[type=cobblemon:pokemon,sort=nearest,limit=1]` shows the Work Stamina, the
-  state and the recovery rule of the nearest Pokémon. `/cobblemondynamics claims` lists the claims and the
+  state and the recovery rule of the nearest Cobblemon. `/cobblemondynamics claims` lists the claims and the
   bindings.
 - The game shows the state ToBed as "To Bed", and RestingInPlace as "Resting in Place".
 - Give a furnace 64 raw iron with `/give @s raw_iron 64`. It then cooks for more than 10 minutes.
@@ -102,9 +101,8 @@ world.
 7. **CD-UI-02.** Setup: two pastures, one with Work Mode on and one with Work Mode off. Action: open each
    panel, then click one of the buttons. Expected: within 1 second of each opening, the buttons read
    "Work Mode: On" and "Work Mode: Off", as set. After the click, the label changes within 1 second.
-8. **CD-UI-03** (2 players). Setup: a pasture that player A placed. Player B is not an operator. Action: as
-   player B, open the pasture's panel, hover over the Work Mode button and click it. Expected: the button is
-   disabled, the click changes nothing, and the tooltip reads "Only the pasture's owner can change Work Mode".
+8. Retired: since the rulings of 2026-11-11, CD-UI-03 rests on its unit tests and a code reading, so this check with
+   two players no longer runs.
 9. **CD-UI-04.** Setup: a Work Mode pasture with 4 workers in mixed states. A Charmander works at a furnace
    with 64 raw iron (Working). A second Charmander waits at an empty furnace (Standby). A Squirtle has no
    target (Idle), and a Clefairy has nobody to heal (Idle). Action: open the panel. Expected: each of the 4
@@ -139,7 +137,7 @@ world.
 
 ## Work Leash
 
-16. **CD-LSH-02.** Setup: a rideable Pokémon of yours, for example a Charizard, in a Work Mode pasture.
+16. **CD-LSH-02.** Setup: a rideable Cobblemon of yours, for example a Charizard, in a Work Mode pasture.
     Action: with the Work Leash in your main hand, right-click the Charizard. Then sneak and right-click it.
     Expected: the plain click shows "Selected Charizard" in the action bar. Neither click opens Cobblemon's
     interaction wheel, and neither click mounts the Charizard.
@@ -167,10 +165,8 @@ world.
     teleport to `<x + 16> <y> <z>` with `/tp @s`. Then move 0.1 blocks farther with `/tp @s ~0.1 ~ ~`. Then
     select another item. Expected: the bar and the icon show over the worker at 16.0 blocks. They do not show
     at 16.1 blocks, and they do not show after the item switch.
-23. **CD-UI-09** (2 players). Setup: player A binds two workers to two furnaces. Player B places a pasture,
-    turns Work Mode on and binds a worker to a third furnace nearby. Action: player A holds the Work Leash and
-    looks at the three furnaces. Expected: player A sees an outline around each of the two furnaces of player
-    A, and none around the furnace of player B.
+23. Retired: since the rulings of 2026-11-11, CD-UI-09 rests on its unit tests, its GameTest and a code reading, so this
+    check with two players no longer runs.
 24. **CD-LSH-07** (restart). Setup: a Charmander bound to a furnace. Action: restart. Wait 5 seconds and run
     `/cobblemondynamics claims`. Then turn Work Mode off and on in the panel. Wait 5 seconds and run the
     command again. Expected: both replies hold a `binding` line with the furnace's position and the
@@ -229,7 +225,7 @@ world.
 35. **CD-FX-09.** Setup: a Machop and an Eevee Working at two Create hand cranks, a Vaporeon Working at a
     water wheel with no water, and 2 Charmanders Working at 2 furnaces with input. Action: listen for 10
     seconds. Expected: no sound comes from the workers' effects. The Machop, the Eevee and the Vaporeon play no
-    animation, and their particles show every 2 seconds. A Pokémon's own ambient cry, which Cobblemon plays
+    animation, and their particles show every 2 seconds. A Cobblemon's own ambient cry, which Cobblemon plays
     about once a minute, is not a work effect.
 
 ## Compatibility
@@ -266,9 +262,13 @@ world.
     then `v1.0.0-beta.1`. Expected: for each tag, the `release` run shows `Build the release jar` and
     `GitHub release` as `success`, and `Modrinth and CurseForge` as `skipped`. The GitHub release is a
     pre-release with the jar, and neither site lists the version.
-42. **CD-REL-04** (at the public release, M9). Setup: the Phase 2 gate has passed (CD-REL-14). Action: push the
-    tag `v1.0.0`. Expected: after the `release` run ends, Modrinth and CurseForge both list the version
-    `1.0.0+mc1.21.1`. This check is not part of the Phase 1 play-test.
+42. **CD-REL-04** (at the public release, M9). Setup: the Phase 2 gate has passed (CD-REL-14). The repository
+    holds no publishing settings: no secret `MODRINTH_TOKEN` or `CURSEFORGE_TOKEN`, and no variable
+    `MODRINTH_PROJECT_ID` or `CURSEFORGE_PROJECT_ID`. Action: push the tag `v1.0.0`. Expected: the `release` run
+    succeeds. The GitHub release `v1.0.0` holds `cobblemon_dynamics-1.0.0+mc1.21.1.jar` and is not a pre-release.
+    The `Modrinth and CurseForge` job shows two notices, one for each site. The approver then uploads that jar to
+    CurseForge by hand. A site whose token and project id are set gets the version `1.0.0+mc1.21.1` from the run
+    instead of a notice. This check is not part of the Phase 1 play-test.
 
 ## Play-test fixes (2026-11-10)
 
@@ -353,8 +353,19 @@ These checks show the art of the first release. Record their results in the play
 
 This check shows Quick Work on a client. Record its result in the play-test note of the Phase 2 gate report.
 
-59. **CD-QWK-21.** Setup: a level 10 Charmander as the selected Pokémon of your party, and a furnace with 8 raw iron. Look at
+59. **CD-QWK-21.** Setup: a level 10 Charmander as the selected Cobblemon of your party, and a furnace with 8 raw iron. Look at
     the furnace from about 6 blocks away and press R. The action bar reads "Charmander goes to work on Furnace", and the
     Charmander Works the furnace. Run `/pokespawn rattata level=5`, and step 4 blocks back from the Rattata. Action: look at
     the Rattata and press R, so that a battle with it starts. Expected: when the battle starts, the action bar reads
     "Charmander stopped working for a battle".
+
+## Apothic Enchanting
+
+This check needs Apothic Enchanting 1.21.1-1.6.4 with Placebo 1.21.1-9.9.4 and Apothic Attributes 1.21.1-2.11.0. Run it
+on the COHO server, which has these mods, and record its result in the Phase 3 gate report.
+
+60. **CD-MUS-07.** Setup: an enchanting table with no shelves within 2 blocks of it, a level 100 Fairy-type as the selected
+    Cobblemon of your party, and a book. Look at the table and press R. The action bar reads that the Cobblemon goes to
+    work on the Enchanting Table. Action: open the table's menu, put the book in, and wait 5 seconds. Then close the menu,
+    recall the Cobblemon, open the menu again and put the book in. Expected: while the Cobblemon Works, the Quanta bar of
+    the menu reads 60% and the Eterna bar reads 0. After the recall, the Quanta bar reads 15%.

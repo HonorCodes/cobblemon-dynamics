@@ -50,6 +50,8 @@ object QuickWorkRules {
         val status: WorkerStatus,
         val ticksInStatus: Long,
         val standbyLimit: Int,
+        /** The order's role opts in to Quick Work, so its worker waits in Standby with no end (CD-QWK-36). */
+        val waitsForDemand: Boolean = false,
     )
 
     /** CD-QWK-01: an aim this old can no longer start an order. Game time is the overworld's in every level. */
@@ -73,29 +75,34 @@ object QuickWorkRules {
     fun traceRange(enabled: Boolean, ownerBattling: Boolean, targetRange: Int, leashRange: Int): Int? =
         if (enabled && !ownerBattling) minOf(targetRange, leashRange) else null
 
-    /** CD-QWK-03: a role that an auto claim takes, from a pasture scan, on one target. */
+    /** CD-QWK-03: a role that an auto claim takes, from a pasture scan, on one target, or one that opts in to Quick Work (CD-QWK-36). */
     fun mayOrder(role: RoleDefinition, scanned: Boolean, shape: BindingShape): Boolean =
-        role.autoAssign && scanned && shape == BindingShape.SINGLE
+        ((role.autoAssign && scanned) || role.quickWork) && shape == BindingShape.SINGLE
 
     /**
-     * CD-QWK-03 to CD-QWK-05. [fitting] are the roles that the Pokémon's [types], primary first, make it eligible for and whose
-     * handler matches the aimed block. [orderable] is [mayOrder] of each. A Fairy-type is a healer, which no auto claim gives a
-     * machine (CD-ASG-04).
+     * CD-QWK-03 to CD-QWK-05, CD-QWK-36. [fitting] are the roles that the Pokémon's [types], primary first, make it eligible for and
+     * whose handler matches the aimed block. [orderable] is [mayOrder] of each. A Fairy-type is a healer, which no auto claim gives a
+     * machine (CD-ASG-04), so it gets an order only for a role that opts in to Quick Work, and otherwise nothing.
      */
     fun pick(fitting: List<RoleDefinition>, types: List<String>, hasFairyType: Boolean, orderable: (RoleDefinition) -> Boolean): Pick {
-        if (hasFairyType || fitting.isEmpty()) return Pick.None
-        val role = RoleSelection.best(fitting.filter(orderable), types) ?: return Pick.NeedsLeash
+        val candidates = if (hasFairyType) fitting.filter { it.quickWork } else fitting
+        if (candidates.isEmpty()) return Pick.None
+        val role = RoleSelection.best(candidates.filter(orderable), types) ?: return Pick.NeedsLeash
         return Pick.Order(role)
     }
 
-    /** CD-QWK-06 to CD-QWK-09: the first refusal of an order, in this order, or null to try the claim. [hasDemand] runs last. */
-    fun refusal(mayUse: Boolean, tired: Boolean, targetFree: Boolean, hasDemand: () -> Boolean): String? = when {
-        !mayUse -> NO_PERMISSION
-        tired -> TIRED
-        !targetFree -> CLAIMED
-        !hasDemand() -> NO_DEMAND
-        else -> null
-    }
+    /**
+     * CD-QWK-06 to CD-QWK-09: the first refusal of an order, in this order, or null to try the claim. [hasDemand] runs last. The order
+     * of a role that opts in to Quick Work [waitsForDemand], so it starts with no demand, and its worker waits (CD-QWK-36).
+     */
+    fun refusal(mayUse: Boolean, tired: Boolean, targetFree: Boolean, waitsForDemand: Boolean = false, hasDemand: () -> Boolean): String? =
+        when {
+            !mayUse -> NO_PERMISSION
+            tired -> TIRED
+            !targetFree -> CLAIMED
+            !waitsForDemand && !hasDemand() -> NO_DEMAND
+            else -> null
+        }
 
     /** CD-QWK-13, CD-QWK-16, CD-QWK-18 to CD-QWK-21: the first reason that ends an order now, or null. */
     fun endReason(w: Watch): QuickEnd? = when {
@@ -104,7 +111,7 @@ object QuickWorkRules {
         !w.ownerPresent -> QuickEnd.OWNER_LEFT
         beyondLeash(w.ownerDistanceSqr, w.leashRange) -> QuickEnd.TOO_FAR
         !w.holdsClaim -> QuickEnd.TARGET
-        w.status == WorkerStatus.STANDBY && w.ticksInStatus >= w.standbyLimit -> QuickEnd.NO_DEMAND
+        w.status == WorkerStatus.STANDBY && !w.waitsForDemand && w.ticksInStatus >= w.standbyLimit -> QuickEnd.NO_DEMAND
         else -> null
     }
 }

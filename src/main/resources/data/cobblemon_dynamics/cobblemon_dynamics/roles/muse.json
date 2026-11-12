@@ -3,9 +3,10 @@
   "handler": "cobblemon_dynamics:enchanting",
   "types": ["fairy"],
   "auto_assign": false,
+  "quick_work": true,
   "priority": 0,
   "range": 6.0,
-  "params": { "bookshelves_at_level_100": 15 },
+  "params": { "bookshelves_at_level_100": 15, "quanta_at_level_100": 45 },
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,

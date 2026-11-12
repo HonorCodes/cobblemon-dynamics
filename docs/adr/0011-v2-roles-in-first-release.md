@@ -37,9 +37,9 @@ Research facts (see the integration-points note):
      operator tests again.
   3. Phase 3, public: M9 publishes to Modrinth and CurseForge and adds the mod to the operator's pack.
 - **Leash only.** None of the four roles auto-assigns. A player binds each worker with the Work Leash, so
-  Pokémon never reroute items, start processing on a fan, or speed up a windmill on their own.
+  Cobblemon never reroute items, start processing on a fan, or speed up a windmill on their own.
 - **Two-point leash for Telekinesis.**
-  1. Right-click the Psychic-type Pokémon.
+  1. Right-click the Psychic-type Cobblemon.
   2. Right-click the source container.
   3. Right-click the destination container.
   - The binding remembers the faces that the player clicked, and transfers use those faces.
@@ -67,7 +67,7 @@ Research facts (see the integration-points note):
 
 - **Ship v1, then v2 as an update.** An earlier public release, but packs would get the mod in two big
   steps, and the operator wants one complete release for the pack.
-- **Auto-assign Tailwind and fans.** Less clicking, but a Pokémon could start processing on a fan or
+- **Auto-assign Tailwind and fans.** Less clicking, but a Cobblemon could start processing on a fan or
   speed up a network that nobody asked it to.
 
 ## Amendment (2026-11-11, M7 Task 2)
