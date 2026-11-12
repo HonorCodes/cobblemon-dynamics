@@ -12,7 +12,7 @@ import org.yaml.snakeyaml.constructor.SafeConstructor
 import java.io.File
 import java.util.Properties
 
-/** The rules of `.github/workflows/release.yml`, checked without a tag (CD-REL-04, CD-REL-05, CD-REL-12). */
+/** The rules of `.github/workflows/release.yml`, checked without a tag (CD-REL-04, CD-REL-05, CD-REL-11, CD-REL-12). */
 class ReleaseWorkflowTest {
     private val root = File(System.getProperty("cd.projectDir"))
 
@@ -177,6 +177,19 @@ class ReleaseWorkflowTest {
         assertTrue("grep -qFx \"version=\\\"\$VERSION+mc1.21.1\\\"\"" in jar, "the build must read the version in the jar's mods.toml")
         val version = "\${{ needs.build.outputs.version }}+mc1.21.1"
         assertEquals(listOf(version, version), uploads().map { inputs(it)["version"] }, "both sites must get the version of the jar")
+    }
+
+    @Test
+    fun `CD-REL-11 the notes of a new GitHub release open with the notice of the README`() {
+        val readme = File(root, "README.md").readLines().map { it.trim() }
+        val paragraph = readme.dropWhile { it != "## Disclaimer" }.drop(1).dropWhile { it.isEmpty() }.takeWhile { it.isNotEmpty() }
+        val notice = paragraph.joinToString(" ")
+        assertTrue("not affiliated" in notice, "the Disclaimer section of the README must hold the notice")
+        val env = step("github-release", "release")["env"] as Map<*, *>
+        assertEquals(notice, (env["NOTICE"] as? String)?.trimEnd(), "the release notes must carry the notice of the README word for word")
+        val commands = script("github-release", "release").joinToString("\n").replace("\\\n", "").lines()
+        val create = commands.firstOrNull { it.startsWith("gh release create") } ?: fail("the release step creates no release")
+        assertTrue("--generate-notes" in create && "--notes \"\$NOTICE\"" in create, "gh puts the notice above the generated notes")
     }
 
     /** CD-ART-12: a public release ships only art that the approver approved at its current source. */

@@ -1,8 +1,9 @@
 name: release
 
-# A v* tag builds the jar with the tag's version and attaches it to a GitHub release. Only a public tag,
-# vMAJOR.MINOR.PATCH with no suffix, also publishes, to each of Modrinth and CurseForge whose token and project id
-# the repository holds (CD-REL-04, CD-REL-05, CD-REL-12). ReleaseWorkflowTest checks these rules.
+# A v* tag builds the jar with the tag's version and attaches it to a GitHub release, whose notes open with the notice
+# of the README (CD-REL-11). Only a public tag, vMAJOR.MINOR.PATCH with no suffix, also publishes, to each of Modrinth
+# and CurseForge whose token and project id the repository holds (CD-REL-04, CD-REL-05, CD-REL-12).
+# ReleaseWorkflowTest checks these rules.
 on:
   push:
     tags: ['v*']
@@ -91,7 +92,7 @@ jobs:
         with:
           name: release-jar
           path: release
-      # Run again for the same tag, this step replaces the jar instead of failing.
+      # Run again for the same tag, this step replaces the jar instead of failing, and keeps the notes.
       - name: Create or update the GitHub release
         id: release
         env:
@@ -100,6 +101,12 @@ jobs:
           TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.build.outputs.version }}
           PUBLIC: ${{ needs.build.outputs.public }}
+          # CD-REL-11: the notice of the README, word for word. gh puts it above the generated notes of a new release.
+          NOTICE: >
+            Cobblemon Dynamics is an unofficial addon. It is not affiliated with or endorsed by
+            the Cobblemon team, The Pokémon Company, Nintendo, Game Freak, Creatures, the Create
+            team or the Applied Energistics 2 team. Pokémon is a trademark of Nintendo, Creatures
+            and Game Freak.
         run: |
           prerelease=true
           if [[ $PUBLIC == true ]]; then
@@ -109,7 +116,7 @@ jobs:
             gh release upload "$TAG" release/*.jar --clobber
             gh release edit "$TAG" --prerelease="$prerelease"
           else
-            gh release create "$TAG" release/*.jar --verify-tag --generate-notes \
+            gh release create "$TAG" release/*.jar --verify-tag --generate-notes --notes "$NOTICE" \
               --title "Cobblemon Dynamics $VERSION" --prerelease="$prerelease"
           fi
 
