@@ -120,7 +120,9 @@ each jar:
   `Block.popResourceFromFace(Level, BlockPos, Direction, ItemStack)` spawns an item at the centre of a face, with a jitter
   of ±0.25 and a velocity out of the face. Both pop methods respect `doTileDrops` and give the default pickup delay.
 - `Block.asItem()` is `Item.byBlock(this)`, cached. Wheat seeds are `new ItemNameBlockItem(Blocks.WHEAT, ...)`, so
-  `Blocks.WHEAT.asItem()` is wheat seeds.
+  `Blocks.WHEAT.asItem()` is wheat seeds. A block can have two `BlockItem`s, and `Item.byBlock` keeps the last one: each
+  Pam's crop has a crop item and a seed item that both place it, `asItem()` gives the seed item, and the loot drops only the
+  crop item.
 - `FarmBlock.fallOn` calls `CommonHooks.onFarmlandTrample`, which posts the cancelable `BlockEvent.FarmlandTrampleEvent`
   before `turnToDirt`.
 - `Minecraft.startUseItem` sets `rightClickDelay` to 4, so a player who holds the use key applies bone meal every 4 ticks
@@ -171,9 +173,9 @@ each adapter.
 | Occultism 1.227.0 | `datura` | `ReplantableCropsBlock` (`CropBlock`) | age 7 | +2 to 5 | loot 1 datura and 1 to 4 seeds, replant; its own pick needs a player | growth, crop |
 | Regions Unexplored 0.6.3 | `salmonberry_bush` | `SalmonBerryBushBlock` (`SweetBerryBushBlock`) | age 3 | +1 | loot 2 to 3, then age 1 | growth, pick to age 1 |
 | Regions Unexplored | `duskmelon` | `DuskmelonBlock` (`BushBlock`) | age 2 | +1 while below 2 | loot 1 to 2 slices, then age 0 | growth, pick to age 0 |
-| Pam's HarvestCraft 2 Crops 1.0.9 | 97 crops, `pamhc2crops:pam<crop>crop` | `BlockPamCrop` (`CropBlock`) | age 7 | +2 to 5 | loot, replant; no right-click harvest | growth, crop |
+| Pam's HarvestCraft 2 Crops 1.0.9 | 97 crops, `pamhc2crops:pam<crop>crop`, all in `minecraft:crops` | `BlockPamCrop` (`CropBlock`) | age 7 | +2 to 5 | loot: 1 crop item at any age, plus Binomial(3, 4/7) at age 7; replant from the dropped crop item, because the seed item never drops; no right-click harvest | growth, crop |
 | Pam's HarvestCraft 2 Crops | 6 gardens | `GardenBlock` (`BushBlock`) | | spreads | | outside the defaults |
-| Pam's HarvestCraft 2 Trees 1.0.9 | 47 hanging fruit and 3 log fruit, `pamhc2trees:pam<fruit>` | `BlockPamFruit`, `BlockPamLogFruit` (`CropBlock`) | age 7 | +2 to 5 | loot 1 fruit item, then age 0, as Pam's own right-click does | growth, pick to age 0 |
+| Pam's HarvestCraft 2 Trees 1.0.9 | 47 hanging fruit and 3 log fruit, `pamhc2trees:pam<fruit>`, in no crop tag | `BlockPamFruit`, `BlockPamLogFruit` (`CropBlock`) | age 7 | +2 to 5 | loot 1 fruit item, then age 0, as Pam's own right-click does; breaking would end the fruit, which no item replants | growth, pick to age 0 |
 | Pam's HarvestCraft 2 Trees | 50 saplings | `SaplingBlock` | | | trees are outside the defaults | outside the defaults |
 | Legendary Monuments 8.2 | `iceroot_carrot`, `shaderoot_carrot` | `CropBlock` | age 7 | +2 to 5 | 1 carrot, no seed; COHO's `reverie_loot` replaces the loot | outside the defaults |
 
@@ -273,8 +275,9 @@ Other findings that shape the decision:
    sound. Each item spawns through `Block.popResourceFromFace` on the crop's face toward the worker's work spot: beside the
    crop, outside a bush that damages items, and inside the work area of the pasture, where a Magnet collects it. A crop that
    a harvest breaks is replanted from its drops:
-   - The replant item is the crop's `Block.asItem()` when the drops hold it, else a dropped `BlockItem` whose block is in
-     the Cultivator's tag, such as the Aether's stem item. One item leaves the drops.
+   - The replant item is a dropped `BlockItem` whose block is the crop's own block, such as wheat seeds or a Pam's crop
+     item, else a dropped `BlockItem` whose block is in the Cultivator's tag, such as the Aether's stem item. `asItem()`
+     alone would miss the Pam's crops. One item leaves the drops.
    - The new state is `getStateForAge(0)` for a `CropBlock`. For another block, it is the state with the lowest `age` of
      the block that the item places, and it keeps the values of the properties that it shares with the harvested state,
      such as the facing of cocoa.
@@ -326,6 +329,9 @@ Other findings that shape the decision:
 - A level 100 Cultivator tires about 3.5 times as fast as a Stoker of its level. Without beds it works about 22% of the
   time, and on a Starlit Bed about 70%.
 - The drops lie on the ground and despawn after 6,000 ticks when no Magnet or player takes them.
+- Pam's hanging fruit grows about 4 blocks under the top of its tree's leaves, and log fruit sits in the trunk. A
+  Harvester reaches it only from a work spot within its range of 6 blocks with a line of sight, so some fruit of a tall
+  tree stays for the player.
 - Bonemeal growth fires no `CropGrowEvent`, as for a player's bone meal, so mods that count random-tick growth, such as Ars
   Nouveau's Agronomic Sourcelink, do not see it.
 - The adapters follow the bytecode of the tested versions. A later version of a crop mod that changes a family needs a new
