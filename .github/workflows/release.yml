@@ -1,8 +1,8 @@
 name: release
 
 # A v* tag builds the jar with the tag's version and attaches it to a GitHub release. Only a public tag,
-# vMAJOR.MINOR.PATCH with no suffix, also publishes to Modrinth and CurseForge (CD-REL-04, CD-REL-05,
-# CD-REL-12). ReleaseWorkflowTest checks these rules.
+# vMAJOR.MINOR.PATCH with no suffix, also publishes, to each of Modrinth and CurseForge whose token and project id
+# the repository holds (CD-REL-04, CD-REL-05, CD-REL-12). ReleaseWorkflowTest checks these rules.
 on:
   push:
     tags: ['v*']
@@ -125,7 +125,8 @@ jobs:
         with:
           name: release-jar
           path: release
-      # A public tag must publish (CD-REL-04), so a missing token or project id fails the job instead of skipping it.
+      # CD-REL-04, R69: the GitHub release already holds the jar, which the approver can upload by hand. A site without
+      # its token or project id gets a notice instead of an upload, and the job still succeeds.
       - name: Check the publishing settings
         id: settings
         env:
@@ -134,22 +135,44 @@ jobs:
           MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
           CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
         run: |
-          missing=""
-          for name in MODRINTH_TOKEN CURSEFORGE_TOKEN MODRINTH_PROJECT_ID CURSEFORGE_PROJECT_ID; do
-            if [[ -z ${!name} ]]; then
-              missing="$missing $name"
+          for pair in modrinth:MODRINTH curseforge:CURSEFORGE; do
+            site=${pair%%:*}
+            token=${pair#*:}_TOKEN
+            project=${pair#*:}_PROJECT_ID
+            if [[ -n ${!token} && -n ${!project} ]]; then
+              echo "$site=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$site=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::No upload to $site. Set the secret $token and the variable $project to publish there."
             fi
           done
-          if [[ -n $missing ]]; then
-            echo "::error::A public release publishes to Modrinth and CurseForge. Set these secrets and variables:$missing"
-            exit 1
-          fi
-      - name: Publish to Modrinth and CurseForge
-        id: publish
+      # Each upload passes only its own site's id and token. The other inputs of the two steps are the same.
+      - name: Publish to Modrinth
+        id: modrinth
+        if: steps.settings.outputs.modrinth == 'true'
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: release/*.jar
+          name: Cobblemon Dynamics ${{ needs.build.outputs.version }}
+          version: ${{ needs.build.outputs.version }}+mc1.21.1
+          version-type: release
+          changelog: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+          loaders: neoforge
+          game-versions: 1.21.1
+          environment: client | server
+          java: 21
+          dependencies: |
+            cobblemon(required)
+            kotlinforforge(required){modrinth:kotlin-for-forge}{curseforge:kotlin-for-forge}
+            create(optional)
+            ae2(optional){curseforge:applied-energistics-2}
+      - name: Publish to CurseForge
+        id: curseforge
+        if: steps.settings.outputs.curseforge == 'true'
+        uses: Kira-NT/mc-publish@v3
+        with:
           curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: release/*.jar

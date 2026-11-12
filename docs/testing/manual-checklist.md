@@ -262,9 +262,13 @@ world.
     then `v1.0.0-beta.1`. Expected: for each tag, the `release` run shows `Build the release jar` and
     `GitHub release` as `success`, and `Modrinth and CurseForge` as `skipped`. The GitHub release is a
     pre-release with the jar, and neither site lists the version.
-42. **CD-REL-04** (at the public release, M9). Setup: the Phase 2 gate has passed (CD-REL-14). Action: push the
-    tag `v1.0.0`. Expected: after the `release` run ends, Modrinth and CurseForge both list the version
-    `1.0.0+mc1.21.1`. This check is not part of the Phase 1 play-test.
+42. **CD-REL-04** (at the public release, M9). Setup: the Phase 2 gate has passed (CD-REL-14). The repository
+    holds no publishing settings: no secret `MODRINTH_TOKEN` or `CURSEFORGE_TOKEN`, and no variable
+    `MODRINTH_PROJECT_ID` or `CURSEFORGE_PROJECT_ID`. Action: push the tag `v1.0.0`. Expected: the `release` run
+    succeeds. The GitHub release `v1.0.0` holds `cobblemon_dynamics-1.0.0+mc1.21.1.jar` and is not a pre-release.
+    The `Modrinth and CurseForge` job shows two notices, one for each site. The approver then uploads that jar to
+    CurseForge by hand. A site whose token and project id are set gets the version `1.0.0+mc1.21.1` from the run
+    instead of a notice. This check is not part of the Phase 1 play-test.
 
 ## Play-test fixes (2026-11-10)
 

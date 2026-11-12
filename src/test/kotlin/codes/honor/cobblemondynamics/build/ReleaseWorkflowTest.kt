@@ -34,7 +34,17 @@ class ReleaseWorkflowTest {
     /** The trimmed lines of a step's script. */
     private fun script(job: String, id: String): List<String> = (step(job, id)["run"] as String).lines().map { it.trim() }
 
-    private fun inputs(job: String, action: String): Map<*, *> = steps(job).single { it["uses"] == action }["with"] as Map<*, *>
+    /** The lines of [lines] from the first one that equals the first of [expected], as many as [expected] holds. */
+    private fun block(lines: List<String>, expected: List<String>): List<String> =
+        lines.dropWhile { it != expected.first() }.take(expected.size)
+
+    private fun inputs(step: Map<*, *>): Map<*, *> = step["with"] as? Map<*, *> ?: fail("step ${step["id"]} has no inputs")
+
+    /** The steps of the publish job that upload the jar with mc-publish, in their order. */
+    private fun uploads(): List<Map<*, *>> = steps("publish").filter { it["uses"] == MC_PUBLISH }
+
+    /** Whether an input of mc-publish belongs to one platform, as `modrinth-id` does. */
+    private fun isPlatformInput(key: Any?): Boolean = PLATFORMS.any { (key as String).startsWith("$it-") }
 
     /** Every key and scalar under [node], as text. */
     private fun scalars(node: Any?): Sequence<String> = when (node) {
@@ -101,26 +111,56 @@ class ReleaseWorkflowTest {
     }
 
     @Test
-    fun `CD-REL-04 a public tag publishes the jar to Modrinth and CurseForge`() {
-        val publish = job("publish")
-        assertEquals(listOf("build", "github-release"), publish["needs"])
+    fun `CD-REL-04 the publish job skips a site without its settings, with a notice`() {
+        assertEquals(listOf("build", "github-release"), job("publish")["needs"])
         val ids = steps("publish").map { it["id"] }
-        assertTrue(ids.indexOf("settings") in 0 until ids.indexOf("publish"), "the settings check must run before the publish step")
-        val check = script("publish", "settings").joinToString("\n")
-        for (name in listOf("MODRINTH_TOKEN", "CURSEFORGE_TOKEN", "MODRINTH_PROJECT_ID", "CURSEFORGE_PROJECT_ID")) {
-            assertTrue(name in check, "the settings check must cover $name")
+        for (site in SITES) {
+            assertTrue(ids.indexOf("settings") in 0 until ids.indexOf(site), "the settings check must run before the $site upload")
         }
-        assertTrue("exit 1" in check, "a missing setting must fail the job, because a public tag must publish")
-        val with = inputs("publish", MC_PUBLISH)
-        assertEquals("\${{ secrets.MODRINTH_TOKEN }}", with["modrinth-token"])
-        assertEquals("\${{ secrets.CURSEFORGE_TOKEN }}", with["curseforge-token"])
-        assertEquals("\${{ vars.MODRINTH_PROJECT_ID }}", with["modrinth-id"])
-        assertEquals("\${{ vars.CURSEFORGE_PROJECT_ID }}", with["curseforge-id"])
-        assertEquals("release/*.jar", with["files"])
-        assertEquals("release", with["version-type"])
-        assertEquals("neoforge", with["loaders"])
-        assertEquals("1.21.1", with["game-versions"])
-        assertNull(with["github-token"], "the GitHub release job owns the GitHub release")
+        val settings = mapOf(
+            "MODRINTH_TOKEN" to "\${{ secrets.MODRINTH_TOKEN }}",
+            "CURSEFORGE_TOKEN" to "\${{ secrets.CURSEFORGE_TOKEN }}",
+            "MODRINTH_PROJECT_ID" to "\${{ vars.MODRINTH_PROJECT_ID }}",
+            "CURSEFORGE_PROJECT_ID" to "\${{ vars.CURSEFORGE_PROJECT_ID }}",
+        )
+        assertEquals(settings, step("publish", "settings")["env"], "the check reads the token and the project id of each site")
+        val check = script("publish", "settings")
+        assertFalse(check.any { it.startsWith("exit") }, "a missing setting must not fail the job: the approver uploads by hand (R69)")
+        val sites = listOf(
+            "for pair in modrinth:MODRINTH curseforge:CURSEFORGE; do",
+            "site=\${pair%%:*}",
+            "token=\${pair#*:}_TOKEN",
+            "project=\${pair#*:}_PROJECT_ID",
+        )
+        assertEquals(sites, block(check, sites), "the check must cover both sites")
+        val outputs = listOf(
+            "if [[ -n \${!token} && -n \${!project} ]]; then",
+            "echo \"\$site=true\" >> \"\$GITHUB_OUTPUT\"",
+            "else",
+            "echo \"\$site=false\" >> \"\$GITHUB_OUTPUT\"",
+            "echo \"::notice::No upload to \$site. Set the secret \$token and the variable \$project to publish there.\"",
+            "fi",
+        )
+        assertEquals(outputs, block(check, outputs), "each site gets one output, and a site without its settings gets a notice")
+    }
+
+    @Test
+    fun `CD-REL-04 each site has its own publish step`() {
+        val uploads = uploads()
+        assertEquals(SITES, uploads.map { it["id"] }, "each site must have its own mc-publish step")
+        for ((site, upload) in SITES.zip(uploads)) {
+            assertEquals("steps.settings.outputs.$site == 'true'", upload["if"], "the $site upload must run only with its settings")
+            val name = site.uppercase()
+            val own = mapOf("$site-id" to "\${{ vars.${name}_PROJECT_ID }}", "$site-token" to "\${{ secrets.${name}_TOKEN }}")
+            assertEquals(own, inputs(upload).filterKeys(::isPlatformInput), "the $site upload must pass only its own id and token")
+            assertNull(inputs(upload)["github-token"], "the GitHub release job owns the GitHub release")
+        }
+        val shared = uploads.map { upload -> inputs(upload).filterKeys { !isPlatformInput(it) } }
+        assertEquals(shared.first(), shared.last(), "both uploads must pass the same release inputs")
+        assertEquals("release/*.jar", shared.first()["files"])
+        assertEquals("release", shared.first()["version-type"])
+        assertEquals("neoforge", shared.first()["loaders"])
+        assertEquals("1.21.1", shared.first()["game-versions"])
     }
 
     @Test
@@ -135,7 +175,8 @@ class ReleaseWorkflowTest {
         assertEquals("1.21.1", properties.getProperty("minecraft_version"))
         val jar = script("build", "jar").joinToString("\n")
         assertTrue("grep -qFx \"version=\\\"\$VERSION+mc1.21.1\\\"\"" in jar, "the build must read the version in the jar's mods.toml")
-        assertEquals("\${{ needs.build.outputs.version }}+mc1.21.1", inputs("publish", MC_PUBLISH)["version"])
+        val version = "\${{ needs.build.outputs.version }}+mc1.21.1"
+        assertEquals(listOf(version, version), uploads().map { inputs(it)["version"] }, "both sites must get the version of the jar")
     }
 
     /** CD-ART-12: a public release ships only art that the approver approved at its current source. */
@@ -149,5 +190,11 @@ class ReleaseWorkflowTest {
     private companion object {
         /** Kir-Antipov/mc-publish moved to this name. Its current major is 3. */
         const val MC_PUBLISH = "Kira-NT/mc-publish@v3"
+
+        /** The sites of the publish job, in the order of their upload steps. */
+        val SITES = listOf("modrinth", "curseforge")
+
+        /** The prefixes of the mc-publish inputs that belong to one platform. */
+        val PLATFORMS = SITES + "github"
     }
 }
