@@ -192,6 +192,13 @@ class BuiltInRoleFilesTest {
     }
 
     @Test
+    fun `CD-QWK-36 only the Muse role file opts in to Quick Work`() {
+        val files = BuiltInRoles.dir.listFiles { file -> file.extension == "json" }.orEmpty()
+        val optedIn = files.filter { BuiltInRoles.parse(it).quickWork }.map { it.nameWithoutExtension }
+        assertEquals(listOf("muse"), optedIn)
+    }
+
+    @Test
     fun `CD-MUS-02 the Muse role file sets auto_assign to false`() {
         val key = autoAssignKey("muse")
         assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "muse.json has auto_assign $key")

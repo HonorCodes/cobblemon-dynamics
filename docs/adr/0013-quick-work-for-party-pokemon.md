@@ -1,6 +1,7 @@
 # ADR-0013: Quick Work for party Cobblemon
 
 Status: Accepted (2026-11-11). [Amendment 1](#amendment-1-land-claims-2026-11-11) adds the checks of land claims.
+[Amendment 2](#amendment-2-the-muse-on-a-quick-work-order-2026-11-11) gives the Muse Quick Work orders.
 
 ## Context
 
@@ -406,3 +407,38 @@ Modrinth artifact. FTB Chunks and FTB Teams are not on Modrinth.
 - **The claim runs in CI.** They would catch a change to the claims code on each push, but each push would pay for two more
   GameTest runs. The coordinator ruled them out of CI on 2026-11-11.
 - **A config switch for the checks.** Ruling 5 of R64 rules it out.
+
+## Amendment 2: the Muse on a Quick Work order (2026-11-11)
+
+Status: Accepted (2026-11-11)
+
+The approver's ruling of 2026-11-11, input R70 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md): "fairy types should be able to be thrown out from inventory at enchantment tables to grant it the bonus that they'd normally grant in the pasture/working (similarly to how fire tpyes can be thrown out at furnances to power them from player inventory)".
+The coordinator ruled on the design under the approver's delegation.
+
+Decision 3 above gives an order only to an auto-assign role, and never to a Fairy-type. The Muse is leash only
+(CD-MUS-02), and a Fairy-type is a healer (CD-ASG-04). The Muse's demand is a player with the table's menu open
+(CD-MUS-05), and Cobblemon's R key does nothing while a screen is open (`PartySendBinding`, line 81). So the owner's menu
+is always closed at the send-out.
+
+### Decision of the amendment
+
+1. **An opt-in flag.** A role file field, `quick_work` (default false), lets a role whose `auto_assign` is false take Quick
+   Work orders, if its handler names one target. Only `muse.json` sets it (CD-QWK-36).
+2. **Fairy-types.** A Fairy-type gets an order only for a role that opts in, which today is the Muse at an enchanting table.
+   On that order it grants the table the bonus of a leashed Muse, because `MuseBonus` reads the Working holder of the
+   table's work claim. A Quick Worker never takes a heal claim, because only a pasture's own healers do (CD-QWK-05). A
+   Fairy-type at a water wheel still gets no order and no message.
+3. **No demand at the start, no Standby end.** The order of a role that opts in starts while its target has no demand, and
+   its worker waits in Standby. It has no Standby end, because a player often closes the table to fetch lapis or books and
+   comes back. Its other ends hold: the owner past `quickWork.leashRange`, a recall or a faint, Tired, a battle, a logout or
+   a change of dimension, a lost or broken target, the permission checks of every 20th tick, and a travel timeout
+   (CD-QWK-09, CD-QWK-19).
+4. **Cost.** An order in Standby costs one order tick, as CD-QWK-23 counts it, and starts no scan.
+
+### Consequences of the amendment
+
+- A player can send out a Fairy-type at an enchanting table and enchant with its bookshelves, with no pasture and no Work
+  Leash.
+- A waiting Muse stays by the table until its owner walks away, recalls it or logs out. It costs one order tick per tick,
+  as a running order does.
+- A data pack can opt a single-target leash-only role in to Quick Work. Its orders then wait for demand too.

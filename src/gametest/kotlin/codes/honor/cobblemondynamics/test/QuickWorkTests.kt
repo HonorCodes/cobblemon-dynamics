@@ -16,6 +16,8 @@ import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.inventory.ContainerLevelAccess
+import net.minecraft.world.inventory.EnchantmentMenu
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
@@ -24,7 +26,9 @@ import net.minecraft.world.level.block.AbstractFurnaceBlock
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.common.util.FakePlayer
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import java.util.UUID
@@ -128,6 +132,87 @@ class QuickWorkTests {
             helper.assertTrue(azumarill.entity != null, "the Azumarill is no longer out")
         }
     }
+
+    /**
+     * A Lv50 Clefairy sent out at enchanting table A, whose menu is closed, gets an order and waits by the table in Standby, because the
+     * Muse opts in to Quick Work (CD-QWK-36, CD-QWK-05, CD-QWK-09). Then a player opens the table's menu with a pickaxe in it. The
+     * Clefairy Works within 20 ticks, and the offers equal those of a table with 8 bookshelves, as for a leashed Lv50 Muse (CD-MUS-03).
+     * The menu closes, and the order still holds 210 ticks later, with no Standby end (CD-QWK-19).
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 1_200, batch = BATCH)
+    fun cdQwk36FairyAtAClosedEnchantingTableWaitsAndWorks(helper: GameTestHelper) {
+        helper.setBlock(A, Blocks.ENCHANTING_TABLE)
+        for (x in -2..2) helper.setBlock(SHELVED.offset(x, 0, -2), Blocks.BOOKSHELF)
+        for (z in -1..1) helper.setBlock(SHELVED.offset(-2, 0, z), Blocks.BOOKSHELF)
+        val owner = TestKit.listedOwner(helper, OWNER)
+        val clefairy = TestKit.partyPokemon(owner, "clefairy level=50")
+        val enchanter = TestKit.owner(helper, "enchanter")
+        sendOutAt(helper, owner, clefairy, A)
+        var step = "waiting"
+        var menu: EnchantmentMenu? = null
+        var stepAt = 0L
+        helper.onEachTick {
+            val engine = TestKit.engine(helper)
+            val status = engine.worker(clefairy.uuid)?.status
+            val ordered = engine.isQuickWorker(clefairy.uuid)
+            when (step) {
+                "waiting" -> {
+                    helper.assertTrue(
+                        helper.tick < 300,
+                        "CD-QWK-36: no order waits at the closed table: $status, ${TestKit.messages(owner)}",
+                    )
+                    if (!ordered || status != WorkerStatus.STANDBY) return@onEachTick
+                    helper.assertTrue(claimedBy(helper, clefairy) == helper.absolutePos(A), "the order is not on table A")
+                    menu = openMenu(helper, enchanter, A).also { it.getSlot(0).set(ItemStack(Items.DIAMOND_PICKAXE)) }
+                    step = "open"
+                    stepAt = helper.tick
+                }
+
+                "open" -> {
+                    if (status != WorkerStatus.WORKING) {
+                        helper.assertTrue(helper.tick - stepAt <= 20, "CD-QWK-36: the Clefairy is $status 20 ticks after the menu opened")
+                        return@onEachTick
+                    }
+                    val open = menu ?: throw GameTestAssertException("no open menu")
+                    val shelved =
+                        EnchantmentMenu(2, enchanter.inventory, ContainerLevelAccess.create(helper.level, helper.absolutePos(SHELVED)))
+                    shelved.getSlot(0).set(ItemStack(Items.DIAMOND_PICKAXE))
+                    helper.assertTrue(
+                        offers(open) == offers(shelved),
+                        "CD-QWK-36: the Quick Worker's table offers ${offers(open)}, and the table with 8 shelves ${offers(shelved)}",
+                    )
+                    closeMenu(enchanter, open)
+                    step = "closed"
+                    stepAt = helper.tick
+                }
+
+                else -> {
+                    val waited = helper.tick - stepAt
+                    helper.assertTrue(ordered, "CD-QWK-19: the order ended $waited ticks after the menu closed: ${TestKit.messages(owner)}")
+                    if (waited < 210) return@onEachTick
+                    helper.assertTrue(status == WorkerStatus.STANDBY, "the Clefairy is $status at the closed table")
+                    helper.succeed()
+                }
+            }
+        }
+    }
+
+    /** Opens the menu of the enchanting table at [rel] for [player], as `ServerPlayer.openMenu` does, until the test ends. */
+    private fun openMenu(helper: GameTestHelper, player: ServerPlayer, rel: BlockPos): EnchantmentMenu {
+        val menu = EnchantmentMenu(1, player.inventory, ContainerLevelAccess.create(helper.level, helper.absolutePos(rel)))
+        player.containerMenu = menu
+        NeoForge.EVENT_BUS.post(PlayerContainerEvent.Open(player, menu))
+        TestKit.afterTest(helper) { closeMenu(player, menu) }
+        return menu
+    }
+
+    private fun closeMenu(player: ServerPlayer, menu: EnchantmentMenu) {
+        if (player.containerMenu !== menu) return
+        NeoForge.EVENT_BUS.post(PlayerContainerEvent.Close(player, menu))
+        player.containerMenu = player.inventoryMenu
+    }
+
+    private fun offers(menu: EnchantmentMenu): List<Int> = menu.costs.toList() + menu.enchantClue.toList() + menu.levelClue.toList()
 
     /**
      * One owner, whom `mayInteract` refuses the furnace, sends out a Charmander at furnace A. Then the same owner, no longer refused but in
@@ -525,5 +610,8 @@ class QuickWorkTests {
 
         /** The stone block under the furnace of CD-QWK-22. */
         val PILLAR = BlockPos(11, 2, 11)
+
+        /** The enchanting table with 8 bookshelves of CD-QWK-36, away from the owner's line of sight to A. */
+        val SHELVED = BlockPos(17, 2, 17)
     }
 }

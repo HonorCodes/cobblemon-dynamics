@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.role
 import com.google.gson.JsonParser
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -72,6 +73,16 @@ class RoleCodecTest {
         val result = parse("""{ "schema": 1, "types": "water" }""")
         assertTrue(result.error().isPresent)
         assertTrue(RoleCodec.describeError(id, result).contains("cobblemon_dynamics:wheel_driver"))
+    }
+
+    @Test
+    fun `CD-QWK-36 CD-CFG-07 the Quick Work flag defaults to false, and a file can set it`() {
+        assertFalse(parse(waterGun).getOrThrow().quickWork)
+        val optedIn = waterGun.replace("\"auto_assign\": true,", "\"auto_assign\": false, \"quick_work\": true,")
+        val role = parse(optedIn).getOrThrow()
+        assertTrue(role.quickWork)
+        assertFalse(role.autoAssign)
+        assertTrue(parse(waterGun.replace("\"auto_assign\": true,", "\"auto_assign\": true, \"quick_work\": \"yes\",")).error().isPresent)
     }
 
     @Test

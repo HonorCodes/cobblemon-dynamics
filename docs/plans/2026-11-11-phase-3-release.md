@@ -93,6 +93,25 @@ CD-UI-09 rest on code reading, and their checks with two players retire. Calls 1
 1.0.0 candidate) are pending the approver. The coordinator moved CD-LND-01 to CD-LND-16 to `agreed`, and ADR-0014 is
 accepted.
 
+### The approver and the coordinator on the Muse, 2026-11-11 (R70)
+
+The approver: "fairy types should be able to be thrown out from inventory at enchantment tables to grant it the bonus that they'd normally grant in the pasture/working (similarly to how fire tpyes can be thrown out at furnances to power them from player inventory)".
+
+The coordinator's rulings on the design:
+
+1. **An opt-in flag.** A role file field, `"quick_work": true`, lets a role with `auto_assign: false` take Quick Work orders.
+   Only `muse.json` sets it. Every other leash-only role still gets "{target} needs the Work Leash" (CD-QWK-04).
+2. **CD-QWK-05 changes.** A Fairy-type gets a Quick Work order only for a role that opts in, which today is the Muse at an
+   enchanting table. On that order it grants the table the bonus of a leashed Muse. A Quick Worker never takes a heal claim.
+   A Fairy-type sent out at a water wheel, or at any machine whose role does not opt in, still gets no order (CD-ASG-04).
+3. **No demand at the start, and no Standby end.** The Muse's demand is an open menu, and Cobblemon's R key does nothing while
+   a screen is open, so the order of a role that opts in skips the no-demand refusal of CD-QWK-09, and its Cobblemon waits by
+   the table in Standby. It also has no Standby end of CD-QWK-19, because a player often closes the table to fetch lapis or
+   books and comes back. The order ends only on its other conditions, and in Standby it still costs one order tick and starts
+   no scan (CD-QWK-23).
+4. **Records.** The ruling goes into the corrections of the spec sheet, the new row CD-QWK-36 holds the flag, and the role file
+   docs and the Quick Work section of the player guide name the flag. Task 9 holds the work.
+
 ### Earlier rulings that still bind
 
 - **Multiplayer** (approver, 2026-11-10): every feature works in multiplayer, and no GameTest has two players. Each task
@@ -148,6 +167,7 @@ against the code and the tests.
 | 28 | Known issue (a) of the Phase 1 gate: spots that no path reaches | The Phase 1 gate | Fixed in M6 (CD-ASG-09) | none |
 | 29 | G9 names Modrinth and CurseForge | G9, R69 | The approver uploads to CurseForge by hand. Nobody uploads to Modrinth yet | decision 12, pending the approver |
 | 30 | A play-test of the 1.0.0 candidate | CD-REL-14 | The play of `1.0.0-beta.3` gives the play-test note that CD-REL-14 needs | decision 17, pending the approver |
+| 31 | Fairy-types Quick Work an enchanting table as the Muse | R70 | Not built. New row CD-QWK-36, amended CD-QWK-05, CD-QWK-09, CD-QWK-19 and CD-CFG-07 | 9 |
 
 ## Global Constraints
 
@@ -172,7 +192,7 @@ included. Phase 3 adds these lines:
 1. **Before Task 1.** `main` holds PR #30 (the Quick Work claims build) and PR #31 (the logistics branch,
    `1.0.0-beta.3`), on which this plan's branch sits. The coordinator moved the LND rows to `agreed` on 2026-11-11 with
    the rulings on the [design decisions](#design-decisions-for-the-approver), and the tasks follow those rulings.
-2. **Two branches.** `m9-claims`, from `main`: Tasks 1 to 5 and 7, in one pull request. `m9-release`, from `main` after
+2. **Two branches.** `m9-claims`, from `main`: Tasks 1 to 5, 7 and 9, in one pull request. `m9-release`, from `main` after
    `m9-claims` merges: Tasks 6 and 8, in one pull request, and then the tag.
 3. **References.** At the start of each branch, check every reference of [Checked references](#checked-references)
    against the jars that Gradle downloaded. Treat an "(inferred)" fact as unverified. Where the code differs from this
@@ -394,6 +414,8 @@ The row is done only when its last part passes:
 | CD-STK-07 | M1: the code, the GameTest and check 29 | Task 7: the text of the row and of `ARCHITECTURE.md`, by decision 13 |
 | CD-UI-03, CD-UI-09 | M1 and M5: unit tests, a GameTest and a Demo with two players that never ran | Task 7: checks 8 and 23 retire, because the rows now rest on code reading (decision 14) |
 | CD-PLAT-06, CD-CMP-01, CD-CMP-03, CD-CMP-04, CD-CMP-05, CD-REL-01 | M0 to M5: automated parts, and Demos that never ran | Task 8: the Demos, by decision 14 |
+| CD-QWK-05, CD-QWK-09, CD-QWK-19 | Quick Work: the rules, their unit tests and GameTests | Task 9: the exceptions for a role that opts in to Quick Work (R70) |
+| CD-CFG-07, CD-MUS-02 | M1 and M4: the role file and the Muse's role file | Task 9: the Quick Work flag of the role file (R70) |
 
 ---
 
@@ -1217,6 +1239,50 @@ notice), CD-STK-07 (the text, by decision 13), CD-UI-03 and CD-UI-09 (checks 8 a
   Chunks, Open Parties and Claims and MineColonies. Decision 12, pending the approver, says whether the approver also
   uploads it to Modrinth. Record the run URL, its jobs and the page of each site in the report, for check 42. CD-REL-15
   completes when the next release of the approver's pack names Cobblemon Dynamics 1.0.0.
+
+---
+
+### Task 9: Quick Work for Fairy-types at enchanting tables
+
+**Rows:** CD-QWK-36 (the Quick Work flag), CD-QWK-05 (a Fairy-type's order only for a role that opts in), CD-QWK-09 (no
+demand at the start), CD-QWK-19 (no Standby end), CD-CFG-07 (the flag in the role file), CD-MUS-02 (the rationale names the
+order). Ruling: R70.
+
+**Files:**
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/role/RoleDefinition.kt`, `role/RoleCodec.kt`,
+  `src/main/resources/data/cobblemon_dynamics/cobblemon_dynamics/roles/muse.json`
+- Modify: `src/main/kotlin/codes/honor/cobblemondynamics/engine/QuickWorkRules.kt`, `engine/WorkEngine.kt` (`start`, `tickOrder`)
+- Test: `src/test/kotlin/codes/honor/cobblemondynamics/engine/QuickWorkRulesTest.kt`, `role/RoleCodecTest.kt`,
+  `role/BuiltInRoleFilesTest.kt`, `src/gametest/kotlin/codes/honor/cobblemondynamics/test/QuickWorkTests.kt`
+- Modify: the spec sheet, Amendment 2 of ADR-0013, `docs/player-guide.md`, `ARCHITECTURE.md`
+
+- [ ] **Step 1: Failing tests.**
+  - `QuickWorkRulesTest`: `CD-QWK-36 a role that opts in takes an order with no auto-assign flag and no scan, but not with two
+    targets`, `CD-QWK-05 CD-QWK-36 a Fairy-type gets an order only for a role that opts in` (the Muse at an enchanting table,
+    no role at a water wheel), `CD-QWK-09 CD-QWK-36 the order of a role that opts in starts with no demand, after the other
+    refusals` and `CD-QWK-19 CD-QWK-36 the order of a role that opts in has no Standby end, and keeps every other end`.
+  - `RoleCodecTest`: `CD-QWK-36 CD-CFG-07 the Quick Work flag defaults to false, and a file can set it`.
+  - `BuiltInRoleFilesTest`: `CD-QWK-36 only the Muse role file opts in to Quick Work`.
+  - `QuickWorkTests.cdQwk36FairyAtAClosedEnchantingTableWaitsAndWorks`: a Lv50 Clefairy sent out at enchanting table A, whose
+    menu is closed, gets an order and waits in Standby. A player opens the menu with a pickaxe in it: the Clefairy Works within
+    20 ticks, and the offers equal those of a table with 8 bookshelves, as `MuseTests.cdMus03Lv50MuseGivesATableTheOffersOfEightShelves`
+    compares them. The menu closes, and the order still holds 210 ticks later.
+
+- [ ] **Step 2: Run** `./gradlew test --tests "*QuickWorkRulesTest" --tests "*RoleCodecTest" --tests "*BuiltInRoleFilesTest"`.
+  The tests fail to compile: `quickWork` and `waitsForDemand` do not exist.
+
+- [ ] **Step 3: Code.**
+  - `RoleDefinition` gets `quickWork: Boolean = false`, and `RoleCodec` reads `Codec.BOOL.optionalFieldOf("quick_work", false)`.
+    `muse.json` sets `"quick_work": true`.
+  - `QuickWorkRules.mayOrder`: `((role.autoAssign && scanned) || role.quickWork) && shape == BindingShape.SINGLE`.
+  - `QuickWorkRules.pick`: a Fairy-type's candidates are the fitting roles that opt in, and with none it gets `Pick.None`.
+  - `QuickWorkRules.refusal` gets `waitsForDemand`, and `Watch` gets `waitsForDemand`. `endReason` skips the Standby end while
+    it is true. `WorkEngine.start` passes `role.definition.quickWork`, and `tickOrder` passes the flag of the order's role.
+
+- [ ] **Step 4: Run** `./gradlew build` and `./gradlew runGameTestServer`. Every test passes, `QuickWorkTests.cdQwk05FairyTypeGetsNoOrder`
+  and `QuickWorkSourceTest` (CD-QWK-23) included.
+
+- [ ] **Step 5: Commit:** `git commit -m "Let a Fairy-type Quick Work an enchanting table as the Muse [rag:2]"`.
 
 ---
 

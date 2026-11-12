@@ -809,6 +809,10 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
 }
 ```
 
+The optional key `quick_work` (default `false`) lets a role whose `auto_assign` is false take Quick Work orders, if its
+handler names one target. Such an order starts with no demand and has no Standby end, and a Fairy-type gets an order only for
+such a role (CD-QWK-36, Amendment 2 of [ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md)). Only `muse.json` sets it.
+
 Work is silent. The role loader skips a file whose effect names a `sound` or the animation `cry`, which plays
 the Cobblemon's cry, and the effect player passes over an animation whose file plays a sound. The effect
 plays the first of its `animations` that the worker's model has, to its end. The worker then

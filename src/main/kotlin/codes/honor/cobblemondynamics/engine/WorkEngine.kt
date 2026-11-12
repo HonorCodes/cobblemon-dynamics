@@ -964,6 +964,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             mayUse = mayUse(owner, t.level, canonical),
             tired = worker.tired,
             targetFree = claims.isFree(TargetKey.block(t.dimension, canonical), pokemon.uuid),
+            // CD-QWK-36: the Muse's order starts while the table's menu is closed, because R does nothing while a screen is open.
+            waitsForDemand = role.definition.quickWork,
         ) { guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, canonical, role)) } }
         if (refusal != null) return tell(aim.owner, refusal, pokemon, name)
         when (claim(t, order, slot, canonical, role, takenSpots(t), moving = false)) {
@@ -1007,6 +1009,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             status = worker.status,
             ticksInStatus = t.now - worker.statusSince,
             standbyLimit = t.settings.standbyMoveTicks,
+            waitsForDemand = slot.role?.definition?.quickWork == true,
         )
         QuickWorkRules.endReason(watch)?.let { return endOrder(t, order, it) }
         // CD-QWK-29: the end rule passed, so the owner is online and in the order's level, which the FTB Chunks check needs.

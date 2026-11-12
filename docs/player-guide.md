@@ -217,10 +217,17 @@ A party Cobblemon can work one block on demand, with no pasture and no Work Leas
 The Cobblemon walks to the block and works it, as a worker in a pasture does. Its Work Stamina drains while it works. The
 action bar tells you when the work starts, and when and why it stops.
 
-Quick Work uses only the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
-Generator, Crystal Tender, Brew Stoker and Brewer. When only a Work Leash role of the Cobblemon fits the block, for example
-Telekinesis for a Psychic-type at a chest, the action bar shows "Chest needs the Work Leash". A Cobblemon with a Fairy type
-does no Quick Work, because it is a healer.
+Quick Work uses the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
+Generator, Crystal Tender, Brew Stoker and Brewer. It also uses the Muse, whose role file opts in to Quick Work. When only a
+Work Leash role of the Cobblemon fits the block, for example Telekinesis for a Psychic-type at a chest, the action bar shows
+"Chest needs the Work Leash". A Cobblemon with a Fairy type does Quick Work only as a Muse, because it is otherwise a healer.
+
+### Quick Work at an enchanting table
+
+Send out a Fairy-type while you look at an enchanting table. The Cobblemon waits by the table. While you have the table's
+menu open, it adds its bookshelves, as a Muse with a Work Leash binding does (see [Muse](#muse)). It stays while you close
+the table to fetch lapis or books, and it does not leave because the table needs no work. It stops for the other reasons
+of [When Quick Work stops](#when-quick-work-stops), for example when you go more than 16 blocks away or recall it.
 
 ### When Quick Work does not start
 
@@ -228,7 +235,8 @@ The Cobblemon comes out as usual, with no work, and the action bar tells you why
 
 - another Cobblemon works the block already, or a Work Leash binding holds it
 - the Cobblemon is Tired
-- the block needs no work now, for example a furnace with nothing to smelt
+- the block needs no work now, for example a furnace with nothing to smelt. A Muse at an enchanting table starts anyway
+  and waits for the menu.
 - the Cobblemon cannot reach the block
 - you may not use the block, for example inside spawn protection, or in a land claim that does not let you right-click
   the block (see [Land claims](#land-claims))
@@ -241,7 +249,7 @@ The work stops for good when:
 - you recall the Cobblemon, or it faints
 - the Cobblemon gets Tired. It then recovers in your party at the rate with no bed.
 - the block breaks or changes, or a Work Leash binding takes it
-- the block needs no work for 10 seconds
+- the block needs no work for 10 seconds, except at an enchanting table
 - the Cobblemon cannot reach the block within 30 seconds
 - you log out or go to another dimension
 - the Cobblemon starts a battle
@@ -601,8 +609,8 @@ The Pump needs a binding, so that it never fills a tank that you keep for anothe
 
 ### Muse
 
-**Types:** Fairy. **Level:** the bonus grows with level. **Move:** Fairy Wind. **Assignment:** Work Leash
-only.
+**Types:** Fairy. **Level:** the bonus grows with level. **Move:** Fairy Wind. **Assignment:** Work Leash,
+or Quick Work at an enchanting table.
 
 **Target:** an enchanting table.
 
@@ -620,8 +628,8 @@ item that the player put in first.
 | 75 | 12 |
 | 100 | 15 |
 
-Fairy-types heal by default, so the Muse needs a binding. A Muse follows the worker rule of Work Stamina and
-heals no ally.
+Fairy-types heal by default, so the Muse needs a binding or a Quick Work order. A Muse follows the worker
+rule of Work Stamina and heals no ally.
 
 **Role file parameter:** `bookshelves_at_level_100` (15).
 
@@ -782,7 +790,9 @@ Each role is a JSON file in a data pack, at `data/<namespace>/cobblemon_dynamics
 built-in files use the namespace `cobblemon_dynamics`, and a data pack file at the same path replaces one.
 A role file holds the role's types, its auto-assign flag, its priority, its range, its handler, the handler's
 parameters and its effect. The range is the largest distance from the work spot to the target. The role
-sections above name each parameter.
+sections above name each parameter. The optional key `quick_work` (default `false`) lets a role whose
+`auto_assign` is false take Quick Work orders, if the role has one target. Such an order starts while the target
+needs no work, and its Cobblemon waits there with no time limit. Only the Muse's file sets it.
 
 The `effect` object holds these keys:
 

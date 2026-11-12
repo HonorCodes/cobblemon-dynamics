@@ -19,11 +19,12 @@ class QuickWorkRulesTest {
     private val telekinesis = BuiltInRoles.parse("telekinesis")
     private val pump = BuiltInRoles.parse("pump")
     private val wheelDriver = BuiltInRoles.parse("wheel_driver")
+    private val muse = BuiltInRoles.parse("muse")
 
     /** The handlers of the default role files: a leash-only handler has the scan kind NONE, and Telekinesis names two targets. */
     private fun orderable(role: RoleDefinition): Boolean = QuickWorkRules.mayOrder(
         role,
-        scanned = role.handler.path !in setOf("fluid_fill", "telekinesis"),
+        scanned = role.handler.path !in setOf("fluid_fill", "telekinesis", "enchanting"),
         shape = if (role.handler.path == "telekinesis") BindingShape.SOURCE_AND_DESTINATION else BindingShape.SINGLE,
     )
 
@@ -61,6 +62,24 @@ class QuickWorkRulesTest {
         assertEquals(QuickWorkRules.Pick.None, pick(listOf(wheelDriver), listOf("water", "fairy"), fairy = true))
 
     @Test
+    fun `CD-QWK-36 a role that opts in takes an order with no auto-assign flag and no scan, but not with two targets`() {
+        assertTrue(muse.quickWork, "muse.json opts in to Quick Work")
+        assertTrue(QuickWorkRules.mayOrder(muse, scanned = false, shape = BindingShape.SINGLE))
+        assertFalse(QuickWorkRules.mayOrder(muse.copy(quickWork = false), scanned = false, shape = BindingShape.SINGLE))
+        val optedTelekinesis = telekinesis.copy(quickWork = true)
+        assertFalse(QuickWorkRules.mayOrder(optedTelekinesis, scanned = false, shape = BindingShape.SOURCE_AND_DESTINATION))
+    }
+
+    @Test
+    fun `CD-QWK-05 CD-QWK-36 a Fairy-type gets an order only for a role that opts in`() {
+        assertEquals(QuickWorkRules.Pick.Order(muse), pick(listOf(muse), listOf("fairy"), fairy = true))
+        assertEquals(QuickWorkRules.Pick.None, pick(listOf(muse.copy(quickWork = false)), listOf("fairy"), fairy = true))
+        assertEquals(QuickWorkRules.Pick.None, pick(listOf(wheelDriver), listOf("water", "fairy"), fairy = true))
+        // A Fairy-type that another fitting role would give a machine still gets only the role that opts in.
+        assertEquals(QuickWorkRules.Pick.Order(muse), pick(listOf(stoker, muse), listOf("fairy", "fire"), fairy = true))
+    }
+
+    @Test
     fun `CD-QWK-03 a block that no role fits gives nothing`() = assertEquals(QuickWorkRules.Pick.None, pick(emptyList(), listOf("fire")))
 
     @Test
@@ -70,13 +89,27 @@ class QuickWorkRulesTest {
             asked++
             false
         }
-        // The arguments: mayUse, tired, targetFree, hasDemand.
-        assertEquals(QuickWorkRules.NO_PERMISSION, QuickWorkRules.refusal(false, true, false, noDemand))
-        assertEquals(QuickWorkRules.TIRED, QuickWorkRules.refusal(true, true, false, noDemand))
-        assertEquals(QuickWorkRules.CLAIMED, QuickWorkRules.refusal(true, false, false, noDemand))
+        // The arguments: mayUse, tired, targetFree, waitsForDemand, hasDemand.
+        assertEquals(QuickWorkRules.NO_PERMISSION, QuickWorkRules.refusal(false, true, false, false, noDemand))
+        assertEquals(QuickWorkRules.TIRED, QuickWorkRules.refusal(true, true, false, false, noDemand))
+        assertEquals(QuickWorkRules.CLAIMED, QuickWorkRules.refusal(true, false, false, false, noDemand))
         assertEquals(0, asked)
-        assertEquals(QuickWorkRules.NO_DEMAND, QuickWorkRules.refusal(true, false, true, noDemand))
+        assertEquals(QuickWorkRules.NO_DEMAND, QuickWorkRules.refusal(true, false, true, false, noDemand))
         assertNull(QuickWorkRules.refusal(mayUse = true, tired = false, targetFree = true) { true })
+    }
+
+    @Test
+    fun `CD-QWK-09 CD-QWK-36 the order of a role that opts in starts with no demand, after the other refusals`() {
+        var asked = 0
+        val noDemand = {
+            asked++
+            false
+        }
+        assertNull(QuickWorkRules.refusal(mayUse = true, tired = false, targetFree = true, waitsForDemand = true, hasDemand = noDemand))
+        assertEquals(0, asked, "the order of a role that opts in does not ask the demand")
+        assertEquals(QuickWorkRules.NO_PERMISSION, QuickWorkRules.refusal(false, false, true, true, noDemand))
+        assertEquals(QuickWorkRules.TIRED, QuickWorkRules.refusal(true, true, true, true, noDemand))
+        assertEquals(QuickWorkRules.CLAIMED, QuickWorkRules.refusal(true, false, false, true, noDemand))
     }
 
     @Test
@@ -114,6 +147,17 @@ class QuickWorkRulesTest {
         assertNull(QuickWorkRules.endReason(standby.copy(ticksInStatus = 199)))
         assertEquals(QuickEnd.NO_DEMAND, QuickWorkRules.endReason(standby.copy(ticksInStatus = 200)))
         assertNull(QuickWorkRules.endReason(calm.copy(ticksInStatus = 5_000)))
+    }
+
+    @Test
+    fun `CD-QWK-19 CD-QWK-36 the order of a role that opts in has no Standby end, and keeps every other end`() {
+        val waiting = calm.copy(status = WorkerStatus.STANDBY, ticksInStatus = 100_000, waitsForDemand = true)
+        assertNull(QuickWorkRules.endReason(waiting))
+        assertEquals(QuickEnd.TOO_FAR, QuickWorkRules.endReason(waiting.copy(ownerDistanceSqr = 256.01)))
+        assertEquals(QuickEnd.RECALLED, QuickWorkRules.endReason(waiting.copy(entityGone = true)))
+        assertEquals(QuickEnd.BATTLE, QuickWorkRules.endReason(waiting.copy(battling = true)))
+        assertEquals(QuickEnd.OWNER_LEFT, QuickWorkRules.endReason(waiting.copy(ownerPresent = false)))
+        assertEquals(QuickEnd.TARGET, QuickWorkRules.endReason(waiting.copy(holdsClaim = false)))
     }
 
     @Test

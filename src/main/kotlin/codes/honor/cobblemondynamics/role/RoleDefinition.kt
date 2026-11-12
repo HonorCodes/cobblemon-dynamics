@@ -15,6 +15,10 @@ data class EffectDefinition(
     val targetParticles: List<ResourceLocation>,
 )
 
+/**
+ * One role file. [quickWork] lets a role whose [autoAssign] is false take Quick Work orders, which wait for their target's demand
+ * (CD-QWK-36). Only the Muse's file sets it.
+ */
 data class RoleDefinition(
     val id: ResourceLocation,
     val handler: ResourceLocation,
@@ -24,4 +28,5 @@ data class RoleDefinition(
     val range: Double,
     val params: JsonObject,
     val effect: EffectDefinition,
+    val quickWork: Boolean = false,
 )

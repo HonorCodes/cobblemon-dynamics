@@ -7,8 +7,8 @@ containers of the logistics roles.
 Phase 2: every row of those six areas and of PHASE_2_ROWS, and each Phase 1 row with a Phase 2 part (the split-row table of the
 Phase 2 plan index), cited inside a task section of a Phase 2 milestone file or of the Phase 2 plan index. A task section runs
 from a "### Task" heading to the next heading of level 1 to 3.
-Phase 3: every row of the LND area, which Phase 1 leaves out, and each earlier row with a Phase 3 part (the split-row table of
-the Phase 3 plan), cited inside a task section of the Phase 3 plan.
+Phase 3: every row of the LND area, which Phase 1 leaves out, the rows of PHASE_3_ROWS, which Phase 2 leaves out, and each
+earlier row with a Phase 3 part (the split-row table of the Phase 3 plan), cited inside a task section of the Phase 3 plan.
 Usage: py scripts/check_plan_coverage.py [--phase {1,2,3}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
@@ -44,12 +44,15 @@ PHASE_2_PARTS = (
 # Phase 3: the land claims of pastures and MineColonies (R67), and the public release.
 PLANS[3] = ("2026-11-11-phase-3-release.md",)
 PHASE_3_AREAS = {"LND"}
+# Rows of the Phase 2 areas that are Phase 3 work as a whole: the Quick Work flag of the Muse (R70).
+PHASE_3_ROWS = ("CD-QWK-36",)
 # Earlier rows whose last part is Phase 3 work: the split-row table of docs/plans/2026-11-11-phase-3-release.md.
 PHASE_3_PARTS = (
     "CD-REL-04", "CD-REL-05", "CD-REL-08", "CD-REL-09", "CD-REL-11", "CD-REL-12", "CD-REL-14", "CD-REL-15",
     "CD-QWK-26", "CD-QWK-27", "CD-QWK-28", "CD-QWK-29", "CD-QWK-30", "CD-QWK-31", "CD-QWK-32", "CD-QWK-33",
     "CD-CMP-08", "CD-CMP-09", "CD-CMP-10", "CD-STK-07",
     "CD-PLAT-06", "CD-UI-03", "CD-UI-09", "CD-CMP-01", "CD-CMP-03", "CD-CMP-04", "CD-CMP-05", "CD-REL-01",
+    "CD-QWK-05", "CD-QWK-09", "CD-QWK-19", "CD-CFG-07", "CD-MUS-02",
 )
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")
@@ -65,14 +68,14 @@ def spec_rows(phase: int) -> list[str]:
     if phase == 1:
         return [row for row, area in rows if not is_phase_2(row, area) and area not in PHASE_3_AREAS]
     if phase == 3:
-        unknown = sorted(set(PHASE_3_PARTS) - {row for row, _ in rows})
+        unknown = sorted(set(PHASE_3_PARTS + PHASE_3_ROWS) - {row for row, _ in rows})
         if unknown:
-            raise SystemExit(f"PHASE_3_PARTS names rows that the spec sheet lacks: {', '.join(unknown)}")
-        return [row for row, area in rows if area in PHASE_3_AREAS] + list(PHASE_3_PARTS)
+            raise SystemExit(f"PHASE_3_PARTS or PHASE_3_ROWS names rows that the spec sheet lacks: {', '.join(unknown)}")
+        return [row for row, area in rows if area in PHASE_3_AREAS] + list(PHASE_3_ROWS) + list(PHASE_3_PARTS)
     unknown = sorted(set(PHASE_2_PARTS + PHASE_2_ROWS) - {row for row, _ in rows})
     if unknown:
         raise SystemExit(f"PHASE_2_PARTS or PHASE_2_ROWS names rows that the spec sheet lacks: {', '.join(unknown)}")
-    return [row for row, area in rows if is_phase_2(row, area)] + list(PHASE_2_PARTS)
+    return [row for row, area in rows if is_phase_2(row, area) and row not in PHASE_3_ROWS] + list(PHASE_2_PARTS)
 
 
 def task_sections(text: str) -> str:
