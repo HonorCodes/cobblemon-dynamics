@@ -4,7 +4,7 @@ Part of the [Phase 1 plan](2026-11-09-phase-1-plan.md). Read its Global Constrai
 `m1-engine-leash-stoker`. Part 2: [integration](2026-11-09-phase-1-m1-engine-leash-stoker-part2.md).
 
 **Milestone goal:** a Fire-type in a Work Mode pasture finds a furnace with input, walks to it, keeps it
-lit with a looping Flamethrower effect, and a player can bind a specific Pokémon to a specific furnace with
+lit with a looping Flamethrower effect, and a player can bind a specific Cobblemon to a specific furnace with
 the Work Leash. Part 1 builds the pure rules that the spec tests on a fake clock. Part 2 wires them into
 the game.
 
@@ -477,7 +477,7 @@ val animationsWithCry: List<String>
 ```
 
 Play-test change (2026-11-10): work is silent. `animationsWithCry` and the `sound` key are gone, and
-`RoleCodec` skips a role file that names `cry`, whose animation plays the Pokémon's cry, or a `sound`.
+`RoleCodec` skips a role file that names `cry`, whose animation plays the Cobblemon's cry, or a `sound`.
 
 `RoleCodec` uses a `RecordCodecBuilder` over the file body:
 

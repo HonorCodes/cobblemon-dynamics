@@ -191,7 +191,7 @@ object ViewSync {
 object PanelCadence { fun shouldSend(openedAt: Long, now: Long): Boolean }   // 0, 20, 40 (CD-UI-05)
 ```
 
-`load` reads the level and the rule from the Pokémon, so it takes no level. A damaged entry counts as none.
+`load` reads the level and the rule from the Cobblemon, so it takes no level. A damaged entry counts as none.
 `last_game_time` is the first tick that the saved value does not include yet: the engine keeps
 `Worker.staminaUntil`, applies each tick once (`now + 1 - staminaUntil` ticks per engine tick), and saves
 `staminaUntil`, so a flush at any point of a tick, followed by a load, neither loses nor repeats a tick.
@@ -203,9 +203,9 @@ tick per Working tick and recovers it on every other tick, and flushes it to the
 (`tethering.getPokemon()`, which each poll reads again, so Cobblemon's 20-tick instance swap never loses it)
 on each state change, every `flushIntervalTicks`, when the worker leaves (which covers entity unload) and on
 `ServerStoppingEvent`, before Cobblemon saves its stores on `ServerStoppedEvent`. The GameTest restart
-(`resetRuntimeForTest`) flushes first, as a real stop does. A Pokémon that stops working loses its
+(`resetRuntimeForTest`) flushes first, as a real stop does. A Cobblemon that stops working loses its
 `stamina_view`, so its head bar goes. The panel entries carry the live percent of a worker, and the saved
-percent with offline recovery of any other tethered Pokémon; the 20-tick panel send itself is M5 Task 2.
+percent with offline recovery of any other tethered Cobblemon; the 20-tick panel send itself is M5 Task 2.
 
 - [ ] **Step 1: Write the failing unit tests**
 
@@ -249,8 +249,8 @@ damaged one reads 100% (CD-STA-05), 18,000 ticks later reads 50% (CD-STA-11), on
 //   the test fails with the step it waits at.
 ```
 
-`PCStore.remove` recalls the Pokémon, and a pastured Pokémon is "sent out": Cobblemon's `PokemonServerDelegate.tick`
-gives every `PokemonEntity`'s Pokémon a `SentOutState(entity)`, whose `recall()` discards the entity. The test therefore
+`PCStore.remove` recalls the Cobblemon, and a pastured Cobblemon is "sent out": Cobblemon's `PokemonServerDelegate.tick`
+gives every `PokemonEntity`'s Cobblemon a `SentOutState(entity)`, whose `recall()` discards the entity. The test therefore
 sets the old instance to `InactivePokemonState` before it removes it from the PC; a real reload drops the old store and
 removes nothing.
 
@@ -383,9 +383,9 @@ work area from the chunks' block entity maps, picks one with `BedSelector.pick` 
 CD-BED-06, CD-BED-07), or the worker rests in place at the base rate where it stands (CD-BED-08). The bed
 lookup happens at that moment, not in the scan pass, so a Tired worker that joins after a restart also takes
 a bed on its first tick (CD-BED-14). `TO_BED` becomes `SLEEPING` when `BedSelector.isAt` is true: within
-0.5 blocks of the sleep point, or within half the Pokémon's width when it is wider. Navigation stops a wide
-Pokémon that far from its last path node, as it does at a work spot, so this is what lets any size of
-Pokémon use a bed (CD-BED-09); the engine then lays it on the sleep point. A bed that is not reached
+0.5 blocks of the sleep point, or within half the Cobblemon's width when it is wider. Navigation stops a wide
+Cobblemon that far from its last path node, as it does at a work spot, so this is what lets any size of
+Cobblemon use a bed (CD-BED-09); the engine then lays it on the sleep point. A bed that is not reached
 `travelTimeoutTicks` (600) after the claim, or that is no longer a bed block, gives `RESTING_IN_PLACE` in the
 same tick, and the bed's factor stops (CD-BED-11). Sleeping and resting set the Brain work order to
 `sleep = true`: the work task puts the entity back on its sleep point every tick (CD-BED-10), sets
@@ -398,15 +398,15 @@ own sleep timeline plays them, every 40 ticks with no sound (CD-FX-10). A worker
 gets up in the same step: its bed claim ends (CD-BED-12), and a leashed worker claims its bound target, so it
 is `TRAVELING` in that tick (CD-STA-14). Only Tired workers of Work Mode pastures reach a bed (CD-BED-13).
 
-Carry-over from M1: Cobblemon's night sleep (`go_to_sleep`, in the idle activity) gives a pastured Pokémon the
+Carry-over from M1: Cobblemon's night sleep (`go_to_sleep`, in the idle activity) gives a pastured Cobblemon the
 battle SLEEP status and the `pokemon_sleeping` memory, and only its `wake_up` task, in Cobblemon's sleeping
-activity, clears them. A work order replaces that activity, so `BrainBridge.enterWork` wakes the Pokémon as
+activity, clears them. A work order replaces that activity, so `BrainBridge.enterWork` wakes the Cobblemon as
 `wake_up` does: it clears the SLEEP status (outside battle) and the memory.
 
 - [ ] **Step 1: Failing unit tests** — `BedSelectorTest`: beds at 3 and 5 blocks gives the 3-block bed, also
   against a higher tier (CD-BED-05); Hay and Plush beds both at 4.0 gives the Plush Bed (CD-BED-06); a
   claimed bed is skipped; no free bed gives none; a full tie goes to the lowest position; the arrival radius
-  for a small and a wide Pokémon (CD-BED-09). `RestMachineTest`: the rules above on a fake clock (to bed,
+  for a small and a wide Cobblemon (CD-BED-09). `RestMachineTest`: the rules above on a fake clock (to bed,
   rest in place, asleep on arrival, the 600-tick bed timeout, a broken bed under a walker and a sleeper, the
   wake of an auto and a leashed worker), CD-STA-09 (a Tired worker at 99.9% is refused a furnace, at 100% it
   gets it) and a CD-ASG-18 day of a worker through 24,000 ticks with work, bed, sleep and rest-in-place
@@ -435,7 +435,7 @@ activity, clears them. A work order replaces that activity, so `BrainBridge.ente
   The other planned GameTests, each: GameTest deferred (high confidence): verified in the end-of-phase pass.
   - CD-STA-13 (`cdSta13TiredAutoWorkerFreesItsMachine`, the second Charmander that claims the furnace at the
     next scan): the release in the same tick is in `cdBed05`, and the scan is M1's assignment.
-  - CD-LSH-12 (`cdLsh12TiredBindingWaits`, a binding made while the Pokémon is Tired): `claimBound` skips a
+  - CD-LSH-12 (`cdLsh12TiredBindingWaits`, a binding made while the Cobblemon is Tired): `claimBound` skips a
     Tired worker, and `cdBed08` keeps a binding through a rest.
   - CD-BED-07 (`cdBed07OnlyInsideArea`, beds at offsets 8 and 9): the bed lookup reads the work area through
     the same `WorkArea.contains` as the CD-ASG-08 tests.
@@ -491,7 +491,7 @@ fun onHealTick(w: Worker, now: Long, qualifies: Boolean, inRange: Boolean): Mach
 ```
 
 Rules, as built: after each scan pass, every Idle healer of the pasture (a Fairy-type with no machine
-binding, so its slot follows the healer rule) with `canStart` picks an ally from the Pokémon of its own
+binding, so its slot follows the healer rule) with `canStart` picks an ally from the Cobblemon of its own
 pasture. `pick` drops the healer itself and Fairy-type allies (CD-HEAL-06), takes the nearest Tired ally
 (CD-HEAL-07), else the ally with the lowest fraction under `lowStaminaThreshold` (CD-HEAL-08), and skips an
 ally that another healer claimed (CD-HEAL-09). The heal claim is a `ClaimKind.HEAL` claim on
@@ -611,20 +611,20 @@ and a Lv50 healer at 75%: three heals, one state per tick each, and the Tired fl
 - Test: `src/test/kotlin/codes/honor/cobblemondynamics/command/StaminaReportTest.kt`
 - Test: `src/gametest/kotlin/codes/honor/cobblemondynamics/test/CommandTests.kt` (deferred, see Step 1)
 
-`/cobblemondynamics stamina <target>` takes an entity selector of one Pokémon and prints
+`/cobblemondynamics stamina <target>` takes an entity selector of one Cobblemon and prints
 `<name>: <percent>% Work Stamina, <state>, <worker rule|healer rule>` from lang keys
 (`cobblemon_dynamics.command.stamina`, `cobblemon_dynamics.state.<state>` and `cobblemon_dynamics.rule.<rule>`). The
-percent rounds down to one decimal, so a Tired Pokémon never reads 100.0. A worker shows the engine's live value,
-state and rule. Any other Pokémon shows its saved value plus the recovery of its time away, as the engine would
+percent rounds down to one decimal, so a Tired Cobblemon never reads 100.0. A worker shows the engine's live value,
+state and rule. Any other Cobblemon shows its saved value plus the recovery of its time away, as the engine would
 load it, with the state `not in Work Mode` and the rule from its types and binding. A target that is not a
-Pokémon gets `cobblemon_dynamics.command.stamina.not_pokemon`. The subcommand sits under the root literal, which
+Cobblemon gets `cobblemon_dynamics.command.stamina.not_pokemon`. The subcommand sits under the root literal, which
 needs permission level 2 (CD-SEC-09).
 
 The claims command from M1 Task 12 already lists every claim kind with its lang key. A heal claim's key holds
-the ally's Pokémon UUID, not an entity UUID, so the command now names the ally through the engine.
+the ally's Cobblemon UUID, not an entity UUID, so the command now names the ally through the engine.
 
 - [ ] **Step 1: Failing unit tests** — `StaminaReportTest`: a healer at 40% gives `40.0`, its state key and the
-  healer rule key; a Pokémon that is not a worker gets the `none` state; the value rounds down to one decimal;
+  healer rule key; a Cobblemon that is not a worker gets the `none` state; the value rounds down to one decimal;
   and every key of the command has its English text, with `healer rule` and `worker rule` (CD-UI-15).
   - CD-UI-15 (`cdUi15StaminaShowsValueStateAndRule`: a Lv50 healer at 40%; the output holds `40`, its state,
     and `healer rule`): GameTest deferred (high confidence): verified in the end-of-phase pass.

@@ -1,14 +1,14 @@
-# Quick Work: party Pokémon work the block that their owner aims at
+# Quick Work: party Cobblemon work the block that their owner aims at
 
 Part of the [Phase 2 plan](2026-11-10-phase-2-plan.md). Read its Global Constraints, including the multiplayer rules,
 first. Branch: `quick-work`. Builds on M7. It is one pull request into `main`, which merges before M8 Task 6 starts, so the
 multiplayer audit, the end-of-phase pass and the Phase 2 gate of M8 cover it.
 
-**Milestone goal:** A player sends out a party Pokémon with R while the crosshair is on a block that one of the Pokémon's
-auto-assign roles works. The Pokémon then gets a Quick Work order: it claims the block, walks to it and works it as a pasture
-worker does. The order ends for good when the owner walks away, recalls the Pokémon, logs out or changes dimension, when the
-Pokémon gets Tired, battles or cannot reach the block, when the block breaks, and when the block needs no work for the
-Standby time. After the end, the Pokémon follows its owner, and no Quick Work code runs for it.
+**Milestone goal:** A player sends out a party Cobblemon with R while the crosshair is on a block that one of the Cobblemon's
+auto-assign roles works. The Cobblemon then gets a Quick Work order: it claims the block, walks to it and works it as a pasture
+worker does. The order ends for good when the owner walks away, recalls the Cobblemon, logs out or changes dimension, when the
+Cobblemon gets Tired, battles or cannot reach the block, when the block breaks, and when the block needs no work for the
+Standby time. After the end, the Cobblemon follows its owner, and no Quick Work code runs for it.
 
 **Design:** [ADR-0013](../adr/0013-quick-work-for-party-pokemon.md) and the QWK rows of the
 [spec sheet](2026-11-09-v1-spec-sheet.md). The milestone builds a small solo runtime beside the pasture runtimes of the work
@@ -34,10 +34,10 @@ patched Minecraft sources:
   player it fires inside the packet handler, because only an `NPCEntity` is a `PokemonSender` (`Pokemon.kt:832-836`).
   `POKEMON_SENT_POST` fires `SEND_OUT_DURATION` (1.5 s) later, unless a recall started (`Pokemon.kt:898-909`). Cobblemon's
   server packets run on the main thread (`CobblemonNeoForgeNetworkManager.kt:27-30`). `recallWithAnimation` sets `BEAM_MODE`
-  to 3 at once (`PokemonEntity.kt:876`). `Pokemon.entity` is null once the Pokémon is not out (`Pokemon.kt:444-445`).
+  to 3 at once (`PokemonEntity.kt:876`). `Pokemon.entity` is null once the Cobblemon is not out (`Pokemon.kt:444-445`).
   `getOwnerEntity` finds a player through `PlayerList.getPlayer` (`Pokemon.kt:1537-1549`).
 - In the Cobblemon jar, `pokemon_follows_owner.json` adds `move_to_owner` to the `idle` activity, with `teleportDistance` 32
-  and `maxDistance` 5 for a party Pokémon, and `pokemon_owned.json` applies it to every Pokémon that is not wild.
+  and `maxDistance` 5 for a party Cobblemon, and `pokemon_owned.json` applies it to every Cobblemon that is not wild.
 - `Entity.calculateViewVector(float, float)` is public and final. `Entity.getEyePosition()`, `getXRot()`, `getYRot()`,
   `isAlive()` and `lookAt(EntityAnchorArgument.Anchor, Vec3)` exist, and `lookAt` sets `xRot`, `yRot` and `yHeadRot`
   (`Entity.java:3294-3305`). `BlockGetter.clip(ClipContext)` and
@@ -56,11 +56,11 @@ Inferred, and checked by the GameTests of Task 3 on 2026-11-11:
 - In the GameTest server, `POKEMON_SENT_POST` fires about 30 ticks after `SendOutPokemonHandler.handle`, because the entity
   runs its scheduled tasks when it ticks. Measured: the order's claim came 31 ticks after the key press.
 - A fake player in `PlayerList.playersByUUID`, and not in `PlayerList.players`, is found by `getPlayer` and gets no
-  broadcast, no spawns and no ticks. Cobblemon then makes a party Pokémon of that player follow it. Shown by
+  broadcast, no spawns and no ticks. Cobblemon then makes a party Cobblemon of that player follow it. Shown by
   `cdQwk13Qwk14Qwk15LeashEndsTheOrderForGood`.
 - `raycastSafeSendout` puts the Charmander of the test scene in front of the furnace face that its owner looks at. Measured:
   the Charmander came out at (5.375, 2, 11.5) of the test, in front of the east face of furnace A, which spans x 4 to 5.
-- The work activity replaces the idle activity of a party Pokémon too, so `move_to_owner` does not run while the Pokémon holds
+- The work activity replaces the idle activity of a party Cobblemon too, so `move_to_owner` does not run while the Cobblemon holds
   a work order, and the idle activity comes back when the work order clears. Shown by CD-QWK-12 and CD-QWK-15.
 
 Found by the GameTests of Task 3 on 2026-11-11:
@@ -74,7 +74,7 @@ Found by the GameTests of Task 3 on 2026-11-11:
 - A battle id that names no battle does not stay. Cobblemon's `PokemonServerDelegate.tick` clears it on the entity's next
   tick when `BattleRegistry.getBattle` gives null or an ended battle (`entity/pokemon/PokemonServerDelegate.kt:315-321`). The
   engine's level tick comes after the entity ticks, so it never sees `isBattling`, and a GameTest that only sets `battleId`
-  cannot pass. In a real battle, `BattleRegistry.startShowdown` gives each Pokémon of the actors that is out the battle's id
+  cannot pass. In a real battle, `BattleRegistry.startShowdown` gives each Cobblemon of the actors that is out the battle's id
   (`battles/BattleRegistry.kt:162-168`), and the id stays while the battle runs. A wild battle that `BattleBuilder.pve` started
   for a listed fake owner had ended and left the registry 1 tick later, with no error in the log. So the CD-QWK-21 GameTest
   needs a battle that stays in the GameTest server, and it waits for the end-of-phase pass (Task 3, Step 6).
@@ -414,7 +414,7 @@ enum class QuickEnd(val messageKey: String) {
 }
 ```
 
-  `en_us.json` gains these keys. Each takes the Pokémon's name as `%1$s` and the target's name as `%2$s`, and uses the ones
+  `en_us.json` gains these keys. Each takes the Cobblemon's name as `%1$s` and the target's name as `%2$s`, and uses the ones
   that it needs:
 
 ```json
@@ -448,7 +448,7 @@ enum class QuickEnd(val messageKey: String) {
 
 **Rows:** CD-QWK-02 (the order's claim and work), CD-QWK-10 (a claim with no reachable spot), CD-QWK-14 (an end leaves no
 state), CD-QWK-17 (Tired ends the order), CD-QWK-22 (a travel timeout ends it), CD-QWK-23 (the order's tick), CD-ASG-01
-(claims for a Pokémon on an order), CD-CLM-01 and CD-CLM-06 (an order's claim is a normal work claim with no pasture),
+(claims for a Cobblemon on an order), CD-CLM-01 and CD-CLM-06 (an order's claim is a normal work claim with no pasture),
 CD-SEC-10 (no binder and no placer behind a Quick Work claim).
 
 **Files:**
@@ -529,7 +529,7 @@ fun `CD-CLM-06 CD-QWK-07 a leash binding refuses a Quick Work claim`() {
     each says that null means a Quick Work order. `releaseAll { it.pasture == key }` needs no change.
   - `LeashInteractions.mayFlip` reads the binder and the placer only for a claim with a pasture. With no binder and no
     placer, only an operator flips a target that a Quick Worker drives (CD-SEC-10). The binder needs the check too: a party
-    Pokémon can still carry a binding that `LeashResets` has not cleared yet, for example while its pasture is unloaded.
+    Cobblemon can still carry a binding that `LeashResets` has not cleared yet, for example while its pasture is unloaded.
 
 ```kotlin
 val pasture = claim.pasture
@@ -734,7 +734,7 @@ private fun tell(owner: UUID, key: String, pokemon: Pokemon, target: Component) 
   - `start` gives every claim result other than `GRANTED` and `REFUSED` the "cannot reach" message, because an order never
     tries again. So a result that `claim` gains later, such as the one for a navigation that cannot plan, needs no change
     in `start`.
-  - The review of 2026-11-11 added three checks. An owner who entered a battle while the Pokémon came out gets no order
+  - The review of 2026-11-11 added three checks. An owner who entered a battle while the Cobblemon came out gets no order
     (CD-QWK-21). An owner who walked past the leash in that time gets the leash's message and no order (CD-QWK-13). A new aim
     drops every aim that can no longer start an order, and a send-out that is cancelled when its event reaches Quick Work
     leaves no aim (CD-QWK-25). Cobblemon's `CancelableObservable.emit` stops at the first subscriber after which the event is
@@ -1071,10 +1071,10 @@ object QuickWork {
   `Entity.pick`, because a `LivingEntity` reads its head rotation there. `ClipContext.Block.OUTLINE` with `Fluid.NONE` hits
   what the crosshair outlines, so a machine behind water still counts.
 
-  The recall listener closes a gap of the design. When the owner recalls a Pokémon during its send-out animation, Cobblemon
+  The recall listener closes a gap of the design. When the owner recalls a Cobblemon during its send-out animation, Cobblemon
   completes the send-out with no `POKEMON_SENT_POST` (`Pokemon.kt:901-904`), and `Pokemon.recall` posts
   `POKEMON_RECALL_POST` (`Pokemon.kt:977-983`, checked with `javap`: `PokemonRecallEvent.Post.getPokemon()`). Without the
-  listener, that aim would stay until the Pokémon's next send-out, its owner's logout or the server stop. Every caller of
+  listener, that aim would stay until the Cobblemon's next send-out, its owner's logout or the server stop. Every caller of
   `Pokemon.recall` is server code except the entity's tether check, which runs in the entity tick on both sides, so the
   listener acts only on the server thread.
 
@@ -1116,12 +1116,12 @@ object QuickWork {
 - [ ] **Step 7: Multiplayer check.** Read the Quick Work code against the eight multiplayer rules of the index, and record each
   point in the pull request body:
   - The server owns all state. The client sends nothing new, and the aim comes from the server's copy of the rotation.
-  - `orders` and `aims` are keyed by the Pokémon's UUID and hold the owner's UUID. No field holds a `ServerPlayer`, and
+  - `orders` and `aims` are keyed by the Cobblemon's UUID and hold the owner's UUID. No field holds a `ServerPlayer`, and
     `tickOrder` looks the owner up by UUID on each tick.
   - No new payload. Cobblemon's own send-out packet runs on the main thread, and both events fire there.
   - No client class: `QuickWork` and the engine name no `net.minecraft.client` class.
   - No new static mutable state: the orders and the aims live in the engine instance, which `ServerStoppedEvent` drops. A
-    logout drops the player's aims, and its orders end on the next tick. A recall drops the Pokémon's aim, on the server
+    logout drops the player's aims, and its orders end on the next tick. A recall drops the Cobblemon's aim, on the server
     thread only.
   - Every message goes through `tell` to the order's owner only. Effects, head bars and the work focus entity reach the
     players near the worker, as for a pasture worker.
@@ -1159,9 +1159,9 @@ reference world with no order).
   scan pass or reads a block other than its own target and its spot cells. Record both readings in the pull request body.
 
 - [ ] **Step 3: Docs.**
-  - `ARCHITECTURE.md`: section 1, a party Pokémon also works on a Quick Work order (ADR-0013). Section 3, the work engine runs
-    Quick Work orders, one sent-out party Pokémon each, with no scan. Section 4, two rows: the Quick Work order (`QuickRuntime`
-    in the engine by Pokémon UUID, not saved, synced through the stamina view) and the aim (`QuickAim` by Pokémon UUID, from
+  - `ARCHITECTURE.md`: section 1, a party Cobblemon also works on a Quick Work order (ADR-0013). Section 3, the work engine runs
+    Quick Work orders, one sent-out party Cobblemon each, with no scan. Section 4, two rows: the Quick Work order (`QuickRuntime`
+    in the engine by Cobblemon UUID, not saved, synced through the stamina view) and the aim (`QuickAim` by Cobblemon UUID, from
     the key press to the end of the send-out, not saved). Section 5, a Quick Worker enters the machine at Traveling, and its
     order ends where a pasture worker would release its claim, rest or move. Section 6, a step after step 2: each order checks
     its end, then ticks its worker as steps 1 to 3 do, and a level with no order skips it. Section 8, the send-out events and
@@ -1196,17 +1196,17 @@ The rulings of R63 settle the feature. This milestone makes these further calls:
 
 1. **The aim at the key press.** The trace runs at `POKEMON_SENT_PRE`, inside Cobblemon's handler of the R key, and the order
    starts at `POKEMON_SENT_POST`, 30 ticks later. A trace at the later event would follow a player who turns to a second
-   machine while the Pokémon appears.
+   machine while the Cobblemon appears.
 2. **A server switch.** `quickWork.enabled` (default `true`) is not in the rulings. A server whose protection mod only cancels
    clicks needs a way to turn Quick Work off, because a ray-traced target makes no click.
 3. **The leash measure.** The leash counts from the owner's eye position to the box of the aimed block, and the trace never
    reaches past the leash. So a new order always starts inside its leash, also on a large water wheel whose canonical block
    is farther away than the block in view.
 4. **Ranges of 2 to 24 blocks.** A worker stands within 6 blocks of its target, so at 24 blocks it stays inside the teleport
-   distance of 32 blocks that Cobblemon gives party Pokémon.
+   distance of 32 blocks that Cobblemon gives party Cobblemon.
 5. **No Quick Work for Fairy-types.** A Fairy-type is a healer, and no auto claim gives it a machine (CD-ASG-04). A Water/Fairy
-   Pokémon therefore does not turn a water wheel through Quick Work.
-6. **A quiet send-out.** A block that no role of the Pokémon fits gives no message, so a normal send-out stays quiet. Only a
+   Cobblemon therefore does not turn a water wheel through Quick Work.
+6. **A quiet send-out.** A block that no role of the Cobblemon fits gives no message, so a normal send-out stays quiet. Only a
    block that a leash-only role fits gets "{target} needs the Work Leash".
 7. **More ends than the rulings list.** A travel timeout ends the order with "{Pokémon} cannot reach {target}", and a faint
    ends it as a recall does. Cobblemon's recall beam ends it at once, not 1.5 s later.

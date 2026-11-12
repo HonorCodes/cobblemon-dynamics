@@ -94,7 +94,7 @@ files. They need your approval too, because CD-ART-10 asks for an approval of ev
 1. Read the run summary above. It names the commit of the run, and it holds the test counts and the perf numbers.
 2. Set up the client as above.
 3. Do steps 7 to 9 of the [play-test setup](manual-checklist.md#client) of the manual checklist: a creative flat world
-   with cheats on, no Pokémon spawning, and your test Pokémon.
+   with cheats on, no Cobblemon spawning, and your test Cobblemon.
 4. Do the checks of the [play-test note](#play-test-note): check 20, checks 44 to 59, and the Phase 1 checks 6, 9, 10,
    14, 15 and 22, which Phase 2 code touches. The [manual checklist](manual-checklist.md) holds each check. Check 59
    shows the end of a Quick Work order when its owner starts a battle (CD-QWK-21).
@@ -114,7 +114,7 @@ These items stay open at the gate. Each item names its source.
   effect, the path must send only to players within 64 blocks and play no sound. Source:
   [the multiplayer audit](multiplayer-audit.md#open-item), row 46 and the ruling of 2026-11-11.
 - **Quick Work review finding 4.** A species whose Brain cannot hold a work order gets no message that names the cause.
-  When `BrainBridge.holdsOrder` fails, the work engine releases the claim. The order then ends with "{Pokémon} stopped
+  When `BrainBridge.holdsOrder` fails, the work engine releases the claim. The order then ends with "{Cobblemon} stopped
   working: {target} can no longer be worked", which blames the target. The server log gets one warning for the species.
   Source: the fourth finding of the independent review in
   [pull request #22](https://github.com/HonorCodes/cobblemon-dynamics/pull/22).

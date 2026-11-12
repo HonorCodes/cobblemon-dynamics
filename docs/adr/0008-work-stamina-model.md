@@ -6,15 +6,15 @@ Status: Accepted (2026-11-09)
 
 The operator first deferred stamina, then moved it into v1 with these rulings:
 
-- Each level adds 3 minutes of work before a Pokémon gets tired. Rarity has no effect.
-- Recovery mirrors drain. A full recovery takes as long as a full drain, so a level-100 Pokémon
-  works 300 minutes and then rests 300 minutes. A Pokémon that runs out does not work again until it
+- Each level adds 3 minutes of work before a Cobblemon gets tired. Rarity has no effect.
+- Recovery mirrors drain. A full recovery takes as long as a full drain, so a level-100 Cobblemon
+  works 300 minutes and then rests 300 minutes. A Cobblemon that runs out does not work again until it
   has fully recovered.
 - A bed block, in four tiers, cuts recovery time to 1/2, 1/3, 1/4 or 1/8. The tier-4 bed needs a
   Nether Star and 4 Rare Candy, and each tier is crafted from the tier below.
-- A tired Pokémon claims the nearest unclaimed bed, walks to it, and loops the sleep visual silently
-  while it recovers. A bed fits any size of Pokémon.
-- Fairy-types heal the stamina of other Pokémon in the same pasture. A heal costs the healer 25% and
+- A tired Cobblemon claims the nearest unclaimed bed, walks to it, and loops the sleep visual silently
+  while it recovers. A bed fits any size of Cobblemon.
+- Fairy-types heal the stamina of other Cobblemon in the same pasture. A heal costs the healer 25% and
   restores 100% of the ally, at any level. A healer picks Tired allies first, then the lowest ally
   under 25%. Fairy-types cannot heal other Fairy-types.
 - A healer's level changes only its own recovery time. That time falls linearly from 300 minutes at
@@ -33,14 +33,14 @@ Cobblemon already uses the name "stamina" for riding: `Pokemon.rideStamina` (sav
 - **Capacity.** 3,600 ticks of Working per level.
 - **Drain.** Only in the Working state, one tick of capacity per tick.
 - **Worker recovery.** In every other state, a full recovery takes 3 min × level at the base rate. A
-  bed divides that time by its speed factor while the Pokémon lies on it: 2, 3, 4 or 8 for tiers 1
+  bed divides that time by its speed factor while the Cobblemon lies on it: 2, 3, 4 or 8 for tiers 1
   to 4. The config stores these factors, so a tier-2 bed gives exactly 100 min at level 100.
 - **Healer recovery.** A Fairy-type with no machine binding recovers in
   4 × (300 − 270 × (L − 1) ÷ 99) min. A leashed Fairy-type, for example a Muse, uses the worker rule.
-- **Tired.** At 0%, the Pokémon is Tired until it reaches 100%. It does not work or heal while Tired.
+- **Tired.** At 0%, the Cobblemon is Tired until it reaches 100%. It does not work or heal while Tired.
   Tired is a flag. While it is set, the worker is in the ToBed, Sleeping or RestingInPlace state.
 - **Away.** In the PC, in the party, or in an unloaded chunk, recovery runs at the base rate. The
-  engine applies it from `last_game_time` when it next loads the Pokémon.
+  engine applies it from `last_game_time` when it next loads the Cobblemon.
 - **Live value.** The work engine holds the live value. It writes to `persistentData` and calls
   `onChange()` on each state change, every 600 ticks, on entity unload and on server stop. A write
   every tick would be too costly.
@@ -66,5 +66,5 @@ Cobblemon already uses the name "stamina" for riding: `Pokemon.rideStamina` (sav
 - **Scale heals by level, or limit heals to allies of equal or lower level.** These would close the
   balance hole where a level-1 healer outworks beds. The operator rejected both and scaled healer
   recovery instead.
-- **Store the value in an entity attachment only.** A pastured Pokémon's entity is not its storage.
-  The value would be lost when the Pokémon goes back to the PC.
+- **Store the value in an entity attachment only.** A pastured Cobblemon's entity is not its storage.
+  The value would be lost when the Cobblemon goes back to the PC.

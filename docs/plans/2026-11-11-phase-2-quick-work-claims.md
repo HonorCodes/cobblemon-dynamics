@@ -1015,7 +1015,7 @@ The rulings of R64 and R65 settle the feature. This plan makes these further cal
 delegation, the coordinator ruled on calls 2, 3, 4, 7, 8 and 9. Calls 4 and 7 changed, and the list below holds their
 new form. Calls 1, 5 and 6 got no ruling of their own.
 
-1. **An empty main hand.** Each check asks about a right-click with an empty main hand. The Pokémon works the block, so the
+1. **An empty main hand.** Each check asks about a right-click with an empty main hand. The Cobblemon works the block, so the
    item in the owner's hand plays no part. For FTB Chunks this is the full check of a right-click. For Open Parties and
    Claims an empty hand skips its item rules.
 2. **The whole permission every 20 ticks.** The second check asks the spectator check and `mayInteract` again, not only the

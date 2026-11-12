@@ -50,21 +50,21 @@ Path shorthand: `K/` is `common/src/main/kotlin/com/cobblemon/mod/common/` and `
 | Block entity, type `cobblemon:pasture` | `K/block/entity/PokemonPastureBlockEntity.kt` |
 | `open class Tethering`: roam bounds, `playerId`, `tetheringId`, `pokemonId`, `pcId`, `pasturePos`, `box`, `canRoamTo()` | `PokemonPastureBlockEntity.kt:59-97` |
 | Helper API | `K/api/pasture/` |
-| `Tethering.getPokemon()` returns `Cobblemon.storage.getPC(pcId)[pokemonId]`. The Pokémon never leaves the PC. | `PokemonPastureBlockEntity.kt:70-74` |
+| `Tethering.getPokemon()` returns `Cobblemon.storage.getPC(pcId)[pokemonId]`. The Cobblemon never leaves the PC. | `PokemonPastureBlockEntity.kt:70-74` |
 | PCs load from disk on demand, even for offline owners. A PC's UUID is the player's UUID. | `K/api/storage/factory/FileBackedPokemonStoreFactory.kt:39,65-93` |
-| `Pokemon.tetheringId` marks a pastured Pokémon. Moving it out of the PC clears the id, and the entity then removes itself. | `K/pokemon/Pokemon.kt:526,776`, `K/entity/pokemon/PokemonServerDelegate.kt:306-309` |
+| `Pokemon.tetheringId` marks a pastured Cobblemon. Moving it out of the PC clears the id, and the entity then removes itself. | `K/pokemon/Pokemon.kt:526,776`, `K/entity/pokemon/PokemonServerDelegate.kt:306-309` |
 | `tether()` creates the entity and adds it to the world. It sets `pokemon.tetheringId` and `entity.tethering` after that. | `PokemonPastureBlockEntity.kt:160-212`, `:185-199` |
-| Roam box = block position ±`pastureMaxWanderDistance`. Wandering skips targets outside it. A Pokémon outside the box is teleported back, or recalled if that fails. | `PokemonPastureBlockEntity.kt:129-133`, `K/api/ai/config/task/WanderTaskConfig.kt:187-192`, `K/entity/pokemon/PokemonEntity.kt:740-770` |
+| Roam box = block position ±`pastureMaxWanderDistance`. Wandering skips targets outside it. A Cobblemon outside the box is teleported back, or recalled if that fails. | `PokemonPastureBlockEntity.kt:129-133`, `K/api/ai/config/task/WanderTaskConfig.kt:187-192`, `K/entity/pokemon/PokemonEntity.kt:740-770` |
 | Block entity NBT holds the tetherings, the roam box, `ownerId` and `ownerName`. Entity NBT holds only the link. Tethered entities always save. | `PokemonPastureBlockEntity.kt:351-398`, `PokemonEntity.kt:907-921,1360-1367` |
 | Chunk unload keeps the link. `remove()` clears `tetheringId` only when the entity is really destroyed. On load the entity re-links if the ids match, otherwise it dies at 0 health. | `PokemonEntity.kt:1792-1806,960-992` |
 | No respawn. Every 40 ticks the block entity prunes links that no longer match. | `PokemonPastureBlockEntity.kt:291-304` |
-| Pastured Pokémon never despawn and survive the owner logging out. | `PokemonEntity.kt:1369`, `PokemonServerDelegate.kt:346-348` |
-| Every 20 ticks with the owner online, the entity swaps to the PC's Pokémon instance. | `PokemonEntity.kt:719-731` |
+| Pastured Cobblemon never despawn and survive the owner logging out. | `PokemonEntity.kt:1369`, `PokemonServerDelegate.kt:346-348` |
+| Every 20 ticks with the owner online, the entity swaps to the PC's Cobblemon instance. | `PokemonEntity.kt:719-731` |
 | Anyone can open a pasture. The placer is recorded but never enforced. | `PastureBlock.kt:257-303,238-255` |
 | Default permissions: canPasture, canUnpastureOthers, maxPokemon 16. A `PasturePermissionController` can override them. | `PasturePermissionControllers.kt:29-38` |
 | Adding needs: fewer than `maxPokemon` for that player, fewer than 16 total, not fainted, and the density check. | `K/net/serverhandling/pasture/PasturePokemonHandler.kt:23-43,137-157` |
-| Removing works on the server only for your own Pokémon. `canUnpastureOthers` is used only by the client UI. | `UnpasturePokemonHandler.kt:26-32` |
-| Breaking the block releases all Pokémon. The network packet caps the count at 255. | `PokemonPastureBlockEntity.kt:306-311` |
+| Removing works on the server only for your own Cobblemon. `canUnpastureOthers` is used only by the client UI. | `UnpasturePokemonHandler.kt:26-32` |
+| Breaking the block releases all Cobblemon. The network packet caps the count at 255. | `PokemonPastureBlockEntity.kt:306-311` |
 | Entity to pasture: `PokemonEntity.tethering?.pasturePos`, or MoLang `q.entity.is_pastured`. | `PokemonEntity.kt:306`, `K/api/molang/function/PokemonEntityMoLangFunctions.kt:123` |
 
 Config (`config/cobblemon/main.json`, `K/config/CobblemonConfig.kt:285-295`):
@@ -79,7 +79,7 @@ Config (`config/cobblemon/main.json`, `K/config/CobblemonConfig.kt:285-295`):
 ### Pasture UI
 
 - The server sends `OpenPasturePacket` (`cobblemon:open_pasture`) with the pcId, a random link id
-  `pastureId`, the limit, the Pokémon list and the permissions. `OpenPastureHandler` opens `PCGUI` with a
+  `pastureId`, the limit, the Cobblemon list and the permissions. `OpenPastureHandler` opens `PCGUI` with a
   `PasturePCGUIConfiguration` (`K/client/net/pasture/OpenPastureHandler.kt:20-29`).
 - `StorageWidget` adds the `PastureWidget` (`K/client/gui/pc/StorageWidget.kt:146-147`). The widget holds
   the scroll list and the `RecallButton` (`K/client/gui/pasture/PastureWidget.kt:37-79`).
@@ -96,7 +96,7 @@ Config (`config/cobblemon/main.json`, `K/config/CobblemonConfig.kt:285-295`):
 - The client never learns the pasture's position. On the server, use
   `PastureLinkManager.getLinkByPlayer(player)`, which is valid within 10 blocks in the same dimension
   (`:34-44`). Then check `ownerId`.
-- The pasture has no per-pasture settings. The only toggle is the per-Pokémon "Defend" flag
+- The pasture has no per-pasture settings. The only toggle is the per-Cobblemon "Defend" flag
   `PokemonBehaviourFlag.PASTURE_CONFLICT` (`K/entity/pokemon/PokemonBehaviourFlag.kt:21-25`). Its handler
   checks no ownership and calls `remakeBrain()` (`SetPastureConflictHandler.kt:20-31`). The flag set is a
   byte limited to 7 entries and is sent as enum positions, so an addon cannot add flags.
@@ -104,7 +104,7 @@ Config (`config/cobblemon/main.json`, `K/config/CobblemonConfig.kt:285-295`):
 
 ### Brain AI
 
-- Pokémon AI is Brain-based. The goal code is commented out (`PokemonEntity.kt:1135-1140`), and the Brain
+- Cobblemon AI is Brain-based. The goal code is commented out (`PokemonEntity.kt:1135-1140`), and the Brain
   ticks in `customServerAiStep` (`:772`).
 - Behaviours come from `form.baseAI` if set, otherwise from all auto behaviours plus `form.ai`
   (`K/pokemon/ai/PokemonBrain.kt:96-104`). No species sets `baseAI` in 1.8.4.
@@ -113,7 +113,7 @@ Config (`config/cobblemon/main.json`, `K/config/CobblemonConfig.kt:285-295`):
 - In-source docs: `K/api/ai/config/README.md` and `K/api/ai/config/task/README.md`.
 - Relevant JSON: `pokemon_core.json` has wander control at idle priority 0. `core.json` has
   `follow_walk_target` in core and `look_at_target` in idle only. `wanders.json` runs at idle priority 7.
-  `pokemon_owned.json:18-24` attacks hostile mobs when a pastured Pokémon has Defend on.
+  `pokemon_owned.json:18-24` attacks hostile mobs when a pastured Cobblemon has Defend on.
 - MoLang conditions are evaluated once, when the Brain is built.
 - Registries (public mutable maps): `TaskConfig.types` (`K/api/ai/config/task/TaskConfig.kt:44-127`) and
   `BehaviourConfig.types` (`K/api/ai/config/BehaviourConfig.kt:38-47`). Activities come from vanilla
@@ -123,7 +123,7 @@ Config (`config/cobblemon/main.json`, `K/config/CobblemonConfig.kt:285-295`):
 - Each custom task must declare its memories with `addMemories(...)`, or `setMemory` does nothing
   (inferred from vanilla Brain rules).
 - The Brain is built in the entity constructor (`PokemonEntity.kt:430-434`), before `tethering` is set.
-  So `is_pastured` is false for a new pastured Pokémon until `remakeBrain()` runs.
+  So `is_pastured` is false for a new pastured Cobblemon until `remakeBrain()` runs.
 - Replacing `entity.pokemon` rebuilds the Brain (`PokemonEntity.kt:255-265`). The 20-tick PC sync does this.
 - Wandering needs both `WALK_TARGET` and `PATH_COOLDOWN` to be absent (`WanderTaskConfig.kt:128-133`).
 
@@ -141,7 +141,7 @@ Config (`config/cobblemon/main.json`, `K/config/CobblemonConfig.kt:285-295`):
   attaches one to an entity. The client aims at the target's locator, or at the target entity's position
   when it has no model (`K/client/net/effect/SpawnSnowstormEntityParticleHandler.kt:28-52`).
 - Action-effect timelines can run outside battle. The built-in `q.entity.run_action_effect`
-  (`PokemonEntityMoLangFunctions.kt:129-158`) passes the Pokémon only as the target, and the animation
+  (`PokemonEntityMoLangFunctions.kt:129-158`) passes the Cobblemon only as the target, and the animation
   and particle steps need `is_user` by default (`EntityConditionalActionEffectKeyframe.kt:25-39`). A
   custom context must copy battles (`K/battles/interpreter/instructions/MoveInstruction.kt:106-136`) and
   define the battle-only queries `missed`, `target_fainted`, `hurt`, `failed` and `move` (`:144-185`).
@@ -216,13 +216,13 @@ Other effect assets:
 
 - `PoseType.SLEEP` is chosen when the `POKEMON_SLEEPING` memory is set, or the battle sleep status is set,
   and the species has `behaviour.resting.canSleep` (`PokemonServerDelegate.kt:376-399`).
-- `pokemon_sleeps.json` makes wild and pastured Pokémon find a resting place at night. In the sleeping
+- `pokemon_sleeps.json` makes wild and pastured Cobblemon find a resting place at night. In the sleeping
   activity, `WakeUpTask` ends sleep when the drowsy memory clears.
-- `pokemon_sleeps_on_trainer_bed.json` makes party Pokémon sleep on the owner's vanilla bed while the
+- `pokemon_sleeps_on_trainer_bed.json` makes party Cobblemon sleep on the owner's vanilla bed while the
   owner sleeps.
 - Species flags (`K/pokemon/ai/RestBehaviour.kt:26-39`): `canSleep` defaults to false, and 484 species set it
   true. `willSleepOnBed` is true for 334 species. Further rules cover light, blocks, biomes and times.
-- To make a pastured Pokémon nap on a block:
+- To make a pastured Cobblemon nap on a block:
   1. Walk it to the block with a custom activity.
   2. Stop its navigation and snap it to the block center.
   3. Set `enablePoseTypeRecalculation=false` and `POSE_TYPE=SLEEP` (`PokemonEntity.kt:205,311`). Keep it
@@ -230,7 +230,7 @@ Other effect assets:
   4. Restore the recalculation flag afterwards. Cobblemon saves it to NBT (`:943`).
   5. Do not set the SLEEP status (`GoToSleepTask.kt:38`). It is the battle status, and it persists.
 
-### Pokémon data
+### Cobblemon data
 
 | Data | Reference (`K/pokemon/Pokemon.kt` unless noted) |
 |---|---|
@@ -239,14 +239,14 @@ Other effect assets:
 | `isLegendary()`, `isMythical()`, `isUltraBeast()`, `hasLabels(...)` | `:1219-1244` |
 | Label constants (paradox at `:146`) | `K/api/pokemon/labels/CobblemonPokemonLabels.kt` |
 | A form's own labels replace the species labels. Galarian Articuno re-declares legendary. | `K/pokemon/FormData.kt:202-203` |
-| Species files per label: legendary 71, mythical 23, ultra_beast 11, paradox 20. Alpha Pokémon (`isAlpha`) exist in 1.8. | — |
+| Species files per label: legendary 71, mythical 23, ultra_beast 11, paradox 20. Alpha Cobblemon (`isAlpha`) exist in 1.8. | — |
 | `shiny` | `:481` |
 | `ivs[Stats.X]`, `evs[...]` | `:227,241` |
 | `nature`, `mintedNature`, `effectiveNature` | `:494-504` |
 | `friendship` | `:394` |
 | `moveSet.getMoves()` | `:507` |
 | `currentHealth`, `maxHealth`, `isFainted()` | `:336,585,1028` |
-| `getOwnerUUID()` returns the player UUID for PC Pokémon. `entity.ownerUUID` comes from the tether. | `:1562-1573` |
+| `getOwnerUUID()` returns the player UUID for PC Cobblemon. `entity.ownerUUID` comes from the tether. | `:1562-1573` |
 | `isWild()` means no storage at all. `isPlayerOwned()` sits next to it. Battle clones must be excluded too. | `:1577` |
 | `persistentData`: a mutable tag that cannot be reassigned. Saved in PC and party under `PersistentData`, and sent to clients. Call `onChange()` after an edit, or the change may revert. | `:748,2283`, `K/util/codec/internal/PokemonP2.kt:108` |
 | The UUID is stable and saved. Only `clone(newUUID=true)` changes it. Evolution changes the same object in place. | `:1451-1459`, `K/api/pokemon/evolution/Evolution.kt:196-203` |
@@ -282,7 +282,7 @@ All events are `@JvmField` fields in `K/api/events/CobblemonEvents.kt`.
 
 - Cobblemon has no events for pasture, unpasture or storage moves. The options are the
   `Pokemon.storeCoordinates` observable (`Pokemon.kt:724`), a mixin on `tether`, `releasePokemon` and
-  `releaseAllPokemon`, or polling. NeoForge's join-level event sees `tethering == null` for a Pokémon that
+  `releaseAllPokemon`, or polling. NeoForge's join-level event sees `tethering == null` for a Cobblemon that
   was just pastured.
 - Kotlin subscription: `CobblemonEvents.LEVEL_UP_EVENT.subscribe(Priority.NORMAL) { e -> ... }`.
 - Java subscription: `CobblemonEvents.POKEMON_FAINTED.subscribe(Priority.HIGH, e -> { ... });`.
@@ -294,9 +294,9 @@ All events are `@JvmField` fields in `K/api/events/CobblemonEvents.kt`.
   entity's own handler and the item's `interactLivingEntity`.
 - Cobblemon's NeoForge listener (`neoforge/src/main/kotlin/com/cobblemon/mod/neoforge/event/NeoForgePlatformEventHandler.kt:120-131`)
   only blocks name tags on certain entities (`K/Cobblemon.kt:271-275`). Subscribe at HIGH priority.
-- `PokemonEntity.mobInteract` (`PokemonEntity.kt:1179-1293`) handles, for the owner or a wild Pokémon:
+- `PokemonEntity.mobInteract` (`PokemonEntity.kt:1179-1293`) handles, for the owner or a wild Cobblemon:
   shears, bowl, flowers, stash items, dye, water bucket and the NPC editor. A sneaking main-hand click
-  opens the interaction wheel (`:1283`), including for pastured Pokémon while the owner is online.
+  opens the interaction wheel (`:1283`), including for pastured Cobblemon while the owner is online.
   Otherwise, for the owner, it tries item-gated `pokemon_interactions` data, then evolution items, then
   items that implement `PokemonEntityInteraction` (`:1448-1531`). Only after all of that does the item's
   `interactLivingEntity` run.
@@ -312,8 +312,8 @@ Comet Shard, Star Piece, Big Nugget, Pearl and Bottle Cap do not exist in 1.8.4.
 | `cobblemon:master_ball` | Crafted: Nether Star, 2 netherite ingots and 2 shulker shells |
 | `cobblemon:ability_patch` | No recipe or loot. Creative tab only. |
 | `cobblemon:ability_capsule` | Brewing, and ruins loot |
-| `cobblemon:rare_candy` | Defeating tier-4 Alpha Pokémon, and gilded-chest loot |
-| `cobblemon:exp_candy_xl` | Defeating tier-4 Alpha Pokémon |
+| `cobblemon:rare_candy` | Defeating tier-4 Alpha Cobblemon, and gilded-chest loot |
+| `cobblemon:exp_candy_xl` | Defeating tier-4 Alpha Cobblemon |
 | `cobblemon:masterpiece_teacup` | Ruins archaeology. A recipe duplicates it. |
 | `cobblemon:relic_coin` and `cobblemon:relic_coin_sack` | Ruins archaeology. The sack is crafted. |
 | 17 fossils, for example `cobblemon:old_amber_fossil` | Rare archaeology |
@@ -329,7 +329,7 @@ Comet Shard, Star Piece, Big Nugget, Pearl and Bottle Cap do not exist in 1.8.4.
    behaviour.
 3. Effect timelines drift. They depend on battle-only queries (1.8.4 just added `q.target_fainted`) and
    on `is_user` rules. Particle ids get renamed or retimed. Attack pose coverage is thin.
-4. The tether box teleports or recalls a Pokémon outside 32 blocks. The 20-tick PC sync rebuilds the Brain.
+4. The tether box teleports or recalls a Cobblemon outside 32 blocks. The 20-tick PC sync rebuilds the Brain.
    `persistentData` needs `onChange()`.
 5. Fixed formats couple tightly: the 7-flag behaviour byte, the `OpenPasturePacket` format, KotlinForForge
    5.10 or later with Kotlin 2.2.20, and the split between MPL code and NonCommercial assets.
@@ -484,11 +484,11 @@ private void cobblemon_dynamics$heat(CallbackInfoReturnable<BlazeBurnerBlock.Hea
 ```
 
 - The tick updates the block state every tick, so heat should start within one tick and stop one tick
-  after the Pokémon leaves (inferred). The mixin changes no saved data, plays no sound and leaves no burn
+  after the Cobblemon leaves (inferred). The mixin changes no saved data, plays no sound and leaves no burn
   time behind.
 - Fallback with no mixin: `BlazeBurnerBlock.tryInsert(BlockState, Level, BlockPos, ItemStack, boolean doNotConsume, boolean forceOverflow, boolean simulate)`
   (181-206) with `doNotConsume = true` and a new coal or blaze cake stack, repeated at 500 ticks or fewer
-  remaining. It plays a sound on each insert, and the burner keeps burning after the Pokémon leaves: up to
+  remaining. It plays a sound on each insert, and the burner keeps burning after the Cobblemon leaves: up to
   2,100 ticks with coal, or 3,700 ticks seething plus 5,000 kindled with cake.
 - Create's own egg handler writes those fields directly (`BlazeBurnerHandler.java:64-71`).
 - Do not heat empty burners. Setting one to SMOULDERING would make it drop a full Blaze Burner (loot table
@@ -532,7 +532,7 @@ Catalyst position:
 - Belts and depots are checked at position i and one block below (`:311-334`).
 - The server rebuilds every 30 ticks (`CKinetics.java:28`), or when
   `EncasedFanBlockEntity.blockInFrontChanged()` (120-122) is called.
-- A Pokémon that stands in the catalyst block is inside its own segment, so the fan affects it unless it
+- A Cobblemon that stands in the catalyst block is inside its own segment, so the fan affects it unless it
   is exempt.
 
 Smoking and blasting:
@@ -543,7 +543,7 @@ Smoking and blasting:
   SMELTING recipes, then BLASTING recipes. It destroys food whose smelting result equals its smoking result,
   and any item without a recipe that is not fire-resistant (`FanProcessing.java:37-46`). Entities get 10 s
   of fire and 4 damage.
-- A Pokémon-heated Blaze Burner in a fan line is already a blasting catalyst, with no extra code.
+- A Cobblemon-heated Blaze Burner in a fan line is already a blasting catalyst, with no extra code.
 - Both types skip entities where `fireImmune()` is true. In Cobblemon that covers Fire-types, lava
   swimmers and a behaviour flag (`PokemonEntity.kt:797-799`, `Pokemon.kt:1041-1043`).
 - Haunting gives Blindness and Slowness to any `LivingEntity` (`:276-279`).
@@ -571,7 +571,7 @@ What the client needs for our own fan processing type:
 1. The same type id, registered on both sides.
 2. `isValidAt` must return true on the `ClientLevel`. The client rebuilds the segments itself from each fan
    packet (`EncasedFanBlockEntity.java:45-49`), which is sent at least every 30 ticks (129-141). So the
-   client must know which Pokémon is a working catalyst at which position.
+   client must know which Cobblemon is a working catalyst at which position.
 3. `morphAirFlow` (`AirFlowParticle.java:61-87`) and `spawnProcessingParticles` (`AirCurrent.java:115-117,
    147-149`) run on the client.
 4. `affectEntity` also runs on the client, so it needs an `isClientSide` guard.
@@ -1007,31 +1007,31 @@ GitHub source (`CW-src`, commit `2986bde`, version 1.8.0).
   (`mixin/PokemonPastureBlockEntityMixin.java:13-31`). Accessor mixins expose the furnace and brewing stand
   fuel fields.
 - **Detection.** `PastureSystem.tickPasture` walks `getTetheredPokemon()`, then `Tethering.getPokemon()`, then
-  `getEntity()`. It skips Pokémon that are fainted, in `PoseType.SLEEP`, or marked resting
+  `getEntity()`. It skips Cobblemon that are fainted, in `PoseType.SLEEP`, or marked resting
   (`systems/PastureSystem.kt:74-87`). It caches eligible jobs for 100 ticks (`:44-63`).
-- **State.** Every (Pokémon, job) pair runs its own state machine (`job/context/JobContextManager.kt:14-17`):
+- **State.** Every (Cobblemon, job) pair runs its own state machine (`job/context/JobContextManager.kt:14-17`):
   IDLE, then the components in order, then DEPOSITING, then IDLE (`job/JobStateMachine.kt:28-144`).
 - **Movement.** `navigation.moveTo(x+0.5, y, z+0.5, 0.4)` at most every 20 ticks, with arrival at 2.5 blocks or
   less (`services/NavigationService.kt:13-55`). No Brain tasks, behaviours or goals.
 - **Scanning.** A box of ±8 X/Z and ±5 Y at 50 blocks per tick, then a 45 s wait
   (`systems/PastureDeferredScanSystem.kt:44-88`, defaults in `config/CobbleworkersConfig.kt:3-9`).
-- **Claims.** A global `ClaimService.blockClaims` (block position to Pokémon UUID and tick) with `putIfAbsent`
+- **Claims.** A global `ClaimService.blockClaims` (block position to Cobblemon UUID and tick) with `putIfAbsent`
   and a 30 s expiry (`services/ClaimService.kt:11-18,75-79`), used by `NavigationExecutor`
   (`job/executor/NavigationExecutor.kt:28-42`). The key has no dimension (inferred). A claim leak with no expiry
   (#73) was fixed on 2026-07-01.
 - **UI.** Nothing on the pasture screen, "by design, since cobbleworkers is currently a server-side mod" (#70).
-  A per-Pokémon "Rest" option on the interaction wheel uses `CobblemonEvents.POKEMON_INTERACTION_GUI_CREATION`
+  A per-Cobblemon "Rest" option on the interaction wheel uses `CobblemonEvents.POKEMON_INTERACTION_GUI_CREATION`
   (`neoforge/client/CobbleworkersNeoForgeClient.kt:43-46`, `client/CobbleworkersInteractWheel.kt:20-25`).
 - **Rest flag.** `cobbleworkers.resting` in `Pokemon.persistentData` (`services/RestManager.kt:9-31`). Resting
-  or sleeping Pokémon skip every job (`systems/PastureSystem.kt:81`).
+  or sleeping Cobblemon skip every job (`systems/PastureSystem.kt:81`).
 - **Extension.** Data-pack jobs in `data/<namespace>/jobs/*.json` load at server start and on `/reload`.
   `JobRegistry.clear()` runs first, and `"enabled": false` skips a job. Requirement keys: species, types,
   abilities, moves, marks, level, shiny, friendship, aspects, cosmetic, conditions
   (`job/definition/Requirements.kt:15-25`). The 10 component types are fixed
   (`job/serialization/ComponentTypes.kt:3-14`), and the `Component` base class is sealed at the JVM level.
-- **Healer job.** A Pokémon that knows Wish, Soft-Boiled, Moonlight, Recover, Roost, Heal Bell, Aromatherapy,
+- **Healer job.** A Cobblemon that knows Wish, Soft-Boiled, Moonlight, Recover, Roost, Heal Bell, Aromatherapy,
   Synthesis, Rest or Life Dew gives a player Regeneration for 20 s on a 30 s cooldown
-  (`job/executor/StatusEffectExecutor.kt:31`). It never heals Pokémon.
+  (`job/executor/StatusEffectExecutor.kt:31`). It never heals Cobblemon.
 - **No fatigue.** It has no stamina, hunger or bed mechanics. Its only item is
   `cobbleworkers:worker_inventory_selector` (paper, red apricorn and string).
 - **Health (2026-11-09).** 123 GitHub commits, none since 2026-04-05. Two contributors. 0 open and 52 closed
@@ -1053,13 +1053,13 @@ Paths: `core/` is `common/src/main/kotlin/notlown/cobblebase/core/`, and `mixin/
   diving workers. `releasePokemon` at HEAD cleans up.
 - **Entity hook.** `PokemonEntity.tick` at HEAD is a "sleep lock". It forgets the Brain's `WALK_TARGET`,
   `LOOK_TARGET` and `PATH` and pins the X and Z position (`mixin/PokemonEntitySleepLockMixin.java:53-115`).
-- **Assignment.** Work is opt-in per Pokémon. Without an assignment, a Pokémon is idle and gets ambient sit,
-  sleep, socialize and wander behaviour (`core/BaseManager.kt:182-257`). Idle Pokémon sleep at night, between
+- **Assignment.** Work is opt-in per Cobblemon. Without an assignment, a Cobblemon is idle and gets ambient sit,
+  sleep, socialize and wander behaviour (`core/BaseManager.kt:182-257`). Idle Cobblemon sleep at night, between
   time 13000 and 22999 (`mixin/PokemonPastureBlockEntityMixin.java:239-279`, `core/AmbientBehavior.kt:566-575`).
-- **Teleports.** Pokémon beyond max(configured distance, range + 4) go back to the pasture, and drowning
+- **Teleports.** Cobblemon beyond max(configured distance, range + 4) go back to the pasture, and drowning
   non-Water-types are pulled out (`core/BaseManager.kt:149-174`). Water-types on land are moved into water
   within 20 blocks every tick (`mixin/PokemonPastureBlockEntityMixin.java:217-232`).
-- **Claims.** One soft reservation per executor. For furnace fuel, `furnaceTarget` maps Pokémon UUID to block
+- **Claims.** One soft reservation per executor. For furnace fuel, `furnaceTarget` maps Cobblemon UUID to block
   position with a 600-tick expiry (`FurnaceFuelExecutor.kt:63-70,96-113`). Nothing spans executors. The key
   has no dimension (inferred).
 - **UI.** Mixins into `com.cobblemon.mod.common.client.gui.pasture.PastureWidget`

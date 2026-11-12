@@ -106,5 +106,5 @@ The `Server` object has these methods:
 - `restart()` stops the server and starts it again in the same folder. The log methods then read the
   new run only.
 
-A dedicated test server has no player, so a scenario cannot pasture a Pokémon. Checks that need a
+A dedicated test server has no player, so a scenario cannot pasture a Cobblemon. Checks that need a
 worker stay in the GameTests.

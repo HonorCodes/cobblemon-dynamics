@@ -699,7 +699,7 @@ placed through `setPlacedBy`).
     unique profile. Vanilla's `makeMockServerPlayerInLevel` joins the player list, and its connection rejects
     Cobblemon's login payloads (`Payload cobblemon:script_registry_sync may not be sent to the client`).
   - `fun pasturedEntity(helper, pasture, pokemonId): PokemonEntity?`. `Pokemon.entity` is set only for sent-out
-    Pokémon, so pastured entities are found with an AABB query by Pokémon UUID.
+    Cobblemon, so pastured entities are found with an AABB query by Cobblemon UUID.
   - `fun placePasture(helper: GameTestHelper, rel: BlockPos, owner: ServerPlayer?): PokemonPastureBlockEntity`
   - `fun pokemon(spec: String): Pokemon` where `spec` is a Cobblemon properties string, for example
     `"charmander level=10"`.

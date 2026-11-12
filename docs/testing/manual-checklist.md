@@ -35,8 +35,8 @@ Marks after the row id:
    `options.txt` before the first start, as `run/client/options.txt` does. Otherwise the game first opens the
    accessibility onboarding screen, which you can also click through.
 7. Start the game. Make a creative flat world with cheats on.
-8. Run `/gamerule doPokemonSpawning false`, so that no wild Pokémon walk into the test area.
-9. Give yourself Pokémon with `/pokegive <species> level=<n>`, for example `/pokegive charmander level=1`.
+8. Run `/gamerule doPokemonSpawning false`, so that no wild Cobblemon walk into the test area.
+9. Give yourself Cobblemon with `/pokegive <species> level=<n>`, for example `/pokegive charmander level=1`.
    Put them in a pasture through its panel.
 
 ### Optional mods for the compatibility checks
@@ -72,7 +72,7 @@ world.
 - With the default config, a level 1 worker is Tired after 3 minutes of Working. It loses 1% of Work
   Stamina about every 2 seconds. Use level 1 workers for the checks that need a Tired worker.
 - `/cobblemondynamics stamina @e[type=cobblemon:pokemon,sort=nearest,limit=1]` shows the Work Stamina, the
-  state and the recovery rule of the nearest Pokémon. `/cobblemondynamics claims` lists the claims and the
+  state and the recovery rule of the nearest Cobblemon. `/cobblemondynamics claims` lists the claims and the
   bindings.
 - The game shows the state ToBed as "To Bed", and RestingInPlace as "Resting in Place".
 - Give a furnace 64 raw iron with `/give @s raw_iron 64`. It then cooks for more than 10 minutes.
@@ -137,7 +137,7 @@ world.
 
 ## Work Leash
 
-16. **CD-LSH-02.** Setup: a rideable Pokémon of yours, for example a Charizard, in a Work Mode pasture.
+16. **CD-LSH-02.** Setup: a rideable Cobblemon of yours, for example a Charizard, in a Work Mode pasture.
     Action: with the Work Leash in your main hand, right-click the Charizard. Then sneak and right-click it.
     Expected: the plain click shows "Selected Charizard" in the action bar. Neither click opens Cobblemon's
     interaction wheel, and neither click mounts the Charizard.
@@ -225,7 +225,7 @@ world.
 35. **CD-FX-09.** Setup: a Machop and an Eevee Working at two Create hand cranks, a Vaporeon Working at a
     water wheel with no water, and 2 Charmanders Working at 2 furnaces with input. Action: listen for 10
     seconds. Expected: no sound comes from the workers' effects. The Machop, the Eevee and the Vaporeon play no
-    animation, and their particles show every 2 seconds. A Pokémon's own ambient cry, which Cobblemon plays
+    animation, and their particles show every 2 seconds. A Cobblemon's own ambient cry, which Cobblemon plays
     about once a minute, is not a work effect.
 
 ## Compatibility
@@ -349,7 +349,7 @@ These checks show the art of the first release. Record their results in the play
 
 This check shows Quick Work on a client. Record its result in the play-test note of the Phase 2 gate report.
 
-59. **CD-QWK-21.** Setup: a level 10 Charmander as the selected Pokémon of your party, and a furnace with 8 raw iron. Look at
+59. **CD-QWK-21.** Setup: a level 10 Charmander as the selected Cobblemon of your party, and a furnace with 8 raw iron. Look at
     the furnace from about 6 blocks away and press R. The action bar reads "Charmander goes to work on Furnace", and the
     Charmander Works the furnace. Run `/pokespawn rattata level=5`, and step 4 blocks back from the Rattata. Action: look at
     the Rattata and press R, so that a battle with it starts. Expected: when the battle starts, the action bar reads

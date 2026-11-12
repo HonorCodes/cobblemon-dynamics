@@ -46,7 +46,7 @@ Checked for Task 1 on 2026-11-10, with `javap -c` on the merged NeoForge jar and
 
 - `PokemonEntity.createAttributes()` adds `Attributes.FOLLOW_RANGE` at 32.0, so `getAttributeValue(Attributes.FOLLOW_RANGE)`
   works on every `PokemonEntity`. Its navigation is Cobblemon's `OmniPathNavigation`, whose `createPath(BlockPos, Int)` moves
-  an air target of a Pokémon that cannot fly to the first non-solid cell above the floor, which is the spot itself for a
+  an air target of a Cobblemon that cannot fly to the first non-solid cell above the floor, which is the spot itself for a
   standable spot. Cobblemon's `FollowWalkTargetTask` walks to a plain `WalkTarget` with `navigation.createPath(target, 0)` and
   tests `path.canReach()`, so the path check asks what the walk asks later.
 - `PathNavigation.createPath` returns null, with no search, while `canUpdatePath()` is false. `OmniPathNavigation` makes it false
@@ -1246,7 +1246,7 @@ object TelekinesisHandler : TargetHandler {
 - [ ] **Step 4: Run the unit tests and see them pass.**
 
 - [ ] **Step 5: GameTests** in `TelekinesisTests` (`@GameTestHolder(MOD_ID)`, `@PrefixGameTestTemplate(false)`). Its
-  `scene(helper, spec)` places a Work Mode pasture at (7, 1, 9) with one Pokémon of `spec` and stands the owner beside it,
+  `scene(helper, spec)` places a Work Mode pasture at (7, 1, 9) with one Cobblemon of `spec` and stands the owner beside it,
   as `LeashTests.scene` does. The tests place Create's blocks by id, as `PumpTests` does, so they name no Create class. Each
   test needs real item handlers or a real worker, so rule 6 keeps it:
 

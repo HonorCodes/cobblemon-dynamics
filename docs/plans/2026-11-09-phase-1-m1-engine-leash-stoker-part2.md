@@ -328,7 +328,7 @@ Per `LevelTickEvent.Post` on a `ServerLevel`, `tickLevel` runs these steps for t
 1. Pastures due for their 20-tick poll (staggered by `ScanScheduler.phaseFor(pos.asLong(), 20)`; a new
    runtime polls on its first tick): read the
    tethered list through `PastureAdapter.tethered`, add new workers, and release and forget workers that
-   left (CD-ASG-15). A worker counts only when its Pokémon is player-owned, not fainted, not a battle
+   left (CD-ASG-15). A worker counts only when its Cobblemon is player-owned, not fainted, not a battle
    clone, its entity is in this level, and `tethering.playerId == pokemon.getOwnerUUID()` (CD-ASG-01).
    A pasture whose block is gone, or whose attachment reads off, leaves the index.
 2. Claimed targets: `handler.stillValid(level, pos)` for every work claim in this level, after
@@ -352,7 +352,7 @@ Per `LevelTickEvent.Post` on a `ServerLevel`, `tickLevel` runs these steps for t
    `handler.onStart`, snap the entity to the spot center, and on leaving Working call `handler.onStop`.
    While Working call `handler.applyWork` every tick. While Traveling, set the Brain's `WALK_TARGET` to the
    spot's bottom center (speed 0.4, close enough 0) every tick; Cobblemon's core `follow_walk_target` task
-   walks the Pokémon there, and wandering pauses while a walk target exists. Task 9 replaces this interim
+   walks the Cobblemon there, and wandering pauses while a walk target exists. Task 9 replaces this interim
    write with `BrainBridge.write`. A worker whose entity is removed loses its claim and its slot, and joins
    again at the next poll. A worker whose claim another caller released goes to Idle in the same tick.
 6. Task 9 writes the Brain memory here, and Task 10 runs the effects here.
@@ -658,8 +658,8 @@ once in 20 ticks, and sets `enablePoseTypeRecalculation = true` (CD-AI-03, and C
 `hold` is true, erases `WALK_TARGET`, sets `PATH_COOLDOWN` for 40 ticks and stops the navigation
 (CD-AI-02). `WorkLookTask`: sets `LOOK_TARGET` to a `BlockPosTracker` at `lookAt`, and while `hold` is true
 turns the body with `BrainBridge.face` (CD-AI-05, CD-AI-09). The look task is a task of its own, so the work
-activity's task list holds it. The body does not turn while the Pokémon walks: `PokemonMoveControl` moves
-the Pokémon along its `yRot`, so a forced yaw would push it off its path. A task that stops erases the
+activity's task list holds it. The body does not turn while the Cobblemon walks: `PokemonMoveControl` moves
+the Cobblemon along its `yRot`, so a forced yaw would push it off its path. A task that stops erases the
 `WALK_TARGET` or `LOOK_TARGET` that it set. The engine sets `hold = true` once the worker has arrived.
 
 Platform facts that shape the bridge (Minecraft 1.21.1, Cobblemon 1.8.4):
@@ -724,7 +724,7 @@ spot (cdAi02, cdAi05 and cdAi09: 1,000).
 
 Register `DynamicsActivities` and `DynamicsMemories` DeferredRegisters on the mod bus. Call
 `BrainBridge.registerTaskTypes()` from `FMLCommonSetupEvent` with `event.enqueueWork(Runnable { })`, before any
-Pokémon brain is built. In `WorkEngine` step 6, call `BrainBridge.write` for every worker with a work claim,
+Cobblemon brain is built. In `WorkEngine` step 6, call `BrainBridge.write` for every worker with a work claim,
 with `hold = arrived`, and `BrainBridge.clear` on release (the release path's `clear`, a changed entity at
 the poll, and `resetRuntimeForTest`, because a real restart loses the memory too). If `entity.brain` does
 not hold the `WORK_ORDER` memory after a write (a species with `baseAI`), log one warning per species, skip
@@ -1000,7 +1000,7 @@ object Feedback {                                       // every message goes th
 (CD-SEC-08); not in a Work Mode pasture → `"Not in a Work Mode pasture"`; no fitting role → `"No role fits"`;
 then `RoleSelection.best` picks the role (CD-LSH-16). A `SOURCE_AND_DESTINATION` role with no pending
 source returns `AwaitDestination` (CD-LSH-17). The work-area check applies to the single target or to
-the source (`"Outside its pasture's work area"`). A target bound to another Pokémon refuses with
+the source (`"Outside its pasture's work area"`). A target bound to another Cobblemon refuses with
 `"Already assigned to {Pokémon}"`. Otherwise `Bind`. Lang keys and values (`en_us.json`):
 
 | Key | Value |
@@ -1032,8 +1032,8 @@ Interaction wiring:
 - Entity clicks: `PlayerInteractEvent.EntityInteract` at `EventPriority.HIGH` on both sides. When the main
   hand holds a Work Leash and the target is a `PokemonEntity` whose owner is the player, cancel with
   `setCancellationResult(InteractionResult.SUCCESS)` on both sides (CD-LSH-02). On the server: a plain
-  click selects the Pokémon if it is tethered to a pasture in Work Mode (CD-LSH-01) and shows
-  `Selected {Pokémon}`; a sneak click clears its binding (CD-LSH-10). A Pokémon the player does not own,
+  click selects the Cobblemon if it is tethered to a pasture in Work Mode (CD-LSH-01) and shows
+  `Selected {Pokémon}`; a sneak click clears its binding (CD-LSH-10). A Cobblemon the player does not own,
   or a wild one, is never selected and the event is not cancelled (CD-SEC-07).
 - Block clicks: `WorkLeashItem.onItemUseFirst` runs before the block's own interaction. On the server it
   evaluates `BindRules` from server state and returns `InteractionResult.SUCCESS` whenever a selection
@@ -1042,7 +1042,7 @@ Interaction wiring:
   (CD-SEC-11).
 - Right-click on air: `use()` clears the pending source (CD-LSH-19). `inventoryTick` clears an expired one.
 - A successful bind writes the `Binding`, puts the target in `LeashIndex`, releases another worker's work
-  claim on the target in the same tick (CD-CLM-05), replaces this Pokémon's old binding (CD-LSH-11),
+  claim on the target in the same tick (CD-CLM-05), replaces this Cobblemon's old binding (CD-LSH-11),
   clears the selection and pending source, and shows `Bound {Pokémon} to {target}` (CD-LSH-06). The target
   name is `state.block.name`.
 - `ClaimRegistry`'s `ReservationView` reads `LeashIndex` of the target's level (CD-CLM-06). A leashed
@@ -1051,19 +1051,19 @@ Interaction wiring:
 
 Platform facts and choices that changed the plan:
 
-- The server owner check reads the Pokémon's store (`pokemon.getOwnerUUID()`), because a new entity copies
+- The server owner check reads the Cobblemon's store (`pokemon.getOwnerUUID()`), because a new entity copies
   its owner only on its first tick. The client reads the entity's synced `ownerUUID`. `Player.interactOn`
   posts the event and returns at once when it is cancelled, before `Entity.interact` (compiled class).
-- `LeashSelection` stays `(pokemonId, name)`. At a block click the server finds the Pokémon in the player's
+- `LeashSelection` stays `(pokemonId, name)`. At a block click the server finds the Cobblemon in the player's
   PC or party, and its pasture by the level's `work_pastures` index: a pasture in Work Mode whose tethered
-  list holds the Pokémon's current tethering. A refusal with `no_selection` removes the stale selection.
+  list holds the Cobblemon's current tethering. A refusal with `no_selection` removes the stale selection.
 - Both the selection and the pending source are data components on the stack, saved and synced (the spec
   rows test the stack). ARCHITECTURE's in-memory `PendingSelections` is gone.
 - With a pending source, only `SOURCE_AND_DESTINATION` roles whose handler matches both the source and the
   clicked block fit; the work-area and assignment checks are the source's. The first click refuses a source
-  outside the work area or bound to another Pokémon, so a refusal never waits for the second click.
+  outside the work area or bound to another Cobblemon, so a refusal never waits for the second click.
 - The leash acts in the main hand only, for block clicks too. With no selection the item passes, so the
-  block opens as usual. The tooltip names the selected Pokémon, and the item is in the Tools tab.
+  block opens as usual. The tooltip names the selected Cobblemon, and the item is in the Tools tab.
 - A bind calls `WorkEngine.onBound`: another worker's work claim on the target ends in the same tick
   (CD-CLM-05), and the pasture polls on the next engine tick. Each poll reads the binding into the slot and
   sets `Worker.leashed`; a leashed worker with no claim then claims its bound target and no other. A scan
@@ -1083,9 +1083,9 @@ Mode off:
 | Cause | Detection | Row |
 | --- | --- | --- |
 | Target broken or replaced | the index check: `handler.stillValid` false on a loaded target | CD-LSH-08 |
-| Pokémon recalled to the PC or the party | the index check: the loaded pasture's tethered list lacks it, and it is untethered | CD-LSH-08 |
-| Pokémon tethered to another pasture | the index check: the old pasture lacks it, and it is tethered | CD-LSH-24 |
-| Pokémon released | `CobblemonEvents.POKEMON_RELEASED_EVENT_POST` | CD-LSH-25 |
+| Cobblemon recalled to the PC or the party | the index check: the loaded pasture's tethered list lacks it, and it is untethered | CD-LSH-08 |
+| Cobblemon tethered to another pasture | the index check: the old pasture lacks it, and it is tethered | CD-LSH-24 |
+| Cobblemon released | `CobblemonEvents.POKEMON_RELEASED_EVENT_POST` | CD-LSH-25 |
 | New owner | `CobblemonEvents.POKEMON_GAINED` with `playerId != binding.binder` | CD-LSH-26 |
 | Pasture block gone | the index check finds no pasture at `binding.pasture` | CD-WMD-07, CD-LSH-27 |
 | Evolution leaves no fitting role | `CobblemonEvents.EVOLUTION_COMPLETE` and the index check: no role of the bound role's handler fits the new types | CD-LSH-14 |
@@ -1206,7 +1206,7 @@ These GameTests are not written:
   the old target is not reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
 - CD-LSH-25 (`cdLsh25ReleasedPokemon`: Cobblemon's release path, `pc.remove` plus the `POKEMON_RELEASED_EVENT_POST` post;
   20 ticks later the old target is not reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
-- CD-LSH-26 (`cdLsh26TradeClearsData`: a Pokémon whose persistentData holds a binding made by owner A; post `POKEMON_GAINED`
+- CD-LSH-26 (`cdLsh26TradeClearsData`: a Cobblemon whose persistentData holds a binding made by owner A; post `POKEMON_GAINED`
   for owner B; the binding data is gone): GameTest deferred (high confidence): verified in the end-of-phase pass.
 - CD-LSH-27 and CD-WMD-07 (`cdLsh27PastureBroken`: bind three workers, destroy the pasture block; 20 ticks later no binding
   remains and no target is reserved): GameTest deferred (high confidence): verified in the end-of-phase pass.
@@ -1218,7 +1218,7 @@ These GameTests are not written:
 - CD-ASG-20 (`cdAsg20LeashedWorkerStaysOnItsTarget`: a leashed Stoker in Standby at an empty furnace, an unclaimed furnace
   with input 3 blocks away, 400 ticks; it never claims the second furnace and keeps its binding): GameTest deferred (high
   confidence): verified in the end-of-phase pass.
-- CD-SEC-07 (`cdSec07NotYourPokemon`: player B clicks player A's pastured Pokémon and a wild Pokémon; neither is
+- CD-SEC-07 (`cdSec07NotYourPokemon`: player B clicks player A's pastured Cobblemon and a wild Cobblemon; neither is
   selected): GameTest deferred (high confidence): verified in the end-of-phase pass.
 - CD-SEC-11 (`cdSec11CancelledClickNeverBinds`: a test listener cancels RightClickBlock on a chest; click it with a selected
   Alakazam; no pending source and no binding): GameTest deferred (high confidence): verified in the end-of-phase pass.
@@ -1374,7 +1374,7 @@ Expected: `BUILD SUCCESSFUL`, every GameTest passes, `missing: 0`.
 Run: `./gradlew build && py scripts/testpack/testpack.py smoke` and add a `reload` scenario to the script:
 start the server with the M1 jar, run `cobblemondynamics claims` from the console over RCON (it must answer),
 run `reload`, and check that the log holds no `Skipping role file` line.
-Expected: `SMOKE PASS`, `RELOAD PASS`. Pasturing a Pokémon needs a player, so worker scenarios stay in the
+Expected: `SMOKE PASS`, `RELOAD PASS`. Pasturing a Cobblemon needs a player, so worker scenarios stay in the
 GameTests; the approver's play-test covers them in a real client. The command must answer
 `No claims and no leash bindings`. The reload ends on the server thread after the command replies, so the scenario
 waits for vanilla's next `Loaded N recipes` line (`Server.count_log` and `wait_log(..., count=)`) before it reads the

@@ -20,7 +20,7 @@ The operator chose type-based eligibility, not per-species lists.
   start and on `/reload`.
 - A role file holds:
   - A `schema` version.
-  - Eligibility: `types`. A Pokémon qualifies when its primary or secondary type is in the list. There
+  - Eligibility: `types`. A Cobblemon qualifies when its primary or secondary type is in the list. There
     are no per-species lists.
   - A `handler` id and its `params`.
   - `auto_assign`, `priority` and `range`. When one worker fits two roles on the same target, the role

@@ -49,7 +49,7 @@ vanilla 16×16 style.
 - Each asset needs a few review rounds.
 - The beds read as one family across tiers, so players can tell the tier at a glance.
 - MPL-2.0 covers the art as well as the code, so a pack can redistribute both together.
-- The logo shows Pokémon likenesses (Machop, and a mark in the style of a Poké Ball). Pokémon is a
+- The logo shows Cobblemon likenesses (Machop, and a mark in the style of a Poké Ball). Cobblemon is a
   trademark of Nintendo, Creatures and Game Freak. The trademark disclaimer in the README covers this
   use, as it does for many Cobblemon addons.
 
