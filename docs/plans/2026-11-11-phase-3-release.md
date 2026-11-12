@@ -112,6 +112,12 @@ The coordinator's rulings on the design:
 4. **Records.** The ruling goes into the corrections of the spec sheet, the new row CD-QWK-36 holds the flag, and the role file
    docs and the Quick Work section of the player guide name the flag. Task 9 holds the work.
 
+### The approver on the GameTests, 2026-11-11
+
+The approver, who wanted to play: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". The coordinator cut the runs of the `m9-claims` build to
+`./gradlew build` and `./gradlew runGameTestServerFtbChunks`, because the UUID rule of FTB Chunks decides pasture work on
+COHO's live server. Every other run of Tasks 4, 5 and 9 is deferred by this ruling, and the tasks mark each part.
+
 ### Earlier rulings that still bind
 
 - **Multiplayer** (approver, 2026-11-10): every feature works in multiplayer, and no GameTest has two players. Each task
@@ -168,6 +174,22 @@ against the code and the tests.
 | 29 | G9 names Modrinth and CurseForge | G9, R69 | The approver uploads to CurseForge by hand. Nobody uploads to Modrinth yet | decision 12, pending the approver |
 | 30 | A play-test of the 1.0.0 candidate | CD-REL-14 | The play of `1.0.0-beta.3` gives the play-test note that CD-REL-14 needs | decision 17, pending the approver |
 | 31 | Fairy-types Quick Work an enchanting table as the Muse | R70 | Not built. New row CD-QWK-36, amended CD-QWK-05, CD-QWK-09, CD-QWK-19 and CD-CFG-07 | 9 |
+| 32 | `TailwindTests.cdTlw06Tlw09Tlw08TheBonusFollowsTheWork` fails now and then with "the Pidgey is STANDBY after the skip" | The coordinator, after `1.0.0-beta.3` | A known issue, with the cause below. The fix is deferred by the approver's ruling on the GameTests | none: a known issue |
+
+### Known issue: the Tailwind flake (item 32)
+
+`TailwindTests.cdTlw06Tlw09Tlw08TheBonusFollowsTheWork` releases its bound Pidgey with `TestKit.release`, which keeps the
+Pidgey off the bearing for 200 ticks, and then waits for it to Work again. A probe ran eight copies of the scene in one
+GameTest run on 2026-11-11, with the Pidgey's position, flight flag and state every 100 ticks. Seven passed. In copy 3, the
+idle Pidgey flew up during the skip, as Cobblemon's `wanders_hover` lets a pastured flyer do (up to 6 blocks). At tick 280 it
+was 4.5 blocks above the bearing. At its new claim it flew down to its spot under the turning sails, and landed on the sail
+sheet, which is a Create contraption that the pathfinder does not see. From tick 380 to 880 it rode the sails, 1.6 blocks
+above the bearing and `onGround`, so it never reached its spot. After 600 ticks its travel timed out, and a bound worker
+then waits in Standby until its retry (CD-ASG-17), which the test read as "STANDBY after the skip". In a second run, eight
+copies that held the Pidgey on its spot during the skip all passed. The fix holds the Pidgey on its spot until it claims
+again, as other tests hold a worker. It is deferred by the approver's ruling on the GameTests. In play, a bound Tailwind
+worker is rarely idle long enough to fly over its sails, and one that gets stuck gets the "cannot reach" message of
+CD-LSH-21 and travels again after `engine.retryWaitTicks`.
 
 ## Global Constraints
 
@@ -357,7 +379,8 @@ each under `com/ldtteam/<artifact>/<version>/` of the repository.
 The `[[mods]]` ids are `minecolonies`, `structurize`, `blockui`, `domum_ornamentum` and `multipiston`. MineColonies
 requires the first four, and nothing in the set requires `multipiston`.
 
-Inferred, and checked by Step 1 of Task 4:
+Inferred, and checked by Step 1 of Task 4. The MineColonies run is deferred by the approver's ruling on the GameTests, so only
+the last fact is checked: `./gradlew build` compiled `compat/minecolonies/` without Domum Ornamentum on 2026-11-11.
 
 - MineColonies, Structurize, BlockUI and Domum Ornamentum load on `GameTestServer`. A colony that `createColony` makes for
   a test player claims the chunks around its center at once (`ChunkDataHelper.claimColonyChunks`), so
@@ -905,6 +928,18 @@ object MineColoniesCompat {
 
 ### Task 4: GameTests with the real claim mods
 
+> **Partly deferred by the approver's ruling of 2026-11-11.** The approver: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". Only
+> `./gradlew runGameTestServerFtbChunks` ran, on the code of the `m9-claims` build. Its first run passed 9 of 10 tests. Its
+> oracle test `cdLnd06PastureCheckEqualsFtbChunksForEachPlayer` failed: the pasture check threw for every claimed chunk,
+> because `PrivacyMode` of FTB Teams 2101.1.12 has a public field `name` with the lower-case serialized name, which
+> Kotlin's `name` reads before `Enum.name()`, so `Mode.valueOf("allies")` failed. The check failed closed, with the warning
+> "Pastures work no target while the claim check of ftbchunks fails". With the mode mapped by its constant, the second run
+> passed all 10 tests: the fixture test, the oracle test of CD-LND-06, CD-LND-10, and the seven Quick Work tests of the
+> claims plan. The run also proved the first three facts of the "Inferred" list of the
+> [claims plan](2026-11-11-phase-2-quick-work-claims.md). The
+> `runGameTestServerOpac` and `runGameTestServerMineColonies` runs, the "Inferred" facts of MineColonies, and Step 4's check
+> with each `register` call commented out wait for a follow-up.
+
 **Rows:** CD-QWK-27, CD-QWK-28, CD-QWK-29, CD-QWK-31 and CD-QWK-32 (the real-mod tests of the claims plan), CD-LND-06,
 CD-LND-07 and CD-LND-08 (the oracle tests), CD-LND-09 (Quick Work in a colony), CD-LND-10 (no packet to the placer), and
 CD-QWK-26 and CD-QWK-30 for MineColonies.
@@ -1016,6 +1051,10 @@ fun colonyAllows(player: ServerPlayer, pos: BlockPos): Boolean =
 ---
 
 ### Task 5: The test pack
+
+> **Deferred by the approver's ruling of 2026-11-11.** The approver: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". The pins, the cases and the
+> README are written, and ruff passes, but `py scripts/testpack/testpack.py compat`, `smoke` and `deps` have not run, before
+> or after the change. A follow-up runs them.
 
 **Rows:** CD-QWK-33 (a dedicated server with each claim mod), CD-CMP-08, CD-CMP-09 and CD-CMP-10 (the load lines in the
 logs of real servers), CD-LND-13 (the server with MineColonies).
@@ -1281,6 +1320,13 @@ order). Ruling: R70.
 
 - [ ] **Step 4: Run** `./gradlew build` and `./gradlew runGameTestServer`. Every test passes, `QuickWorkTests.cdQwk05FairyTypeGetsNoOrder`
   and `QuickWorkSourceTest` (CD-QWK-23) included.
+
+  > **Partly deferred by the approver's ruling of 2026-11-11.** The approver: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them actively in the server". On the code
+  > before this task, the unit tests of Step 1 did not compile, and `cdQwk36FairyAtAClosedEnchantingTableWaitsAndWorks`
+  > got no order. With the code, `./gradlew build` passed, and one `runGameTestServer` showed a bug that the test caught.
+  > The order started and then ended with "Clefairy stopped working: Enchanting Table can no longer be worked", because the
+  > engine's `mayKeep` released each claim of a role that is neither bound nor auto-assign. `mayKeep` now keeps the claim of a
+  > Quick Worker whose role opts in. That fix passed `./gradlew build`, and the GameTest run after it is deferred.
 
 - [ ] **Step 5: Commit:** `git commit -m "Let a Fairy-type Quick Work an enchanting table as the Muse [rag:2]"`.
 

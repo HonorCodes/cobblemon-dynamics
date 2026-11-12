@@ -105,14 +105,21 @@ Checked in the same jars:
 - FTB Chunks' `FTBChunks.blockRightClick` asks `shouldPreventInteraction` with the protection of
   `FTBChunksExpected.getBlockInteractProtection()` and no entity, so the check of this plan is the check of a right-click.
 
-Inferred, and checked by Step 1 of Task 4:
+Inferred, and checked by Step 1 of Task 4. `runGameTestServerFtbChunks` ran on 2026-11-11, in the build of the
+[Phase 3 plan](2026-11-11-phase-3-release.md#task-4-gametests-with-the-real-claim-mods), and its fixture test
+`ftbFixtureAnswersLikeARightClick` passed. The Open Parties and Claims run is deferred by the approver's ruling of
+2026-11-11: "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be testing them
+actively in the server".
 
-- The GameTest server starts FTB Teams, FTB Chunks and Open Parties and Claims, because their server start listeners run on
-  `GameTestServer` too.
-- `TeamManagerImpl.INSTANCE.playerLoggedIn` gives a test player its own team, and FTB Chunks makes its team data from the
-  team event that this call posts. Packets to the player go to its test connection.
-- Without FTB Ranks, `FTBTUtils.canPlayerUseCommand` lets the party owner add members and allies.
-- One alliance from the claim owner's party to C's party is enough for the group `A` of Open Parties and Claims.
+- Proved for FTB Teams and FTB Chunks, open for Open Parties and Claims: the GameTest server starts the claim mods, because
+  their server start listeners run on `GameTestServer` too. The claim manager of FTB Chunks is loaded in the run.
+- Proved: `TeamManagerImpl.INSTANCE.playerLoggedIn` gives a test player its own team, and FTB Chunks makes its team data
+  from the team event that this call posts, so the party of A can claim. Packets to the player go to its test connection.
+- Proved: without FTB Ranks, `FTBTUtils.canPlayerUseCommand` lets the party owner add members and allies.
+- Open, because the Open Parties and Claims run is deferred: one alliance from the claim owner's party to C's party is
+  enough for the group `A` of Open Parties and Claims.
+- Found by the run: `PrivacyMode` of FTB Teams has a public field `name`, the lower-case serialized name, which Kotlin's
+  `name` reads instead of `Enum.name()`. Code maps a `PrivacyMode` by its constant.
 
 ---
 
