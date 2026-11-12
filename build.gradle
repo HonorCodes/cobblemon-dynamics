@@ -119,6 +119,11 @@ repositories {
         url = 'https://ldtteam.jfrog.io/ldtteam/modding/'
         content { includeGroup 'com.ldtteam' }
     }
+    maven {
+        name = 'Shadows of Fire'
+        url = 'https://maven.shadowsoffire.dev/releases'
+        content { includeGroup 'dev.shadowsoffire' }
+    }
     mavenCentral()
 }
 
@@ -242,6 +247,10 @@ dependencies {
     compileOnly("com.ldtteam:minecolonies:${minecolonies_version}") { transitive = false }
     compileOnly("com.ldtteam:structurize:${structurize_version}") { transitive = false }
     compileOnly("com.ldtteam:blockui:${blockui_version}") { transitive = false }
+    // CD-MUS-07: Apothic Enchanting stays optional. Only the compat/apothic/ packages name it. The jar is the one of COHO 2.4.0
+    // (SHA-1 d88e75b6), and the unit tests read its classes to check the stats hook's target.
+    compileOnly("dev.shadowsoffire:ApothicEnchanting:${apothic_enchanting_version}") { transitive = false }
+    testRuntimeOnly("dev.shadowsoffire:ApothicEnchanting:${apothic_enchanting_version}") { transitive = false }
 
     localRuntime("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
     localRuntime "net.createmod.ponder:ponder-neoforge:${ponder_version}"

@@ -7,6 +7,7 @@ import codes.honor.cobblemondynamics.client.DynamicsClient
 import codes.honor.cobblemondynamics.command.DynamicsCommands
 import codes.honor.cobblemondynamics.compat.CobblebaseHooks
 import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
+import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
 import codes.honor.cobblemondynamics.compat.opac.OpacCompat
@@ -92,7 +93,9 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("ftbchunks")) FtbChunksCompat.register()
         if (ModList.get().isLoaded("openpartiesandclaims")) OpacCompat.register()
         if (ModList.get().isLoaded("minecolonies")) MineColoniesCompat.register()
-        // CD-CMP-08: by now the Create integration and the Cobblebase hooks have loaded their mixin targets.
+        // CD-MUS-07: the Muse's stats hook in Apothic Enchanting must apply before the role files load.
+        if (ModList.get().isLoaded("apothic_enchanting")) ApothicCompat.register(modBus)
+        // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.
         modBus.addListener<FMLLoadCompleteEvent> { it.enqueueWork(Runnable { LOGGER.info(mixinLine()) }) }
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }

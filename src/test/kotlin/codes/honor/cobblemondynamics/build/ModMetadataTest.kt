@@ -99,6 +99,14 @@ class ModMetadataTest {
     }
 
     @Test
+    fun `CD-MUS-07 Apothic Enchanting is optional with any version`() {
+        val d = requireDependency("apothic_enchanting")
+        assertEquals("optional", d.getString("type"))
+        assertEquals("*", d.getString("versionRange"))
+        assertEquals("BOTH", d.getString("side"))
+    }
+
+    @Test
     fun `CD-REL-05 the version reads MAJOR_MINOR_PATCH plus mc1_21_1`() {
         val version = mod().getString("version")!!
         assertTrue(Regex("""^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?\+mc1\.21\.1$""").matches(version), version)
