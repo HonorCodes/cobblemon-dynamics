@@ -136,8 +136,18 @@ class QuickWorkRulesTest {
     private fun aim(tick: Long) = QuickAim(UUID.randomUUID(), ResourceLocation.withDefaultNamespace("overworld"), BlockPos(0, 64, 0), tick)
 
     @Test
-    fun `CD-UI-12 each end has its own message key, and a timeout reuses the leash's`() {
+    fun `CD-QWK-29 an order asks its permission again on every 20th tick after its start`() {
+        assertFalse(QuickWorkRules.permissionDue(startedAt = 100, now = 100))
+        assertFalse(QuickWorkRules.permissionDue(startedAt = 100, now = 119))
+        assertTrue(QuickWorkRules.permissionDue(startedAt = 100, now = 120))
+        assertFalse(QuickWorkRules.permissionDue(startedAt = 100, now = 121))
+        assertTrue(QuickWorkRules.permissionDue(startedAt = 100, now = 140))
+    }
+
+    @Test
+    fun `CD-UI-12 each end has its own message key, a timeout reuses the leash's and a lost permission the refusal's`() {
         assertEquals(QuickWorkRules.CANNOT_REACH, QuickEnd.UNREACHABLE.messageKey)
+        assertEquals(QuickWorkRules.NO_PERMISSION, QuickEnd.PERMISSION.messageKey)
         assertEquals(QuickEnd.entries.size, QuickEnd.entries.map { it.messageKey }.toSet().size)
     }
 }

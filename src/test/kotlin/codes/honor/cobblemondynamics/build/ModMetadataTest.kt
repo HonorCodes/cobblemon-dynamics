@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.build
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.tomlj.Toml
@@ -73,6 +74,17 @@ class ModMetadataTest {
             val d = dependency(id)
             if (d != null) assertNotEquals("required", d.getString("type"), id)
         }
+    }
+
+    @Test
+    fun `CD-QWK-34 the claim mods are optional with any version`() {
+        for (id in listOf("ftbchunks", "openpartiesandclaims")) {
+            val d = requireDependency(id)
+            assertEquals("optional", d.getString("type"), id)
+            assertEquals("*", d.getString("versionRange"), id)
+            assertEquals("BOTH", d.getString("side"), id)
+        }
+        assertNull(dependency("ftbteams"), "FTB Teams is a dependency of FTB Chunks, not of this mod")
     }
 
     @Test

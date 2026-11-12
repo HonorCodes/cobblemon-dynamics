@@ -52,6 +52,18 @@ class MixinGateTest {
     }
 
     @Test
+    fun `CD-CMP-10 the gate adds each role that it removes to disabled, with its mixin, and keeps the earlier reasons`() {
+        val set = RoleSet(mapOf(wheel.id to wheel, stoker.id to stoker, muse.id to muse), { FakeHandler(it) }, setOf(muse.id)) { }
+        val gated = MixinGate.apply(set, applied = { it != MixinState.WATER_WHEEL }, warn = { })
+        val expected = mapOf(
+            muse.id to "roles.disabled",
+            wheel.id to "its mixin ${MixinState.WATER_WHEEL} did not apply",
+        )
+        assertEquals(expected, gated.disabled)
+        assertEquals(listOf(stoker.id), gated.active.map { it.definition.id })
+    }
+
+    @Test
     fun `CD-FAN-17 a missing air current mixin disables every Fan Catalyst role with one warning`() {
         val roles = listOf("fire", "water", "ghost").map {
             role("fan_catalyst_$it", setOf(it), autoAssign = false, handler = "cobblemon_dynamics:fan_catalyst")

@@ -557,6 +557,27 @@ if (ModList.get().isLoaded("openpartiesandclaims")) OpacCompat.register()
 
 ### Task 4: GameTests with the real claim mods
 
+> **Deferred by the approver's time ruling (2026-11-11).** The approver, 2026-11-11: "Skip the client tests and any tests that you're confident about with the code. I want the new JAR to be done within 30mins, ideally." The `1.0.0-beta.2` build ships Tasks 1, 2, 3 and 5 without
+> this task, so no automated test has run the checks against the real FTB Chunks or Open Parties and Claims yet. A follow-up
+> does this task. The build found these facts for it on 2026-11-11:
+>
+> - `ServerPlayer.displayClientMessage(Component, boolean)` calls `sendSystemMessage(Component, boolean)`, which sends
+>   `new ClientboundSystemChatPacket(component, overlay)` (`javap -c` on `neoforge-21.1.265-merged.jar`). So an action-bar
+>   message, of Quick Work and of FTB Chunks' `PlayerNotifier`, is a `ClientboundSystemChatPacket` whose `overlay()` is true,
+>   not a `ClientboundSetActionBarTextPacket`. `lastActionBar` must read those packets, and the chat check of
+>   `cdQwk28Qwk32StrangerGetsNoOrder` must count only the system chat packets whose `overlay()` is false.
+> - `ICommonPacketListener.hasChannel` reads `connection.channel()` (`NetworkRegistry.hasChannel`, then
+>   `ChannelAttributes.getPayloadSetup`, NeoForge 21.1.265 sources). The connection of `plainOwner` has no Netty channel, so
+>   the call fails (inferred). FTB Teams' `syncAllToPlayer` and FTB Library's `NetworkHelperImpl.sendTo` ask it, so the
+>   listener of `plainOwner` overrides `hasChannel(ResourceLocation)`.
+> - `ChunkTeamDataImpl` starts with `maxClaimChunks = -1`, and only `updateLimits()` sets it. FTB Chunks calls it from its
+>   `TeamEvent.PLAYER_LOGGED_IN` listener, so `FtbChunksFixture.login` must come before `claim`.
+> - `PartyTeam.join(ServerPlayer)` needs no invite. `createParty` and `addAlly` with a player source ask the command nodes
+>   `ftbteams.party.create` (no party yet) and `ftbteams.party.allies.add` (officer or better) through
+>   `FTBTUtils.canPlayerUseCommand`.
+> - Open Parties and Claims reads the sub-config index -1 as the main config (`PlayerConfig.getEffectiveSubConfig(int)`), so
+>   `OpacFixture.claim` passes -1.
+
 **Rows:** CD-QWK-27 and CD-QWK-28 (members, allies and strangers), CD-QWK-29 (a member who leaves, a chunk that a stranger
 claims, a member that a party removes), CD-QWK-31 (owners of the exact class `ServerPlayer`), CD-QWK-32 (the last
 action-bar packet, and no chat from Open Parties and Claims).
@@ -881,6 +902,11 @@ Roles: 16 loaded, 9 active, 7 disabled [cobblemon_dynamics:cranker (handler cobb
 
 ### Task 6: The test pack
 
+> **Deferred by the approver's time ruling (2026-11-11).** The approver, 2026-11-11: "Skip the client tests and any tests that you're confident about with the code. I want the new JAR to be done within 30mins, ideally." The `1.0.0-beta.2` build ran no test pack case, so the
+> dedicated servers of CD-QWK-33 and the load lines in the logs of real servers wait for a follow-up. The log of the build's
+> `runGameTestServer` holds the three lines once each: 8 mixins applied and the 4 Cobblebase mixins skipped because
+> `cobblebase` is absent, the 6 payloads of version 3, and "Roles: 16 loaded, 16 active, 0 disabled".
+
 **Rows:** CD-QWK-33 (a dedicated server with each claim mod loads only that mod's compat package), CD-CMP-08 to CD-CMP-10
 (the three lines in the logs of real servers).
 
@@ -936,6 +962,9 @@ CompatCase("compat_opac", ("openpartiesandclaims",), OUR_PACKAGE + "compat.opac.
 ---
 
 ### Task 7: Docs, the gate report and the pull request
+
+> **Partly deferred by the same ruling (2026-11-11).** The `1.0.0-beta.2` build changed only this plan and the testing
+> claims of `docs/modpack-integration.md`. Steps 1 to 4 wait for the follow-up of Tasks 4 and 6.
 
 **Rows:** CD-REL-08 (the player guide's Quick Work section), CD-REL-09 (no new Demo row), CD-REL-14 (the Phase 2 gate report
 on the new commit), and the coverage of CD-QWK-23, CD-QWK-26 to CD-QWK-35 and CD-CMP-08 to CD-CMP-10.

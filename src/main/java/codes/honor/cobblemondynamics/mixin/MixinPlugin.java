@@ -29,8 +29,10 @@ public final class MixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        MixinState.recordOffered(mixinClassName);
         for (Map.Entry<String, String> entry : REQUIRED_MOD_BY_PACKAGE.entrySet()) {
             if (mixinClassName.startsWith(entry.getKey()) && FMLLoader.getLoadingModList().getModFileById(entry.getValue()) == null) {
+                MixinState.recordSkipped(mixinClassName, entry.getValue() + " absent");
                 return false;
             }
         }
@@ -56,6 +58,8 @@ public final class MixinPlugin implements IMixinConfigPlugin {
         if (missing.isEmpty()) return true;
         // The role gate logs the warning for the role that this mixin serves.
         LOGGER.info("Skipping mixin {}: {} has no {}", mixinClassName, targetClassName, String.join(", ", missing));
+        String simpleName = targetClassName.substring(targetClassName.lastIndexOf('.') + 1);
+        MixinState.recordSkipped(mixinClassName, simpleName + " has no " + String.join(", ", missing));
         return false;
     }
 
@@ -83,6 +87,6 @@ public final class MixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-        MixinState.recordApplied(mixinClassName, targetClass);
+        MixinState.recordApplied(mixinClassName, targetClass, MixinState.declaresHandler(mixinInfo.getClassNode(0)));
     }
 }

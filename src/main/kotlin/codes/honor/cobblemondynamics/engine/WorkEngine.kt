@@ -12,6 +12,7 @@ import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.ClaimRegistry
 import codes.honor.cobblemondynamics.claim.ClaimResult
 import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.compat.LandClaims
 import codes.honor.cobblemondynamics.compat.WorkerEvents
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
@@ -906,9 +907,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         worker.staminaUntil = t.now
         val slot = WorkerSlot(worker, entity, pokemon)
         val center = guarded(role.handler, Vec3.atCenterOf(canonical)) { role.handler.targetCenter(canonical) }
-        val order = QuickRuntime(t.level, aim.owner, aim.pos, name, slot, QuickRuntime.areaAround(center, role.definition.range))
+        val area = QuickRuntime.areaAround(center, role.definition.range)
+        val order = QuickRuntime(t.level, aim.owner, aim.pos, canonical, t.now, name, slot, area)
+        // CD-QWK-32: a refusal goes out through tell after the claim mods' checks, so the engine's message is the last one in this tick.
         val refusal = QuickWorkRules.refusal(
-            mayUse = !owner.isSpectator && owner.mayInteract(t.level, canonical),
+            mayUse = mayUse(owner, t.level, canonical),
             tired = worker.tired,
             targetFree = claims.isFree(TargetKey.block(t.dimension, canonical), pokemon.uuid),
         ) { guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, canonical, role)) } }
@@ -926,6 +929,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             else -> tell(aim.owner, QuickWorkRules.CANNOT_REACH, pokemon, name)
         }
     }
+
+    /**
+     * CD-QWK-06, CD-QWK-26: the permission of an order. The start and every 20th tick of the order ask it (CD-QWK-29). [owner] is the
+     * player that `PlayerList.getPlayer` returned for the order's owner (CD-QWK-31).
+     */
+    private fun mayUse(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean =
+        !owner.isSpectator && owner.mayInteract(level, pos) && LandClaims.mayUse(owner, level, pos)
 
     /** Every Quick Work message goes to the order's owner only, with the Pokémon's name and the target's name (CD-QWK-25). */
     private fun tell(owner: UUID, key: String, pokemon: Pokemon, target: Component) =
@@ -949,6 +959,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             standbyLimit = t.settings.standbyMoveTicks,
         )
         QuickWorkRules.endReason(watch)?.let { return endOrder(t, order, it) }
+        // CD-QWK-29: the end rule passed, so the owner is online and in the order's level, which the FTB Chunks check needs.
+        if (owner != null && QuickWorkRules.permissionDue(order.startedAt, t.now) && !mayUse(owner, t.level, order.canonical)) {
+            return endOrder(t, order, QuickEnd.PERMISSION)
+        }
         // CD-QWK-22: the machine released the claim of a worker whose travel timed out, so the order ends, and it never tries again.
         if (tickWorker(t, order, slot) is MachineEvent.ReleaseClaim) return endOrder(t, order, QuickEnd.UNREACHABLE)
         if (orders[worker.pokemonId] === order) tickStamina(t, order, slot)
