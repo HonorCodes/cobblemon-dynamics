@@ -468,9 +468,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** After a reload, a worker keeps a claim only while its role still takes it. */
-    private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean =
-        RoleSelection.isEligible(role, typesOf(slot.pokemon)) && (slot.worker.leashed || role.autoAssign)
+    /**
+     * After a reload, a worker keeps a claim only while its role still takes it: through its binding, an auto claim, or the Quick Work
+     * order of a role that opts in (CD-QWK-36). A Quick Worker has no pasture.
+     */
+    private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean = RoleSelection.isEligible(role, typesOf(slot.pokemon)) &&
+        (slot.worker.leashed || role.autoAssign || (slot.worker.pasture == null && role.quickWork))
 
     /** Steps 3 and 4: the pasture's scan pass, and the assignment when the pass completes. */
     private fun scan(t: Tick, runtime: PastureRuntime) {
