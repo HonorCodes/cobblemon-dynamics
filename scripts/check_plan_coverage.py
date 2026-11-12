@@ -65,7 +65,7 @@ V11_ROWS = ("CD-BAL-08", "CD-BAL-09", "CD-REL-16")
 # Earlier rows whose last part is 1.1 work: the split-row table of docs/plans/2026-11-12-v1.1-farming.md.
 V11_PARTS = (
     "CD-REL-04", "CD-REL-05", "CD-REL-08", "CD-REL-09", "CD-CMP-10", "CD-FX-09",
-    "CD-LSH-08", "CD-ASG-12", "CD-ASG-19", "CD-LND-12",
+    "CD-LSH-08", "CD-ASG-12", "CD-ASG-19", "CD-LND-12", "CD-LND-16",
 )
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")

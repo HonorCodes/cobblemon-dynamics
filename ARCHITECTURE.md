@@ -667,7 +667,7 @@ Both are optional and set load order only ([ADR-0009](docs/adr/0009-coexistence-
   idle behaviour, sleep lock, wander, unstick or job, and gives no passive experience. At start, the mod logs one
   warning that names each hook that did not apply.
 
-### Claim mods: FTB Chunks 2101.1.23, Open Parties and Claims 0.33.0 and MineColonies 1.1.1419
+### Claim mods: FTB Chunks 2101.1.23, Open Parties and Claims 0.33.0 and MineColonies 1.1.1420
 
 All three are optional, with any version ([Amendment 1 of ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md#amendment-1-land-claims-2026-11-11),
 [ADR-0014](docs/adr/0014-land-claims-for-work-mode-pastures.md)). Each compat package registers one `LandClaimCheck`
@@ -879,7 +879,7 @@ Other role parameters, as fragments of their role files:
 | FTB Library | `dev.ftb.mods:ftb-library-neoforge:2101.1.39`, `transitive = false` | `https://maven.ftb.dev/releases` | compileOnly, claim run |
 | Architectury API | `maven.modrinth:architectury-api:13.0.11+neoforge`, `transitive = false` | `https://api.modrinth.com/maven` | claim run |
 | Open Parties and Claims | `maven.modrinth:open-parties-and-claims:neoforge-1.21.1-0.33.0`, `transitive = false` | `https://api.modrinth.com/maven` | compileOnly, claim run |
-| MineColonies | `com.ldtteam:minecolonies:1.1.1419-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
+| MineColonies | `com.ldtteam:minecolonies:1.1.1420-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
 | Structurize | `com.ldtteam:structurize:1.0.839-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
 | BlockUI | `com.ldtteam:blockui:1.0.212-1.21.1-snapshot`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | compileOnly, claim run |
 | Domum Ornamentum | `com.ldtteam:domum-ornamentum:1.0.237-snapshot:main`, `transitive = false` | `https://ldtteam.jfrog.io/ldtteam/modding/` | claim run |

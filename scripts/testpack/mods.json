@@ -150,10 +150,10 @@
     },
     "minecolonies": {
       "source": "maven",
-      "version": "1.1.1419-1.21.1-snapshot",
-      "filename": "minecolonies-1.1.1419-1.21.1-snapshot.jar",
-      "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/minecolonies/1.1.1419-1.21.1-snapshot/minecolonies-1.1.1419-1.21.1-snapshot.jar",
-      "sha512": "b82c4132afef7de53bcea9a49bada2ab7a3b59a989bf4c3ef6f65d4822b60cdc8996c7fe2d251767a98a6018960bb8118b4469fe1e1de6dc52c6d40e1e609df3"
+      "version": "1.1.1420-1.21.1-snapshot",
+      "filename": "minecolonies-1.1.1420-1.21.1-snapshot.jar",
+      "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/minecolonies/1.1.1420-1.21.1-snapshot/minecolonies-1.1.1420-1.21.1-snapshot.jar",
+      "sha512": "918a48cb2ea0fef10e5826ec07a84bc021ba0b67077b0ac3bd7adfa6b943df0de8e4f5f1f7a9a8131be6a6131bfb4e6f4e2d5a26763f77ee2e7bb31f26878fc2"
     },
     "structurize": {
       "source": "maven",

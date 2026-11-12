@@ -1,8 +1,9 @@
 # ADR-0015: Farming roles and crop adapters
 
-Status: Proposed (2026-11-12). The coordinator rules on it with the design decisions of the
-[1.1 plan](../plans/2026-11-12-v1.1-farming.md#design-decisions-for-the-approver). Until then, the CUL, HRV and CRP rows of
-the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) stay `draft`.
+Status: Accepted (2026-11-12) by the coordinator under the approver's delegation, with the rulings on the design decisions
+of the [1.1 plan](../plans/2026-11-12-v1.1-farming.md#design-decisions-for-the-approver) (input R74 of the
+[spec sheet](../plans/2026-11-09-v1-spec-sheet.md)). Two parts wait for the approver: the apricorns of the Cultivator
+(decision 13, Q10) and its pace and cost (decision 6, Q11). The rows that depend on them stay `draft`.
 
 ## Context
 
@@ -34,7 +35,9 @@ The coordinator ruled, under the approver's delegation:
 6. The Harvester never breaks a block that the pasture's placer may not use, through the claim gate of 1.0.0 (the LND
    rows).
 
-On 2026-11-12 the coordinator pinned 1.1 to COHO 2.5.0 (pack `88aa156b`), whose mod list COHO-2 finalised that day.
+On 2026-11-12 the coordinator pinned 1.1 to COHO 2.5.0 (pack `88aa156b`), whose mod list COHO-2 finalised that day. The
+same day, the coordinator ruled on the design decisions of the plan (R74): a harvest that breaks a block also asks each
+claim mod about breaking, it fails closed as in 1.0.0, and the build pins MineColonies 1.1.1420, the version of COHO 2.5.0.
 
 ### The engine today
 
@@ -97,6 +100,11 @@ each jar:
 | `cobbleworkers-neoforge-2.0.7-1.8.3.jar` | `8d6e53d1ac2311e99a3ac533c061367738b98fd3` |
 | `smarterfarmers-1.21-2.2.4-neoforge.jar` | `49e58b648cfe1e5d6623b1b2c3ce5aca0b8c08df` |
 | `create-1.21.1-6.0.10.jar` | in the frozen cache, used for BM4 only |
+| `ftb-chunks-neoforge-2101.1.23.jar` | `a99a51ef8e413af26ee32c4d33a11526fccdd1d1` |
+| `ftb-teams-neoforge-2101.1.12.jar` | `9c831fbbbccf2178827c3ccf278b2f2a0ce57306` |
+| `ftb-library-neoforge-2101.1.39.jar` | `ff852d99ade215fb892369687d0634ecf0bca6ae` |
+| `minecolonies-1.1.1420-1.21.1-snapshot.jar` (the jar of COHO 2.5.0) | `374f7095c4664e1b93bd306d08d222b34c419790` |
+| `open-parties-and-claims-neoforge-1.21.1-0.33.0.jar` (the jar of RES6) | `6075cf36ac8d70bd1fd870e0eb9ac84685388df7` |
 
 #### Vanilla and NeoForge 21.1.265
 
@@ -201,6 +209,26 @@ Other findings that shape the decision:
   position. Flag 32 does not stop those drops, and flag 16 skips the shape update.
 - The farmlands of the Aether, Oh The Biomes We've Gone, the Undergarden and Regions Unexplored extend `FarmBlock`.
 
+#### The break rules of the claim mods
+
+Read for decision 7 of the plan, after the coordinator's ruling (R74):
+
+- **FTB Chunks 2101.1.23.** The block break handler `FTBChunks.blockBreak` calls `shouldPreventInteraction(player,
+  MAIN_HAND, pos, FTBChunksExpected.getBlockBreakProtection(), null)`, and on NeoForge
+  `FTBChunksExpectedImpl.getBlockBreakProtection` returns `Protection.EDIT_BLOCK`. That policy allows a block of
+  `ftbchunks:edit_whitelist` (`FTBChunksTags.Blocks.EDIT_WHITELIST_TAG`), then allows when
+  `ChunkTeamData.canPlayerUse(player, FTBChunksProperties.BLOCK_EDIT_MODE)`, and otherwise returns `CHECK`. It has the shape
+  of `INTERACT_BLOCK`, whose steps CD-LND-06 copies, with the edit tag and the edit mode. COHO sets `def_block_edit` to
+  allies, as `def_block_interact` (ADR-0013).
+- **MineColonies 1.1.1420.** `ColonyPermissionEventHandler.on(BlockEvent.BreakEvent)` treats huts (`BREAK_HUTS`) and
+  decoration controllers apart, and checks every other block with `checkEventCancellation(Action.BREAK_BLOCKS, ...)`: the
+  break is canceled while `enableColonyProtection` is true, the colony holds the position, and the player's permissions
+  lack `BREAK_BLOCKS`, except for an attacking player while `pvp_mode` is on. `IPermissions.getRank(UUID)` and
+  `hasPermission(Rank, Action)` answer by UUID, and `hasPermission(Player, Action)` keeps the operator bypass of CD-LND-09.
+  The jar of COHO 2.5.0 and that of the frozen cache are the same file, and its change since 1.1.1419 is blueprints only.
+- **Open Parties and Claims 0.33.0.** `IChunkProtectionAPI.onBlockInteraction` takes a `breaking` flag, and
+  `hasChunkAccess(UUID, ResourceLocation, int, int)` is full access, which covers breaking.
+
 #### Prior art and COHO's pack data
 
 - **Create 6.0.10, Mechanical Harvester** (`HarvesterMovementBehaviour`, BM4). A `CropBlock` is ripe at `isMaxAge`. Another
@@ -265,7 +293,8 @@ Other findings that shape the decision:
    `BONE_MEAL_USE`.
 6. **Pace and Work Stamina.** A Cultivator applies one use every ceil(1,200 ÷ ceil(30 × L ÷ 100)) ticks: 1 use per minute at
    level 1, 15 at level 50 and 30 at level 100. Each use drains 100 ticks of capacity beyond the drain of Working. Both
-   numbers live in the role file (`uses_per_minute_at_level_100`, `stamina_ticks_per_use`). A Cultivator has demand while
+   numbers live in the role file (`uses_per_minute_at_level_100`, `stamina_ticks_per_use`), and both wait for the
+   approver (Q11), with these values as the recommendation. A Cultivator has demand while
    the block is a valid bonemeal target and its harvest adapter, if any, does not find it fully grown, so it stops where the
    Harvester starts, and it never ripens an oddion into a hatch. After 20 uses in a row that change no block of the crop, the
    crop has no demand for that worker for 6,000 ticks.
@@ -300,17 +329,22 @@ Other findings that shape the decision:
     CD-LND-05), and Quick Work asks the owner's checks. The Harvester also asks the same checks in the tick of each harvest,
     for every block that the harvest changes, and harvests nothing on a refusal. A right that ends between two polls
     therefore never lets a harvest through, and the fruit of a gourd in another chunk gets its own check. The gate asks
-    whether the placer may right-click the block, and a pick is a right-click. Design decision 7 of the plan asks whether a
-    harvest that breaks a block should ask about breaking.
+    whether the placer may right-click the block, and a pick is a right-click. A harvest that breaks a block also asks the
+    break question of each claim mod, in the same tick, for every block that it breaks (R74): FTB Chunks through the steps
+    of `Protection.EDIT_BLOCK` with the edit whitelist and the block edit mode, Open Parties and Claims through full access
+    for a pasture and `breaking` true for a Quick Worker, and MineColonies through `BREAK_BLOCKS`. A question that throws
+    refuses with one warning per cause, and the question by UUID sends no message, as the 1.0.0 gate does (CD-HRV-16 to
+    CD-HRV-21).
 12. **Farmland.** A worker that the work engine directs never tramples farmland: a listener cancels
     `BlockEvent.FarmlandTrampleEvent` for it. Wild Cobblemon and players keep the vanilla rule.
 13. **Apricorns.** The Harvester never matches a block of `#cobblemon:apricorns` or of `ApricornBlock`, also when a datapack
-    adds one to its tag. The Cultivator's default tag leaves them out, and a pack may add them.
+    adds one to its tag. The Cultivator's default tag leaves them out, and a pack may add them. Whether Ground-types grow
+    apricorns by default waits for the approver (Q10), with this exclusion as the recommendation.
 14. **Observability.** When the tags load or reload, one INFO line per farming role counts the tagged blocks by adapter and
     names the tagged blocks that no adapter claims. With COHO 2.5.0's crop mods, that list is empty.
 15. **Testing.** The adapters are pure rules over plain facts of a block (its class flags, its tags, its `age` values and
-    its loot), so unit tests check every family of the table with the facts that RES8 read. Six GameTests use vanilla
-    crops only. The modded families get the test pack's load-line case on a server with COHO 2.5.0's crop mods, and one Demo
+    its loot), so unit tests check every family of the table with the facts that RES8 read. Seven GameTests use vanilla
+    crops only, and the break question gets one oracle GameTest in each claim run of 1.0.0. The modded families get the test pack's load-line case on a server with COHO 2.5.0's crop mods, and one Demo
     on the COHO server, where the approver plays. This follows the approver's rulings on tests: "avoid game tests for
     high-confidence code" (2026-11-09), "Skip the client tests and any tests that you're confident about with the code"
     (2026-11-11), and "do we really need the game tests? i thought we were pretty confident in these fixes and we'll be
@@ -354,5 +388,7 @@ Other findings that shape the decision:
 - **Harvest into a container.** The approver chose the ground ("#1").
 - **`#minecraft:bee_growables` as the Cultivator's default.** Rejected: it would ripen apricorns and saccharine leaves.
 - **Level event 1505 for the effect.** Rejected: it plays `BONE_MEAL_USE`.
-- **A GameTest run with the COHO crop mods**, as the claim runs have. Deferred to the approver: design decision 10 of the
-  plan.
+- **A GameTest run with the COHO crop mods**, as the claim runs have. Not built, by decision 10 of the plan (R74).
+- **The use question alone for a harvest that breaks a block**, as ruling 6 first gave it. Rejected by R74: FTB Chunks and
+  MineColonies decide breaking apart from right-clicks, so a team that lets allies use its blocks but not edit them would
+  lose its crops to an ally's Harvester.
