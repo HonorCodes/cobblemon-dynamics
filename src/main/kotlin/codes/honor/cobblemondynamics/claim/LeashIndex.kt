@@ -29,9 +29,16 @@ class LeashIndex {
     /** The entries at [target], oldest first, as a copy. */
     fun at(target: BlockPos): List<Ref> = byTarget[target.asLong()]?.toList().orEmpty()
 
-    /** The entry of an exclusive role at [target], which reserves it (CD-CLM-06). [isShared] tells the roles of logistics handlers. */
-    fun exclusiveAt(target: BlockPos, isShared: (ResourceLocation) -> Boolean): Ref? =
-        byTarget[target.asLong()]?.firstOrNull { !isShared(it.roleId) }
+    /**
+     * The entry of an exclusive role in [lane] at [target], which reserves the target in that lane (CD-CLM-06, CD-CRP-07). [isShared]
+     * tells the roles of logistics handlers, and [laneOf] the claim lane of a role, which is null for every role but the farming roles.
+     */
+    fun exclusiveAt(
+        target: BlockPos,
+        lane: String?,
+        isShared: (ResourceLocation) -> Boolean,
+        laneOf: (ResourceLocation) -> String?,
+    ): Ref? = byTarget[target.asLong()]?.firstOrNull { !isShared(it.roleId) && laneOf(it.roleId) == lane }
 
     /**
      * CD-LSH-29: the places that the bindings of logistics roles take at [container], as their target or as their destination. The

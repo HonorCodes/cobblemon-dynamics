@@ -90,5 +90,8 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
      */
     fun sharesTargets(id: ResourceLocation): Boolean = parsed[id]?.let { HandlerRegistry.get(it.handler) }?.sharesTargets == true
 
+    /** The claim lane of the role [id]'s handler (CD-CRP-06), from the role files of the last load, as [sharesTargets] reads them. */
+    fun laneOf(id: ResourceLocation): String? = parsed[id]?.let { HandlerRegistry.get(it.handler) }?.claimLane
+
     private fun handlerFor(id: ResourceLocation): TargetHandler? = if (disabledHandlers.isDisabled(id)) null else HandlerRegistry.get(id)
 }

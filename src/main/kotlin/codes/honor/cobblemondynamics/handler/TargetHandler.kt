@@ -34,6 +34,12 @@ interface TargetHandler {
      */
     val sharesTargets: Boolean get() = false
 
+    /**
+     * The lane of this handler's work claims and bindings, or null for the one exclusive claim of a target. A crop holds one claim in
+     * each lane, so a Cultivator and a Harvester share it, and a binding reserves the crop only in its own lane (CD-CRP-06, CD-CRP-07).
+     */
+    val claimLane: String? get() = null
+
     fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean
 
     /** The one position that keys the claim of a multi-block target (CD-CLM-04). */

@@ -64,7 +64,7 @@ object Assigner {
     /** Block keys by `BlockPos.asLong()`, before entity keys by UUID. */
     private val KEY_ORDER: Comparator<TargetKey> = Comparator { a, b ->
         when {
-            a is TargetKey.Block && b is TargetKey.Block -> a.pos.compareTo(b.pos)
+            a is TargetKey.Block && b is TargetKey.Block -> a.pos.compareTo(b.pos).takeIf { it != 0 } ?: compareValues(a.lane, b.lane)
             a is TargetKey.Entity && b is TargetKey.Entity -> a.uuid.compareTo(b.uuid)
             a is TargetKey.Block -> -1
             else -> 1

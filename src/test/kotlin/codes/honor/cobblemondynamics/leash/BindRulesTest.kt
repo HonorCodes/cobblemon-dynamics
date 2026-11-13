@@ -30,6 +30,7 @@ class BindRulesTest {
         roles: List<RoleDefinition> = listOf(stoker),
         inside: Boolean = true,
         boundTo: BindRules.Bound? = null,
+        boundOf: ((RoleDefinition) -> BindRules.Bound?)? = null,
         pending: PendingSource? = null,
         same: Boolean = false,
         reach: Boolean = true,
@@ -44,7 +45,7 @@ class BindRulesTest {
         roles,
         BlockPos.ZERO,
         inside,
-        boundTo,
+        boundOf ?: { boundTo },
         pending,
         same,
         destinationInReach = reach,
@@ -248,6 +249,18 @@ class BindRulesTest {
             "a far source counted as absent before it counted as outside the work area",
         )
         assertEquals(BindRules.PendingCheck.NO_AREA, BindRules.checkPending(edge, null, loaded), "a source with no work area was read")
+    }
+
+    @Test
+    fun `CD-CRP-08 a second bind of one farming role is refused and the other role binds`() {
+        val cultivator = role("cultivator", setOf("ground"), handler = "cobblemon_dynamics:cultivator")
+        val harvester = role("harvester", setOf("grass"), handler = "cobblemon_dynamics:harvester")
+        // A Diglett's Cultivator binding holds the crop in the Cultivator's lane only.
+        val boundOf: (RoleDefinition) -> BindRules.Bound? = { if (it == cultivator) own("Diglett") else null }
+        val second = refusal(input(roles = listOf(cultivator), boundOf = boundOf))
+        assertEquals(BindRules.ALREADY_ASSIGNED, second.messageKey)
+        assertEquals("Diglett", second.arg)
+        assertEquals(BindRules.Outcome.Bind(harvester, BlockPos.ZERO), evaluate(input(roles = listOf(harvester), boundOf = boundOf)))
     }
 
     private companion object {

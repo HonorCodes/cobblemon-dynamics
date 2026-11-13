@@ -14,6 +14,7 @@ import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.registry.DynamicsItems
 import codes.honor.cobblemondynamics.role.ActiveRole
+import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import codes.honor.cobblemondynamics.role.RoleSelection
 import com.cobblemon.mod.common.Cobblemon
@@ -119,8 +120,13 @@ object LeashInteractions {
         // The checks of a source-and-destination binding are the source's, and the destination is the clicked block.
         val source = pending?.pos ?: canonical
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)
-        // CD-LSH-28: a bind of an exclusive role meets only the bindings of exclusive roles. A logistics bind counts places (CD-LSH-29).
-        val other = index?.exclusiveAt(source, RoleRegistry::sharesTargets)?.let { otherBound(level, it, selection?.pokemonId) }
+        // CD-LSH-28: a bind of an exclusive role meets only the bindings of exclusive roles, and of its own lane (CD-CRP-07). A logistics
+        // bind counts places (CD-LSH-29).
+        val otherOf = { role: RoleDefinition ->
+            index?.exclusiveAt(source, RoleRegistry.laneOf(role.id), RoleRegistry::sharesTargets, RoleRegistry::laneOf)
+                ?.let { otherBound(level, it, selection?.pokemonId) }
+        }
+        val other = best?.let { otherOf(it.definition) }
         val ends = if (pending == null) listOf(canonical) else listOf(pending.pos, canonical)
         val places = if (index != null && best?.handler?.sharesTargets == true) {
             ends.map { BindRules.Place(it, index.placesAt(it, selection?.pokemonId, RoleRegistry::sharesTargets)) }
@@ -134,7 +140,7 @@ object LeashInteractions {
             fittingRoles = roles.map { it.definition },
             canonical = canonical,
             insideWorkArea = area?.contains(source) == true,
-            boundToOther = other?.seenBy(player.uuid),
+            boundToOtherOf = { role -> (if (role == best?.definition) other else otherOf(role))?.seenBy(player.uuid) },
             pending = pending,
             sameAsPending = pending?.pos == canonical,
             destinationInReach = pending == null ||
@@ -267,7 +273,8 @@ object LeashInteractions {
         for (role in RoleRegistry.current.active) {
             if (!matches(level, role, clicked)) continue
             val canonical = guarded(role.handler, clicked) { role.handler.canonical(level, clicked) }
-            val claim = engine.claims.holderOf(TargetKey.block(dimension, canonical))?.takeIf { it.kind == ClaimKind.WORK } ?: continue
+            val key = TargetKey.block(dimension, canonical, role.handler.claimLane)
+            val claim = engine.claims.holderOf(key)?.takeIf { it.kind == ClaimKind.WORK } ?: continue
             val handler = engine.roleOf(claim.worker)?.handler ?: return false
             if (!mayFlip(player, level, engine, claim)) return false
             val flipped = guarded(handler, false) { handler.flip(level, canonical) }

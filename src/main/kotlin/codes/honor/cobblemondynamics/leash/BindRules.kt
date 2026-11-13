@@ -39,7 +39,7 @@ object BindRules {
     data class Place(val container: BlockPos, val taken: Int)
 
     /**
-     * For a click with a pending source, [fittingRoles], [insideWorkArea] and [boundToOther] describe the source, and
+     * For a click with a pending source, [fittingRoles], [insideWorkArea] and [boundToOtherOf] describe the source, and
      * [canonical] and [destinationInReach] describe the destination.
      */
     data class Input(
@@ -52,7 +52,11 @@ object BindRules {
         val fittingRoles: List<RoleDefinition>,
         val canonical: BlockPos,
         val insideWorkArea: Boolean,
-        val boundToOther: Bound?,
+        /**
+         * The other Pokémon whose binding holds the target in the lane of the given role, or null. A farming binding holds only its own
+         * role's lane, so a Cultivator and a Harvester bind to one crop (CD-CRP-07, CD-CRP-08).
+         */
+        val boundToOtherOf: (RoleDefinition) -> Bound?,
         val pending: PendingSource?,
         val sameAsPending: Boolean,
         /** The bound role's handler accepts the destination's distance from the pasture block (CD-TLK-12). */
@@ -112,7 +116,7 @@ object BindRules {
             }
         } else {
             // CD-LSH-05: another player's Pokémon is named by its species, so its nickname never reaches the clicking player.
-            input.boundToOther?.let { bound ->
+            input.boundToOtherOf(role)?.let { bound ->
                 return if (bound.ownedByPlayer) {
                     Outcome.Refuse(ALREADY_ASSIGNED, bound.name)
                 } else {

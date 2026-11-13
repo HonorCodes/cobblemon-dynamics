@@ -23,6 +23,30 @@ class LeashIndexTest {
     private fun ref(role: ResourceLocation, destination: BlockPos? = null, owner: UUID = this.owner) =
         LeashIndex.Ref(UUID.randomUUID(), owner, pasture, role, destination)
 
+    /** The roles of 1.0 all claim in the null lane. */
+    private val noLanes: (ResourceLocation) -> String? = { null }
+
+    @Test
+    fun `CD-CRP-07 exclusiveAt reads the entry of the asked lane`() {
+        val cultivator = ResourceLocation.parse("cobblemon_dynamics:cultivator")
+        val harvester = ResourceLocation.parse("cobblemon_dynamics:harvester")
+        val laneOf: (ResourceLocation) -> String? = { it.path.takeIf { path -> path == "cultivator" || path == "harvester" } }
+        val index = LeashIndex()
+        val crop = BlockPos(5, 64, 5)
+        val grower = ref(cultivator)
+        val picker = ref(harvester)
+        index.put(crop, grower)
+        index.put(crop, picker)
+        assertEquals(grower, index.exclusiveAt(crop, "cultivator", shared, laneOf))
+        assertEquals(picker, index.exclusiveAt(crop, "harvester", shared, laneOf))
+        assertNull(index.exclusiveAt(crop, null, shared, laneOf), "a farming binding reserved the crop in the null lane")
+        val furnace = BlockPos(9, 64, 9)
+        val fire = ref(stoker)
+        index.put(furnace, fire)
+        assertEquals(fire, index.exclusiveAt(furnace, null, shared, laneOf))
+        assertNull(index.exclusiveAt(furnace, "cultivator", shared, laneOf), "a Stoker's binding reserved a farming lane")
+    }
+
     @Test
     fun `CD-LSH-11 a Pokemon holds one entry, which a new bind moves and its removal ends`() {
         val index = LeashIndex()
@@ -63,9 +87,9 @@ class LeashIndexTest {
         val source = ref(telekinesis, destination = chestB)
         val fire = ref(stoker)
         index.put(furnace, source)
-        assertNull(index.exclusiveAt(furnace, shared), "a Telekinesis source reserved the furnace")
+        assertNull(index.exclusiveAt(furnace, null, shared, noLanes), "a Telekinesis source reserved the furnace")
         index.put(furnace, fire)
-        assertEquals(fire, index.exclusiveAt(furnace, shared))
+        assertEquals(fire, index.exclusiveAt(furnace, null, shared, noLanes))
         assertEquals(1, index.placesAt(furnace, except = null, isShared = shared))
     }
 

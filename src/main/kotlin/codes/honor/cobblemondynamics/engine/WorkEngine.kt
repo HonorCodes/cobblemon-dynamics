@@ -196,7 +196,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     fun onBound(level: ServerLevel, pokemonId: UUID, binding: Binding) {
         val t = tick(level)
         val shared = RoleRegistry.sharesTargets(binding.roleId)
-        val holder = if (shared) null else claims.holderOf(TargetKey.block(t.dimension, binding.target))
+        val key = TargetKey.block(t.dimension, binding.target, RoleRegistry.laneOf(binding.roleId))
+        val holder = if (shared) null else claims.holderOf(key)
         if (holder != null && holder.worker != pokemonId) {
             val slot = slots[holder.worker]
             if (slot != null) release(t, slot) else claims.release(holder.worker)
@@ -411,7 +412,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun claimBound(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
         val binding = slot.binding ?: return
         val worker = slot.worker
-        val key = TargetKey.block(t.dimension, binding.target)
+        val key = TargetKey.block(t.dimension, binding.target, RoleRegistry.laneOf(binding.roleId))
         val current = claims.claimOf(worker.pokemonId)
         if (current?.kind == ClaimKind.WORK && current.key != key) release(t, slot)
         if (claims.claimOf(worker.pokemonId) != null || worker.tired || worker.isSkipped(key, t.now)) return
@@ -542,7 +543,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         // CD-LND-01, CD-LND-12: one pasture check for each target of the pass, before the pass offers its targets to the workers.
         val allowed = found.filter { LandClaims.ownerMayUse(runtime.placer, t.level, it.pos) }
         if (allowed.isEmpty()) return
-        val byKey: Map<TargetKey, FoundTarget> = allowed.associateBy { TargetKey.block(t.dimension, it.pos) }
+        // CD-CRP-06: a target whose roles claim in two lanes, such as a crop of both farming roles, is one candidate per lane.
+        val byKey: Map<TargetKey, FoundTarget> = allowed.flatMap { target ->
+            target.roles.groupBy { it.handler.claimLane }.map { (lane, roles) ->
+                TargetKey.block(t.dimension, target.pos, lane) to FoundTarget(target.pos, roles)
+            }
+        }.toMap()
         val taken = takenSpots(t)
         for (slot in runtime.slots.values) {
             val worker = slot.worker
@@ -595,7 +601,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         moving: Boolean,
     ): Attempt {
         val worker = slot.worker
-        val key = TargetKey.block(t.dimension, target)
+        val key = TargetKey.block(t.dimension, target, role.handler.claimLane)
         val shared = role.handler.sharesTargets
         // CD-CLM-10: a container whose places are all taken refuses before the spot search and its path checks.
         if (shared && !claims.hasPlace(key)) return Attempt.REFUSED
@@ -966,7 +972,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val refusal = QuickWorkRules.refusal(
             mayUse = mayUse(owner, t.level, canonical),
             tired = worker.tired,
-            targetFree = claims.isFree(TargetKey.block(t.dimension, canonical), pokemon.uuid),
+            // CD-CRP-13: a claim or a binding of the other farming role leaves the crop free for this one.
+            targetFree = claims.isFree(TargetKey.block(t.dimension, canonical, role.handler.claimLane), pokemon.uuid),
             // CD-QWK-36: the Muse's order starts while the table's menu is closed, because R does nothing while a screen is open.
             waitsForDemand = role.definition.quickWork,
         ) { guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, canonical, role)) } }
@@ -1112,12 +1119,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         )
     }
 
-    /** CD-CLM-11: only a binding of an exclusive role reserves its target. */
+    /** CD-CLM-11: only a binding of an exclusive role reserves its target, and a farming binding only in its own lane (CD-CRP-07). */
     private fun reservedFor(key: TargetKey): UUID? {
         val block = key as? TargetKey.Block ?: return null
         val level = server.getLevel(ResourceKey.create(Registries.DIMENSION, block.dimension)) ?: return null
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return null
-        return index.exclusiveAt(BlockPos.of(block.pos), RoleRegistry::sharesTargets)?.pokemonId
+        return index.exclusiveAt(BlockPos.of(block.pos), block.lane, RoleRegistry::sharesTargets, RoleRegistry::laneOf)?.pokemonId
     }
 
     companion object {
