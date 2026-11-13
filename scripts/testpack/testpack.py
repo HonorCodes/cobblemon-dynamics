@@ -35,6 +35,8 @@ PINS = json.loads(PINS_FILE.read_text(encoding="utf-8"))
 UA = {"User-Agent": "testpack-script/1.0"}
 MODRINTH = "https://api.modrinth.com/v2"
 NEOFORGE_MAVEN = "https://maven.neoforged.net/releases/net/neoforged/neoforge"
+# A pin with "source": "local" names a jar that no download site serves. The script copies it once from this folder.
+LOCAL_JARS = "TESTPACK_LOCAL_JARS"
 MOD_ID = "cobblemon_dynamics"
 ARGS_FILE = "win_args.txt" if os.name == "nt" else "unix_args.txt"
 BOOT_TIMEOUT = 300
@@ -146,12 +148,38 @@ def fetch(url: str, dest: pathlib.Path, sha512: str) -> pathlib.Path:
 
 
 def pin_name(pin: dict) -> str:
-    if pin.get("source") == "maven":
+    if pin.get("source") in ("maven", "local"):
         return pin["filename"]
     return f"{pin.get('project', 'neoforge')} {pin['version']}"
 
 
+def copy_local(pin: dict) -> pathlib.Path:
+    """Copy a local pin from the folder in TESTPACK_LOCAL_JARS into the cache, unless the cache already has it.
+
+    The script only reads that folder. A copy with another SHA-512 is an error, as a download is.
+    """
+    dest = CACHE / pin["filename"]
+    if dest.is_file() and sha512_of(dest) == pin["sha512"]:
+        return dest
+    folder = os.environ.get(LOCAL_JARS, "")
+    if not folder:
+        raise TestpackError(f"{pin['filename']} has no download URL. Set {LOCAL_JARS} to a folder that holds it.")
+    source = pathlib.Path(folder, pin["filename"])
+    if not source.is_file():
+        raise TestpackError(f"{pin['filename']} is not in {folder}, the folder of {LOCAL_JARS}")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    part = dest.with_name(dest.name + ".part")
+    shutil.copyfile(source, part)
+    if sha512_of(part) != pin["sha512"]:
+        part.unlink()
+        raise TestpackError(f"deleted the copy of {source}: its SHA-512 does not match mods.json")
+    os.replace(part, dest)
+    return dest
+
+
 def fetch_pin(pin: dict) -> pathlib.Path:
+    if pin.get("source") == "local":
+        return copy_local(pin)
     if not pin.get("url"):
         raise TestpackError(f"{pin_name(pin)} has no file in mods.json. Run the resolve command.")
     return fetch(pin["url"], CACHE / pin["filename"], pin["sha512"])
@@ -209,7 +237,10 @@ def resolve_neoforge(pin: dict) -> str:
 
 
 def resolve() -> None:
-    """Fill the file name, URL and SHA-512 of every pin in mods.json and write the file back."""
+    """Fill the file name, URL and SHA-512 of every pin in mods.json and write the file back.
+
+    The crops pins stay as written: each one is the exact jar of COHO 2.5.0 that crops_expected was counted from.
+    """
     versions: dict[str, list[dict]] = {}
     for pin in [PINS["neoforge"], *PINS["mods"].values(), *PINS["demo_versions"].values(), *PINS["compat"].values()]:
         if pin.get("source") == "maven":
@@ -552,12 +583,12 @@ LOAD_LINES = (
               "4 to the server [cobblemon_dynamics:work_mode_toggle, cobblemon_dynamics:pasture_panel_open, "
               "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request]"),
     # CD-CMP-10: every role file loads and is active.
-    re.escape("Roles: 16 loaded, 16 active, 0 disabled []"),
+    re.escape("Roles: 18 loaded, 18 active, 0 disabled []"),
 )
 # CD-CMP-10: without Create and AE2, the 7 roles of Create's handlers are disabled, each with its reason.
 CREATE_ROLES = ("cranker", "fan_catalyst_fire", "fan_catalyst_ghost", "fan_catalyst_water", "superheater", "tailwind",
                 "wheel_driver")
-ROLES_WITHOUT_CREATE = (re.escape("Roles: 16 loaded, 9 active, 7 disabled [")
+ROLES_WITHOUT_CREATE = (re.escape("Roles: 18 loaded, 11 active, 7 disabled [")
                         + ", ".join(re.escape(f"cobblemon_dynamics:{role} (handler ") + r"[a-z_:]+ is not registered\)"
                                     for role in CREATE_ROLES)
                         + re.escape("]"))
@@ -700,12 +731,129 @@ def scenario_restart(server: Server) -> None:
         raise TestpackError(f"the restarted server logged an error of ours: {error.strip()}")
 
 
+# CD-CRP-05: beside the crop mods of COHO 2.5.0 (the "crops" pins), a data load logs one line for each farming role:
+# "Farming: <role> <total> blocks [<adapter> <count>, ...], no adapter [<block id>, ...]".
+CROPS_BOOT_TIMEOUT = 600  # the crop mods and their libraries add 24 jars to the pinned set
+# Vanilla's TagLoader logs these when a tag file does not parse, or when a required entry of a tag is missing. The tags are
+# those that the farming lines read.
+TAG_LOAD_FAILED = (r"Couldn't (read tag list|load tag) "
+                   r"(minecraft:crops|cobblemon:(berries|mints|apricorns)|cobblemon_dynamics:\S+) ")
+# The blocks of the two target tags in the crops case, by family, from the table "The crop families of COHO 2.5.0" of
+# ADR-0015 and the tag files of the pinned jars. Each row gives the blocks, their number, and the adapter of the Cultivator
+# and of the Harvester, or None when that role's target tag does not hold them. The rows sum to crops_expected in mods.json.
+CROP_FAMILIES = (
+    # Minecraft 1.21.1: its #minecraft:crops, then the explicit entries of our target tags
+    ("minecraft: wheat, carrots, potatoes, beetroots", 4, "growth", "crop"),
+    ("minecraft: melon_stem, pumpkin_stem, torchflower_crop, pitcher_crop", 4, "growth", "never"),
+    ("minecraft: sweet_berry_bush", 1, "growth", "pick_to_age_1"),
+    ("minecraft: cave_vines, cave_vines_plant", 2, "growth", "cave_vines"),
+    ("minecraft: cocoa", 1, "growth", "break_and_replant"),
+    ("minecraft: nether_wart", 1, None, "break_and_replant"),
+    ("minecraft: attached_melon_stem, attached_pumpkin_stem", 2, None, "gourd"),
+    # Cobblemon 1.8.4: #cobblemon:berries and #cobblemon:mints, then its explicit entries
+    ("cobblemon: the berry trees of #cobblemon:berries", 70, "growth", "berry_tree"),
+    ("cobblemon: the 6 mints of #cobblemon:mints, revival_herb, medicinal_leek, vivichoke_seeds", 9, "growth", "crop"),
+    ("cobblemon: hearty_grains", 1, "growth", "upper_half"),
+    ("cobblemon: galarica_nut_bush", 1, "growth", "pick_to_age_1"),
+    # Farmer's Delight 1.3.4: its #minecraft:crops, then rice
+    ("farmersdelight: cabbages, onions, rice_panicles", 3, "growth", "crop"),
+    ("farmersdelight: tomatoes, tomatoes_on_rope", 2, "growth", "pick_to_age_0"),
+    ("farmersdelight: budding_tomatoes", 1, "growth", "never"),
+    ("farmersdelight: rice", 1, "growth", None),
+    # Expanded Delight 0.1.4 and Miner's Delight 1.4.5
+    ("expandeddelight: asparagus_crop, sweet_potato_crop, chili_pepper_crop, peanut_crop", 4, "growth", "crop"),
+    ("expandeddelight: cranberry_plant", 1, "growth", "pick_to_age_1"),
+    ("minersdelight: cave_carrots", 1, "growth", "crop"),
+    # Supplementaries 4.0.2, which registers its two tomato blocks only beside Farmer's Delight
+    ("supplementaries: flax", 1, "growth", "crop"),
+    ("supplementaries: rope_tomatoes, stick_tomatoes", 2, "growth", "never"),
+    # Immersive Engineering 12.4.2-194
+    ("immersiveengineering: hemp", 1, "growth", "upper_half"),
+    # The Aether 1.5.10 and Deep Aether 1.1.5.1
+    ("aether: berry_bush_stem", 1, "growth", None),
+    ("aether: berry_bush", 1, None, "break_and_replant"),
+    ("deep_aether: squash_stem", 1, "growth", "never"),
+    ("deep_aether: attached_squash_stem", 1, None, "gourd"),
+    # Oh The Biomes We've Gone 2.6.3
+    ("biomeswevegone: pale_pumpkin_stem", 1, "growth", "never"),
+    ("biomeswevegone: attached_pale_pumpkin_stem", 1, None, "gourd"),
+    ("biomeswevegone: blueberry_bush, oddion_crop", 2, "growth", "pick_to_age_1"),
+    # The Undergarden 0.9.6
+    ("undergarden: underbean_bush, blisterberry_bush", 2, "growth", "pick_to_age_1"),
+    ("undergarden: gloomgourd_stem", 1, "growth", "never"),
+    ("undergarden: gloomgourd_stem_attached", 1, None, "gourd"),
+    # Ars Nouveau 5.13.5 and Occultism 1.227.0
+    ("ars_nouveau: magebloom_crop", 1, "growth", "crop"),
+    ("ars_nouveau: sourceberry_bush", 1, "growth", "pick_to_age_1"),
+    ("occultism: datura", 1, "growth", "crop"),
+    # Regions Unexplored 0.6.3
+    ("regions_unexplored: salmonberry_bush", 1, "growth", "pick_to_age_1"),
+    ("regions_unexplored: duskmelon", 1, "growth", "pick_to_age_0"),
+    # Pam's HarvestCraft 2 Crops and Trees 1.0.9
+    ("pamhc2crops: the pam<crop>crop blocks of its #minecraft:crops", 97, "growth", "crop"),
+    ("pamhc2trees: the 47 hanging fruits and 3 log fruits, pam<fruit>", 50, "growth", "pick_to_age_0"),
+)
+
+
+def crop_family_counts() -> dict[str, dict[str, int]]:
+    """The sums of CROP_FAMILIES by role and adapter, in the form of crops_expected in mods.json."""
+    counts: dict[str, dict[str, int]] = {"cultivator": {}, "harvester": {}}
+    for _blocks, number, *adapters in CROP_FAMILIES:
+        for by_adapter, adapter in zip(counts.values(), adapters, strict=True):
+            if adapter is not None:
+                by_adapter[adapter] = by_adapter.get(adapter, 0) + number
+    return {role: dict(sorted(by_adapter.items())) for role, by_adapter in counts.items()}
+
+
+def farming_line(role: str) -> str:
+    return rf"Farming: {re.escape(role)} (\d+) blocks \[([^\]]*)\], no adapter \[([^\]]*)\]"
+
+
+def adapter_counts(listed: str) -> dict[str, int]:
+    """The adapters of a farming line with their counts: 'crop 1, pick_to_age_1 1' gives {'crop': 1, 'pick_to_age_1': 1}."""
+    pairs = [part.rsplit(" ", 1) for part in listed.split(", ") if part]
+    return {adapter: int(count) for adapter, count in pairs}
+
+
+def scenario_crops(server: Server) -> None:
+    """CD-CRP-05: beside the crop mods of COHO 2.5.0, each farming line names no block without an adapter, and each adapter
+    counts the blocks that crops_expected in mods.json gives it."""
+    expected = PINS["crops_expected"]
+    if (families := crop_family_counts()) != expected:
+        raise TestpackError(f"CROP_FAMILIES of testpack.py sums to {families}, but mods.json expects {expected}")
+    server.wait_log(DONE, CROPS_BOOT_TIMEOUT)
+    problems = []
+    failed = server.find_log(TAG_LOAD_FAILED)
+    if failed is not None:
+        problems.append(failed.strip())
+    for role, counts in expected.items():
+        pattern = farming_line(role)
+        if (problem := once(server, pattern)) is not None:
+            problems.append(problem)
+            continue
+        _total, listed, unadapted = re.search(pattern, server.find_log(pattern)).groups()
+        if unadapted:
+            problems.append(f"the {role} line names blocks with no adapter: {unadapted}")
+        actual = adapter_counts(listed)
+        wrong = [f"{adapter} {actual.get(adapter, 0)} instead of {counts.get(adapter, 0)}"
+                 for adapter in sorted(actual.keys() | counts.keys()) if actual.get(adapter, 0) != counts.get(adapter, 0)]
+        if wrong:
+            problems.append(f"the {role} line counts {', '.join(wrong)}")
+    if problems:
+        raise TestpackError("; ".join(problems))
+    say(f"CD-CRP-05: both farming lines name no block without an adapter and count {expected}")
+
+
 def scenarios() -> dict[str, Callable[[Server], None]]:
     return {name.removeprefix("scenario_"): fn for name, fn in globals().items() if name.startswith("scenario_")}
 
 
+# A scenario named here also installs the pins of the mods.json section of its name, beside the pinned set.
+SCENARIO_SECTIONS = ("crops",)
+
+
 def run_scenario(name: str) -> None:
-    folder = install(name)
+    folder = install(name, PINS[name] if name in SCENARIO_SECTIONS else None)
     with Server(folder) as server:
         server.start()
         scenarios()[name](server)

@@ -49,4 +49,14 @@ class FtbInteractRuleTest {
         assertFalse(FtbInteractRule.allows(none.copy(whitelisted = true)))
         assertTrue(FtbInteractRule.allows(none.copy(claimed = false)))
     }
+
+    /** The break question fills the same facts with the edit whitelist and the block edit mode (`Protection.EDIT_BLOCK`). */
+    @Test
+    fun `CD-HRV-17 the edit whitelist and the block edit mode decide a break`() {
+        val ally = stranger.copy(ally = true)
+        assertFalse(FtbInteractRule.allows(ally.copy(mode = FtbInteractRule.Mode.PRIVATE)), "an ally broke where the edit mode is private")
+        assertTrue(FtbInteractRule.allows(ally.copy(mode = FtbInteractRule.Mode.ALLIES)))
+        assertTrue(FtbInteractRule.allows(ally.copy(mode = FtbInteractRule.Mode.PRIVATE, whitelisted = true)))
+        assertFalse(FtbInteractRule.allows(stranger.copy(mode = FtbInteractRule.Mode.ALLIES)))
+    }
 }

@@ -446,6 +446,53 @@ The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 
 | --- | --- |
 | Charge Cell | Shaped: a Thunder Stone (`cobblemon:thunder_stone`) in the center, redstone dust above and below it, and 6 copper ingots in the side columns. |
 
+## Farming
+
+Two roles work crops. A Ground-type is a Cultivator: it grows crops with the effect of bone meal. A Grass-type is a
+Harvester: it harvests fully grown crops and replants them. Both work vanilla crops, Cobblemon's crops and berry trees,
+and the crops of many other mods. All farming work is silent.
+
+### The Cultivator
+
+The Cultivator uses no bone meal item. Each growth use costs 100 ticks of Work Stamina, on top of the drain of work, so
+a Cultivator tires faster than other workers. A worker applies ceil(30 × L ÷ 100) uses per minute, where L is its level:
+1 at level 1, 15 at level 50 and 30 at level 100. Green sparkles show each use. The Cultivator stops when the crop is
+fully grown, where the Harvester starts. When 20 uses in a row change nothing, for example on rice under a blocked
+cell, that worker leaves the crop alone for 5 minutes.
+
+### The Harvester
+
+The Harvester harvests a fully grown crop 20 ticks after it starts work. The harvest drops on the ground beside the
+crop, on the side that faces the worker. A Steel-type [Magnet](#magnet) bound to a chest of the same pasture collects
+the drops. A crop that the harvest breaks is replanted from its own drops: one seed or one crop item leaves the harvest.
+With no such item in the drops, the cell stays empty and every item drops. A bush, a vine or a tree fruit keeps its
+plant, and only the fruit comes off. A Harvester never takes an apricorn.
+
+### Crop to crop, or one crop with the Work Leash
+
+With no binding, a farming worker goes crop to crop. It leaves a crop as soon as its work there is done, and a later
+scan gives it the nearest crop that needs it. To keep a worker on one crop, bind it to the crop with the Work Leash. A
+bound Cultivator waits in Standby while its crop is fully grown, and grows the crop again after the harvest. A bound
+Harvester waits until the crop is fully grown again. One crop takes one Cultivator and one Harvester at the same time,
+auto-assigned or bound. A harvest by hand leaves the cell empty above the farmland. The binding stays, so the worker
+goes on when you plant the crop again.
+
+A Cobblemon of both types, such as Torterra, binds to a crop in the role of its primary type. A Quick Work order of such
+a Cobblemon takes the role that the aimed crop needs. That is the Harvester at a fully grown crop, and the Cultivator at a
+growing crop.
+
+A worker that the work engine directs never tramples farmland. A Harvester also asks the land claim checks in the tick
+of each harvest. A harvest that breaks a block also asks each claim mod whether its player may break that block. See
+[Land claims](#land-claims).
+
+### Which crops
+
+The block tag `#cobblemon_dynamics:cultivator_targets` names the blocks that a Cultivator grows, and
+`#cobblemon_dynamics:harvester_targets` names the blocks that a Harvester harvests. Both hold `#minecraft:crops`, so the
+crops of each mod that tags its crops are in them. A server can add blocks to the tags with a data pack. The
+[modpack integration page](modpack-integration.md#farming-roles) lists the crops of each supported mod and the adapter
+tags that decide how a crop is harvested.
+
 ## Roles
 
 A role is a job that Cobblemon of some types do on one kind of block. Auto-assigned workers take the roles
@@ -462,6 +509,8 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Crystal Tender](#crystal-tender) | `cobblemon_dynamics:crystal_tender` | Rock | Budding amethyst, AE2 budding certus quartz | Auto | |
 | [Brew Stoker](#brew-stoker) | `cobblemon_dynamics:brew_stoker` | Fire | Brewing stand | Auto | |
 | [Brewer](#brewer) | `cobblemon_dynamics:brewer` | Poison | Brewing stand | Auto | |
+| [Cultivator](#cultivator) | `cobblemon_dynamics:cultivator` | Ground | A crop that bone meal grows | Auto | |
+| [Harvester](#harvester) | `cobblemon_dynamics:harvester` | Grass | A fully grown crop | Auto | |
 | [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
@@ -471,7 +520,8 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Fan Catalyst Ghost](#fan-catalyst-ghost) | `cobblemon_dynamics:fan_catalyst_ghost` | Ghost | Encased fan that faces sideways | Work Leash | Create |
 | [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
 
-Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet and Tailwind. The
+Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind and the
+Cultivator. The
 Superheater superheats only from level 50. Every other role works the same at every level.
 
 ### Stoker
@@ -590,6 +640,33 @@ Fire and Poison type, works a stand as a Brew Stoker.
 
 The Brewer makes each brew finish in 200 ticks (10 seconds), not 400 ticks. It works only while a brew runs.
 It never changes the stand's fuel, so the stand needs its own blaze powder.
+
+### Cultivator
+
+**Types:** Ground. **Level:** the pace grows with level. **Move:** Mud Sport.
+
+**Target:** a crop in the tag `#cobblemon_dynamics:cultivator_targets` that bone meal can grow. See [Farming](#farming).
+
+A Ground-type gives its crop the effect of bone meal, with no bone meal item. Each use costs 100 ticks of Work
+Stamina, on top of the drain of work. A worker applies ceil(30 × L ÷ 100) uses per minute, where L is its
+level: 1 at level 1, 15 at level 50 and 30 at level 100. Green sparkles show each use, with no sound. The
+Cultivator stops when the crop is fully grown.
+
+**Role file parameters:** `uses_per_minute_at_level_100` (30) and `stamina_ticks_per_use` (100).
+
+### Harvester
+
+**Types:** Grass. **Level:** any. **Move:** Razor Leaf.
+
+**Target:** a fully grown crop in the tag `#cobblemon_dynamics:harvester_targets`. A Harvester never takes an
+apricorn. See [Farming](#farming).
+
+A Grass-type harvests its crop 20 ticks after it starts work. The harvest drops on the ground, on the side of
+the crop that faces the worker. A crop that the harvest breaks is replanted from its own drops: one seed, or one
+crop item, leaves the harvest. A bush or a vine keeps its plant, and only its fruit comes off. The harvest makes
+no sound.
+
+**Role file parameter:** `harvest_ticks` (20).
 
 ### Pump
 

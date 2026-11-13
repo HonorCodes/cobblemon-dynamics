@@ -7,17 +7,22 @@ import codes.honor.cobblemondynamics.test.TestKit
 import codes.honor.cobblemondynamics.test.claims.ClaimScenes
 import codes.honor.cobblemondynamics.test.claims.PastureOracle
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.item.ItemStack
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
+import xaero.pac.common.server.api.OpenPACServerAPI
 import xaero.pac.common.server.parties.party.api.IServerPartyAPI
 
 /**
  * The claim checks against the real Open Parties and Claims 0.33.0 (CD-QWK-28, CD-QWK-29, CD-QWK-31, CD-QWK-32, CD-LND-07,
- * CD-LND-10). Player A claims the chunk of furnace A: B is a member of A's party, C a member of a party that A's party allies, and D a
- * stranger. Every player is of the exact class ServerPlayer (CD-QWK-31). Each test has its own batch, because a claim covers a chunk.
+ * CD-LND-10, CD-HRV-18). Player A claims the chunk of furnace A: B is a member of A's party, C a member of a party that A's party
+ * allies, and D a stranger. Every player is of the exact class ServerPlayer (CD-QWK-31). Each test has its own batch, because a claim
+ * covers a chunk.
  */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -105,6 +110,41 @@ class OpacClaimTests {
             val messages = ClaimScenes.messagePackets(p, from)
             helper.assertTrue(messages.isEmpty(), "CD-LND-10: the placer got $messages")
             if (helper.tick - start >= 400) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-HRV-18: the break question of a Quick Worker and the one of a pasture both equal the check of a break by Open Parties and
+     * Claims for each online player, on wheat at age 7 in A's claim. The pasture's break question gives the answer of its use question
+     * of CD-LND-07, and both give the same answers after the players log out.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 100, batch = "opac_hrv18")
+    fun cdHrv18OpacBreakOracle(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val wheat = PastureOracle.wheat(helper)
+        val setup = "wheat in A's claim"
+        val online = PastureOracle.assertSame(helper, scene.players, wheat, setup, PastureOracle.Question.BREAK) { allowsBreak(it, wheat) }
+        assertBreakIsUse(helper, scene.players, wheat, setup)
+        PastureOracle.logOut(helper, scene.players)
+        PastureOracle.assertSameOffline(helper, online)
+        assertBreakIsUse(helper, scene.players, wheat, "$setup, after the logout")
+        helper.succeed()
+    }
+
+    /** The check of Open Parties and Claims on a break with an empty main hand, with its messages off (CD-HRV-18). */
+    private fun allowsBreak(player: ServerPlayer, pos: BlockPos): Boolean {
+        val level = player.serverLevel()
+        return !OpenPACServerAPI.get(level.server).chunkProtection
+            .onBlockInteraction(player, InteractionHand.MAIN_HAND, ItemStack.EMPTY, level, pos, Direction.UP, true, false)
+    }
+
+    /** For each of [players], the pasture's break question at [pos] gives the answer of its use question (CD-HRV-18). */
+    private fun assertBreakIsUse(helper: GameTestHelper, players: List<ServerPlayer>, pos: BlockPos, setup: String) {
+        for (player in players) {
+            val use = LandClaims.ownerMayUse(player.uuid, helper.level, pos)
+            val breaks = LandClaims.ownerMayBreak(player.uuid, helper.level, pos)
+            val name = player.gameProfile.name
+            helper.assertTrue(breaks == use, "$setup: the pasture's break question says $breaks for $name, its use question says $use")
         }
     }
 

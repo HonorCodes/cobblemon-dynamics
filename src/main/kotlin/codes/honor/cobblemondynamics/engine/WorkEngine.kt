@@ -196,7 +196,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     fun onBound(level: ServerLevel, pokemonId: UUID, binding: Binding) {
         val t = tick(level)
         val shared = RoleRegistry.sharesTargets(binding.roleId)
-        val holder = if (shared) null else claims.holderOf(TargetKey.block(t.dimension, binding.target))
+        val key = TargetKey.block(t.dimension, binding.target, RoleRegistry.laneOf(binding.roleId))
+        val holder = if (shared) null else claims.holderOf(key)
         if (holder != null && holder.worker != pokemonId) {
             val slot = slots[holder.worker]
             if (slot != null) release(t, slot) else claims.release(holder.worker)
@@ -230,10 +231,22 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             guarded(role.handler, false) { role.handler.matches(level, aim.pos, state, blockEntity) }
         }
         val byId = fitting.associateBy { it.definition.id }
-        val pick = QuickWorkRules.pick(fitting.map { it.definition }, types.toList(), hasFairyType(pokemon)) { def ->
-            val handler = byId.getValue(def.id).handler
-            QuickWorkRules.mayOrder(def, handler.scanKind != ScanKind.NONE, handler.bindingShape)
-        }
+        // CD-CRP-21: a slot that no engine map holds, so that a handler can weigh the aimed block for this Pokémon.
+        val probe = WorkerSlot(Worker(pokemon.uuid, pasture = null), entity, pokemon)
+        val pick = QuickWorkRules.pick(
+            fitting.map { it.definition },
+            types.toList(),
+            hasFairyType(pokemon),
+            orderable = { def ->
+                val handler = byId.getValue(def.id).handler
+                QuickWorkRules.mayOrder(def, handler.scanKind != ScanKind.NONE, handler.bindingShape)
+            },
+            hasDemand = { def ->
+                val role = byId.getValue(def.id)
+                guarded(role.handler, false) { role.handler.hasDemand(context(t, probe, role.handler.canonical(level, aim.pos), role)) }
+            },
+            sameGroup = RoleRegistry::sameGroup,
+        )
         val name = state.block.name
         when (pick) {
             QuickWorkRules.Pick.None -> {}
@@ -411,7 +424,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun claimBound(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
         val binding = slot.binding ?: return
         val worker = slot.worker
-        val key = TargetKey.block(t.dimension, binding.target)
+        val key = TargetKey.block(t.dimension, binding.target, RoleRegistry.laneOf(binding.roleId))
         val current = claims.claimOf(worker.pokemonId)
         if (current?.kind == ClaimKind.WORK && current.key != key) release(t, slot)
         if (claims.claimOf(worker.pokemonId) != null || worker.tired || worker.isSkipped(key, t.now)) return
@@ -542,7 +555,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         // CD-LND-01, CD-LND-12: one pasture check for each target of the pass, before the pass offers its targets to the workers.
         val allowed = found.filter { LandClaims.ownerMayUse(runtime.placer, t.level, it.pos) }
         if (allowed.isEmpty()) return
-        val byKey: Map<TargetKey, FoundTarget> = allowed.associateBy { TargetKey.block(t.dimension, it.pos) }
+        // CD-CRP-06: a target whose roles claim in two lanes, such as a crop of both farming roles, is one candidate per lane.
+        val byKey: Map<TargetKey, FoundTarget> = allowed.flatMap { target ->
+            target.roles.groupBy { it.handler.claimLane }.map { (lane, roles) ->
+                TargetKey.block(t.dimension, target.pos, lane) to FoundTarget(target.pos, roles)
+            }
+        }.toMap()
         val taken = takenSpots(t)
         for (slot in runtime.slots.values) {
             val worker = slot.worker
@@ -570,7 +588,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     private fun candidate(t: Tick, slot: WorkerSlot, types: Set<String>, key: TargetKey, target: FoundTarget): CandidateView {
         val center = target.roles.first().handler.targetCenter(target.pos)
-        return CandidateView(key, center, target.roles.map { it.definition }) {
+        val needsDemand = target.roles.all { it.handler.releasesWhenDone }
+        return CandidateView(key, center, target.roles.map { it.definition }, needsDemand) {
             target.roles.any { role ->
                 RoleSelection.isEligible(role.definition, types) &&
                     guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target.pos, role)) }
@@ -595,7 +614,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         moving: Boolean,
     ): Attempt {
         val worker = slot.worker
-        val key = TargetKey.block(t.dimension, target)
+        val key = TargetKey.block(t.dimension, target, role.handler.claimLane)
         val shared = role.handler.sharesTargets
         // CD-CLM-10: a container whose places are all taken refuses before the spot search and its path checks.
         if (shared && !claims.hasPlace(key)) return Attempt.REFUSED
@@ -679,7 +698,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val before = worker.status
         var event: MachineEvent? = null
         val ok = guarded(handler, false) {
-            event = t.machine.onTick(worker, t.now, arrived, { handler.hasDemand(ctx) }, claim.key)
+            event = t.machine.onTick(worker, t.now, arrived, { handler.hasDemand(ctx) }, claim.key, handler.releasesWhenDone)
             when (val e = event) {
                 MachineEvent.StartedWorking -> {
                     handler.onStart(ctx)
@@ -693,6 +712,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 }
 
                 is MachineEvent.ReleaseClaim -> {
+                    // CD-CRP-10: a farming worker lets its crop go while Working, so the handler hears of the end of its work.
+                    if (before == WorkerStatus.WORKING) handler.onStop(ctx)
                     claims.release(worker.pokemonId)
                     e.skip?.let { worker.skipUntil[it] = e.until }
                     clear(t, slot)
@@ -966,7 +987,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val refusal = QuickWorkRules.refusal(
             mayUse = mayUse(owner, t.level, canonical),
             tired = worker.tired,
-            targetFree = claims.isFree(TargetKey.block(t.dimension, canonical), pokemon.uuid),
+            // CD-CRP-13: a claim or a binding of the other farming role leaves the crop free for this one.
+            targetFree = claims.isFree(TargetKey.block(t.dimension, canonical, role.handler.claimLane), pokemon.uuid),
             // CD-QWK-36: the Muse's order starts while the table's menu is closed, because R does nothing while a screen is open.
             waitsForDemand = role.definition.quickWork,
         ) { guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, canonical, role)) } }
@@ -1013,6 +1035,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             ticksInStatus = t.now - worker.statusSince,
             standbyLimit = t.settings.standbyMoveTicks,
             waitsForDemand = slot.role?.definition?.quickWork == true,
+            endsWhenDone = slot.role?.handler?.releasesWhenDone == true,
         )
         QuickWorkRules.endReason(watch)?.let { return endOrder(t, order, it) }
         // CD-QWK-29: the end rule passed, so the owner is online and in the order's level, which the FTB Chunks check needs.
@@ -1109,15 +1132,37 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             // Only the Magnet reads it, and the Magnet is leash only, so no Quick Worker needs it.
             pasture = slot.worker.pasture?.let { BlockPos.of(it.pos) },
             memo = memo,
+            spot = slot.worker.spot,
+            spend = { ticks -> slot.worker.stamina.work(ticks.toLong(), slot.pokemon.level, t.settings) },
+            mayChange = { pos -> mayChange(t, slot, pos) },
+            mayBreak = { pos -> mayBreak(t, slot, pos) },
+            stalled = { ticks -> slot.worker.skipUntil[TargetKey.block(t.dimension, target, role.handler.claimLane)] = t.now + ticks },
         )
     }
 
-    /** CD-CLM-11: only a binding of an exclusive role reserves its target. */
+    /**
+     * CD-HRV-13: the land claim checks of a change at [pos] by the worker of [slot], in this tick: the pasture check of the placer that
+     * the last poll read for a pasture worker, and the owner's checks for a Quick Worker, whose owner is online in the order's level.
+     */
+    private fun mayChange(t: Tick, slot: WorkerSlot, pos: BlockPos): Boolean {
+        slot.worker.pasture?.let { key -> return pastures[key]?.let { LandClaims.ownerMayUse(it.placer, t.level, pos) } == true }
+        val owner = orders[slot.worker.pokemonId]?.owner?.let(server.playerList::getPlayer) ?: return false
+        return owner.level() === t.level && mayUse(owner, t.level, pos)
+    }
+
+    /** CD-HRV-16: the break question of each claim mod about [pos], by the placer's UUID or for the online owner of a Quick Worker. */
+    private fun mayBreak(t: Tick, slot: WorkerSlot, pos: BlockPos): Boolean {
+        slot.worker.pasture?.let { key -> return pastures[key]?.let { LandClaims.ownerMayBreak(it.placer, t.level, pos) } == true }
+        val owner = orders[slot.worker.pokemonId]?.owner?.let(server.playerList::getPlayer) ?: return false
+        return owner.level() === t.level && LandClaims.mayBreak(owner, t.level, pos)
+    }
+
+    /** CD-CLM-11: only a binding of an exclusive role reserves its target, and a farming binding only in its own lane (CD-CRP-07). */
     private fun reservedFor(key: TargetKey): UUID? {
         val block = key as? TargetKey.Block ?: return null
         val level = server.getLevel(ResourceKey.create(Registries.DIMENSION, block.dimension)) ?: return null
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return null
-        return index.exclusiveAt(BlockPos.of(block.pos), RoleRegistry::sharesTargets)?.pokemonId
+        return index.exclusiveAt(BlockPos.of(block.pos), block.lane, RoleRegistry::sharesTargets, RoleRegistry::laneOf)?.pokemonId
     }
 
     companion object {

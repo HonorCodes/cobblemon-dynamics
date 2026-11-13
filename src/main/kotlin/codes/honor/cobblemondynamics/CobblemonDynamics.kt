@@ -21,6 +21,8 @@ import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.capability.FePushHandler
 import codes.honor.cobblemondynamics.handler.capability.FluidFillHandler
 import codes.honor.cobblemondynamics.handler.create.CreateCompat
+import codes.honor.cobblemondynamics.handler.farming.CultivatorHandler
+import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
 import codes.honor.cobblemondynamics.handler.item.MagnetHandler
 import codes.honor.cobblemondynamics.handler.item.TelekinesisHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BrewingFuelHandler
@@ -51,6 +53,7 @@ import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.AddReloadListenerEvent
+import net.neoforged.neoforge.event.TagsUpdatedEvent
 import org.slf4j.Logger
 
 @Mod(MOD_ID)
@@ -87,6 +90,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(EnchantingHandler)
         HandlerRegistry.register(TelekinesisHandler)
         HandlerRegistry.register(MagnetHandler)
+        HandlerRegistry.register(CultivatorHandler)
+        HandlerRegistry.register(HarvesterHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
         if (ModList.get().isLoaded("create")) CreateCompat.register(modBus)
         // CD-QWK-33: each claim compat class loads only when its mod is present.
@@ -100,6 +105,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }
+        // CD-CRP-05: the farming lines count the tagged blocks once the tags of a data load are bound.
+        NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { FarmingLines.onTagsUpdated(it) }
         EngineEvents.register()
         WorkerPush.warnIfMissing()
         LeashInteractions.register()

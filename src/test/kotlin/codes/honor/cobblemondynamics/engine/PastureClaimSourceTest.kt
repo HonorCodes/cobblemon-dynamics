@@ -26,8 +26,11 @@ class PastureClaimSourceTest {
     private fun callers(call: String): Set<String> = functions.filter { (_, text) -> call in text }.mapTo(sortedSetOf()) { it.first }
 
     @Test
-    fun `CD-LND-12 the engine asks the pasture check only in the poll, the assignment after a scan pass and the choice of a bed`() {
-        assertEquals(setOf("assign", "landRefusal", "nearestFreeBed", "placerMayUse"), callers(PASTURE_CHECK), "who asks $PASTURE_CHECK")
+    fun `CD-LND-12 the engine asks the pasture check only in the poll, the assignment after a scan, the choice of a bed and a harvest`() {
+        val askers = setOf("assign", "landRefusal", "mayChange", "nearestFreeBed", "placerMayUse")
+        assertEquals(askers, callers(PASTURE_CHECK), "who asks $PASTURE_CHECK")
+        // CD-HRV-13: the harvest asks through its context, once for each block that it changes.
+        assertEquals(setOf("context"), callers("mayChange("), "who calls mayChange")
         // The two helpers of the poll: the binding's target and destination (CD-LND-03), and each claim (CD-LND-02).
         for (helper in listOf("landRefusal(", "placerMayUse(")) assertEquals(setOf("poll"), callers(helper), "who calls $helper")
         for (name in listOf("tickWorker", "tickLevel")) {

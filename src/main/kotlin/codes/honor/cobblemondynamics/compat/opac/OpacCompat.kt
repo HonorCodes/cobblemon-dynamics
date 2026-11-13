@@ -35,5 +35,13 @@ object OpacCompat {
             if (ownerId == null) return api.serverClaimsManager.get(dimension, x, z) == null
             return api.chunkProtection.hasChunkAccess(ownerId, dimension, x, z)
         }
+
+        /** CD-HRV-18: the same interaction with `breaking` true, which asks about a break. Messages false sends nothing. */
+        override fun mayBreak(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean = !OpenPACServerAPI.get(level.server)
+            .chunkProtection
+            .onBlockInteraction(owner, InteractionHand.MAIN_HAND, ItemStack.EMPTY, level, pos, Direction.UP, true, false)
+
+        /** CD-HRV-18: full access by UUID covers breaking, so a pasture's break question is its use question. */
+        override fun ownerMayBreak(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean = ownerMayUse(ownerId, level, pos)
     }
 }

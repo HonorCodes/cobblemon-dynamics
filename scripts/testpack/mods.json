@@ -183,5 +183,207 @@
       "url": "https://ldtteam.jfrog.io/ldtteam/modding/com/ldtteam/multipiston/1.2.58-1.21.1/multipiston-1.2.58-1.21.1.jar",
       "sha512": "60007e72516857228c45cbfee14ec18c9c4e89b626ecdd659fff3a146d5dc527d52563645e3348b79820f7eeb0b6d3aeab4394e7b6d6a065666ed04333c05a48"
     }
+  },
+  "crops": {
+    "farmersdelight": {
+      "project": "farmers-delight",
+      "version": "1.3.4",
+      "version_number": "1.21.1-1.3.4",
+      "filename": "FarmersDelight-1.21.1-1.3.4.jar",
+      "url": "https://cdn.modrinth.com/data/R2OftAxM/versions/XTVZDOol/FarmersDelight-1.21.1-1.3.4.jar",
+      "sha512": "1f6f8796469f747cff36f477b4f589a3d69613882399f9ee7f86db36c7bca9aa4828731f43db15dc6c7f5a4c1bbe3d4092a232e8cef010b09cec0581848fda90"
+    },
+    "expandeddelight": {
+      "project": "expanded-delight",
+      "version": "0.1.4",
+      "version_number": "0.1.4-neoforge",
+      "filename": "expandeddelight-0.1.4.jar",
+      "url": "https://cdn.modrinth.com/data/e9V6wFcR/versions/RTRYPIJp/expandeddelight-0.1.4.jar",
+      "sha512": "13a2bd17c5c184902da9eb78ce9b993073864301e8cb4a038f7fd7e596188826ef13381cf615533286f53eaeaabfc4c8b27ab91113a15ea68e4bd9f84ca16b8b"
+    },
+    "minersdelight": {
+      "project": "miners-delight",
+      "version": "1.4.5",
+      "version_number": "1.4.5",
+      "filename": "minersdelight-1.21.1-1.4.5.jar",
+      "url": "https://cdn.modrinth.com/data/qMxbM4BQ/versions/YUHbwbgQ/minersdelight-1.21.1-1.4.5.jar",
+      "sha512": "98db53ab135281ab11e9abacbce846bfb42fdee6e0a85ae38802a5809fddc24af2e3fb5ba6ed53aa2244ce45f3a5ff93970dd1bc1b55d599560f99019a7fcac1"
+    },
+    "supplementaries": {
+      "project": "supplementaries",
+      "version": "4.0.2",
+      "version_number": "1.21.1-4.0.2",
+      "filename": "supplementaries-1.21.1-4.0.2-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/fFEIiSDQ/versions/rWq0ko29/supplementaries-1.21.1-4.0.2-neoforge.jar",
+      "sha512": "092034ac007c327c9dd58c68ae585df59fa523a5ca40da88b34ad8f1c6347523d302e490acc1650eae6837f46979442ea8a8c151802074de2da99c396ec28894"
+    },
+    "moonlight": {
+      "project": "moonlight",
+      "version": "3.8.3",
+      "version_number": "1.21.1-3.8.3",
+      "filename": "moonlight-1.21.1-3.8.3-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/twkfQtEc/versions/yBea1yLM/moonlight-1.21.1-3.8.3-neoforge.jar",
+      "sha512": "7b6479af8052419080bb1f5d28742daeef38a62bf33f2b47b70a1dafb01a06afd485cbc22e9f95c210e72b62364b96f539257dc8e03f5631a586ee9c4b5121bf"
+    },
+    "biomeswevegone": {
+      "project": "oh-the-biomes-weve-gone",
+      "version": "2.6.3",
+      "version_number": "2.6.3-NeoForge",
+      "filename": "Oh-The-Biomes-Weve-Gone-NeoForge-2.6.3.jar",
+      "url": "https://cdn.modrinth.com/data/NTi7d3Xc/versions/gAxM0bHs/Oh-The-Biomes-Weve-Gone-NeoForge-2.6.3.jar",
+      "sha512": "6b6ec749feb595e8d01b2328a0f630a1e4280bdb804dc1e3bcb29c2ca3fd60911eb27a64cdda7ee0a4719192f154677f07bd261c605791c759ffb73799eeef02"
+    },
+    "aether": {
+      "source": "local",
+      "version": "1.5.10",
+      "filename": "aether-1.21.1-1.5.10-neoforge.jar",
+      "sha512": "6265af9d4bb6595db11909bbe0c8a17898f6630e1ef98b1930d3d7d61a90921fa76f26422535242f284155c6301559312933453d3866b2f480f0110a8a1d07b1"
+    },
+    "deep_aether": {
+      "project": "deep-aether",
+      "version": "1.1.5.1",
+      "version_number": "1.21.1-1.1.5.1",
+      "filename": "deep_aether-1.21.1-1.1.5.1.jar",
+      "url": "https://cdn.modrinth.com/data/gcHIih5B/versions/MSW5emg8/deep_aether-1.21.1-1.1.5.1.jar",
+      "sha512": "f848fee0a8a73d0696bf721753af1b752b067791900a19a949ce9faa0adcf1f03b29f44e5ea945404c4505891b14dadab89009253cd31cc85c241c07fe9c5684"
+    },
+    "undergarden": {
+      "project": "the-undergarden",
+      "version": "0.9.6",
+      "version_number": "0.9.6",
+      "filename": "The_Undergarden-1.21.1-0.9.6.jar",
+      "url": "https://cdn.modrinth.com/data/Ejfl5qDL/versions/sY4KZ9q3/The_Undergarden-1.21.1-0.9.6.jar",
+      "sha512": "bb98ea4bb0755e0a1ae67bae3534f1002b91945f7b565b21a408fade678bbc1e9f2b564a00b7157e38ab5eb77d69070b9f16db66de3cd5b41d5c89cbef721bf4"
+    },
+    "ars_nouveau": {
+      "project": "ars-nouveau",
+      "version": "5.13.5",
+      "version_number": "5.13.5",
+      "filename": "ars_nouveau-1.21.1-5.13.5.jar",
+      "url": "https://cdn.modrinth.com/data/TKB6INcv/versions/ALmdjtiq/ars_nouveau-1.21.1-5.13.5.jar",
+      "sha512": "be9cc13c9bab1808605ef5bb2b8a32a8a3bba169094e364d8aad0c5fafeb8a83ecabbcb0a0dba2b3806e0d3090172c1cf1d89792d814ac2fe9d07018d4445c49"
+    },
+    "occultism": {
+      "project": "occultism",
+      "version": "1.227.0",
+      "version_number": "1.21.1-neoforge-1.227.0",
+      "filename": "occultism-1.21.1-neoforge-1.227.0.jar",
+      "url": "https://cdn.modrinth.com/data/sbJh4AZw/versions/SFDVXWYt/occultism-1.21.1-neoforge-1.227.0.jar",
+      "sha512": "063d775420e1efa916d1ed94f3f5bfc3b00b976b1de6fc333eda9886ea3665aa38254407a18469ed0a334bcac67b204392c9bf197fc10916ce36a9e29abd5ef0"
+    },
+    "immersiveengineering": {
+      "project": "immersiveengineering",
+      "version": "12.4.2-194",
+      "version_number": "12.4.2-194",
+      "filename": "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+      "url": "https://cdn.modrinth.com/data/tIm2nV03/versions/uNRARSH2/ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+      "sha512": "862523e84747a8b7eaa65f9b3c337fa832ef9efd0545c27f68e350e01f482c7a1242d0e4bdc2caff3d7eb033508b43a353fcd7150c9b544d0c05765ca2a551b3"
+    },
+    "regions_unexplored": {
+      "project": "regions-unexplored",
+      "version": "0.6.3",
+      "version_number": "0.6.3-neoforge-21.1",
+      "filename": "regions-unexplored-0.6.3-neoforge-21.1.jar",
+      "url": "https://cdn.modrinth.com/data/Tkikq67H/versions/M9SMxdTX/regions-unexplored-0.6.3-neoforge-21.1.jar",
+      "sha512": "744b7c37cfc7613c0c5f8507a309f61adcb117ab4ac1c572ea7b167fa7bc64d6ab0096ef7a1f0be7d33c0614cf01f76b88f25cf35936040938930c82c8f42501"
+    },
+    "pamhc2crops": {
+      "source": "local",
+      "version": "1.0.9",
+      "filename": "pamhc2crops-NEOFORGE-1.21.1-1.0.9.jar",
+      "sha512": "0075b753418bfe7922ac3356ad4ae5fa7a37c61b56013fb6249e8cfcaf6641e9115133afc77ad961833ab47f3566b74fe59aadae8ea6e87a62a4f413192b6a65"
+    },
+    "pamhc2trees": {
+      "source": "local",
+      "version": "1.0.9",
+      "filename": "pamhc2trees-NEOFORGE-1.21.1-1.0.9.jar",
+      "sha512": "fa8698f4ed137b3c33507452a8aad3dc3001567f63c2a80f6fb33a0995b5d420cb2402eb17009d24838d972ef3d8c375946a12f0b40c31a55fb0b06c684166aa"
+    },
+    "lodestone": {
+      "project": "lodestonelib",
+      "version": "1.8.2",
+      "version_number": "1.8.2",
+      "filename": "lodestone-1.21.1-1.8.2.jar",
+      "url": "https://cdn.modrinth.com/data/bN3xUWdo/versions/CohX6yP1/lodestone-1.21.1-1.8.2.jar",
+      "sha512": "6917080339b982d96cb4a7c98205ade5d89730191bc9113f4f8cd36bb1a760a91ad2421c8869c7063f8dea22a200d7d1896e0bb5e0e64119bb7590e32a998a23"
+    },
+    "corgilib": {
+      "project": "corgilib",
+      "version": "5.0.0.10",
+      "version_number": "1.21.1-5.0.0.10-NeoForge",
+      "filename": "Corgilib-NeoForge-1.21.1-5.0.0.10.jar",
+      "url": "https://cdn.modrinth.com/data/ziOp6EO8/versions/Za7PInLk/Corgilib-NeoForge-1.21.1-5.0.0.10.jar",
+      "sha512": "38107fc4823b54dee5107abb916231f2a9b18a1ae2947ed4c4d9e1af68e70cfa6d8a84019633074bcba478541b9723a9ed26abfb2e14b28b716180cf70efbca2"
+    },
+    "ohthetreesyoullgrow": {
+      "project": "oh-the-trees-youll-grow",
+      "version": "5.3.6",
+      "version_number": "1.21.1-5.3.6-NeoForge",
+      "filename": "Oh-The-Trees-Youll-Grow-neoforge-1.21.1-5.3.6.jar",
+      "url": "https://cdn.modrinth.com/data/g8NOG5OR/versions/7zqZzoiq/Oh-The-Trees-Youll-Grow-neoforge-1.21.1-5.3.6.jar",
+      "sha512": "ac733a77ded66c847948cae570cff178f8c1b7401983041405021044b2494c430f53b5518a5c7645565a5c612e5bed2f9e944c2681522a3261c53844fc435605"
+    },
+    "terrablender": {
+      "source": "local",
+      "version": "4.1.0.8",
+      "filename": "TerraBlender-neoforge-1.21.1-4.1.0.8.jar",
+      "sha512": "d51720b21b4cdaeaf962416575f27209219941b8a0067b0bccab478227f32ad9d91a2b94469925bb7b810ffb446d15b02a5381a5425b3f54739f2f174034870e"
+    },
+    "geckolib": {
+      "project": "geckolib",
+      "version": "4.9.3",
+      "version_number": "4.9.3",
+      "filename": "geckolib-neoforge-1.21.1-4.9.3.jar",
+      "url": "https://cdn.modrinth.com/data/8BmcQJ2H/versions/Grwn5rUB/geckolib-neoforge-1.21.1-4.9.3.jar",
+      "sha512": "8dfa5f8c57224a5e34e5098367ea9819ca6dc9c11357cd3062c16da3455c8bd1a483098af7383debc4b9ce8e4d7ab3fdc799b415644eb829da83eb72a7335dfd"
+    },
+    "curios": {
+      "project": "curios",
+      "version": "9.5.1",
+      "version_number": "9.5.1+1.21.1",
+      "filename": "curios-neoforge-9.5.1+1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/vvuO3ImH/versions/yohfFbgD/curios-neoforge-9.5.1%2B1.21.1.jar",
+      "sha512": "5981a267686b744e7e3c227f78cbcd5267c14ac6979a28e814695f4589273998563147207fef4a5cdb7cdbdc39797cd95d9e4abadb55869f18e02a38d0654ae5"
+    },
+    "modonomicon": {
+      "project": "modonomicon",
+      "version": "1.123.0",
+      "version_number": "1.21.1-1.123.0",
+      "filename": "modonomicon-1.21.1-neoforge-1.123.0.jar",
+      "url": "https://cdn.modrinth.com/data/692GClaE/versions/OKyLanIn/modonomicon-1.21.1-neoforge-1.123.0.jar",
+      "sha512": "e9569d3ba39caefb4776a1d9d99d2045f2e6ca4ca26a7e609aa99d0d8e9c696a0c8e9d68df0e9a2b41dc513de8f36e5ea91f8f26db781b8279b2a6a96f95291e"
+    },
+    "smartbrainlib": {
+      "project": "smartbrainlib",
+      "version": "1.16.11",
+      "version_number": "1.16.11",
+      "filename": "SmartBrainLib-neoforge-1.21.1-1.16.11.jar",
+      "url": "https://cdn.modrinth.com/data/PuyPazRT/versions/O5EpeqI3/SmartBrainLib-neoforge-1.21.1-1.16.11.jar",
+      "sha512": "bfc76f6fd8c388d01b80601ad1b826f6b3f5ec5ea915e5725af129561e6bc4a10890975e6f6d2a0348d842c13042dcf1a9d0a1574fba76bce60119bee76e2dc2"
+    },
+    "lithostitched": {
+      "project": "lithostitched",
+      "version": "1.8.1",
+      "version_number": "1.8.1-neoforge-21.1",
+      "filename": "lithostitched-1.8.1-neoforge-21.1.jar",
+      "url": "https://cdn.modrinth.com/data/XaDC71GB/versions/cZu4cHY3/lithostitched-1.8.1-neoforge-21.1.jar",
+      "sha512": "6c02b8b269269d5aa84cb03bf824a1b5d52838e806c2fec8727eb4049925592dac9bb65c996858751fbb722f22ac59c4be09860e1f01e8f7b97c95be3faf7a57"
+    }
+  },
+  "crops_expected": {
+    "cultivator": {
+      "growth": 270
+    },
+    "harvester": {
+      "berry_tree": 70,
+      "break_and_replant": 3,
+      "cave_vines": 2,
+      "crop": 121,
+      "gourd": 5,
+      "never": 10,
+      "pick_to_age_0": 53,
+      "pick_to_age_1": 9,
+      "upper_half": 2
+    }
   }
 }

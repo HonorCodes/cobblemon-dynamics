@@ -49,26 +49,54 @@ class WorkerMachine(private val settings: EngineSettings) {
         w.missedArrival = false
     }
 
-    /** Applies the first rule that matches the worker's status and returns at most one event. */
-    fun onTick(w: Worker, now: Long, arrived: Boolean, demand: () -> Boolean, key: TargetKey?): MachineEvent? = when (w.status) {
-        WorkerStatus.TRAVELING -> when {
-            arrived -> if (demand()) startWorking(w, now) else enterStandby(w, now)
-            now - w.claimTick >= settings.travelTimeoutTicks -> timeOut(w, now, key)
+    /**
+     * Applies the first rule that matches the worker's status and returns at most one event. With [releasesWhenDone], an auto-assigned
+     * pasture worker with no demand releases its claim instead of a Standby, on arrival, while Working, or at a demand check of a
+     * Standby (CD-CRP-10). A leashed worker waits in Standby (CD-CRP-11), and so does a Quick Worker, whose order then ends (CD-CRP-12).
+     */
+    fun onTick(
+        w: Worker,
+        now: Long,
+        arrived: Boolean,
+        demand: () -> Boolean,
+        key: TargetKey?,
+        releasesWhenDone: Boolean = false,
+    ): MachineEvent? {
+        val release = releasesWhenDone && !w.leashed && w.pasture != null
+        return when (w.status) {
+            WorkerStatus.TRAVELING -> when {
+                arrived -> when {
+                    demand() -> startWorking(w, now)
+                    release -> done(w, now)
+                    else -> enterStandby(w, now)
+                }
+
+                now - w.claimTick >= settings.travelTimeoutTicks -> timeOut(w, now, key)
+
+                else -> null
+            }
+
+            WorkerStatus.STANDBY -> when {
+                w.missedArrival -> if (now >= w.retryAt) retry(w, now) else null
+
+                // CD-ASG-12: a waiting worker checks for new demand every 20 ticks of Standby.
+                (now - w.statusSince) % DEMAND_CHECK_TICKS == 0L -> when {
+                    demand() -> startWorking(w, now)
+                    release -> done(w, now)
+                    else -> null
+                }
+
+                else -> null
+            }
+
+            WorkerStatus.WORKING -> when {
+                demand() -> null
+                release -> done(w, now)
+                else -> enterStandby(w, now)
+            }
+
             else -> null
         }
-
-        WorkerStatus.STANDBY -> when {
-            w.missedArrival -> if (now >= w.retryAt) retry(w, now) else null
-
-            // CD-ASG-12: a waiting worker checks for new demand every 20 ticks of Standby.
-            (now - w.statusSince) % DEMAND_CHECK_TICKS == 0L && demand() -> startWorking(w, now)
-
-            else -> null
-        }
-
-        WorkerStatus.WORKING -> if (demand()) null else enterStandby(w, now)
-
-        else -> null
     }
 
     fun onRelease(w: Worker, now: Long) {
@@ -164,6 +192,12 @@ class WorkerMachine(private val settings: EngineSettings) {
     private fun startWorking(w: Worker, now: Long): MachineEvent {
         set(w, WorkerStatus.WORKING, now)
         return MachineEvent.StartedWorking
+    }
+
+    /** CD-CRP-10: the target has no demand, so the worker lets it go and skips nothing. */
+    private fun done(w: Worker, now: Long): MachineEvent {
+        onRelease(w, now)
+        return MachineEvent.ReleaseClaim(null, now)
     }
 
     private fun enterStandby(w: Worker, now: Long): MachineEvent {

@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "cobblemon:hearty_grains",
+    {
+      "id": "immersiveengineering:hemp",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:harvester",
+  "types": ["grass"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "harvest_ticks": 20 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["razorleaf", "physical", "special"],
+    "actor_particles": ["cobblemon:razorleaf_actor"],
+    "target_particles": ["cobblemon:razorleaf_target"]
+  }
+}

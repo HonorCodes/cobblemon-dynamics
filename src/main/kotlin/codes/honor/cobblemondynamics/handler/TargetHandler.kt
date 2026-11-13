@@ -34,6 +34,18 @@ interface TargetHandler {
      */
     val sharesTargets: Boolean get() = false
 
+    /**
+     * The lane of this handler's work claims and bindings, or null for the one exclusive claim of a target. A crop holds one claim in
+     * each lane, so a Cultivator and a Harvester share it, and a binding reserves the crop only in its own lane (CD-CRP-06, CD-CRP-07).
+     */
+    val claimLane: String? get() = null
+
+    /**
+     * True for a handler whose auto-assigned pasture workers release their claim once the target has no demand, instead of waiting in
+     * Standby, so that the next scan pass gives them the nearest target with demand. The farming roles go crop to crop (CD-CRP-10).
+     */
+    val releasesWhenDone: Boolean get() = false
+
     fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean
 
     /** The one position that keys the claim of a multi-block target (CD-CLM-04). */
@@ -44,6 +56,12 @@ interface TargetHandler {
     fun targetCenter(canonical: BlockPos): Vec3 = Vec3.atCenterOf(canonical)
 
     fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean
+
+    /**
+     * Whether a Work Leash binding of this handler's roles keeps [canonical] (CD-LSH-08). Claims follow [stillValid], so a claim on a
+     * broken target ends at once (CD-CLM-08). The farming handlers keep the empty cell of a harvested crop (CD-CRP-09).
+     */
+    fun bindingHolds(level: ServerLevel, canonical: BlockPos): Boolean = stillValid(level, canonical)
 
     fun hasDemand(ctx: WorkContext): Boolean
 
@@ -93,6 +111,22 @@ class WorkContext(
      * worker, has an empty memo of its own.
      */
     val memo: ClaimMemo = ClaimMemo(),
+    /** The worker's work spot, which a harvest's drops face (CD-HRV-06). */
+    val spot: BlockPos? = null,
+    /** Drains the given ticks of the worker's Work Stamina capacity, beyond the drain of Working (CD-CUL-06). */
+    val spend: (Int) -> Unit = {},
+    /**
+     * Asks the land claim checks in this tick whether the worker may change a block: the placer's pasture check for a pasture worker,
+     * and the owner's checks for a Quick Worker (CD-HRV-13).
+     */
+    val mayChange: (BlockPos) -> Boolean = { true },
+    /**
+     * Asks each claim mod in this tick whether the player may break a block: the placer by UUID for a pasture worker, and the online
+     * owner for a Quick Worker (CD-HRV-16).
+     */
+    val mayBreak: (BlockPos) -> Boolean = { true },
+    /** The handler stopped its target's demand for this worker for the given ticks, which the engine skips as long (CD-CUL-09). */
+    val stalled: (Long) -> Unit = {},
 )
 
 /**

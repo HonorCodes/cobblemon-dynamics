@@ -15,7 +15,7 @@ class SmokeTests {
     /** CD-REL-10: the GameTest run loads the pinned Cobblemon, Create and AE2 versions. */
     @GameTest(template = "floor_9x5x9")
     fun cdRel10PinnedModsLoad(helper: GameTestHelper) {
-        val expected = mapOf("cobblemon" to "1.8.4", "create" to "6.0.10", "ae2" to "19.2.19", MOD_ID to "1.0.0")
+        val expected = mapOf("cobblemon" to "1.8.4", "create" to "6.0.10", "ae2" to "19.2.19", MOD_ID to "1.1.0")
         for ((modId, prefix) in expected) {
             val container = ModList.get().getModContainerById(modId).orElse(null)
             helper.assertTrue(container != null, "$modId is not loaded")

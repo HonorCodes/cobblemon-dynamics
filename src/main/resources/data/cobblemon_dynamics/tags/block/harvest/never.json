@@ -1,0 +1,34 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:melon_stem",
+    "minecraft:pumpkin_stem",
+    "minecraft:torchflower_crop",
+    "minecraft:pitcher_crop",
+    "#cobblemon:apricorns",
+    {
+      "id": "farmersdelight:budding_tomatoes",
+      "required": false
+    },
+    {
+      "id": "supplementaries:rope_tomatoes",
+      "required": false
+    },
+    {
+      "id": "supplementaries:stick_tomatoes",
+      "required": false
+    },
+    {
+      "id": "deep_aether:squash_stem",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:pale_pumpkin_stem",
+      "required": false
+    },
+    {
+      "id": "undergarden:gloomgourd_stem",
+      "required": false
+    }
+  ]
+}

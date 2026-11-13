@@ -2,8 +2,9 @@
 
 Status: Accepted (2026-11-12) by the coordinator under the approver's delegation, with the rulings on the design decisions
 of the [1.1 plan](../plans/2026-11-12-v1.1-farming.md#design-decisions-for-the-approver) (input R74 of the
-[spec sheet](../plans/2026-11-09-v1-spec-sheet.md)). Two parts wait for the approver: the apricorns of the Cultivator
-(decision 13, Q10) and its pace and cost (decision 6, Q11). The rows that depend on them stay `draft`.
+[spec sheet](../plans/2026-11-09-v1-spec-sheet.md)). The approver answered the two parts that waited for them the same
+day (R75): the Cultivator grows no apricorns (decision 13, Q10: "no"), and its pace and cost stand (decision 6, Q11:
+"accept").
 
 ## Context
 
@@ -284,7 +285,8 @@ Read for decision 7 of the plan, after the coordinator's ruling (R74):
 4. **Two halves.** A block whose state has `half` = upper is read at the block below it, for growth and for the crop
    adapter. When the crop adapter breaks a two-block crop, it clears the upper block first with
    `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE` (flag 18), so that no shape update breaks it with its own drops and sound. The loot
-   of both halves drops.
+   of both halves drops. The upper half adapter clears the upper block with `UPDATE_ALL` instead, because the lower block
+   follows its own rule through that shape update: `HeartyGrainsBlock.updateShape` sets the lower half to age 3 (1.1 build).
 5. **The growth use.** The Cultivator calls NeoForge's `BoneMealItem.applyBonemeal(ItemStack(Items.BONE_MEAL), level, pos,
    null)`. The stack is a token that no inventory holds, so no item is used. The call runs the block's own bonemeal rule and
    `BonemealEvent`, as a dispenser does, so a mod that changes or blocks bonemeal on its crops still decides. After a use
@@ -293,8 +295,8 @@ Read for decision 7 of the plan, after the coordinator's ruling (R74):
    `BONE_MEAL_USE`.
 6. **Pace and Work Stamina.** A Cultivator applies one use every ceil(1,200 ÷ ceil(30 × L ÷ 100)) ticks: 1 use per minute at
    level 1, 15 at level 50 and 30 at level 100. Each use drains 100 ticks of capacity beyond the drain of Working. Both
-   numbers live in the role file (`uses_per_minute_at_level_100`, `stamina_ticks_per_use`), and both wait for the
-   approver (Q11), with these values as the recommendation. A Cultivator has demand while
+   numbers live in the role file (`uses_per_minute_at_level_100`, `stamina_ticks_per_use`), and the approver accepted
+   both (Q11, R75). A Cultivator has demand while
    the block is a valid bonemeal target and its harvest adapter, if any, does not find it fully grown, so it stops where the
    Harvester starts, and it never ripens an oddion into a hatch. After 20 uses in a row that change no block of the crop, the
    crop has no demand for that worker for 6,000 ticks.
@@ -338,8 +340,8 @@ Read for decision 7 of the plan, after the coordinator's ruling (R74):
 12. **Farmland.** A worker that the work engine directs never tramples farmland: a listener cancels
     `BlockEvent.FarmlandTrampleEvent` for it. Wild Cobblemon and players keep the vanilla rule.
 13. **Apricorns.** The Harvester never matches a block of `#cobblemon:apricorns` or of `ApricornBlock`, also when a datapack
-    adds one to its tag. The Cultivator's default tag leaves them out, and a pack may add them. Whether Ground-types grow
-    apricorns by default waits for the approver (Q10), with this exclusion as the recommendation.
+    adds one to its tag. The Cultivator's default tag leaves them out, and a pack may add them: the approver ruled that
+    Ground-types do not grow apricorns by default (Q10, R75: "no").
 14. **Observability.** When the tags load or reload, one INFO line per farming role counts the tagged blocks by adapter and
     names the tagged blocks that no adapter claims. With COHO 2.5.0's crop mods, that list is empty.
 15. **Testing.** The adapters are pure rules over plain facts of a block (its class flags, its tags, its `age` values and

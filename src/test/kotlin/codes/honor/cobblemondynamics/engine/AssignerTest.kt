@@ -50,4 +50,19 @@ class AssignerTest {
         val busy = candidate(6, demand = true)
         assertEquals(busy.key, Assigner.pickForStandbyMove(fire(), current.key, listOf(current, empty, busy)) { true }!!.first.key)
     }
+
+    @Test
+    fun `CD-CRP-10 an idle worker of a releasing role takes only a crop with demand, the nearest first`() {
+        val grower = role("cultivator", setOf("ground"), handler = "cobblemon_dynamics:cultivator")
+        val ground = WorkerView(UUID.randomUUID(), Vec3(0.5, 64.0, 0.5), setOf("ground"), false, false) { false }
+        fun crop(x: Int, demand: Boolean) =
+            CandidateView(TargetKey.block(dim, BlockPos(x, 64, 0), "cultivator"), Vec3(x + 0.5, 64.5, 0.5), listOf(grower), true) { demand }
+        val grown = crop(1, demand = false)
+        val growing = crop(4, demand = true)
+        assertEquals(growing.key, Assigner.pickForIdle(ground, listOf(grown, growing)) { true }?.first?.key)
+        assertNull(Assigner.pickForIdle(ground, listOf(grown)) { true })
+        // A role that waits in Standby still takes the nearest target, demand or not (CD-ASG-03).
+        val idleFurnace = candidate(1, demand = false)
+        assertEquals(idleFurnace.key, Assigner.pickForIdle(fire(), listOf(idleFurnace, candidate(4))) { true }?.first?.key)
+    }
 }

@@ -172,6 +172,37 @@ class ClaimRegistryTest {
         assertNull(sharing.claimOf(a))
     }
 
+    private val c = UUID.randomUUID()
+
+    /** A crop at 0 64 0, keyed by the lane of a farming role. */
+    private fun crop(lane: String?) = TargetKey.block(overworld, BlockPos(0, 64, 0), lane)
+
+    @Test
+    fun `CD-CRP-06 one crop holds one Cultivator claim and one Harvester claim`() {
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(a, crop("cultivator"), ClaimKind.WORK, pastureA, 0))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(b, crop("harvester"), ClaimKind.WORK, pastureA, 0))
+        assertEquals(ClaimResult.TargetTaken, registry.tryClaim(c, crop("cultivator"), ClaimKind.WORK, pastureB, 0))
+        val furnaceAside = TargetKey.block(overworld, BlockPos(9, 64, 0))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(c, furnaceAside, ClaimKind.WORK, pastureB, 0))
+    }
+
+    @Test
+    fun `CD-CRP-06 the null lane is the key of 1-0, apart from the lanes`() {
+        assertEquals(furnace, TargetKey.block(overworld, BlockPos(0, 64, 0), null))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(a, furnace, ClaimKind.WORK, pastureA, 0))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(b, crop("harvester"), ClaimKind.WORK, pastureA, 0))
+        assertEquals(a, registry.holderOf(crop(null))?.worker)
+        assertEquals(b, registry.holderOf(crop("harvester"))?.worker)
+    }
+
+    @Test
+    fun `CD-CRP-07 a Cultivator binding reserves the crop against Cultivators only`() {
+        reservations[crop("cultivator")] = a
+        assertEquals(ClaimResult.Reserved, registry.tryClaim(c, crop("cultivator"), ClaimKind.WORK, pastureA, 0))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(b, crop("harvester"), ClaimKind.WORK, pastureA, 0))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(a, crop("cultivator"), ClaimKind.WORK, pastureA, 0))
+    }
+
     private companion object {
         const val CAP = 5
     }

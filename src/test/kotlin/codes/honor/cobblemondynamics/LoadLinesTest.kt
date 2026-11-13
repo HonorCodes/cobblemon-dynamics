@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.LoadLines.MixinStatus
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import codes.honor.cobblemondynamics.role.FakeHandler
 import codes.honor.cobblemondynamics.role.RoleSet
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -58,15 +59,29 @@ class LoadLinesTest {
     fun `CD-CMP-10 the role line counts the built-in roles and names each disabled role with its reason`() {
         val files = BuiltInRoles.dir.listFiles { file -> file.extension == "json" }.orEmpty()
         val roles = files.map { BuiltInRoles.parse(it) }.associateBy { it.id }
-        assertEquals(16, roles.size)
+        assertEquals(18, roles.size)
         val create = setOf("water_wheel", "hand_crank", "burner_heat", "fan_catalyst", "tailwind").map(::id).toSet()
         val set = RoleSet(roles, { handler -> if (handler in create) null else FakeHandler(handler) }, setOf(id("muse"))) { }
         val line = LoadLines.roles(roles.size, set.active.size, set.disabled)
-        assertTrue(line.startsWith("Roles: 16 loaded, 8 active, 8 disabled ["), line)
+        assertTrue(line.startsWith("Roles: 18 loaded, 10 active, 8 disabled ["), line)
         assertTrue("cobblemon_dynamics:muse (roles.disabled)" in line, line)
         assertTrue("cobblemon_dynamics:cranker (handler cobblemon_dynamics:hand_crank is not registered)" in line, line)
         for (role in roles.values.filter { it.handler in create }) {
             assertTrue("${role.id} (handler ${role.handler} is not registered)" in line, line)
         }
+    }
+
+    @Test
+    fun `CD-CRP-05 the farming line counts by adapter and names the unadapted blocks`() {
+        assertEquals(
+            "Farming: harvester 2 blocks [crop 1, pick_to_age_1 1], no adapter []",
+            LoadLines.farming("harvester", mapOf("pick_to_age_1" to 1, "crop" to 1), emptyList()),
+        )
+        val wart = ResourceLocation.parse("minecraft:nether_wart")
+        val beetroot = ResourceLocation.parse("minecraft:beetroots")
+        assertEquals(
+            "Farming: cultivator 4 blocks [growth 2], no adapter [minecraft:beetroots, minecraft:nether_wart]",
+            LoadLines.farming("cultivator", mapOf("growth" to 2), listOf(wart, beetroot)),
+        )
     }
 }

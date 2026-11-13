@@ -63,6 +63,7 @@ src/main/kotlin/codes/honor/cobblemondynamics/
     vanilla/             furnace family, brewing stand, enchanting table, budding blocks, cauldron
     capability/          FE push, fluid fill (NeoForge capabilities)
     item/                Telekinesis transfer, Magnet pickup (NeoForge item capability)
+    farming/             Cultivator and Harvester, crop facts and adapters, harvest plans (ADR-0015)
     create/              water wheels, Blaze Burner, hand crank, encased fan, windmill bearing
   ai/                    Brain bridge: activity, memory type, Cobblemon task types
   fx/                    effect player, effect definitions, work focus entity
@@ -122,10 +123,10 @@ files live under `assets/cobblemon_dynamics/`.
 | Content | `registry` | Registers the blocks, the items, the block entity types, the Charge Cell's data component, the work focus entity type and the attachments. Registers the creative tab `cobblemon_dynamics:main`, which lists every item of the mod, and no vanilla tab lists them. | NeoForge registries |
 | Pasture adapter | `pasture` | Reads tethered Cobblemon, the pasture's `ownerId` and the player-to-pasture link. Stores Work Mode as a NeoForge data attachment on Cobblemon's pasture block entity. Keeps an index of Work Mode pastures per level. Polls each loaded Work Mode pasture every 20 ticks, because Cobblemon fires no pasture events. | Cobblemon internals, work engine |
 | Work engine | `engine` | Owns the authoritative state of every worker. Schedules scans, runs assignment, runs each worker's state machine, applies work through handlers and drains or restores Work Stamina. Also runs each Quick Work order, which has one sent-out party Cobblemon and no scan. Runs on the server thread only. | All server components |
-| Claim registry | `claim` | Holds work claims, bed claims and heal claims: one exclusive claim per key, up to the cap of shared claims of logistics roles per key, and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, or an entity UUID. Holds the leash bindings as reservations, at most one per worker, and their persistent index. Only a binding of an exclusive role reserves its target. | Work engine, leash, heal, beds |
+| Claim registry | `claim` | Holds work claims, bed claims and heal claims: one exclusive claim per key, up to the cap of shared claims of logistics roles per key, and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, with the claim lane of a farming role, or an entity UUID. A crop holds one claim in each farming lane, so a Cultivator and a Harvester share it (ADR-0015). Holds the leash bindings as reservations, at most one per worker, and their persistent index. Only a binding of an exclusive role reserves its target. | Work engine, leash, heal, beds |
 | Role registry | `role` | Loads role JSON from data packs on server start and on `/reload`. Rejects invalid files with one log error per file. Matches a worker to roles by its types. Orders roles on one target by `priority`. | Work engine, handler registry |
 | Handler registry | `handler` | Maps a handler id to a `TargetHandler`. Create handlers register only when Create is loaded. | Role registry, work engine |
-| Target handlers | `handler.*` | One per machine family. Each one finds targets, canonicalizes them, checks demand, applies work and cleans up on release. | Vanilla blocks, NeoForge capabilities, Create |
+| Target handlers | `handler.*` | One per machine family. Each one finds targets, canonicalizes them, checks demand, applies work and cleans up on release. The farming handlers read each crop through the first crop adapter that claims it: pure rules over the facts of the block (its classes, adapter tags and `age`), which a thin reader fills from the level. A harvest computes its loot and its cell changes as a pure plan, then applies it with `Level.setBlock` and `Block.popResourceFromFace`, with no sound. An auto-assigned farming worker releases its claim when its crop has no demand, so it goes crop to crop. | Vanilla blocks, NeoForge capabilities, Create |
 | Brain bridge | `ai` | Registers the `cobblemon_dynamics:work` activity, the `cobblemon_dynamics:work_order` memory and the task types. Ships the auto behaviour JSON. Moves, faces, holds, poses and approaches as the work order says. | Cobblemon Brain system |
 | Effects | `fx` | Sends Cobblemon animation and particle packets on each effect loop. Spawns and removes work focus entities. Runs the Floral Healing timeline when Cobblemon has it. Sends no sound: work is silent. | Cobblemon network, clients |
 | Work Stamina | `stamina` | Computes capacity, drain and recovery. Stores the value in the Cobblemon's `persistentData`. Mirrors a display value to a synced entity attachment. | Work engine, Cobblemon data |
@@ -691,6 +692,12 @@ with the gate. A check asks about the canonical block of a target, as a right-cl
   The pasture check asks `hasPermission(getRank(UUID), Action)`, with no bypass and no free blocks of the colony.
 - **Silent.** The pasture checks call no check that messages a player or counts an attempt, and they post no event
   (CD-LND-10).
+- **The break question (1.1).** A harvest that breaks a block also asks each claim mod whether the player may break that
+  block (CD-HRV-16 to CD-HRV-21). FTB Chunks answers through `Protection.EDIT_BLOCK`, or for a pasture through
+  `FtbInteractRule` with the edit whitelist and the team's `BLOCK_EDIT_MODE`. Open Parties and Claims answers through
+  `onBlockInteraction` with `breaking` true, or for a pasture through full access. MineColonies answers through
+  `BREAK_BLOCKS`, by `hasPermission(Player, Action)` or by the placer's rank, and `ColonyBreak` holds the rule. A question
+  that throws refuses with one warning per cause.
 
 ### NeoForge 21.1 and vanilla 1.21.1
 

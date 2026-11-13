@@ -66,4 +66,14 @@ class LandClaimGateTest {
         assertTrue(lines[0].startsWith("Quick Work refuses orders while the claim check of ftbchunks fails: "), lines[0])
         assertTrue(lines[1].startsWith("Pastures work no target while the claim check of ftbchunks fails: "), lines[1])
     }
+
+    @Test
+    fun `CD-HRV-20 a break question that throws refuses and warns once per cause`() {
+        for (error in thrown) assertFalse(gate.allows(ClaimAsker.HARVEST, listOf("ftbchunks" to 1)) { throw error }, "$error")
+        assertFalse(gate.allows(ClaimAsker.HARVEST, listOf("ftbchunks" to 1)) { throw RuntimeException("the same cause again") })
+        assertEquals(3, lines.size, "$lines")
+        assertTrue(lines.all { it.startsWith("Harvests break no block while the claim check of ftbchunks fails: ") }, "$lines")
+        assertFalse(gate.allows(ClaimAsker.PASTURE, listOf("ftbchunks" to 1)) { throw RuntimeException("a") })
+        assertEquals(4, lines.size, "the use question of a pasture warns apart: $lines")
+    }
 }

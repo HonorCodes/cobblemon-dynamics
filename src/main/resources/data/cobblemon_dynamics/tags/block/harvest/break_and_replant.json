@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:nether_wart",
+    "minecraft:cocoa",
+    {
+      "id": "aether:berry_bush",
+      "required": false
+    }
+  ]
+}

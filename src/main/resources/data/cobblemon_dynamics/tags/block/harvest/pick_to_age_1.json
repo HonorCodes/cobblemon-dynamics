@@ -1,0 +1,35 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:sweet_berry_bush",
+    "cobblemon:galarica_nut_bush",
+    {
+      "id": "expandeddelight:cranberry_plant",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:blueberry_bush",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:oddion_crop",
+      "required": false
+    },
+    {
+      "id": "undergarden:underbean_bush",
+      "required": false
+    },
+    {
+      "id": "undergarden:blisterberry_bush",
+      "required": false
+    },
+    {
+      "id": "ars_nouveau:sourceberry_bush",
+      "required": false
+    },
+    {
+      "id": "regions_unexplored:salmonberry_bush",
+      "required": false
+    }
+  ]
+}

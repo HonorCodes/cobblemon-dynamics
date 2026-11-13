@@ -4,7 +4,8 @@
 The Phase 1 gate (the default) holds every row outside the TLK, MAG, FAN, TLW, QWK and ART areas, except the rows of
 PHASE_2_ROWS, which are Phase 2 work in a Phase 1 area: the Quick Work keys CD-CFG-16 to CD-CFG-18, the INFO lines at load
 CD-CMP-08 to CD-CMP-10, and the shared containers CD-CLM-10, CD-CLM-11, CD-LSH-28, CD-LSH-29 and CD-CFG-19. The Phase 2 gate holds every row, because CD-REL-14 needs every MUST
-and MUST NOT row of the sheet to pass on one commit. The script reads the spec sheet, the JUnit XML reports of
+and MUST NOT row of the sheet to pass on one commit. The 1.1 gate holds every row too: the rows of 1.1 (the CUL, HRV and CRP
+areas, CD-BAL-08, CD-BAL-09 and CD-REL-16), and every earlier row, which CD-REL-16 needs to still pass. The script reads the spec sheet, the JUnit XML reports of
 `./gradlew build`, the GameTest sources with the log of each GameTest run, the deferred lists of the gate's plans, the
 manual checklist, the test pack's README and the output of each test pack command. The Phase 2 gate also reads the output
 of `py scripts/art.py check` and the play-test note of the Phase 1 report. The script rewrites only the generated blocks
@@ -12,6 +13,7 @@ of the gate's report, docs/testing/phase-N-gate.md, and keeps the text around th
 
 Usage: py scripts/gate_report.py [--phase 1] --gradle-log FILE --testpack-log FILE [--testpack-log FILE ...] [--allow-dirty]
        py scripts/gate_report.py --phase 2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
+       py scripts/gate_report.py --phase 1.1 --gradle-log FILE --testpack-log FILE [...] [--allow-dirty]
        py scripts/gate_report.py --self-check
 Exit code 0 when every automated row has a passing test, 1 when a row has not or an input disagrees with another, and 2
 when an input is missing or unreadable.
@@ -37,6 +39,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SPEC = ROOT / "docs/plans/2026-11-09-v1-spec-sheet.md"
 M5_PLAN = ROOT / "docs/plans/2026-11-09-phase-1-m5-ui-compat-gate.md"
 M8_PLAN = ROOT / "docs/plans/2026-11-10-phase-2-m8-art-gate.md"
+PHASE_1_REPORT = ROOT / "docs/testing/phase-1-gate.md"
+PHASE_2_REPORT = ROOT / "docs/testing/phase-2-gate.md"
+PHASE_3_REPORT = ROOT / "docs/testing/phase-3-gate.md"
 # The task of each plan whose end-of-phase pass wrote the tests of its deferred list.
 DEFERRED_TASKS = {M5_PLAN: "M5 Task 9", M8_PLAN: "M8 Task 7"}
 CHECKLIST = ROOT / "docs/testing/manual-checklist.md"
@@ -108,7 +113,7 @@ class Phase(NamedTuple):
     of `py scripts/art.py check` that reads the review record for the row.
     """
 
-    number: int
+    number: str
     report: pathlib.Path
     holds: Callable[[str, str], bool]
     deferred_plans: tuple[pathlib.Path, ...]
@@ -130,12 +135,19 @@ ART_REVIEW = {"CD-ART-02": "cd-art-10", "CD-ART-03": "cd-art-10", "CD-ART-04": "
 PHASES = {
     # After the Phase 1 gate come the v1.0.0 tag (CD-REL-04), the Phase 2 gate (CD-REL-14) and the approver's pack
     # (CD-REL-15), by the plan index's special rows and M5 Task 9. The Phase 1 record is CD-REL-13 (M5 Task 9, Step 5).
-    1: Phase(1, ROOT / "docs/testing/phase-1-gate.md", lambda row, area: not is_phase_2(row, area), (M5_PLAN,),
-             {"CD-REL-04": "M9", "CD-REL-14": "M8", "CD-REL-15": "M9"}, "CD-REL-13", {}, {}),
+    "1": Phase("1", PHASE_1_REPORT, lambda row, area: not is_phase_2(row, area), (M5_PLAN,),
+               {"CD-REL-04": "M9", "CD-REL-14": "M8", "CD-REL-15": "M9"}, "CD-REL-13", {}, {}),
     # CD-REL-14 needs every MUST and MUST NOT row of the sheet on one commit, so the Phase 2 report holds them all.
-    2: Phase(2, ROOT / "docs/testing/phase-2-gate.md", lambda row, area: True, (M5_PLAN, M8_PLAN),
-             {"CD-REL-04": "M9", "CD-REL-15": "M9"}, "CD-REL-14", {"CD-REL-13": ROOT / "docs/testing/phase-1-gate.md"},
-             ART_REVIEW),
+    "2": Phase("2", PHASE_2_REPORT, lambda row, area: True, (M5_PLAN, M8_PLAN),
+               {"CD-REL-04": "M9", "CD-REL-15": "M9"}, "CD-REL-14", {"CD-REL-13": PHASE_1_REPORT},
+               ART_REVIEW),
+    # CD-REL-16: every row of 1.1 passes on the release commit, and every earlier row still passes there. The v1.1.0 tag and
+    # its jar (the 1.1 parts of CD-REL-04 and CD-REL-05) and the next pack release (CD-REL-15) come after the gate, by Task 8
+    # of the 1.1 plan. The art review rows completed at the Phase 2 gate, and CD-REL-14 at the Phase 3 gate.
+    "1.1": Phase("1.1", ROOT / "docs/testing/v1.1-gate.md", lambda row, area: True, (M5_PLAN, M8_PLAN),
+                 {"CD-REL-04": "the v1.1.0 tag", "CD-REL-05": "the v1.1.0 tag", "CD-REL-15": "the next pack release"},
+                 "CD-REL-16", {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT} | dict.fromkeys(ART_REVIEW, PHASE_2_REPORT),
+                 {}),
 }
 
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|")
@@ -1156,7 +1168,9 @@ def self_check() -> int:
                              "6. **CD-UI-01.** Setup: a pasture.\n")
     assert [(c.number, c.row, c.marks) for c in checks] == [(1, "CD-PLAT-01", "scripted"), (6, "CD-UI-01", "")], checks
     assert "neoforge-floor" in checks[0].text
-    first, second = PHASES[1], PHASES[2]
+    first, second = PHASES["1"], PHASES["2"]
+    assert PHASES["1.1"].holds("CD-HRV-16", "HRV") and PHASES["1.1"].holds("CD-QWK-21", "QWK"), "the 1.1 gate holds every row"
+    assert PHASES["1.1"].record == "CD-REL-16" and not PHASES["1.1"].checks_art
     demo = SpecRow("CD-UI-01", frozenset({"Demo"}))
     assert evaluate(demo, set(), checks[1:], {}, first) == ("play-test", [])
     unit = Ref("unit", "UiTest", "CD-UI-01 a button")
@@ -1247,7 +1261,8 @@ def self_check() -> int:
 
     # The options (main).
     args = arguments().parse_args(["--phase", "2", "--art-log", "art.txt"])
-    assert (args.phase, args.art_log) == (2, pathlib.Path("art.txt")) and arguments().parse_args([]).phase == 1, args
+    assert (args.phase, args.art_log) == ("2", pathlib.Path("art.txt")) and arguments().parse_args([]).phase == "1", args
+    assert arguments().parse_args(["--phase", "1.1"]).phase == "1.1"
     print("self-check passed")
     return 0
 
@@ -1274,8 +1289,8 @@ def sample_gate(phase: Phase, evaluated: dict[str, tuple[str, list, list[Check]]
 
 def arguments() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--phase", type=int, choices=sorted(PHASES), default=1,
-                        help="the gate whose report the script writes (default 1)")
+    parser.add_argument("--phase", choices=sorted(PHASES), default="1",
+                        help="the gate whose report the script writes: 1, 2 or 1.1 (default 1)")
     parser.add_argument("--gradle-log", action="append", default=[], type=pathlib.Path,
                         help="the console output of ./gradlew build and the GameTest runs, with --console=plain")
     parser.add_argument("--testpack-log", action="append", default=[], type=pathlib.Path,

@@ -133,6 +133,61 @@ the allies of an Open Parties and Claims party cannot.
   colonies whose ranks do not let their owner use a block. The members and allies of a team, and the Officers of a colony,
   keep their machines working.
 
+## Farming roles
+
+Version 1.1 adds two farming roles. The Cultivator (Ground) grows crops, and the Harvester (Grass) harvests them. Data
+tags decide which blocks each role works, so a pack adds its own crops with a data pack:
+
+- `#cobblemon_dynamics:cultivator_targets` names the blocks that a Cultivator grows. The default holds
+  `#minecraft:crops` and the growable crops that no mod tags.
+- `#cobblemon_dynamics:harvester_targets` names the blocks that a Harvester harvests. The default holds
+  `#minecraft:crops` and the harvestable crops that no mod tags.
+
+Each entry of another mod is optional, so the tags load without that mod. The defaults leave out
+`#minecraft:bee_growables` and `#cobblemon:crops`, which hold Cobblemon's apricorns and terrain seeds. A Harvester never
+takes an apricorn, also one that a pack adds to its tag.
+
+A crop adapter decides how a role reads a block. The mod names no class of a crop mod. The adapters read vanilla
+classes, Cobblemon's classes, block state properties and these adapter tags, which a pack can extend:
+
+| Adapter tag | What the Harvester does |
+| --- | --- |
+| `#cobblemon_dynamics:harvest/never` | Leaves the block, for example a stem or a crop that turns into a flower. |
+| `#cobblemon_dynamics:harvest/pick_to_age_0` | Drops the loot and sets the `age` property to 0. The plant stays. |
+| `#cobblemon_dynamics:harvest/pick_to_age_1` | Drops the loot and sets the `age` property to 1. The plant stays. |
+| `#cobblemon_dynamics:harvest/upper_half` | Takes the upper block of a two-block crop once the lower block is at its last age. |
+| `#cobblemon_dynamics:harvest/break_and_replant` | Breaks a block that is no `CropBlock` and replants it from the drops. |
+
+A block in no adapter tag gets the adapter of its class. A Cobblemon berry tree gives its berries, cave vines lose their
+berries, an attached stem loses the fruit that it faces, and a `CropBlock` is broken and replanted. A Cultivator grows
+any `BonemealableBlock` of its tag. At each data load, the server log has one line for each role, in the form
+`Farming: harvester 2 blocks [crop 1, pick_to_age_1 1], no adapter []`. A block in the "no adapter" list gets no worker.
+
+The defaults cover these crop mods, at the versions of COHO 2.5.0. [ADR-0015](adr/0015-farming-roles-and-crop-adapters.md)
+lists each crop family with its adapters.
+
+| Mod | Version | Crop families |
+| --- | --- | --- |
+| Minecraft | 1.21.1 | Wheat, carrots, potatoes, beetroots, melon and pumpkin stems, sweet berry bush, cave vines, cocoa, nether wart |
+| Cobblemon | 1.8.4 | Berry trees, mints, Revival Herb, Medicinal Leek, Vivichoke, Hearty Grains, Galarica Nut Bush |
+| Farmer's Delight | 1.21.1-1.3.4 | Cabbages, onions, tomatoes, rice |
+| Expanded Delight | 0.1.4 | Asparagus, sweet potato, chili pepper, peanut, cranberry |
+| Miner's Delight+ | 1.21.1-1.4.5 | Cave carrots |
+| Supplementaries | 1.21.1-4.0.2 | Flax |
+| Immersive Engineering | 12.4.2-194 | Hemp |
+| The Aether | 1.5.10 | Blueberry bush |
+| Deep Aether | 1.1.5.1 | Squash |
+| Oh The Biomes We've Gone | 2.6.3 | Pale pumpkin, blueberry bush, oddion |
+| The Undergarden | 0.9.6 | Underbean, blisterberry, gloomgourd |
+| Ars Nouveau | 5.13.5 | Magebloom, sourceberry bush |
+| Occultism | 1.227.0 | Datura |
+| Regions Unexplored | 0.6.3 | Salmonberry bush, duskmelon |
+| Pam's HarvestCraft 2 Crops and Trees | 1.0.9 | 97 crops and 50 tree fruits |
+
+The Harvester leaves Supplementaries' rope and stick tomatoes, which have no loot table. The defaults leave out
+Cobblemon's terrain seeds and roots, Farmer's Delight's mushroom colonies and wild crops, Pam's gardens and saplings,
+Legendary Monuments' carrots, and the plants of My Nether's Delight and Ender's Delight. A pack can add any of them.
+
 ## Other mods
 
 - **Cobbleworkers.** At each poll of a Work Mode pasture, the mod sets `cobbleworkers.resting` in the `persistentData` of

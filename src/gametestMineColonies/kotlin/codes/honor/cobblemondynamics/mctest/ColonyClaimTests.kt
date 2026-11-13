@@ -17,14 +17,16 @@ import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
+import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.event.level.BlockEvent
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
 /**
- * The claim checks against the real MineColonies 1.1.1420 (CD-LND-08, CD-LND-09, CD-LND-10, and CD-QWK-26 and CD-QWK-30 for
- * MineColonies). Player A owns a colony around the test's center: B is an Officer, C a Friend, D a stranger, whom the colony gives the
- * Neutral rank, and E is Hostile. The colony's own decision is the cancellation of a `RightClickBlock` that the test posts. Each test
- * has its own batch, because a colony claims the chunks around its center.
+ * The claim checks against the real MineColonies 1.1.1420 (CD-LND-08, CD-LND-09, CD-LND-10, CD-HRV-19, and CD-QWK-26 and CD-QWK-30
+ * for MineColonies). Player A owns a colony around the test's center: B is an Officer, C a Friend, D a stranger, whom the colony gives
+ * the Neutral rank, and E is Hostile. The colony's own decision is the cancellation of an event that the test posts: a `RightClickBlock`
+ * for a use, and a `BreakEvent` for a break. Each test has its own batch, because a colony claims the chunks around its center.
  */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -265,5 +267,36 @@ class ColonyClaimTests {
             helper.assertTrue(messages.isEmpty(), "CD-LND-10: the placer got $messages")
             if (helper.tick - start >= 400) helper.succeed()
         }
+    }
+
+    /**
+     * CD-HRV-19: the break question of a Quick Worker and the one of a pasture both equal the colony's own decision on a break for each
+     * online player, on wheat at age 7 in the colony. The setups: the default rank permissions, and BREAK_BLOCKS for the Friend rank,
+     * which A gives it. The pasture's question gives the same answers after the players log out.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 100, batch = "mc_hrv19")
+    fun cdHrv19ColonyBreakOracle(helper: GameTestHelper) {
+        val wheat = PastureOracle.wheat(helper)
+        val scene = scene(helper)
+        val permissions = scene.colony.permissions
+        val friend = permissions.rankFriend
+        val setups = listOf("wheat with the default ranks" to false, "wheat with BREAK_BLOCKS for Friends" to true)
+        val answers = setups.map { (name, breaks) ->
+            permissions.setPermission(friend, Action.BREAK_BLOCKS, breaks)
+            PastureOracle.assertSame(helper, scene.players, wheat, name, PastureOracle.Question.BREAK) { colonyAllowsBreak(it, wheat) }
+        }
+        PastureOracle.logOut(helper, scene.players)
+        for ((setup, online) in setups.zip(answers)) {
+            permissions.setPermission(friend, Action.BREAK_BLOCKS, setup.second)
+            PastureOracle.assertSameOffline(helper, online)
+        }
+        permissions.setPermission(friend, Action.BREAK_BLOCKS, false)
+        helper.succeed()
+    }
+
+    /** The colony's own decision on a break of [pos] by [player]: the `BreakEvent` that the test posts is not canceled (CD-HRV-19). */
+    private fun colonyAllowsBreak(player: ServerPlayer, pos: BlockPos): Boolean {
+        val level = player.serverLevel()
+        return !NeoForge.EVENT_BUS.post(BlockEvent.BreakEvent(level, pos, level.getBlockState(pos), player)).isCanceled
     }
 }

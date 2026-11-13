@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.build
 
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -32,6 +33,32 @@ class CompatImportsTest {
         assertTrue(naming.isNotEmpty(), "no file names MineColonies, so compat/minecolonies/ is missing")
         val mod = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt").readText()
         assertTrue("if (ModList.get().isLoaded(\"minecolonies\")) MineColoniesCompat.register()" in mod)
+    }
+
+    /** ADR-0015: the crop adapters read vanilla classes, Cobblemon's classes, block state properties and tags only. */
+    @Test
+    fun `CD-CRP-19 no main source names a crop mod`() {
+        val prefixes = listOf(
+            "vectorwing.",
+            "com.pam.",
+            "net.mehvahdjukaar.",
+            "blusunrize.",
+            "com.aetherteam.",
+            "io.github.razordevs.",
+            "net.potionstudios.",
+            "quek.undergarden.",
+            "com.hollingsworth.",
+            "com.klikli_dev.",
+            "net.regions_unexplored.",
+            "ianm1647.",
+            "com.jorgaomc.",
+        )
+        val sources = File(root, "src/main").walk().filter { it.extension == "kt" || it.extension == "java" }.toList()
+        assertTrue(sources.isNotEmpty())
+        for (file in sources) {
+            val text = file.readText()
+            for (prefix in prefixes) assertFalse(prefix in text, "${file.invariantSeparatorsPath} names $prefix")
+        }
     }
 
     @Test

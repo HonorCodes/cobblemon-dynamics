@@ -1,5 +1,8 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.claim.ClaimKind
+import codes.honor.cobblemondynamics.claim.ClaimRegistry
+import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.handler.BindingShape
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import codes.honor.cobblemondynamics.role.RoleDefinition
@@ -193,5 +196,37 @@ class QuickWorkRulesTest {
         assertEquals(QuickWorkRules.CANNOT_REACH, QuickEnd.UNREACHABLE.messageKey)
         assertEquals(QuickWorkRules.NO_PERMISSION, QuickEnd.PERMISSION.messageKey)
         assertEquals(QuickEnd.entries.size, QuickEnd.entries.map { it.messageKey }.toSet().size)
+    }
+
+    @Test
+    fun `CD-CRP-13 a claim of the order's own lane refuses the order and the other lane does not`() {
+        val dim = ResourceLocation.withDefaultNamespace("overworld")
+        val wheatA = BlockPos(0, 64, 0)
+        val wheatB = BlockPos(2, 64, 0)
+        val wheatC = BlockPos(4, 64, 0)
+        val bound = UUID.randomUUID()
+        // A Cultivator's binding reserves wheat C in the Cultivator's lane.
+        val registry = ClaimRegistry { key -> bound.takeIf { key == TargetKey.block(dim, wheatC, "cultivator") } }
+        registry.tryClaim(UUID.randomUUID(), TargetKey.block(dim, wheatA, "harvester"), ClaimKind.WORK, null, 0)
+        registry.tryClaim(UUID.randomUUID(), TargetKey.block(dim, wheatB, "cultivator"), ClaimKind.WORK, null, 0)
+        val bulbasaur = UUID.randomUUID()
+        val harvest = { crop: BlockPos ->
+            val free = registry.isFree(TargetKey.block(dim, crop, "harvester"), bulbasaur)
+            QuickWorkRules.refusal(mayUse = true, tired = false, targetFree = free) { true }
+        }
+        assertEquals(QuickWorkRules.CLAIMED, harvest(wheatA))
+        assertNull(harvest(wheatB), "a Cultivator's claim refused a Harvester's order")
+        assertNull(harvest(wheatC), "a Cultivator's binding refused a Harvester's order")
+        val grow = QuickWorkRules.refusal(true, false, registry.isFree(TargetKey.block(dim, wheatC, "cultivator"), bulbasaur)) { true }
+        assertEquals(QuickWorkRules.CLAIMED, grow)
+    }
+
+    @Test
+    fun `CD-CRP-12 a farming order in Standby ends with no_demand`() {
+        val standby = calm.copy(status = WorkerStatus.STANDBY, ticksInStatus = 1)
+        assertEquals(QuickEnd.NO_DEMAND, QuickWorkRules.endReason(standby.copy(endsWhenDone = true)))
+        assertNull(QuickWorkRules.endReason(standby), "an order of another role waits for its Standby limit")
+        assertNull(QuickWorkRules.endReason(calm.copy(endsWhenDone = true)), "a Working farming order ended")
+        assertEquals(QuickEnd.RECALLED, QuickWorkRules.endReason(standby.copy(endsWhenDone = true, entityGone = true)))
     }
 }

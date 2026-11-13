@@ -14,6 +14,7 @@ import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.registry.DynamicsItems
 import codes.honor.cobblemondynamics.role.ActiveRole
+import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import codes.honor.cobblemondynamics.role.RoleSelection
 import com.cobblemon.mod.common.Cobblemon
@@ -114,13 +115,20 @@ object LeashInteractions {
         val pending = live.takeUnless { check == BindRules.PendingCheck.ABSENT }
         val roles = if (check == BindRules.PendingCheck.NO_AREA) emptyList() else fittingRoles(level, pokemon, clicked, pending)
         val types = pokemon?.types?.map { it.showdownId }.orEmpty()
-        val best = RoleSelection.best(roles.map { it.definition }, types)?.let { def -> roles.first { it.definition == def } }
+        // CD-CRP-22: a Cobblemon that fits both farming roles binds the role of its primary type.
+        val best = RoleSelection.best(roles.map { it.definition }, types, RoleRegistry::sameGroup)
+            ?.let { def -> roles.first { it.definition == def } }
         val canonical = best?.let { role -> guarded(role.handler, clicked) { role.handler.canonical(level, clicked) } } ?: clicked
         // The checks of a source-and-destination binding are the source's, and the destination is the clicked block.
         val source = pending?.pos ?: canonical
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)
-        // CD-LSH-28: a bind of an exclusive role meets only the bindings of exclusive roles. A logistics bind counts places (CD-LSH-29).
-        val other = index?.exclusiveAt(source, RoleRegistry::sharesTargets)?.let { otherBound(level, it, selection?.pokemonId) }
+        // CD-LSH-28: a bind of an exclusive role meets only the bindings of exclusive roles, and of its own lane (CD-CRP-07). A logistics
+        // bind counts places (CD-LSH-29).
+        val otherOf = { role: RoleDefinition ->
+            index?.exclusiveAt(source, RoleRegistry.laneOf(role.id), RoleRegistry::sharesTargets, RoleRegistry::laneOf)
+                ?.let { otherBound(level, it, selection?.pokemonId) }
+        }
+        val other = best?.let { otherOf(it.definition) }
         val ends = if (pending == null) listOf(canonical) else listOf(pending.pos, canonical)
         val places = if (index != null && best?.handler?.sharesTargets == true) {
             ends.map { BindRules.Place(it, index.placesAt(it, selection?.pokemonId, RoleRegistry::sharesTargets)) }
@@ -134,7 +142,7 @@ object LeashInteractions {
             fittingRoles = roles.map { it.definition },
             canonical = canonical,
             insideWorkArea = area?.contains(source) == true,
-            boundToOther = other?.seenBy(player.uuid),
+            boundToOtherOf = { role -> (if (role == best?.definition) other else otherOf(role))?.seenBy(player.uuid) },
             pending = pending,
             sameAsPending = pending?.pos == canonical,
             destinationInReach = pending == null ||
@@ -154,6 +162,7 @@ object LeashInteractions {
             input,
             shapeOf = { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE },
             sharesOf = { def -> RoleRegistry.sharesTargets(def.id) },
+            sameGroup = RoleRegistry::sameGroup,
         )
         when (outcome) {
             is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other?.pokemon)
@@ -267,7 +276,8 @@ object LeashInteractions {
         for (role in RoleRegistry.current.active) {
             if (!matches(level, role, clicked)) continue
             val canonical = guarded(role.handler, clicked) { role.handler.canonical(level, clicked) }
-            val claim = engine.claims.holderOf(TargetKey.block(dimension, canonical))?.takeIf { it.kind == ClaimKind.WORK } ?: continue
+            val key = TargetKey.block(dimension, canonical, role.handler.claimLane)
+            val claim = engine.claims.holderOf(key)?.takeIf { it.kind == ClaimKind.WORK } ?: continue
             val handler = engine.roleOf(claim.worker)?.handler ?: return false
             if (!mayFlip(player, level, engine, claim)) return false
             val flipped = guarded(handler, false) { handler.flip(level, canonical) }
