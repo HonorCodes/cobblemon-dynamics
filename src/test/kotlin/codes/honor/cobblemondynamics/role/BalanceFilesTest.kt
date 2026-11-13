@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
+import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
+import codes.honor.cobblemondynamics.handler.farming.GrowthPace
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -52,6 +54,19 @@ class BalanceFilesTest {
             assertTrue(top <= 64, "$name.json lets one worker move $top items per second")
             assertEquals(64, params.itemsPerBatch(100), name)
         }
+    }
+
+    /** A player who holds bone meal applies 300 uses per minute (BM5), so a Cultivator does a tenth of that at most. */
+    @Test
+    fun `CD-BAL-08 the default Cultivator applies at most 30 uses per minute`() {
+        val cultivators = withHandler("cobblemon_dynamics:cultivator")
+        assertTrue(cultivators.isNotEmpty(), "no built-in role file uses the Cultivator handler")
+        for (role in cultivators) {
+            val params = CultivatorParams.of(role.params)
+            val top = (1..100).maxOf { level -> 1_200 / GrowthPace.intervalTicks(level, params.usesPerMinuteAt100) }
+            assertTrue(top <= 30, "${role.id} applies $top growth uses per minute")
+        }
+        assertEquals(30, CultivatorParams.of(BuiltInRoles.parse("cultivator").params).usesPerMinuteAt100)
     }
 
     private companion object {

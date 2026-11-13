@@ -377,7 +377,9 @@ object TestKit {
 
     fun claimOf(helper: GameTestHelper, entity: PokemonEntity): Claim? = engine(helper).claims.claimOf(entity.pokemon.uuid)
 
-    fun keyOf(helper: GameTestHelper, pos: BlockPos): TargetKey.Block = TargetKey.block(helper.level.dimension().location(), pos)
+    /** [lane] is the claim lane of a farming role (CD-CRP-06), and null for every other role. */
+    fun keyOf(helper: GameTestHelper, pos: BlockPos, lane: String? = null): TargetKey.Block =
+        TargetKey.block(helper.level.dimension().location(), pos, lane)
 
     /**
      * [absolute] relative to the test's origin, the inverse of `helper.absolutePos` for an unrotated test. Vanilla 1.21.1's

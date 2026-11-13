@@ -145,6 +145,12 @@ class BedrockAnimationsTest {
         assertNull(animationOf("volcarona", "stoker"))
     }
 
+    /** Cobblemon 1.8.4: Diglett's poser defines `physical` and none of the Cultivator's other names. */
+    @Test
+    fun `CD-FX-03 a Diglett Cultivator plays physical`() {
+        assertEquals("physical", animationOf("diglett", "cultivator")?.name)
+    }
+
     @Test
     fun `CD-HEAL-15 a Clefairy healer plays its 3 s special animation`() {
         val clefairy = jar.first(ResourceLocation.parse("cobblemon:clefairy"), emptySet(), HealEffect.FALLBACK_ANIMATIONS)

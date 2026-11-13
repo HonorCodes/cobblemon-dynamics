@@ -99,6 +99,17 @@ class WorkContext(
      * worker, has an empty memo of its own.
      */
     val memo: ClaimMemo = ClaimMemo(),
+    /** The worker's work spot, which a harvest's drops face (CD-HRV-06). */
+    val spot: BlockPos? = null,
+    /** Drains the given ticks of the worker's Work Stamina capacity, beyond the drain of Working (CD-CUL-06). */
+    val spend: (Int) -> Unit = {},
+    /**
+     * Asks the land claim checks in this tick whether the worker may change a block: the placer's pasture check for a pasture worker,
+     * and the owner's checks for a Quick Worker (CD-HRV-13).
+     */
+    val mayChange: (BlockPos) -> Boolean = { true },
+    /** The handler stopped its target's demand for this worker for the given ticks, which the engine skips as long (CD-CUL-09). */
+    val stalled: (Long) -> Unit = {},
 )
 
 /**

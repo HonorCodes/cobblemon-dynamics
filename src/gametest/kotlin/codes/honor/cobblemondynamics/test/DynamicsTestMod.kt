@@ -29,6 +29,7 @@ class DynamicsTestMod(modBus: IEventBus) {
         NeoForge.EVENT_BUS.addListener<RegisterBrewingRecipesEvent> { it.builder.addMix(Potions.WATER, Items.STICK, Potions.WATER) }
         ProtectedBlocks.register()
         TestLandClaims.register()
+        BonemealUses.register()
         TestWorld.register()
     }
 }

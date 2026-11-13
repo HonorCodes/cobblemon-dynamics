@@ -462,6 +462,7 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Crystal Tender](#crystal-tender) | `cobblemon_dynamics:crystal_tender` | Rock | Budding amethyst, AE2 budding certus quartz | Auto | |
 | [Brew Stoker](#brew-stoker) | `cobblemon_dynamics:brew_stoker` | Fire | Brewing stand | Auto | |
 | [Brewer](#brewer) | `cobblemon_dynamics:brewer` | Poison | Brewing stand | Auto | |
+| [Cultivator](#cultivator) | `cobblemon_dynamics:cultivator` | Ground | A crop that bone meal grows | Auto | |
 | [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
@@ -471,7 +472,8 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Fan Catalyst Ghost](#fan-catalyst-ghost) | `cobblemon_dynamics:fan_catalyst_ghost` | Ghost | Encased fan that faces sideways | Work Leash | Create |
 | [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
 
-Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet and Tailwind. The
+Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind and the
+Cultivator. The
 Superheater superheats only from level 50. Every other role works the same at every level.
 
 ### Stoker
@@ -590,6 +592,19 @@ Fire and Poison type, works a stand as a Brew Stoker.
 
 The Brewer makes each brew finish in 200 ticks (10 seconds), not 400 ticks. It works only while a brew runs.
 It never changes the stand's fuel, so the stand needs its own blaze powder.
+
+### Cultivator
+
+**Types:** Ground. **Level:** the pace grows with level. **Move:** Mud Sport.
+
+**Target:** a crop in the tag `#cobblemon_dynamics:cultivator_targets` that bone meal can grow.
+
+A Ground-type gives its crop the effect of bone meal, with no bone meal item. Each use costs 100 ticks of Work
+Stamina, on top of the drain of work. A worker applies ceil(30 × L ÷ 100) uses per minute, where L is its
+level: 1 at level 1, 15 at level 50 and 30 at level 100. Green sparkles show each use, with no sound. The
+Cultivator stops when the crop is fully grown.
+
+**Role file parameters:** `uses_per_minute_at_level_100` (30) and `stamina_ticks_per_use` (100).
 
 ### Pump
 

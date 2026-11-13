@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:cultivator",
+  "types": ["ground"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "uses_per_minute_at_level_100": 30, "stamina_ticks_per_use": 100 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["mudsport", "status", "special", "physical"],
+    "target_particles": ["cobblemon:mudsport_target"]
+  }
+}

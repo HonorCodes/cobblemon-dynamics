@@ -1116,6 +1116,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             // Only the Magnet reads it, and the Magnet is leash only, so no Quick Worker needs it.
             pasture = slot.worker.pasture?.let { BlockPos.of(it.pos) },
             memo = memo,
+            spot = slot.worker.spot,
+            spend = { ticks -> slot.worker.stamina.work(ticks.toLong(), slot.pokemon.level, t.settings) },
+            stalled = { ticks -> slot.worker.skipUntil[TargetKey.block(t.dimension, target, role.handler.claimLane)] = t.now + ticks },
         )
     }
 

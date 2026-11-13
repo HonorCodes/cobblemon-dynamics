@@ -58,11 +58,11 @@ class LoadLinesTest {
     fun `CD-CMP-10 the role line counts the built-in roles and names each disabled role with its reason`() {
         val files = BuiltInRoles.dir.listFiles { file -> file.extension == "json" }.orEmpty()
         val roles = files.map { BuiltInRoles.parse(it) }.associateBy { it.id }
-        assertEquals(16, roles.size)
+        assertEquals(17, roles.size)
         val create = setOf("water_wheel", "hand_crank", "burner_heat", "fan_catalyst", "tailwind").map(::id).toSet()
         val set = RoleSet(roles, { handler -> if (handler in create) null else FakeHandler(handler) }, setOf(id("muse"))) { }
         val line = LoadLines.roles(roles.size, set.active.size, set.disabled)
-        assertTrue(line.startsWith("Roles: 16 loaded, 8 active, 8 disabled ["), line)
+        assertTrue(line.startsWith("Roles: 17 loaded, 9 active, 8 disabled ["), line)
         assertTrue("cobblemon_dynamics:muse (roles.disabled)" in line, line)
         assertTrue("cobblemon_dynamics:cranker (handler cobblemon_dynamics:hand_crank is not registered)" in line, line)
         for (role in roles.values.filter { it.handler in create }) {
