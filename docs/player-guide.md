@@ -463,6 +463,7 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Brew Stoker](#brew-stoker) | `cobblemon_dynamics:brew_stoker` | Fire | Brewing stand | Auto | |
 | [Brewer](#brewer) | `cobblemon_dynamics:brewer` | Poison | Brewing stand | Auto | |
 | [Cultivator](#cultivator) | `cobblemon_dynamics:cultivator` | Ground | A crop that bone meal grows | Auto | |
+| [Harvester](#harvester) | `cobblemon_dynamics:harvester` | Grass | A fully grown crop | Auto | |
 | [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
@@ -605,6 +606,20 @@ level: 1 at level 1, 15 at level 50 and 30 at level 100. Green sparkles show eac
 Cultivator stops when the crop is fully grown.
 
 **Role file parameters:** `uses_per_minute_at_level_100` (30) and `stamina_ticks_per_use` (100).
+
+### Harvester
+
+**Types:** Grass. **Level:** any. **Move:** Razor Leaf.
+
+**Target:** a fully grown crop in the tag `#cobblemon_dynamics:harvester_targets`. A Harvester never takes an
+apricorn.
+
+A Grass-type harvests its crop 20 ticks after it starts work. The harvest drops on the ground, on the side of
+the crop that faces the worker. A crop that the harvest breaks is replanted from its own drops: one seed, or one
+crop item, leaves the harvest. A bush or a vine keeps its plant, and only its fruit comes off. The harvest makes
+no sound.
+
+**Role file parameter:** `harvest_ticks` (20).
 
 ### Pump
 

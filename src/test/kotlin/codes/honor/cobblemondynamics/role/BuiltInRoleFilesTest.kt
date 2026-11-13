@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.engine.WorkSpots
 import codes.honor.cobblemondynamics.handler.create.TailwindMath
 import codes.honor.cobblemondynamics.handler.create.TailwindParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
+import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
@@ -42,6 +43,7 @@ class BuiltInRoleFilesTest {
         "fan_catalyst_ghost" to Row("cobblemon_dynamics:fan_catalyst", setOf("ghost"), false, 0, "willowisp"),
         "tailwind" to Row("cobblemon_dynamics:tailwind", setOf("flying"), false, 0, "gust"),
         "cultivator" to Row("cobblemon_dynamics:cultivator", setOf("ground"), true, 0, "mudsport"),
+        "harvester" to Row("cobblemon_dynamics:harvester", setOf("grass"), true, 0, "razorleaf"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -390,6 +392,21 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("mudsport", "status", "special", "physical"), effect.animations)
         assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:mudsport_target"), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-HRV-15 the Harvester's file holds 20 ticks`() {
+        val params = BuiltInRoles.parse("harvester").params
+        assertEquals(20, params.get("harvest_ticks")?.asInt)
+        assertEquals(20, HarvestClock.ticksOf(params))
+    }
+
+    @Test
+    fun `CD-HRV-01 the Harvester plays Razor Leaf`() {
+        val effect = BuiltInRoles.parse("harvester").effect
+        assertEquals(listOf("razorleaf", "physical", "special"), effect.animations)
+        assertEquals(listOf("cobblemon:razorleaf_actor"), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:razorleaf_target"), effect.targetParticles.map { it.toString() })
     }
 
     @Test

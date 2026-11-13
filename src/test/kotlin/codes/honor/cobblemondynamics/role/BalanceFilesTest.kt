@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.role
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.GrowthPace
+import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -67,6 +68,18 @@ class BalanceFilesTest {
             assertTrue(top <= 30, "${role.id} applies $top growth uses per minute")
         }
         assertEquals(30, CultivatorParams.of(BuiltInRoles.parse("cultivator").params).usesPerMinuteAt100)
+    }
+
+    /** One harvest per claim, `harvest_ticks` after the work starts (BM4). */
+    @Test
+    fun `CD-BAL-09 the default Harvester takes at most one crop per 20 ticks`() {
+        val harvesters = withHandler("cobblemon_dynamics:harvester")
+        assertTrue(harvesters.isNotEmpty(), "no built-in role file uses the Harvester handler")
+        for (role in harvesters) {
+            val ticks = HarvestClock.ticksOf(role.params)
+            assertTrue(ticks >= 20, "${role.id} harvests $ticks ticks after its work starts")
+        }
+        assertEquals(20, HarvestClock.ticksOf(BuiltInRoles.parse("harvester").params))
     }
 
     private companion object {

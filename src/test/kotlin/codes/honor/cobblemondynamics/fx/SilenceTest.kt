@@ -31,7 +31,22 @@ class SilenceTest {
         for (file in sources) assertFalse(CRY.containsMatchIn(file.readText()), "${file.name} names the cry animation")
     }
 
+    /** ADR-0015: a pick sets the plant's state itself, and a harvest drops its loot with no break, so no farming source makes a sound. */
+    @Test
+    fun `CD-CRP-14 CD-FX-09 the farming sources make no sound`() {
+        val dir = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/handler/farming")
+        val sources = dir.listFiles { f -> f.extension == "kt" }.orEmpty()
+        assertTrue(sources.size >= 10, "found only ${sources.size} farming sources")
+        for (file in sources) {
+            val text = file.readText()
+            for (name in SOUND_CALLS) assertFalse(name in text, "${file.name} names $name")
+        }
+    }
+
     private companion object {
         val CRY = Regex("\"cry\"", RegexOption.IGNORE_CASE)
+
+        /** A level event plays its sound on the client, and a block's use method or a break plays the block's own sound. */
+        val SOUND_CALLS = listOf("levelEvent", "playSound", "destroyBlock", "useWithoutItem", "useItemOn", "attemptShear")
     }
 }
