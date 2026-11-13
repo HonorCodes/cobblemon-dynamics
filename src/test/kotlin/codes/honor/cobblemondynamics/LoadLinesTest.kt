@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.LoadLines.MixinStatus
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import codes.honor.cobblemondynamics.role.FakeHandler
 import codes.honor.cobblemondynamics.role.RoleSet
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -68,5 +69,19 @@ class LoadLinesTest {
         for (role in roles.values.filter { it.handler in create }) {
             assertTrue("${role.id} (handler ${role.handler} is not registered)" in line, line)
         }
+    }
+
+    @Test
+    fun `CD-CRP-05 the farming line counts by adapter and names the unadapted blocks`() {
+        assertEquals(
+            "Farming: harvester 2 blocks [crop 1, pick_to_age_1 1], no adapter []",
+            LoadLines.farming("harvester", mapOf("pick_to_age_1" to 1, "crop" to 1), emptyList()),
+        )
+        val wart = ResourceLocation.parse("minecraft:nether_wart")
+        val beetroot = ResourceLocation.parse("minecraft:beetroots")
+        assertEquals(
+            "Farming: cultivator 4 blocks [growth 2], no adapter [minecraft:beetroots, minecraft:nether_wart]",
+            LoadLines.farming("cultivator", mapOf("growth" to 2), listOf(wart, beetroot)),
+        )
     }
 }

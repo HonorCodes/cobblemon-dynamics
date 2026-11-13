@@ -75,6 +75,32 @@ class PlayerGuideTest {
         return lines.subList(start, end).joinToString("\n")
     }
 
+    /**
+     * CD-CRP-16: the section Farming names both roles, the leash, the drops beside the crop and the Magnet that collects them, the
+     * apricorn rule and the two target tags.
+     */
+    @Test
+    fun `CD-CRP-16 the guide has a section Farming`() {
+        val lines = guide.readLines()
+        val start = lines.indexOfFirst { it == "## Farming" }
+        assertTrue(start >= 0, "the guide has no section Farming")
+        val end = (start + 1 until lines.size).firstOrNull { lines[it].startsWith("## ") } ?: lines.size
+        val text = lines.subList(start, end).joinToString("\n")
+        val names = listOf(
+            "Cultivator",
+            "Harvester",
+            "Work Leash",
+            "on the ground",
+            "Magnet",
+            "apricorn",
+            "Work Stamina",
+            "cobblemon_dynamics:cultivator_targets",
+            "cobblemon_dynamics:harvester_targets",
+        )
+        val missing = names.filterNot { it in text }
+        assertTrue(missing.isEmpty(), "the section Farming lacks $missing")
+    }
+
     private fun assertSections(names: List<String>) {
         val headings = guide.readLines().mapNotNull { HEADING.matchEntire(it)?.groupValues?.get(1) }
         val missing = names.filterNot { name -> headings.any { it.equals(name, ignoreCase = true) } }

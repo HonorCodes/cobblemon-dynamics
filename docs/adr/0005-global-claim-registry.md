@@ -1,7 +1,7 @@
 # ADR-0005: Global claim registry
 
 Status: Accepted (2026-11-09). [Amendment 1](#amendment-1-shared-logistics-claims-2026-11-11) lets the logistics roles share
-their containers.
+their containers. [Amendment 2](#amendment-2-farming-claims-2026-11-12) gives each farming role its own claim on a crop.
 
 ## Context
 
@@ -122,3 +122,14 @@ delegation. Input R66 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) 
 - A lower `logistics.maxWorkersPerContainer` clears no binding. A shared claim that a worker already holds stays, and a
   worker above the new cap waits for a free place before it claims again. Bindings at a destination above the new cap
   keep working, because a destination counts only at bind time.
+
+## Amendment 2: farming claims (2026-11-12)
+
+Status: Accepted (2026-11-12), with [ADR-0015](0015-farming-roles-and-crop-adapters.md).
+
+The farming roles of 1.1 add a third kind of sharing beside the exclusive claims and the shared logistics claims. The
+claim registry keys a work claim of a farming role by the crop and the role's claim lane. So one crop holds at most one
+Cultivator claim and one Harvester claim at once. A binding of a farming role reserves the crop only against claims of its
+own role. A Cultivator and a Harvester, auto-assigned or bound, share a crop, and two workers of one role do not.
+Every other role claims in the null lane, which is the key of 1.0, so nothing else changes. ADR-0015, decision 9, holds the
+rule, and the rows CD-CRP-06 to CD-CRP-08 and CD-CRP-13 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) test it.

@@ -38,28 +38,28 @@ the Wheel Driver, and does not repeat its numbers.
 
 ## Type index
 
-Thirteen types have roles in version 1.0.
+Thirteen types have roles in version 1.0, and fifteen in version 1.1.
 
-| Type | Phase 1 | Phase 2 | Later idea |
-| --- | --- | --- | --- |
-| Normal | Cranker | | |
-| Fire | Stoker, Brew Stoker | Fan Catalyst (blasting or smoking) | |
-| Water | Wheel Driver, Pump | Fan Catalyst (washing) | |
-| Grass | | | Grower |
-| Electric | Generator | | |
-| Ice | | | Freezer |
-| Fighting | Cranker | | |
-| Poison | Brewer | | |
-| Ground | | | |
-| Flying | | Tailwind | |
-| Psychic | | Telekinesis | |
-| Bug | | | Pollinator |
-| Rock | Crystal Tender | | |
-| Ghost | | Fan Catalyst (haunting) | |
-| Dragon | Superheater | | |
-| Dark | | | |
-| Steel | | Magnet | |
-| Fairy | Healer, Muse | | |
+| Type | Phase 1 | Phase 2 | 1.1 | Later idea |
+| --- | --- | --- | --- | --- |
+| Normal | Cranker | | | |
+| Fire | Stoker, Brew Stoker | Fan Catalyst (blasting or smoking) | | |
+| Water | Wheel Driver, Pump | Fan Catalyst (washing) | | |
+| Grass | | | Harvester | |
+| Electric | Generator | | | |
+| Ice | | | | Freezer |
+| Fighting | Cranker | | | |
+| Poison | Brewer | | | |
+| Ground | | | Cultivator | |
+| Flying | | Tailwind | | |
+| Psychic | | Telekinesis | | |
+| Bug | | | | Pollinator |
+| Rock | Crystal Tender | | | |
+| Ghost | | Fan Catalyst (haunting) | | |
+| Dragon | Superheater | | | |
+| Dark | | | | |
+| Steel | | Magnet | | |
+| Fairy | Healer, Muse | | | |
 
 ## Phase 1 roles
 
@@ -129,19 +129,27 @@ A Blaze Burner that a Superheater heats also counts as a blasting
 catalyst for a Create encased fan. Create applies this rule itself, so it needs no
 extra role.
 
+## 1.1 roles
+
+Both roles take auto-assignment, Quick Work and the Work Leash. Data tags decide which blocks they work, and crop adapters
+decide how ([ADR-0015](adr/0015-farming-roles-and-crop-adapters.md)). A crop takes one worker of each role at the same
+time.
+
+| Role | Type | Targets | What it does | Move effect | Spec area |
+| --- | --- | --- | --- | --- | --- |
+| Cultivator | Ground | A crop of `#cobblemon_dynamics:cultivator_targets` that bone meal grows | Gives the crop the effect of bone meal, with no item, ceil(30 × L ÷ 100) times per minute. Each use costs 100 ticks of Work Stamina. It stops when the crop is fully grown. | Mud Sport | CUL |
+| Harvester | Grass | A fully grown crop of `#cobblemon_dynamics:harvester_targets` | Harvests the crop 20 ticks after its work starts, drops the harvest beside the crop, and replants the crop from the drops. It never takes an apricorn. | Razor Leaf | HRV |
+
 ## Later ideas
 
 | Role | Type | Target | Idea |
 | --- | --- | --- | --- |
 | Pollinator | Bug | Beehive, bee nest | The honey level rises faster. Cobblemon has no Pollen Puff effect yet, so the move effect is open. |
-| Grower | Grass | Crops and saplings near the target | Gives extra growth ticks. It overlaps the Cobblebase growth aura job. The move effect is open. |
 | Freezer | Ice | A water source block | Turns the water into ice, packed ice or blue ice, by level. The move effect is Ice Beam. |
 
 ## Types with no role
 
-Ground and Dark have no role and no planned role. These unplanned ideas are on record:
+Dark has no role and no planned role. This unplanned idea is on record:
 
-- **Ground.** A tiller that turns dirt into farmland around a target. CobbleMiners
-  already gives Ground-types a mining job through Cobbleworkers.
 - **Dark.** A "night shift" modifier: Dark-types drain Work Stamina more slowly at
   night. This idea is a Work Stamina modifier, not a role.

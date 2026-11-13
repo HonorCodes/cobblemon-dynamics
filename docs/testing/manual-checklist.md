@@ -380,8 +380,8 @@ These checks need a 1.1 build. Check 61 runs on a client with the pinned mods of
     Bulbasaur. In its work area: 4 wheat crops at age 0 on hydrated farmland, hearty grains at age 0 on farmland, and an
     Oran Berry tree at age 0 on farmland. Game sounds at full volume. Action: watch and listen for up to 10 minutes. Expected: at
     each growth use, green sparkles show on the crop, with no sound from the work. The Bulbasaur harvests each wheat crop,
-    the hearty grains (the upper half goes, the lower half stays) and the berry tree (age 3 again), and the items lie
-    beside each crop.
+    the hearty grains (the upper half goes, and the lower half stays at age 3) and the berry tree (age 3 again), and the
+    items lie beside each crop, on the side that faces the Bulbasaur.
 62. **CD-CRP-18.** Setup: on a COHO 2.5.0 server, one Work Mode pasture with a level 50 Ground-type and a level 50
     Grass-type, and in its work area one crop of each family of the adapter table of
     [ADR-0015](../adr/0015-farming-roles-and-crop-adapters.md#the-crop-families-of-coho-250) at its first growth stage,

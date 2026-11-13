@@ -49,6 +49,16 @@ object LoadLines {
         "Payloads, version $version: ${toClient.size} to the client [${toClient.joinToString(", ")}], " +
             "${toServer.size} to the server [${toServer.joinToString(", ")}]"
 
+    /**
+     * CD-CRP-05: one farming role's tagged blocks, counted by the crop adapter that reads each one, with the adapters in name order,
+     * and the ids of the tagged blocks that no adapter reads.
+     */
+    fun farming(role: String, byAdapter: Map<String, Int>, unadapted: List<ResourceLocation>): String {
+        val total = byAdapter.values.sum() + unadapted.size
+        val counts = byAdapter.entries.sortedBy { it.key }.joinToString(", ") { (adapter, count) -> "$adapter $count" }
+        return "Farming: $role $total blocks [$counts], no adapter [${unadapted.sortedBy { it.toString() }.joinToString(", ")}]"
+    }
+
     /** CD-CMP-10: the number of roles loaded and active, and each disabled role with its reason, in id order. */
     fun roles(loaded: Int, active: Int, disabled: Map<ResourceLocation, String>): String {
         val names = disabled.entries.sortedBy { it.key.toString() }.joinToString(", ") { (id, reason) -> "$id ($reason)" }

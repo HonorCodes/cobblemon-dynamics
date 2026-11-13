@@ -17,4 +17,14 @@ object CropAdapters {
 
     /** CD-CUL-02: the growth adapter claims every `BonemealableBlock`. */
     fun grows(f: CropFacts): Boolean = f.bonemealable
+
+    /** CD-CRP-05: the Harvester's adapter of a block for the load line. `harvest/never` and an apricorn count as `never`. */
+    fun harvestAdapterName(f: CropFacts): String? =
+        if (f.apricorn || HarvestKind.NEVER in f.adapterTags) NEVER else harvestKind(f)?.name?.lowercase()
+
+    /** CD-CRP-05: the Cultivator's adapter of a block for the load line. */
+    fun growthAdapterName(f: CropFacts): String? = if (grows(f)) GROWTH else null
+
+    private const val NEVER = "never"
+    private const val GROWTH = "growth"
 }

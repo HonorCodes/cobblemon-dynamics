@@ -53,6 +53,7 @@ import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.AddReloadListenerEvent
+import net.neoforged.neoforge.event.TagsUpdatedEvent
 import org.slf4j.Logger
 
 @Mod(MOD_ID)
@@ -104,6 +105,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }
         modBus.addListener<ModConfigEvent.Reloading> { onConfigChanged(it.config) }
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }
+        // CD-CRP-05: the farming lines count the tagged blocks once the tags of a data load are bound.
+        NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { FarmingLines.onTagsUpdated(it) }
         EngineEvents.register()
         WorkerPush.warnIfMissing()
         LeashInteractions.register()

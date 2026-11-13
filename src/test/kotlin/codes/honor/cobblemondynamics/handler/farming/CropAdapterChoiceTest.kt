@@ -59,4 +59,15 @@ class CropAdapterChoiceTest {
         assertFalse(CropAdapters.grows(CropFacts(age = 1, ageMax = 3))) // nether wart
         assertFalse(CropAdapters.grows(CropFacts(attachedStem = true))) // an attached stem
     }
+
+    @Test
+    fun `CD-CRP-05 the load line counts harvest-never and apricorns as never, and a growable block as growth`() {
+        assertEquals("never", CropAdapters.harvestAdapterName(wheat.copy(adapterTags = setOf(HarvestKind.NEVER))))
+        assertEquals("never", CropAdapters.harvestAdapterName(CropFacts(apricorn = true, bonemealable = true)))
+        assertEquals("crop", CropAdapters.harvestAdapterName(wheat))
+        assertEquals("pick_to_age_1", CropAdapters.harvestAdapterName(CropFacts(adapterTags = setOf(HarvestKind.PICK_TO_AGE_1))))
+        assertNull(CropAdapters.harvestAdapterName(CropFacts(bonemealable = true)), "a bush with no adapter")
+        assertEquals("growth", CropAdapters.growthAdapterName(wheat))
+        assertNull(CropAdapters.growthAdapterName(CropFacts(age = 1, ageMax = 3)), "nether wart")
+    }
 }
