@@ -117,4 +117,22 @@ class HarvestPlanTest {
         assertEquals(CellChange.Keep, plan.crop)
         assertEquals(listOf(Drop(oran, 4)), plan.drops)
     }
+
+    @Test
+    fun `CD-HRV-16 each kind names the cells that it breaks`() {
+        val crop = HarvestPlans.plan(HarvestKind.CROP, listOf(Drop(wheat, 1), Drop(seeds, 2)), setOf(seeds), emptyMap(), always)
+        assertEquals(setOf(HarvestCell.CROP), crop.broken())
+        val flax = HarvestPlans.plan(HarvestKind.CROP, listOf(Drop(wheat, 1)), emptySet(), emptyMap(), hasUpper = true, survives = always)
+        assertEquals(setOf(HarvestCell.CROP, HarvestCell.UPPER), flax.broken())
+        val cocoa = HarvestPlans.plan(HarvestKind.BREAK_AND_REPLANT, listOf(Drop(seeds, 1)), setOf(seeds), emptyMap(), always)
+        assertEquals(setOf(HarvestCell.CROP), cocoa.broken())
+        val grains = HarvestPlans.plan(HarvestKind.UPPER_HALF, listOf(Drop(wheat, 1)), emptySet(), emptyMap(), always)
+        assertEquals(setOf(HarvestCell.UPPER), grains.broken())
+        val gourd = HarvestPlans.plan(HarvestKind.GOURD, listOf(Drop(wheat, 1)), emptySet(), emptyMap(), always)
+        assertEquals(setOf(HarvestCell.FRUIT), gourd.broken())
+        for (pick in listOf(HarvestKind.PICK_TO_AGE_0, HarvestKind.PICK_TO_AGE_1, HarvestKind.CAVE_VINES, HarvestKind.BERRY_TREE)) {
+            val plan = HarvestPlans.plan(pick, listOf(Drop(wheat, 1)), emptySet(), emptyMap(), always)
+            assertEquals(emptySet<HarvestCell>(), plan.broken(), "$pick")
+        }
+    }
 }

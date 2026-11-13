@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.handler.farming
 
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.block.LiquidBlock
 import net.minecraft.world.level.block.state.BlockState
 
 /** The cells of one crop: a two-block crop is keyed by its lower half, which both farming handlers read (ADR-0015). */
@@ -19,6 +20,14 @@ internal object FarmCells {
         if (pos != canonical.above()) return false
         val state = level.getBlockState(pos)
         return state.block === level.getBlockState(canonical).block && CropFactsReader.isUpper(state)
+    }
+
+    /** CD-CRP-09: the cell holds a block of the role's tag, or air or a fluid above a block that is not air. */
+    fun plotHolds(level: BlockGetter, crop: BlockPos, inRoleTag: () -> Boolean): Boolean {
+        val state = level.getBlockState(crop)
+        val empty = state.isAir || state.block is LiquidBlock
+        val belowIsAir = level.getBlockState(crop.below()).isAir
+        return PlotRule.keeps(cellInRoleTag = !empty && inRoleTag(), cellEmpty = empty, belowIsAir = belowIsAir)
     }
 
     /** The states of the crop's cell and the cell above it, where an upper half or a rice panicle grows (CD-CUL-09). */

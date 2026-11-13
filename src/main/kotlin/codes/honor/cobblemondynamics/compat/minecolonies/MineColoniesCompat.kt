@@ -41,6 +41,24 @@ object MineColoniesCompat {
                 permissions.hasPermission(permissions.getRank(ownerId), action)
             }
         }
+
+        /** CD-HRV-19: the owner's own permission, with the operator bypass of `hasPermission(Player, Action)`. */
+        override fun mayBreak(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean =
+            breaks(level, pos) { it.hasPermission(owner, Action.BREAK_BLOCKS) }
+
+        /** CD-HRV-19, CD-HRV-21: the placer's rank by UUID. A pasture with no placer breaks no block of a colony. */
+        override fun ownerMayBreak(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean {
+            if (ownerId == null) return level.isLoaded(pos) && colonyAt(level, pos) == null
+            return breaks(level, pos) { it.hasPermission(it.getRank(ownerId), Action.BREAK_BLOCKS) }
+        }
+    }
+
+    /** CD-HRV-19: the break rule of a colony for any block that is no hut, as `on(BlockEvent.BreakEvent)` checks `BREAK_BLOCKS`. */
+    private fun breaks(level: ServerLevel, pos: BlockPos, rankBreaks: (IPermissions) -> Boolean): Boolean {
+        if (!level.isLoaded(pos)) return false
+        val colony = colonyAt(level, pos)
+        val protection = IMinecoloniesAPI.getInstance().config.server.enableColonyProtection.get()
+        return ColonyBreak.allows(ColonyBreak.Facts(protection, colony != null, colony?.let { rankBreaks(it.permissions) } ?: true))
     }
 
     private val ACTIONS = mapOf(

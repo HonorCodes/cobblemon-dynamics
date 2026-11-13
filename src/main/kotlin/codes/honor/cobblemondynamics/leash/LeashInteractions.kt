@@ -115,7 +115,9 @@ object LeashInteractions {
         val pending = live.takeUnless { check == BindRules.PendingCheck.ABSENT }
         val roles = if (check == BindRules.PendingCheck.NO_AREA) emptyList() else fittingRoles(level, pokemon, clicked, pending)
         val types = pokemon?.types?.map { it.showdownId }.orEmpty()
-        val best = RoleSelection.best(roles.map { it.definition }, types)?.let { def -> roles.first { it.definition == def } }
+        // CD-CRP-22: a Cobblemon that fits both farming roles binds the role of its primary type.
+        val best = RoleSelection.best(roles.map { it.definition }, types, RoleRegistry::sameGroup)
+            ?.let { def -> roles.first { it.definition == def } }
         val canonical = best?.let { role -> guarded(role.handler, clicked) { role.handler.canonical(level, clicked) } } ?: clicked
         // The checks of a source-and-destination binding are the source's, and the destination is the clicked block.
         val source = pending?.pos ?: canonical
@@ -160,6 +162,7 @@ object LeashInteractions {
             input,
             shapeOf = { def -> RoleRegistry.current.get(def.id)?.handler?.bindingShape ?: BindingShape.SINGLE },
             sharesOf = { def -> RoleRegistry.sharesTargets(def.id) },
+            sameGroup = RoleRegistry::sameGroup,
         )
         when (outcome) {
             is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other?.pokemon)

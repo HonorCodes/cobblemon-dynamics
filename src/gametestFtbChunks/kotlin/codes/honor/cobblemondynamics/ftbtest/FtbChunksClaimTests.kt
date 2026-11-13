@@ -7,6 +7,8 @@ import codes.honor.cobblemondynamics.test.TestKit
 import codes.honor.cobblemondynamics.test.claims.ClaimScenes
 import codes.honor.cobblemondynamics.test.claims.PastureOracle
 import dev.ftb.mods.ftbchunks.api.FTBChunksAPI
+import dev.ftb.mods.ftbchunks.api.FTBChunksProperties
+import dev.ftb.mods.ftbchunks.api.Protection
 import dev.ftb.mods.ftblibrary.math.ChunkDimPos
 import dev.ftb.mods.ftbteams.api.TeamRank
 import dev.ftb.mods.ftbteams.api.property.PrivacyMode
@@ -16,6 +18,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.ChunkPos
@@ -24,8 +27,8 @@ import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
 /**
- * The claim checks against the real FTB Chunks 2101.1.23 (CD-QWK-27, CD-QWK-29, CD-QWK-31, CD-QWK-32, CD-LND-06, CD-LND-10). The
- * party of player A claims the chunk of furnace A: B is a member, C an ally and D a stranger. Every player is of the exact class
+ * The claim checks against the real FTB Chunks 2101.1.23 (CD-QWK-27, CD-QWK-29, CD-QWK-31, CD-QWK-32, CD-LND-06, CD-LND-10, CD-HRV-17).
+ * The party of player A claims the chunk of furnace A: B is a member, C an ally and D a stranger. Every player is of the exact class
  * ServerPlayer, which FTB Chunks judges as a player (CD-QWK-31). Each test has its own batch, because a claim covers a whole chunk.
  */
 @GameTestHolder(MOD_ID)
@@ -149,6 +152,32 @@ class FtbChunksClaimTests {
             if (helper.tick - start >= 400) helper.succeed()
         }
     }
+
+    /**
+     * CD-HRV-17: the break question of a Quick Worker and the one of a pasture both equal the check of FTB Chunks on a block break for
+     * each online player, on wheat at age 7 in the party's claim. The setups: the block edit mode `allies`, and the mode `private`, with
+     * the interact mode kept. The pasture's question gives the same answers after the players log out.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 100, batch = "ftb_hrv17")
+    fun cdHrv17FtbChunksBreakOracle(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val wheat = PastureOracle.wheat(helper)
+        val modes = listOf(PrivacyMode.ALLIES to "wheat in the edit mode allies", PrivacyMode.PRIVATE to "wheat in the edit mode private")
+        val answers = modes.map { (mode, name) ->
+            scene.party.setProperty(FTBChunksProperties.BLOCK_EDIT_MODE, mode)
+            PastureOracle.assertSame(helper, scene.players, wheat, name, PastureOracle.Question.BREAK) { allowsBreak(it, wheat) }
+        }
+        PastureOracle.logOut(helper, scene.players)
+        for ((setup, online) in modes.zip(answers)) {
+            scene.party.setProperty(FTBChunksProperties.BLOCK_EDIT_MODE, setup.first)
+            PastureOracle.assertSameOffline(helper, online)
+        }
+        helper.succeed()
+    }
+
+    /** The check of FTB Chunks on a block break, which shows the player its own text when it prevents (CD-HRV-17). */
+    private fun allowsBreak(player: ServerPlayer, pos: BlockPos): Boolean =
+        !FTBChunksAPI.api().manager.shouldPreventInteraction(player, InteractionHand.MAIN_HAND, pos, Protection.EDIT_BLOCK, null)
 
     /** A's, B's or C's send-out at furnace A in the default mode starts an order within 100 ticks (CD-QWK-27). */
     private fun getsAnOrder(helper: GameTestHelper, pick: (Scene) -> TestKit.PlainOwner) {

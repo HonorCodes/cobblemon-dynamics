@@ -30,6 +30,9 @@ object CultivatorHandler : TargetHandler {
 
     override val claimLane: String = LANE
 
+    /** CD-CRP-10: an auto-assigned worker goes crop to crop. */
+    override val releasesWhenDone: Boolean = true
+
     /** The block's tag first, so that the scan reads no property of a block outside it. Both halves of a crop share its block. */
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean {
         if (!state.`is`(FarmingTags.CULTIVATOR_TARGETS)) return false
@@ -40,6 +43,13 @@ object CultivatorHandler : TargetHandler {
     override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos = FarmCells.lower(level, pos, level.getBlockState(pos))
 
     override fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean = FarmCells.isPart(level, canonical, pos)
+
+    /**
+     * CD-CRP-09: a harvest by hand leaves the cell empty, and the leashed worker waits there for the replant. A block of the role's
+     * tag keeps the binding too, such as a stem that grows its next fruit.
+     */
+    override fun bindingHolds(level: ServerLevel, canonical: BlockPos): Boolean =
+        FarmCells.plotHolds(level, canonical) { level.getBlockState(canonical).`is`(FarmingTags.CULTIVATOR_TARGETS) }
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = grows(level, canonical, level.getBlockState(canonical))
 

@@ -52,6 +52,8 @@ object QuickWorkRules {
         val standbyLimit: Int,
         /** The order's role opts in to Quick Work, so its worker waits in Standby with no end (CD-QWK-36). */
         val waitsForDemand: Boolean = false,
+        /** The order's role releases its target when done, as the farming roles do, so a Standby ends the order (CD-CRP-12). */
+        val endsWhenDone: Boolean = false,
     )
 
     /** CD-QWK-01: an aim this old can no longer start an order. Game time is the overworld's in every level. */
@@ -82,12 +84,20 @@ object QuickWorkRules {
     /**
      * CD-QWK-03 to CD-QWK-05, CD-QWK-36. [fitting] are the roles that the Pokémon's [types], primary first, make it eligible for and
      * whose handler matches the aimed block. [orderable] is [mayOrder] of each. A Fairy-type is a healer, which no auto claim gives a
-     * machine (CD-ASG-04), so it gets an order only for a role that opts in to Quick Work, and otherwise nothing.
+     * machine (CD-ASG-04), so it gets an order only for a role that opts in to Quick Work, and otherwise nothing. Between the roles of
+     * one group of [sameGroup], such as the two farming roles, the role with [hasDemand] on the aimed block wins (CD-CRP-21).
      */
-    fun pick(fitting: List<RoleDefinition>, types: List<String>, hasFairyType: Boolean, orderable: (RoleDefinition) -> Boolean): Pick {
+    fun pick(
+        fitting: List<RoleDefinition>,
+        types: List<String>,
+        hasFairyType: Boolean,
+        orderable: (RoleDefinition) -> Boolean,
+        hasDemand: (RoleDefinition) -> Boolean = { true },
+        sameGroup: (RoleDefinition, RoleDefinition) -> Boolean = RoleSelection.SAME_HANDLER,
+    ): Pick {
         val candidates = if (hasFairyType) fitting.filter { it.quickWork } else fitting
         if (candidates.isEmpty()) return Pick.None
-        val role = RoleSelection.best(candidates.filter(orderable), types) ?: return Pick.NeedsLeash
+        val role = RoleSelection.best(candidates.filter(orderable), types, sameGroup, hasDemand) ?: return Pick.NeedsLeash
         return Pick.Order(role)
     }
 
@@ -111,6 +121,7 @@ object QuickWorkRules {
         !w.ownerPresent -> QuickEnd.OWNER_LEFT
         beyondLeash(w.ownerDistanceSqr, w.leashRange) -> QuickEnd.TOO_FAR
         !w.holdsClaim -> QuickEnd.TARGET
+        w.status == WorkerStatus.STANDBY && w.endsWhenDone -> QuickEnd.NO_DEMAND
         w.status == WorkerStatus.STANDBY && !w.waitsForDemand && w.ticksInStatus >= w.standbyLimit -> QuickEnd.NO_DEMAND
         else -> null
     }

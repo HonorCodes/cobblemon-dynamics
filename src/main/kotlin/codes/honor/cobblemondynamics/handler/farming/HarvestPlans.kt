@@ -22,6 +22,9 @@ sealed interface CellChange {
     data class ReplantAs(val block: ResourceLocation) : CellChange
 }
 
+/** A cell that a harvest changes: the crop's own, the upper half above it, or the fruit that an attached stem faces. */
+enum class HarvestCell { CROP, UPPER, FRUIT }
+
 /**
  * The drops and the cell changes of one harvest. [seed] is the item that left the loot for a replant, so that the level drops the
  * other stacks as they are. [upper] is the upper half of a two-block crop, and [fruit] the block that an attached stem faces.
@@ -32,7 +35,14 @@ data class HarvestPlan(
     val upper: CellChange = CellChange.Keep,
     val fruit: CellChange = CellChange.Keep,
     val seed: ResourceLocation? = null,
-)
+) {
+    /** CD-HRV-16: the cells that this harvest breaks, which ask the break question. A pick and a berry tree break none. */
+    fun broken(): Set<HarvestCell> = buildSet {
+        if (crop == CellChange.Clear || crop == CellChange.Replant || crop is CellChange.ReplantAs) add(HarvestCell.CROP)
+        if (upper == CellChange.Clear) add(HarvestCell.UPPER)
+        if (fruit == CellChange.Clear) add(HarvestCell.FRUIT)
+    }
+}
 
 /** The pure harvest plan of each crop adapter (ADR-0015). */
 object HarvestPlans {

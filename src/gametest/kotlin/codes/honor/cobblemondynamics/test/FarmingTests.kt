@@ -6,6 +6,7 @@ import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.id
+import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.stamina.StaminaMath
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
@@ -162,6 +163,188 @@ class FarmingTests {
                 helper.assertTrue(BlockPos.containing(item.position()) !in cells, "${item.item} lies inside a crop's cell")
                 helper.assertTrue(near <= 4.0, "${item.item} lies more than 2 blocks from its crop")
             }
+            helper.succeed()
+        }
+    }
+
+    /** The test claim provider refuses the absolute position of [rel] in [set] until the test ends. */
+    private fun refuse(helper: GameTestHelper, rel: BlockPos, set: MutableSet<BlockPos>) {
+        val absolute = helper.absolutePos(rel)
+        set += absolute
+        TestKit.afterTest(helper) { set -= absolute }
+    }
+
+    /**
+     * CD-CRP-06, CD-CRP-07, CD-CRP-09, CD-CRP-11, CD-HRV-14: a leashed Diglett grows one wheat crop and waits in Standby while it is
+     * fully grown. A harvest by hand leaves the cell empty, and the binding holds until the wheat is planted again. Then a Bulbasaur
+     * binds to the same crop as the Harvester, and a Magnemite bound to a chest as the Magnet collects the wheat.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_600)
+    fun cdCrp11LeashedCropLoop(helper: GameTestHelper) {
+        val scene = scene(helper)
+        TestKit.standBeside(scene.first, scene.second)
+        val crop = plant(helper, BlockPos(5, 1, 3), wheat(0))
+        val chest = BlockPos(9, 2, 3)
+        helper.setBlock(chest, Blocks.CHEST)
+        val diglett = TestKit.tether(helper, scene.second, scene.first, "diglett level=50")
+        val magnemite = TestKit.tether(helper, scene.second, scene.first, "magnemite level=50")
+        val grower = TestKit.bind(helper, scene.first, diglett, crop)
+        helper.assertTrue(grower?.roleId == id("cultivator"), "the Diglett bound as ${grower?.roleId}")
+        val magnet = TestKit.bind(helper, scene.first, magnemite, chest)
+        helper.assertTrue(magnet?.roleId == id("magnet"), "the Magnemite bound as ${magnet?.roleId}")
+        var bulbasaur: PokemonEntity? = null
+        var step = "grow"
+        var grownSince = -1L
+        var changedAt = -1L
+        var replantedAt = -1L
+        var lastAge: Int? = 0
+        helper.onEachTick {
+            val now = helper.tick
+            val age = ageAt(helper, crop)
+            val diglettStatus = TestKit.workerOf(helper, diglett)?.status
+            for (bound in listOfNotNull(diglett, magnemite, bulbasaur)) {
+                helper.assertTrue(BindingStore.read(bound.pokemon) != null, "CD-CRP-09: the ${bound.pokemon.species.name} lost its binding")
+            }
+            // CD-CRP-11: the machine sees the end of the demand on the tick after the use that ripens the wheat.
+            grownSince = if (age == 7) grownSince.takeIf { it >= 0 } ?: now else -1
+            if (grownSince >= 0 && now - grownSince >= 2) {
+                helper.assertTrue(diglettStatus == WorkerStatus.STANDBY, "CD-CRP-11: the Diglett is $diglettStatus at fully grown wheat")
+            }
+            when (step) {
+                "grow" -> if (grownSince >= 0 && now - grownSince >= 2) {
+                    // A harvest by hand: the cell holds air above the farmland.
+                    helper.setBlock(crop, Blocks.AIR)
+                    changedAt = now
+                    step = "empty"
+                }
+
+                "empty" -> if (now - changedAt >= 100) {
+                    helper.setBlock(crop, wheat(0))
+                    changedAt = now
+                    step = "planted"
+                }
+
+                "planted" -> if (diglettStatus == WorkerStatus.WORKING) {
+                    val harvester = TestKit.tether(helper, scene.second, scene.first, "bulbasaur level=50")
+                    val bound = TestKit.bind(helper, scene.first, harvester, crop)
+                    helper.assertTrue(bound?.roleId == id("harvester"), "CD-CRP-07: the Bulbasaur bound as ${bound?.roleId}")
+                    bulbasaur = harvester
+                    changedAt = now
+                    step = "harvest"
+                } else {
+                    helper.assertTrue(now - changedAt <= 40, "CD-CRP-09: the Diglett is not Working 40 ticks after the planting")
+                }
+
+                "harvest" -> {
+                    // CD-CRP-11: after each harvest and replant, the Diglett works again within 20 ticks.
+                    if (lastAge == 7 && age == 0) replantedAt = now
+                    if (replantedAt >= 0) {
+                        if (diglettStatus == WorkerStatus.WORKING) {
+                            replantedAt = -1
+                        } else {
+                            helper.assertTrue(now - replantedAt <= 20, "CD-CRP-11: the Diglett waits ${now - replantedAt} ticks")
+                        }
+                    }
+                    val wheat = TestKit.countIn(helper, chest, Items.WHEAT)
+                    helper.assertTrue(now - changedAt <= 1_200, "CD-HRV-14: the chest holds $wheat wheat 1,200 ticks after the bind")
+                    if (wheat >= 2) helper.succeed()
+                }
+            }
+            lastAge = age
+        }
+    }
+
+    /** CD-HRV-13: the scan never offers a crop that the land claim checks refuse to the placer. */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800)
+    fun cdHrv13HarvesterSkipsRefusedCrop(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val wheatA = plant(helper, BlockPos(4, 1, 3), wheat(7))
+        val wheatB = plant(helper, BlockPos(10, 1, 3), wheat(7))
+        refuse(helper, wheatB, TestLandClaims.refused)
+        repeat(2) { TestKit.tether(helper, scene.second, scene.first, "bulbasaur level=50") }
+        helper.runAfterDelay(600) {
+            helper.assertTrue(ageAt(helper, wheatB) == 7, "CD-HRV-13: wheat B, which the claim refuses, was harvested")
+            helper.assertTrue(ageAt(helper, wheatA) == 0, "wheat A was not harvested and replanted")
+            helper.succeed()
+        }
+    }
+
+    /**
+     * CD-HRV-13: the provider refuses only the pumpkin that an attached stem faces. The scan and the polls ask about the stem, the
+     * canonical block, and allow it, so only the check in the tick of the harvest sees the refusal.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdHrv13HarvesterAsksAtTheHarvestTick(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val attached = Blocks.ATTACHED_PUMPKIN_STEM.defaultBlockState().setValue(AttachedStemBlock.FACING, Direction.EAST)
+        val stem = plant(helper, BlockPos(5, 1, 3), attached)
+        val pumpkin = stem.east()
+        helper.setBlock(pumpkin, Blocks.PUMPKIN)
+        refuse(helper, pumpkin, TestLandClaims.refused)
+        val bulbasaur = TestKit.tether(helper, scene.second, scene.first, "bulbasaur level=50")
+        val stemKey = TestKit.keyOf(helper, helper.absolutePos(stem), "harvester")
+        var worked = false
+        helper.onEachTick {
+            val working = TestKit.workerOf(helper, bulbasaur)?.status == WorkerStatus.WORKING
+            if (working && TestKit.claimOf(helper, bulbasaur)?.key == stemKey) worked = true
+        }
+        helper.runAfterDelay(400) {
+            helper.assertTrue(worked, "the Bulbasaur never worked the stem, so the harvest tick was never reached")
+            helper.assertTrue(helper.getBlockState(pumpkin).`is`(Blocks.PUMPKIN), "CD-HRV-13: the refused pumpkin was harvested")
+            helper.assertTrue(helper.getBlockState(stem).`is`(Blocks.ATTACHED_PUMPKIN_STEM), "the stem lost its pumpkin")
+            helper.succeed()
+        }
+    }
+
+    /**
+     * CD-HRV-16: the provider refuses the break question, and allows the use question, for wheat A and a sweet berry bush. The wheat
+     * stays, because its harvest breaks it, and the bush is picked, because a pick breaks nothing.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdHrv16HarvesterAsksAboutBreaking(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val wheatA = plant(helper, BlockPos(4, 1, 3), wheat(7))
+        helper.setBlock(BlockPos(9, 1, 3), Blocks.GRASS_BLOCK)
+        val bush = BlockPos(9, 2, 3)
+        helper.setBlock(bush, Blocks.SWEET_BERRY_BUSH.defaultBlockState().setValue(SweetBerryBushBlock.AGE, 3))
+        refuse(helper, wheatA, TestLandClaims.refusedBreak)
+        refuse(helper, bush, TestLandClaims.refusedBreak)
+        TestKit.tether(helper, scene.second, scene.first, "bulbasaur level=50")
+        helper.runAfterDelay(400) {
+            helper.assertTrue(ageAt(helper, wheatA) == 7, "CD-HRV-16: the wheat whose break the claim refuses was harvested")
+            val berries = helper.getBlockState(bush).getValue(SweetBerryBushBlock.AGE)
+            helper.assertTrue(berries == 1, "CD-HRV-16: the bush reads age $berries, so the pick did not run")
+            helper.succeed()
+        }
+    }
+
+    /**
+     * CD-CRP-12: an owner sends out a party Bulbasaur at fully grown wheat. The order harvests and replants the wheat, and it ends
+     * within 21 ticks of the harvest, with its message. The owner is listed in the player list, so the test runs in the batch of the
+     * other Quick Work tests.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 600, batch = "quick_work")
+    fun cdCrp12QuickWorkHarvest(helper: GameTestHelper) {
+        val crop = plant(helper, BlockPos(4, 1, 11), wheat(7))
+        val owner = TestKit.listedOwner(helper, BlockPos(12, 2, 11))
+        val bulbasaur = TestKit.partyPokemon(owner, "bulbasaur level=50")
+        TestKit.lookAt(helper, owner, crop)
+        TestKit.pressSendOut(owner)
+        var ordered = false
+        var harvestedAt = -1L
+        helper.onEachTick {
+            val engine = TestKit.engine(helper)
+            if (engine.isQuickWorker(bulbasaur.uuid)) ordered = true
+            if (harvestedAt < 0 && ageAt(helper, crop) == 0) harvestedAt = helper.tick
+            if (harvestedAt < 0) return@onEachTick
+            helper.assertTrue(ordered, "CD-CRP-12: the wheat was harvested with no order")
+            if (engine.isQuickWorker(bulbasaur.uuid)) {
+                helper.assertTrue(helper.tick - harvestedAt <= 21, "CD-CRP-12: the order still runs 21 ticks after the harvest")
+                return@onEachTick
+            }
+            val ended = "Bulbasaur stopped working: Wheat Crops needs no more work"
+            helper.assertTrue(TestKit.messages(owner).contains(ended), "CD-CRP-12: ${TestKit.messages(owner)}")
+            helper.assertTrue(helper.getBlockState(crop).`is`(Blocks.WHEAT), "the order did not replant the wheat")
             helper.succeed()
         }
     }

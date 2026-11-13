@@ -97,12 +97,20 @@ object BindRules {
         else -> PendingCheck.READ
     }
 
-    /** [sharesOf] tells a logistics role, whose containers other bindings share (CD-LSH-28). */
-    fun evaluate(input: Input, shapeOf: (RoleDefinition) -> BindingShape, sharesOf: (RoleDefinition) -> Boolean = { false }): Outcome {
+    /**
+     * [sharesOf] tells a logistics role, whose containers other bindings share (CD-LSH-28). [sameGroup] joins roles that pick by type,
+     * as the farming roles do (CD-CRP-22).
+     */
+    fun evaluate(
+        input: Input,
+        shapeOf: (RoleDefinition) -> BindingShape,
+        sharesOf: (RoleDefinition) -> Boolean = { false },
+        sameGroup: (RoleDefinition, RoleDefinition) -> Boolean = RoleSelection.SAME_HANDLER,
+    ): Outcome {
         if (input.selection == null || !input.pokemonOwnedByPlayer) return Outcome.Refuse(NO_SELECTION)
         if (!input.pastureInWorkMode) return Outcome.Refuse(NOT_WORK_MODE)
         // CD-LSH-16: one click gives one predictable role.
-        val role = RoleSelection.best(input.fittingRoles, input.types) ?: return Outcome.Refuse(NO_ROLE)
+        val role = RoleSelection.best(input.fittingRoles, input.types, sameGroup) ?: return Outcome.Refuse(NO_ROLE)
         val twoTargets = shapeOf(role) == BindingShape.SOURCE_AND_DESTINATION
         if (twoTargets && input.pending != null && input.sameAsPending) return Outcome.Refuse(DESTINATION_SAME)
         // CD-TLK-12: the destination may sit outside the work area, but not past the role's range from the pasture block.

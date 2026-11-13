@@ -15,6 +15,9 @@ object TestLandClaims : LandClaimCheck {
     val refused: MutableSet<BlockPos> = HashSet()
     val throwing: MutableSet<BlockPos> = HashSet()
 
+    /** Positions whose break question refuses while the use question allows (CD-HRV-16). */
+    val refusedBreak: MutableSet<BlockPos> = HashSet()
+
     /** The UUIDs that the pasture question got, for each position (CD-LND-05). */
     val askedAbout: MutableMap<BlockPos, MutableSet<UUID?>> = HashMap()
 
@@ -26,6 +29,10 @@ object TestLandClaims : LandClaimCheck {
         askedAbout.getOrPut(pos.immutable()) { HashSet() } += ownerId
         return answer(pos)
     }
+
+    override fun mayBreak(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean = answer(pos) && pos !in refusedBreak
+
+    override fun ownerMayBreak(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean = answer(pos) && pos !in refusedBreak
 
     private fun answer(pos: BlockPos): Boolean {
         if (pos in throwing) throw IllegalStateException("the test claim check fails at $pos")

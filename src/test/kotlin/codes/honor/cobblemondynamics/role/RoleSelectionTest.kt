@@ -64,4 +64,29 @@ class RoleSelectionTest {
         val telekinesis = role("telekinesis", setOf("psychic"), autoAssign = false, handler = "cobblemon_dynamics:telekinesis")
         assertEquals(pump, RoleSelection.best(listOf(telekinesis, pump), listOf("psychic", "water")))
     }
+
+    private val cultivator = role("cultivator", setOf("ground"), handler = "cobblemon_dynamics:cultivator")
+    private val harvester = role("harvester", setOf("grass"), handler = "cobblemon_dynamics:harvester")
+
+    /** The two farming roles are one group for the primary type, as the roles of one handler are (CD-CRP-22). */
+    private val farming: (RoleDefinition, RoleDefinition) -> Boolean = { a, b ->
+        a.handler == b.handler || setOf(a, b).all { it == cultivator || it == harvester }
+    }
+
+    @Test
+    fun `CD-CRP-21 Torterra at fully grown wheat gets the Harvester and at wheat of age 3 the Cultivator`() {
+        val torterra = listOf("grass", "ground")
+        val grown = RoleSelection.best(listOf(cultivator, harvester), torterra, farming) { it == harvester }
+        assertEquals(harvester, grown)
+        val growing = RoleSelection.best(listOf(cultivator, harvester), torterra, farming) { it == cultivator }
+        assertEquals(cultivator, growing)
+    }
+
+    @Test
+    fun `CD-CRP-22 Torterra binds the Harvester and Toedscool the Cultivator`() {
+        assertEquals(harvester, RoleSelection.best(listOf(cultivator, harvester), listOf("grass", "ground"), farming))
+        assertEquals(cultivator, RoleSelection.best(listOf(harvester, cultivator), listOf("ground", "grass"), farming))
+        // Without the farming group, the id order decides between two handlers, as in 1.0.
+        assertEquals(cultivator, RoleSelection.best(listOf(harvester, cultivator), listOf("grass", "ground")))
+    }
 }

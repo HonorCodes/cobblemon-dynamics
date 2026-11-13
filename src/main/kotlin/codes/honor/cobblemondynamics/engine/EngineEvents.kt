@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.ai.BrainBridge
+import codes.honor.cobblemondynamics.handler.farming.TrampleGuard
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.net.PanelViewers
 import codes.honor.cobblemondynamics.pasture.WorkModeService
@@ -13,6 +14,7 @@ import net.minecraft.world.level.ChunkPos
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
+import net.neoforged.neoforge.event.level.BlockEvent
 import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.event.server.ServerStartingEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
@@ -62,6 +64,13 @@ object EngineEvents {
         NeoForge.EVENT_BUS.addListener<ChunkEvent.Unload> { event ->
             val level = event.level as? ServerLevel ?: return@addListener
             onChunkUnload(level, event.chunk.pos)
+        }
+        // CD-CRP-15: FarmBlock.fallOn posts the event before it turns farmland to dirt.
+        NeoForge.EVENT_BUS.addListener<BlockEvent.FarmlandTrampleEvent> { event ->
+            val entity = event.entity
+            if (TrampleGuard.cancels(entity is PokemonEntity) { WorkEngine.get()?.isDirected(entity as PokemonEntity) == true }) {
+                event.isCanceled = true
+            }
         }
         // A worker saved while it slept loads with its pose frozen. The engine poses it again if it still rests (CD-AI-08).
         NeoForge.EVENT_BUS.addListener<EntityJoinLevelEvent> { event ->

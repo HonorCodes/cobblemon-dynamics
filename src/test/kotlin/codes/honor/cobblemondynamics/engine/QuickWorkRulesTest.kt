@@ -220,4 +220,13 @@ class QuickWorkRulesTest {
         val grow = QuickWorkRules.refusal(true, false, registry.isFree(TargetKey.block(dim, wheatC, "cultivator"), bulbasaur)) { true }
         assertEquals(QuickWorkRules.CLAIMED, grow)
     }
+
+    @Test
+    fun `CD-CRP-12 a farming order in Standby ends with no_demand`() {
+        val standby = calm.copy(status = WorkerStatus.STANDBY, ticksInStatus = 1)
+        assertEquals(QuickEnd.NO_DEMAND, QuickWorkRules.endReason(standby.copy(endsWhenDone = true)))
+        assertNull(QuickWorkRules.endReason(standby), "an order of another role waits for its Standby limit")
+        assertNull(QuickWorkRules.endReason(calm.copy(endsWhenDone = true)), "a Working farming order ended")
+        assertEquals(QuickEnd.RECALLED, QuickWorkRules.endReason(standby.copy(endsWhenDone = true, entityGone = true)))
+    }
 }

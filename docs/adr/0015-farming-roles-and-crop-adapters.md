@@ -285,7 +285,8 @@ Read for decision 7 of the plan, after the coordinator's ruling (R74):
 4. **Two halves.** A block whose state has `half` = upper is read at the block below it, for growth and for the crop
    adapter. When the crop adapter breaks a two-block crop, it clears the upper block first with
    `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE` (flag 18), so that no shape update breaks it with its own drops and sound. The loot
-   of both halves drops.
+   of both halves drops. The upper half adapter clears the upper block with `UPDATE_ALL` instead, because the lower block
+   follows its own rule through that shape update: `HeartyGrainsBlock.updateShape` sets the lower half to age 3 (1.1 build).
 5. **The growth use.** The Cultivator calls NeoForge's `BoneMealItem.applyBonemeal(ItemStack(Items.BONE_MEAL), level, pos,
    null)`. The stack is a token that no inventory holds, so no item is used. The call runs the block's own bonemeal rule and
    `BonemealEvent`, as a dispenser does, so a mod that changes or blocks bonemeal on its crops still decides. After a use

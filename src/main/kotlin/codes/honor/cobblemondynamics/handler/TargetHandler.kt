@@ -40,6 +40,12 @@ interface TargetHandler {
      */
     val claimLane: String? get() = null
 
+    /**
+     * True for a handler whose auto-assigned pasture workers release their claim once the target has no demand, instead of waiting in
+     * Standby, so that the next scan pass gives them the nearest target with demand. The farming roles go crop to crop (CD-CRP-10).
+     */
+    val releasesWhenDone: Boolean get() = false
+
     fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean
 
     /** The one position that keys the claim of a multi-block target (CD-CLM-04). */
@@ -50,6 +56,12 @@ interface TargetHandler {
     fun targetCenter(canonical: BlockPos): Vec3 = Vec3.atCenterOf(canonical)
 
     fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean
+
+    /**
+     * Whether a Work Leash binding of this handler's roles keeps [canonical] (CD-LSH-08). Claims follow [stillValid], so a claim on a
+     * broken target ends at once (CD-CLM-08). The farming handlers keep the empty cell of a harvested crop (CD-CRP-09).
+     */
+    fun bindingHolds(level: ServerLevel, canonical: BlockPos): Boolean = stillValid(level, canonical)
 
     fun hasDemand(ctx: WorkContext): Boolean
 
@@ -108,6 +120,11 @@ class WorkContext(
      * and the owner's checks for a Quick Worker (CD-HRV-13).
      */
     val mayChange: (BlockPos) -> Boolean = { true },
+    /**
+     * Asks each claim mod in this tick whether the player may break a block: the placer by UUID for a pasture worker, and the online
+     * owner for a Quick Worker (CD-HRV-16).
+     */
+    val mayBreak: (BlockPos) -> Boolean = { true },
     /** The handler stopped its target's demand for this worker for the given ticks, which the engine skips as long (CD-CUL-09). */
     val stalled: (Long) -> Unit = {},
 )

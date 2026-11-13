@@ -23,8 +23,8 @@ import net.minecraft.world.level.block.state.properties.Property
 object HarvestApply {
     /**
      * Harvests the crop at [crop] once. Its items come out of the crop's face toward [spot] (CD-HRV-06). [mayChange] answers the land
-     * claim checks of each cell that the harvest changes, in this tick, and one refusal leaves every cell and item as it is (CD-HRV-13).
-     * Returns whether the harvest ran.
+     * claim checks of each cell that the harvest changes, in this tick (CD-HRV-13), and [mayBreak] the break question of each cell that
+     * it breaks (CD-HRV-16). One refusal leaves every cell and item as it is. Returns whether the harvest ran.
      */
     fun apply(
         level: ServerLevel,
@@ -33,6 +33,7 @@ object HarvestApply {
         facts: CropFacts,
         spot: BlockPos,
         mayChange: (BlockPos) -> Boolean,
+        mayBreak: (BlockPos) -> Boolean,
     ): Boolean {
         val state = level.getBlockState(crop)
         val face = DropFace.toward(crop, spot)
@@ -57,7 +58,8 @@ object HarvestApply {
             upper.takeIf { plan.upper != CellChange.Keep },
             fruit?.takeIf { plan.fruit != CellChange.Keep },
         )
-        if (!changed.all(mayChange)) return false
+        val cells = mapOf(HarvestCell.CROP to crop, HarvestCell.UPPER to upper, HarvestCell.FRUIT to fruit)
+        if (!changed.all(mayChange) || !plan.broken().mapNotNull(cells::get).all(mayBreak)) return false
         if (plan.upper == CellChange.Clear) {
             // ADR-0015 decision 4: the crop adapter clears the upper half with no shape update, so that the lower half does not break
             // itself with its own drops before its replant. The upper half adapter leaves the lower half to its own rule, which a

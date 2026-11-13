@@ -28,6 +28,9 @@ object HarvesterHandler : TargetHandler {
 
     override val claimLane: String = LANE
 
+    /** CD-CRP-10: an auto-assigned worker goes crop to crop. */
+    override val releasesWhenDone: Boolean = true
+
     /** CD-HRV-03: an apricorn first, also one that a datapack adds to the tag. Both halves of a crop share its block. */
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean {
         if (state.block is ApricornBlock || state.`is`(FarmingTags.APRICORNS) || !state.`is`(FarmingTags.HARVESTER_TARGETS)) return false
@@ -38,6 +41,13 @@ object HarvesterHandler : TargetHandler {
     override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos = FarmCells.lower(level, pos, level.getBlockState(pos))
 
     override fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean = FarmCells.isPart(level, canonical, pos)
+
+    /**
+     * CD-CRP-09: a harvest by hand leaves the cell empty, and the leashed worker waits there for the replant. A block of the role's
+     * tag keeps the binding too, such as a stem that grows its next fruit.
+     */
+    override fun bindingHolds(level: ServerLevel, canonical: BlockPos): Boolean =
+        FarmCells.plotHolds(level, canonical) { level.getBlockState(canonical).`is`(FarmingTags.HARVESTER_TARGETS) }
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean {
         val state = level.getBlockState(canonical)
@@ -65,7 +75,7 @@ object HarvesterHandler : TargetHandler {
         val facts = CropFactsReader.read(ctx.level, ctx.target, ctx.level.getBlockState(ctx.target))
         val kind = CropAdapters.harvestKind(facts) ?: return
         if (!CropRules.isFullyGrown(kind, facts)) return
-        if (!HarvestApply.apply(ctx.level, ctx.target, kind, facts, ctx.spot ?: ctx.target, ctx.mayChange)) {
+        if (!HarvestApply.apply(ctx.level, ctx.target, kind, facts, ctx.spot ?: ctx.target, ctx.mayChange, ctx.mayBreak)) {
             memo.refusedUntil = ctx.now + REFUSED_WAIT_TICKS
             ctx.stalled(REFUSED_WAIT_TICKS)
         }

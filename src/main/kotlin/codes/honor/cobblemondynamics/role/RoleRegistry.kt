@@ -93,5 +93,8 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
     /** The claim lane of the role [id]'s handler (CD-CRP-06), from the role files of the last load, as [sharesTargets] reads them. */
     fun laneOf(id: ResourceLocation): String? = parsed[id]?.let { HandlerRegistry.get(it.handler) }?.claimLane
 
+    /** CD-CRP-22: the roles of one handler are one group, and so are the roles whose handlers claim in a lane: the farming roles. */
+    fun sameGroup(a: RoleDefinition, b: RoleDefinition): Boolean = a.handler == b.handler || (laneOf(a.id) != null && laneOf(b.id) != null)
+
     private fun handlerFor(id: ResourceLocation): TargetHandler? = if (disabledHandlers.isDisabled(id)) null else HandlerRegistry.get(id)
 }

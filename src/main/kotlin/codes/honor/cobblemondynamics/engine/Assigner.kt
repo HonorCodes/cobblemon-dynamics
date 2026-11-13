@@ -16,16 +16,28 @@ data class WorkerView(
     val isSkipped: (TargetKey) -> Boolean,
 )
 
-data class CandidateView(val key: TargetKey, val center: Vec3, val roles: List<RoleDefinition>, val hasDemand: () -> Boolean)
+/** [needsDemand]: every role of the candidate releases its claim when done, so an idle worker takes it only with demand (CD-CRP-10). */
+data class CandidateView(
+    val key: TargetKey,
+    val center: Vec3,
+    val roles: List<RoleDefinition>,
+    val needsDemand: Boolean = false,
+    val hasDemand: () -> Boolean,
+)
 
 /** Auto-assignment: which target and role a worker that a scan finds free gets. */
 object Assigner {
-    /** CD-ASG-03: the nearest free target of an auto-assign role the worker can do. */
+    /**
+     * CD-ASG-03: the nearest free target of an auto-assign role the worker can do. A role that releases its claim when done takes only
+     * a target with demand, or the worker would claim a fully grown crop again on each scan pass (CD-CRP-10).
+     */
     fun pickForIdle(w: WorkerView, candidates: List<CandidateView>, isFree: (TargetKey) -> Boolean): Pair<CandidateView, RoleDefinition>? =
         if (!mayAutoAssign(w)) {
             null
         } else {
-            options(w, candidates, isFree).minWithOrNull(nearestTo(w))
+            options(w, candidates, isFree)
+                .filter { (candidate, _) -> !candidate.needsDemand || candidate.hasDemand() }
+                .minWithOrNull(nearestTo(w))
         }
 
     /** CD-ASG-19: the nearest free target with demand, for an auto worker that waited in Standby long enough. */

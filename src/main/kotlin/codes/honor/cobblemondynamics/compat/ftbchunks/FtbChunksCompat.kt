@@ -10,10 +10,13 @@ import dev.ftb.mods.ftbchunks.api.Protection
 import dev.ftb.mods.ftbchunks.util.DimensionFilter
 import dev.ftb.mods.ftblibrary.math.ChunkDimPos
 import dev.ftb.mods.ftbteams.api.property.PrivacyMode
+import dev.ftb.mods.ftbteams.api.property.PrivacyProperty
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.tags.TagKey
 import net.minecraft.world.InteractionHand
+import net.minecraft.world.level.block.Block
 import java.util.UUID
 
 /**
@@ -37,7 +40,31 @@ object FtbChunksCompat {
          * FTB Chunks has no check by UUID, so this one takes the steps of its player check through the APIs of FTB Chunks and FTB
          * Teams (FtbInteractRule). It calls no check that shows a player its text or logs a prevented access (CD-LND-10).
          */
-        override fun ownerMayUse(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean {
+        override fun ownerMayUse(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean =
+            ownerMay(ownerId, level, pos, FTBChunksTags.Blocks.INTERACT_WHITELIST_TAG, FTBChunksProperties.BLOCK_INTERACT_MODE)
+
+        /** CD-HRV-17: the block break handler of FTB Chunks asks `Protection.EDIT_BLOCK`, which shows its own text when it prevents. */
+        override fun mayBreak(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean {
+            val api = FTBChunksAPI.api()
+            return owner.level() === level &&
+                api.isManagerLoaded &&
+                !api.manager.shouldPreventInteraction(owner, InteractionHand.MAIN_HAND, pos, Protection.EDIT_BLOCK, null)
+        }
+
+        /**
+         * CD-HRV-17, CD-HRV-21: `Protection.EDIT_BLOCK` has the steps of `INTERACT_BLOCK` with the edit whitelist and the block edit
+         * mode, so the rule of the use question answers with those facts, silently.
+         */
+        override fun ownerMayBreak(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean =
+            ownerMay(ownerId, level, pos, FTBChunksTags.Blocks.EDIT_WHITELIST_TAG, FTBChunksProperties.BLOCK_EDIT_MODE)
+
+        private fun ownerMay(
+            ownerId: UUID?,
+            level: ServerLevel,
+            pos: BlockPos,
+            whitelist: TagKey<Block>,
+            modeProperty: PrivacyProperty,
+        ): Boolean {
             val api = FTBChunksAPI.api()
             if (!api.isManagerLoaded) return false
             val manager = api.manager
@@ -51,8 +78,8 @@ object FtbChunksCompat {
                     // A player's own check also reads FTB Ranks, which a pasture with no player cannot ask.
                     wildernessClosed = FTBChunksWorldConfig.noWilderness(null) ||
                         DimensionFilter.isNoWildernessDimension(level.dimension()),
-                    whitelisted = level.getBlockState(pos).`is`(FTBChunksTags.Blocks.INTERACT_WHITELIST_TAG),
-                    mode = team?.getProperty(FTBChunksProperties.BLOCK_INTERACT_MODE)?.let(::mode),
+                    whitelisted = level.getBlockState(pos).`is`(whitelist),
+                    mode = team?.getProperty(modeProperty)?.let(::mode),
                     ally = ownerId != null && data != null && data.isAlly(ownerId),
                     memberOrBetter = ownerId != null && team != null && team.getRankForPlayer(ownerId).isMemberOrBetter,
                     hasOwner = ownerId != null,

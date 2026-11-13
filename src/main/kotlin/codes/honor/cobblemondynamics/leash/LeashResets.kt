@@ -197,7 +197,8 @@ object LeashResets {
         }
         if (!level.isLoaded(target)) return
         val handler = RoleRegistry.current.get(ref.roleId)?.handler ?: return
-        if (!guarded(handler, true) { handler.stillValid(level, target) }) lost(level, target, ref, TARGET_GONE)
+        // CD-CRP-09: a farming binding keeps the empty cell of a harvested crop.
+        if (!guarded(handler, true) { handler.bindingHolds(level, target) }) lost(level, target, ref, TARGET_GONE)
     }
 
     private fun lost(

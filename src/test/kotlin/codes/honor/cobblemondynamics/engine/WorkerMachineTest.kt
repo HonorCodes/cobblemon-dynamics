@@ -132,4 +132,40 @@ class WorkerMachineTest {
             assertTrue(w.status in WorkerStatus.entries)
         }
     }
+
+    @Test
+    fun `CD-CRP-10 a releasing worker with no demand releases its claim at once`() {
+        val w = worker()
+        machine.onClaim(w, 0)
+        val onArrival = machine.onTick(w, 30, arrived = true, demand = { false }, key = key, releasesWhenDone = true)
+        assertInstanceOf(MachineEvent.ReleaseClaim::class.java, onArrival)
+        assertEquals(WorkerStatus.IDLE, w.status)
+        machine.onClaim(w, 40)
+        machine.onTick(w, 50, arrived = true, demand = { true }, key = key, releasesWhenDone = true)
+        assertEquals(WorkerStatus.WORKING, w.status)
+        val whileWorking = machine.onTick(w, 51, arrived = true, demand = { false }, key = key, releasesWhenDone = true)
+        assertInstanceOf(MachineEvent.ReleaseClaim::class.java, whileWorking)
+        assertEquals(WorkerStatus.IDLE, w.status)
+        // The release skips nothing: the next scan pass gives the worker the nearest crop with demand.
+        assertEquals(null, (whileWorking as MachineEvent.ReleaseClaim).skip)
+    }
+
+    @Test
+    fun `CD-CRP-11 a leashed farming worker enters Standby`() {
+        val w = worker(leashed = true)
+        machine.onClaim(w, 0)
+        machine.onTick(w, 10, arrived = true, demand = { true }, key = key, releasesWhenDone = true)
+        assertEquals(null, machine.onTick(w, 11, arrived = true, demand = { true }, key = key, releasesWhenDone = true))
+        val done = machine.onTick(w, 12, arrived = true, demand = { false }, key = key, releasesWhenDone = true)
+        assertEquals(MachineEvent.EnteredStandby, done)
+        assertEquals(WorkerStatus.STANDBY, w.status)
+    }
+
+    @Test
+    fun `CD-CRP-12 a Quick Worker of a farming role enters Standby, which ends its order`() {
+        val w = Worker(UUID.randomUUID(), pasture = null)
+        machine.onClaim(w, 0)
+        machine.onTick(w, 10, arrived = true, demand = { false }, key = key, releasesWhenDone = true)
+        assertEquals(WorkerStatus.STANDBY, w.status)
+    }
 }
