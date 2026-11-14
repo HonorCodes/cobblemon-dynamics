@@ -27,7 +27,8 @@ the Wheel Driver, and does not repeat its numbers.
 - **No loot from nothing.** No role makes items or loot out of nothing. Cobbleworkers,
   Cobblebase and Cobblemon Pasture Loot already cover produce and loot.
 - **Level.** Level changes the output of the Generator, the Pump, the Muse,
-  Telekinesis, the Magnet and Tailwind. The Superheater superheats only from level 50.
+  Telekinesis, the Magnet, Tailwind and the Cultivator. The Superheater superheats only
+  from level 50.
   Other roles copy the numbers of the source that they replace, for example the speed
   of a coal-fueled furnace.
 - **One role at a time.** A Cobblemon with two types can do the roles of either type,
