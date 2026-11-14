@@ -218,7 +218,7 @@ The Cobblemon walks to the block and works it, as a worker in a pasture does. It
 action bar tells you when the work starts, and when and why it stops.
 
 Quick Work uses the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
-Generator, Crystal Tender, Brew Stoker and Brewer. It also uses the Muse, whose role file opts in to Quick Work. When only a
+Generator, Crystal Tender, Brew Stoker, Brewer, Cultivator and Harvester. It also uses the Muse, whose role file opts in to Quick Work. When only a
 Work Leash role of the Cobblemon fits the block, for example Telekinesis for a Psychic-type at a chest, the action bar shows
 "Chest needs the Work Leash". A Cobblemon with a Fairy type does Quick Work only as a Muse, because it is otherwise a healer.
 
@@ -521,8 +521,7 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
 
 Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind and the
-Cultivator. The
-Superheater superheats only from level 50. Every other role works the same at every level.
+Cultivator. The Superheater superheats only from level 50. Every other role works the same at every level.
 
 ### Stoker
 
