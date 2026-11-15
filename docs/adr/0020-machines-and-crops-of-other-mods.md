@@ -1,6 +1,7 @@
 # ADR-0020: Machines and crops of other mods, the Heater, and fixes
 
-Status: Proposed (2026-11-15). The coordinator rules on it with the design decisions of the
+Status: Accepted (2026-11-15) by the coordinator under the approver's delegation, with the rulings (R81) on the design
+decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R77, R79 and R80 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES10 to RES13 the research.
 [ADR-0016](0016-zero-setup-optional-mod-compatibility.md) holds the rules that every target of this record follows: its own
@@ -73,8 +74,8 @@ Each fix is its own spec row (R80, ruling 2):
    its private `getEnchantingPower`, so the Muse found no target. A mixin on that method adds the Muse's bookshelves, within
    the menu's maximum of 15 (CD-FIX-05).
 6. **Enchanting Infuser.** Its `InfuserMenu.getAvailablePower(Level, BlockPos)` is private and reads no vanilla hook. A
-   mixin at its return adds the Muse's bookshelves, within the infuser's own maximum: 15, or 50 with Apothic Enchanting,
-   where the infuser counts Eterna (CD-FIX-06).
+   mixin at its return adds the Muse's bookshelves, within the infuser's maximum of 15. With Apothic Enchanting, the infuser
+   counts that power as Eterna, and the Muse gives only Quanta there (CD-MUS-07), so it adds nothing (CD-FIX-06).
 7. **The Superheater's demand.** CD-BRN-03 read Create's `isValidBlockAbove`, which accepts only a basin or a fluid tank.
    Other blocks also read a burner's heat. The Superheater now also has demand while a block of
    `#cobblemon_dynamics:superheater/heat_users` sits above the burner. The default holds `create:basin`,
@@ -203,7 +204,8 @@ mark skip, and the mods with no NeoForge 1.21.1 build (Thermal Expansion, Therma
   such imbalance between mods (R80).
 - A level 50 Superheater gives Seething heat to the PneumaticCraft machines beside its burner, about 27 heat per tick, and the
   motors of Create: New Age turn a level 100 Generator into about 170,000 SU. Both work today, and the BAL rows record them.
-- The Egg Incubator needs Cobbreeding, whose Modrinth license differs from its jar's (ADR-0016).
+- The Egg Incubator needs Cobbreeding, whose Modrinth license adds two terms to MIT (ADR-0016). Neither term covers an
+  optional integration or a local test-pack download, and the mod never bundles the jar.
 - Extra Quanta can push an infusion of Create: Enchantment Industry out of its stat window. The player unbinds the Muse
   there.
 

@@ -37,12 +37,13 @@ the Wheel Driver, and does not repeat its numbers.
   and the Harvester replant only from the drops, and the Soul Collector only moves XP
   that already exists.
 - **Level.** Level changes the output of the Generator, the Pump, the Muse,
-  Telekinesis, the Magnet, Tailwind and the Cultivator, and since 1.2 of the Soul
-  Collector, the Freezer, the Heater and the targets of other mods that name a level.
+  Telekinesis, the Magnet, Tailwind and the Cultivator, and since 1.2 of the Lumberjack,
+  the Soul Collector, the Freezer, the Heater and the targets of other mods that name a
+  level.
   The Superheater superheats only from level 50, and the Stoker works the blast furnaces
   of Immersive Engineering and Railcraft Reborn only from level 50.
   Other roles copy the numbers of the source that they replace, for example the speed
-  of a coal-fueled furnace or the pace of an iron axe.
+  of a coal-fueled furnace.
 - **One role at a time.** A Cobblemon with two types can do the roles of either type,
   but it does one role at a time.
 - **Data-driven.** Each role is a datapack JSON file. A pack maker can change a role's

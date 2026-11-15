@@ -1,6 +1,7 @@
 # ADR-0016: Zero-setup compatibility with optional mods
 
-Status: Proposed (2026-11-15). The coordinator rules on it with the design decisions of the
+Status: Accepted (2026-11-15) by the coordinator under the approver's delegation, with the rulings (R81) on the design
+decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R77, R78, R79 and R80 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings.
 
@@ -84,7 +85,7 @@ The coordinator's rulings on the two compatibility audits (R80):
 | Applied Energistics 2 | `ae2` | 19.2.19 | COHO jar, the build's pin | see the AE2 repository | the build's pin |
 | ExtendedAE | `extendedae` | 2.2.43 | COHO jar | LGPL 3.0 | Modrinth |
 | Create Crafts & Additions | `createaddition` | 1.7.2 | COHO jar | MIT | Modrinth |
-| Cobblemon Incubator, with Cobbreeding 2.4.1 | `cobblemon_incubator` | 1.1.1 | COHO jar | MIT. Cobbreeding: MIT in its jar, a custom license on Modrinth (text not read) | Modrinth |
+| Cobblemon Incubator, with Cobbreeding 2.4.1 | `cobblemon_incubator` | 1.1.1 | COHO jar | MIT. Cobbreeding: MIT in its jar. On Modrinth, MIT plus two terms ([text](https://fuzuki.dev/~fuzuki/mit-no-ai-no-reupload.txt)): no use to train or improve machine-learning models, and no re-upload without substantial changes to monetized platforms without consent. A mod pack may bundle it. An optional integration and a local test-pack download are neither, and the mod never bundles the jar. | Modrinth |
 | Ars Nouveau | `ars_nouveau` | 5.13.5 | COHO jar | GPL | Modrinth |
 | Ars Elemental | `ars_elemental` | 0.7.10.4 | COHO jar | LGPL 3.0 | local jar: no Modrinth project found |
 | Iron's Spells 'n Spellbooks, with Iron's Lib 2.3.0 | `irons_spellbooks` | 3.16.3 | COHO jar | All Rights Reserved | Modrinth |

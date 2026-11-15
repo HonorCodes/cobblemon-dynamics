@@ -1,6 +1,7 @@
 # ADR-0017: The Lumberjack, and saplings for the Cultivator
 
-Status: Proposed (2026-11-15). The coordinator rules on it with the design decisions of the
+Status: Accepted (2026-11-15) by the coordinator under the approver's delegation, with the rulings (R81) on the design
+decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76 and R79 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9 and RES12 the research.
 
@@ -109,9 +110,9 @@ The facts that shape the decision:
    attached block pops with a sound.
 5. **Demand.** A Lumberjack has demand while a tree of decision 3 stands on its base. At a sapling or an empty cell, it
    waits in Standby with its claim and its binding.
-6. **Pace and Work Stamina.** The fell happens `ticks_per_log` (default 10) ticks of Working per log after the work starts,
-   as an iron axe breaks a log. The level does not change the pace. Work Stamina drains only through Working, so a big tree
-   costs more.
+6. **Pace and Work Stamina.** The fell happens T ticks of Working per log after the work starts. T falls with level, from
+   `ticks_per_log_at_level_1` (default 20) to `ticks_per_log_at_level_100` (default 5), so a level 67 worker matches an iron
+   axe. Work Stamina drains only through Working, so a big tree costs more.
 7. **Claims.** In the tick that the fell starts, the handler asks the use question and the break question of every block of
    the fell, and the use question of the base cell for the replant. It asks each claim mod once for each chunk and block
    id of the fell, which gives the same answers, because each claim mod decides by chunk and the edit whitelist of FTB
@@ -169,4 +170,5 @@ The facts that shape the decision:
 - **Call Create's `TreeCutter`.** Rejected: a dependency on Create for a vanilla role, a private result, no `PERSISTENT`
   check and sounds.
 - **TreeChop's API.** Rejected as the default: a soft dependency whose rules change with each pack's TreeChop config.
-- **A level-scaled pace.** Kept open as a design decision. The approved default copies an iron axe.
+- **One pace at every level, as an iron axe.** Rejected by the ruling on decision 1 (R81 of the spec sheet): the level sets
+  the pace, as it does for the other roles that name a level.

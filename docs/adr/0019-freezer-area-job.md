@@ -1,6 +1,7 @@
 # ADR-0019: The Freezer, an area job
 
-Status: Proposed (2026-11-15). The coordinator rules on it with the design decisions of the
+Status: Accepted (2026-11-15) by the coordinator under the approver's delegation, with the rulings (R81) on the design
+decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76 and R79 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES13 the research.
 
