@@ -388,3 +388,38 @@ These checks need a 1.1 build. Check 61 runs on a client with the pinned mods of
     on its own soil. Action: wait until each crop is grown and harvested once, up to 20 minutes. Expected: each family is
     grown to its full stage, then harvested as the table states. The drops, the replant and the state after the harvest
     match the table, and no family is left untouched.
+
+## New roles and other mods (1.2)
+
+These checks need a 1.2 build. Checks 63 and 64 run on a client with the pinned mods of the test pack, and check 64 also on
+the COHO server for its pipes. Checks 65 and 66 run on the COHO server, where the approver plays. Record the results in the
+play-test note of the 1.2 gate report, `docs/testing/v1.2-gate.md`.
+
+63. **CD-LUM-21.** Setup: a Work Mode pasture with a level 50 Scyther bound to a grown oak with the Work Leash, a level 50
+    Diglett, and a Magnemite bound to a chest, all in the work area. Game sounds at full volume. Action: watch and listen for
+    up to 5 minutes. Expected: the oak falls with its natural leaves and no sound from the work. The logs, the saplings and
+    the sticks lie beside the trunk, on the side that faces the Scyther, and the chest fills. An oak sapling stands on the
+    base cell, the Diglett grows it, and the Scyther fells the new tree.
+64. **CD-XPC-04, CD-XPC-11.** Setup: an Experience Collector with 352 XP, placed while you face north, and a Gastly bound to it
+    in a Work Mode pasture. On the COHO server: a Create: Enchantment Industry pipe on the north face, and an Applied
+    Experienced import bus on the bottom face. Action: right-click the collector, read the screen, press "Collect
+    experience". Then fill the collector again with orbs and let the pipe and the bus drain it. Expected: the screen reads
+    352 XP and level 16, the button gives you exactly 16 levels from level 0, and the collector reads 0. The pipe drains the
+    north face, the bus imports the XP into its ME network, and no other face gives XP.
+65. **CD-HTR-04, CD-FUEL-01, CD-FUEL-02, CD-FUEL-04, CD-FUEL-05, CD-FUEL-06, CD-FUEL-12, CD-FUEL-13, CD-AIR-06, CD-KIN-05.**
+    Setup: on the COHO server, one Work Mode pasture with level 50 Fire-types and a level 49 Fire-type. In its work area: an
+    Immersive Engineering alloy kiln and a crude blast furnace, a Railcraft Reborn blast furnace and a solid-fueled boiler of
+    one tank, a Mekanism Fuelwood Heater beside a Thermal Evaporation Plant, an Ars Nouveau Volcanic Sourcelink, each with
+    inputs and 1 coal in its fuel slot. A level 100 Flying-type bound to an IE Windmill with 8 sails, and a level 50
+    Fighting-type at a Create: Connected Crank Wheel. Action: watch for 10 minutes. Expected: each machine works with its coal
+    untouched, the level 49 worker never takes a blast furnace, the plant warms, the sourcelink gains Source, the windmill
+    turns faster than in clear weather, and the crank wheel turns.
+66. **CD-FRM-03, CD-FRM-04, CD-FRM-05, CD-FRM-08, CD-MCH-04, CD-MCH-06.** Setup: on the COHO server, one Work Mode pasture with
+    a level 50 Ground-type, a level 50 Grass-type, a level 50 Rock-type and a Fairy-type with the Work Leash. In its work area:
+    one crop of each COHO family of the crop table of
+    [ADR-0020](../adr/0020-machines-and-crops-of-other-mods.md#crops-of-other-mods) at its first growth stage, a Twilight
+    Forest blackberry bush, a basic Botany Pot and a hopper Botany Pot with wheat, an Unusual End budding citrine, and a
+    Create: Enchantment Industry Infuser with Apothic Enchanting, bound to the Fairy-type. Action: wait up to 20 minutes, and
+    run one infusion. Expected: each family grows and is harvested as the table states, the bush drops berries and never
+    itself and goes back to age 2, the basic pot grows and gives its harvest while the hopper pot gets no Harvester, the
+    citrine grows buds, and the infusion reads the Fairy-type's extra Quanta.
