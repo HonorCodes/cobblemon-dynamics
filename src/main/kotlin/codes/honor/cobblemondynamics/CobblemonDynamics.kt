@@ -14,8 +14,12 @@ import codes.honor.cobblemondynamics.compat.easymagic.EasyMagicCompat
 import codes.honor.cobblemondynamics.compat.enchantinginfuser.EnchantingInfuserCompat
 import codes.honor.cobblemondynamics.compat.experiencelib.ExperienceLibCompat
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
+import codes.honor.cobblemondynamics.compat.immersiveengineering.IeCompat
+import codes.honor.cobblemondynamics.compat.mekanism.MekanismCompat
+import codes.honor.cobblemondynamics.compat.mekanismgenerators.MekanismGeneratorsCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
 import codes.honor.cobblemondynamics.compat.opac.OpacCompat
+import codes.honor.cobblemondynamics.compat.railcraft.RailcraftCompat
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
@@ -123,6 +127,12 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("experiencelib")) ExperienceLibCompat.register(modBus)
         // CD-LUM-25: Dynamic Trees fells its own trees for the Lumberjack.
         if (ModList.get().isLoaded("dynamictrees")) DynamicTreesCompat.register()
+        // ADR-0020: the machines of other mods, each package behind its mod (CD-OPT-06).
+        if (ModList.get().isLoaded("immersiveengineering")) IeCompat.register(modBus)
+        if (ModList.get().isLoaded("mekanism")) MekanismCompat.register()
+        // Mekanism Generators needs Mekanism, whose classes its compat package also names.
+        if (ModList.get().isLoaded("mekanismgenerators")) MekanismGeneratorsCompat.register(modBus)
+        if (ModList.get().isLoaded("railcraft")) RailcraftCompat.register()
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.

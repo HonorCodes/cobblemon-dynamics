@@ -97,6 +97,15 @@ class CompatImportsTest {
         return owners.values.associate { it }
     }
 
+    /**
+     * The one exception to CD-OPT-05: a compat package whose own mod cannot load without another mod may name that mod's classes.
+     * Mekanism Generators 10.7.19.85 declares Mekanism `[10.7.19]` as a required dependency in its `neoforge.mods.toml`, so
+     * `compat/mekanismgenerators/` loads only where Mekanism's classes exist, and the upper blocks of its Wind Generator are
+     * Mekanism's own `TileEntityBoundingBlock` (CD-AIR-04). The other way stays refused: `compat/mekanism/` never names Mekanism
+     * Generators, which a Mekanism pack can lack.
+     */
+    private val requiredBy = mapOf("mekanism" to listOf("mekanismgenerators"))
+
     @Test
     fun `CD-OPT-05 CD-CRY-05 only the compat packages of an optional mod name its classes`() {
         val sources = mainSources()
@@ -104,8 +113,8 @@ class CompatImportsTest {
         for (file in sources) {
             val path = file.invariantSeparatorsPath
             for ((prefix, mod) in namedMods(file.readText())) {
-                val name = mod.compat
-                assertTrue(name != null && inCompat(path, name), "$path names $prefix of ${mod.modId} outside its compat packages")
+                val allowed = listOfNotNull(mod.compat) + requiredBy[mod.modId].orEmpty()
+                assertTrue(allowed.any { inCompat(path, it) }, "$path names $prefix of ${mod.modId} outside its compat packages")
             }
         }
         // The scan finds the one compat package of ADR-0016 that 1.1 already has.

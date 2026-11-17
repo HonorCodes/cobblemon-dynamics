@@ -52,6 +52,14 @@ class BuiltInRoleFilesTest {
         "lumberjack" to Row("cobblemon_dynamics:lumberjack", setOf("bug"), false, 0, "aerialace"),
         "freezer" to Row("cobblemon_dynamics:freezer", setOf("ice"), true, 0, "icebeam"),
         "soul_collector" to Row("cobblemon_dynamics:soul_collector", setOf("ghost"), false, 0, "nightshade"),
+        "stoker_immersiveengineering" to Row("cobblemon_dynamics:ie_furnace", setOf("fire"), true, 0, "ember"),
+        "wheel_driver_immersiveengineering" to Row("cobblemon_dynamics:ie_watermill", setOf("water"), true, 0, "watergun"),
+        "tailwind_immersiveengineering" to Row("cobblemon_dynamics:ie_windmill", setOf("flying"), false, 0, "gust"),
+        "stoker_mekanism" to Row("cobblemon_dynamics:fuelwood_heater", setOf("fire"), true, 0, "ember"),
+        "heater_mekanism" to Row("cobblemon_dynamics:mekanism_heat", setOf("fire"), true, 0, "ember"),
+        "tailwind_mekanism" to Row("cobblemon_dynamics:wind_generator", setOf("flying"), false, 0, "gust"),
+        "stoker_railcraft" to Row("cobblemon_dynamics:railcraft_fuel", setOf("fire"), true, 0, "ember"),
+        "stoker_railcraft_boiler" to Row("cobblemon_dynamics:railcraft_firebox", setOf("fire"), false, 0, "ember"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -522,6 +530,61 @@ class BuiltInRoleFilesTest {
         assertEquals(nightShade.userParticles, effect.actorParticles.map { it.toString() })
         assertEquals(nightShade.targetParticles, effect.targetParticles.map { it.toString() })
         assertEquals(nightShade.animations, effect.animations)
+    }
+
+    @Test
+    fun `CD-KIN-01 the Wheel Driver of Immersive Engineering is an auto-assign Water role that needs the mod`() {
+        val file = File(BuiltInRoles.dir, "wheel_driver_immersiveengineering.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:ie_watermill", role.handler.toString())
+        assertEquals(setOf("water"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(listOf("immersiveengineering"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+    }
+
+    @Test
+    fun `CD-HTR-01 the Heater of Mekanism is an auto-assign Fire role that needs Mekanism`() {
+        val file = File(BuiltInRoles.dir, "heater_mekanism.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:mekanism_heat", role.handler.toString())
+        assertEquals(setOf("fire"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(1_500, role.params.get("heat_per_tick_at_level_100")?.asInt)
+        assertEquals(listOf("mekanism"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEquals(listOf("ember", "fire", "spray", "special"), role.effect.animations)
+    }
+
+    @Test
+    fun `CD-AIR-01 Tailwind on the Wind Generator is a leash-only Flying role that needs Mekanism Generators`() {
+        val file = File(BuiltInRoles.dir, "tailwind_mekanism.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:wind_generator", role.handler.toString())
+        assertEquals(setOf("flying"), role.types)
+        val key = autoAssignKey("tailwind_mekanism")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
+        assertEquals(listOf("mekanismgenerators"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+    }
+
+    /** R85: an automatic worker would light a boiler that the player never filled or fuelled, so the boiler is leash only. */
+    @Test
+    fun `CD-FUEL-05 the Stoker on Railcraft's boiler is a leash-only Fire role of Railcraft Reborn, and the furnace stays auto`() {
+        val file = File(BuiltInRoles.dir, "stoker_railcraft_boiler.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:railcraft_firebox", role.handler.toString())
+        assertEquals(setOf("fire"), role.types)
+        val key = autoAssignKey("stoker_railcraft_boiler")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
+        assertEquals(listOf("railcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        val furnace = BuiltInRoles.parse("stoker_railcraft")
+        assertEquals("cobblemon_dynamics:railcraft_fuel", furnace.handler.toString())
+        assertTrue(furnace.autoAssign)
+        assertFalse(furnace.params.has("firebox_burn_ticks_per_tick"), "the firebox has its own role file")
+    }
+
+    @Test
+    fun `CD-AIR-05 CD-TLW-02 Tailwind on the IE windmill is leash only`() {
+        val key = autoAssignKey("tailwind_immersiveengineering")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
     }
 
     @Test

@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "mekanism:thermal_evaporation_valve",
+      "required": false
+    },
+    {
+      "id": "mekanism:boiler_valve",
+      "required": false
+    }
+  ]
+}

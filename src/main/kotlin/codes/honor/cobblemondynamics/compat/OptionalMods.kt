@@ -22,10 +22,10 @@ data class OptionalMod(
  */
 object OptionalMods {
     val ALL: List<OptionalMod> = listOf(
-        OptionalMod("immersiveengineering", listOf("blusunrize/")),
-        OptionalMod("mekanism", listOf("mekanism/")),
-        OptionalMod("mekanismgenerators", listOf("mekanism/generators/")),
-        OptionalMod("railcraft", listOf("mods/railcraft/")),
+        OptionalMod("immersiveengineering", listOf("blusunrize/"), listOf("ie_furnace", "ie_watermill", "ie_windmill")),
+        OptionalMod("mekanism", listOf("mekanism/"), listOf("fuelwood_heater", "mekanism_heat")),
+        OptionalMod("mekanismgenerators", listOf("mekanism/generators/"), listOf("wind_generator")),
+        OptionalMod("railcraft", listOf("mods/railcraft/"), listOf("railcraft_fuel", "railcraft_firebox")),
         OptionalMod("pneumaticcraft", listOf("me/desht/pneumaticcraft/")),
         // The classes of Botany Pots extend those of its library Bookshelf, which only Botany Pots' compat package may name.
         OptionalMod("botanypots", listOf("net/darkhax/botanypots/", "net/darkhax/bookshelf/")),

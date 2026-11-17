@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.role
 
+import codes.honor.cobblemondynamics.compat.mekanism.HeaterMath
+import codes.honor.cobblemondynamics.compat.mekanism.HeaterParams
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.GrowthPace
@@ -124,6 +126,19 @@ class BalanceFilesTest {
             assertTrue(top <= 60, "${role.id} freezes $top cells per minute")
         }
         assertEquals(60, FreezerParams.of(BuiltInRoles.parse("freezer").params).cellsPerMinuteAt100)
+    }
+
+    /** A full evaporation plant of height 18 uses about 1,870 J/t, and a level 100 Generator through a Resistive Heater gives 7,500 (BM9). */
+    @Test
+    fun `CD-BAL-13 one Mekanism Heater gives at most 1,500 J per tick`() {
+        val heaters = withHandler("cobblemon_dynamics:mekanism_heat")
+        assertTrue(heaters.isNotEmpty(), "no built-in role file uses the Mekanism heat handler")
+        for (role in heaters) {
+            val heat = HeaterParams.of(role.params).heatPerTickAt100
+            val top = (1..100).maxOf { level -> HeaterMath.heatPerTick(heat, level) }
+            assertTrue(top <= 1_500, "${role.id} gives $top J per tick")
+        }
+        assertEquals(1_500, HeaterMath.heatPerTick(HeaterParams.of(BuiltInRoles.parse("heater_mekanism").params).heatPerTickAt100, 100))
     }
 
     private companion object {

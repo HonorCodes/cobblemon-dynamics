@@ -31,6 +31,9 @@ public final class MixinState {
     public static final String APOTHIC_TABLE_STATS = "compat.apothic.EnchantmentTableStatsMixin";
     public static final String EASY_MAGIC_MENU = "compat.easymagic.ModEnchantmentMenuMixin";
     public static final String INFUSER_MENU = "compat.enchantinginfuser.InfuserMenuMixin";
+    public static final String IE_WATERMILL = "compat.immersiveengineering.WatermillBlockEntityMixin";
+    public static final String IE_WINDMILL = "compat.immersiveengineering.WindmillBlockEntityMixin";
+    public static final String WIND_GENERATOR = "compat.mekanismgenerators.WindGeneratorMixin";
 
     static final String MIXIN_PACKAGE = "codes.honor.cobblemondynamics.mixin.";
 

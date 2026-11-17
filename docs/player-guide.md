@@ -569,6 +569,48 @@ The Stoker keeps its furnace lit, as if it burned coal, while the furnace has an
 the result. It lights an unlit furnace. It never takes fuel from the fuel slot, and the flame gauge stays
 full while the furnace cooks. When the Stoker stops, the furnace goes back to its own fuel within 2 ticks.
 
+#### Stoker Immersiveengineering
+
+**Needs:** Immersive Engineering. **Assignment:** Auto.
+
+The Stoker fuels the alloy kiln at any level, and the crude and the improved blast furnace from level 50. A
+click on any block of the furnace names the whole furnace. The furnace runs at its own speed, and it never
+takes fuel from its fuel slot while the Stoker works. The preheaters of an improved blast furnace still need
+their own power. A Stoker leaves a furnace that has nothing to smelt or no room for the result, and comes
+back when it has.
+
+**Role file parameter:** `blast_furnace_min_level` (50).
+
+#### Stoker Mekanism
+
+**Needs:** Mekanism. **Assignment:** Auto.
+
+The Stoker keeps a Fuelwood Heater burning without fuel, at the heater's own 400 J/t of heat. It works only
+while a block beside the heater takes Mekanism heat, such as a thermodynamic conductor, because the heat goes
+nowhere otherwise. The heater never takes fuel from its fuel slot while the Stoker works.
+
+#### Stoker Railcraft
+
+**Needs:** Railcraft Reborn. **Assignment:** Auto.
+
+From level 50, the Stoker fuels a blast furnace while it has iron to smelt and room for the steel and the
+slag. A click on any brick names the whole furnace, and the furnace never takes fuel from its fuel slot while
+the Stoker works.
+
+**Role file parameter:** `blast_furnace_min_level` (50).
+
+#### Stoker Railcraft Boiler
+
+**Needs:** Railcraft Reborn. **Assignment:** Work Leash only.
+
+The Stoker fuels a solid-fueled boiler at any level. Bind one Fire-type with the Work Leash to each block of
+the boiler's firebox: a boiler of 1 tank has 1 firebox block, a 2 × 2 boiler 4 and a 3 × 3 boiler 9. The
+workers fuel the boiler together, and only while every firebox block has its worker at work. Then the boiler
+burns no fuel from its fuel slot. With a firebox block short of its worker, the others wait in Standby and
+the boiler burns its own fuel. The workers also wait while less than half of the boiler's tank holds water,
+because Railcraft blows up a hot boiler that gets water into an empty tank. When the workers stop, the boiler
+burns its own fuel again within one fuel step: 16 ticks at low pressure and 8 at high pressure.
+
 ### Wheel Driver
 
 **Types:** Water. **Level:** any. **Move:** Water Gun, aimed at the wheel's axle. **Needs:** Create.
@@ -582,6 +624,18 @@ Standby and uses no Work Stamina. When the Wheel Driver stops, the wheel stops w
 
 A new wheel turns in Create's positive direction. To reverse it, [flip it with the Work
 Leash](#flip-a-water-wheel-or-a-hand-crank).
+
+#### Wheel Driver Immersiveengineering
+
+**Needs:** Immersive Engineering. **Assignment:** Auto.
+
+The Wheel Driver turns a watermill that has no water, with the torque of an optimized overshot wheel, so a
+Kinetic Dynamo on the wheel gives power. It works only while no real water turns the wheel, and only while a
+Kinetic Dynamo takes the wheel's power: beside the wheel on its axle, or past at most 2 more wheels of the row,
+which Immersive Engineering adds together. To reverse the wheel, flip it with the Work Leash as a Create wheel.
+The wheel keeps its direction through restarts.
+
+**Role file parameter:** `virtual_torque` (29), at most the torque of an optimized overshot wheel.
 
 ### Cranker
 
@@ -885,6 +939,26 @@ while the windmill is not assembled.
 
 **Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
 
+#### Tailwind Immersiveengineering
+
+**Needs:** Immersive Engineering. **Assignment:** Work Leash only.
+
+Immersive Engineering stops a windmill at 8 sails, so Tailwind adds wind there, not sails. The windmill's speed
+has a weather factor w: 0.495 in clear weather, 0.66 in rain and 1 in a thunderstorm. A worker of level L sets
+it to w + (1 − w) × L ÷ 100, so at level 100 the windmill turns as in a thunderstorm. In a thunderstorm the
+worker waits in Standby. The worker stands in front of the windmill or behind it, never where the sails turn.
+The windmill turns faster on screen too.
+
+#### Tailwind Mekanism
+
+**Needs:** Mekanism Generators. **Assignment:** Work Leash only.
+
+A Flying-type adds wind to a Wind Generator. Bind it to any block of the generator. A generator makes more
+power the higher it stands, and a worker of level L closes L % of the gap to the generator's maximum, so a
+level 100 worker makes the maximum of Mekanism's config, 480 J/t by default, at any height. A generator that
+cannot see the sky, or that has a fluid above it, makes nothing, and its worker waits in Standby. The bonus
+ends within 20 ticks of the end of the work, at the generator's next update.
+
 ### Lumberjack
 
 **Types:** Bug. **Level:** the pace grows with level. **Move:** Aerial Ace. **Assignment:** Work Leash only.
@@ -935,6 +1009,26 @@ Up to 5 Soul Collectors can share one Experience Collector. Each Cobblemon needs
 the collector.
 
 **Role file parameters:** `orb_units_per_second_at_level_100` (10) and `player_distance` (8).
+
+### Heater
+
+**Types:** Fire. **Level:** the heat grows with level. **Move:** Ember. **Assignment:** Auto.
+
+A Fire-type warms the heat blocks of other mods.
+
+#### Heater Mekanism
+
+**Needs:** Mekanism.
+
+**Target:** the valve of a Thermal Evaporation Plant or of a Thermoelectric Boiler. A Heater never warms a
+reactor port, a Heat Generator or a Quantum Entangloporter.
+
+The Heater gives ceil(1,500 × L ÷ 100) J of heat per tick, where L is its level, through the valve's face
+nearest to it. A level 100 Heater gives 1,500 J/t, less than a full evaporation plant can use. It works only
+while the structure is formed and colder than 3,000 K, above which a plant runs no faster.
+
+**Role file parameter:** `heat_per_tick_at_level_100` (1,500), from 0 to 1,870, the heat that a full
+evaporation plant uses.
 
 ## Configuration
 
