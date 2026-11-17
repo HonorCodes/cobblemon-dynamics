@@ -4,7 +4,7 @@ Status: Accepted (2026-11-15) by the coordinator under the approver's delegation
 decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76, R79 and R80 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9, RES12 and RES13 the research. The coordinator's
-rulings on the review of Tasks 6 to 8 (R86, 2026-11-16) amend decisions 4, 10, 15 and 17.
+rulings on the review of Tasks 6 to 8 (R86, 2026-11-16, and item 7 of 2026-11-17) amend decisions 4, 10, 15 and 17.
 
 ## Context
 
@@ -99,7 +99,8 @@ Dire Things are pipe destinations of the collector's output. They are not Soul C
 10. **The item.** A broken collector drops an item with the data component `cobblemon_dynamics:stored_experience`, through
     `copy_components` in its loot table, and its tooltip reads "12,345 / 100,000 XP". The placed block takes the XP back.
     The loot table has no condition `minecraft:survives_explosion`, so an explosion drops the collector too, and a collector
-    that holds XP drops its item for a player in creative mode, as a shulker box does (R86).
+    that holds XP drops its item for a player in creative mode, as a shulker box does (R86). The same ruling gives the Charge
+    Cell both rules for its FE (CD-GEN-11, CD-GEN-13).
 11. **The recipe.** Shaped: iron ingots in the 4 corners, glass in the top middle and on both sides of the middle row, a block
     of lapis lazuli in the centre, and a hopper in the bottom middle. All vanilla items.
 12. **Art.** A block model with a front, a back output and a bottom output, an item model that renders the block, and a screen
@@ -116,7 +117,9 @@ Dire Things are pipe destinations of the collector's output. They are not Soul C
     queries items. It never takes an orb that has a non-spectator player within `player_distance` (default 8) blocks. That
     is the radius at which vanilla makes an orb follow a player, so the role never takes a player's XP or Mending repairs.
     For 6,000 ticks after a player dies, the life of an orb, the spot of the death counts as such a player, because the player
-    respawns away from the orbs of the death. The spots live in memory, at most 256 (R86).
+    respawns away from the orbs of the death. The spots live in memory, at most 256 (R86). Each query reads the players
+    near the work area once, with squared distances. The worker keeps the takeable flag of each orb until its next query,
+    and sorts the orbs nearest first once per query (R86).
 16. **Pace.** In each batch, the worker takes at most ceil(U × L ÷ 100) orb units, nearest first, where U is
     `orb_units_per_second_at_level_100` (default 10). A level 100 Soul Collector takes one unit per 2 ticks, as a player
     does.

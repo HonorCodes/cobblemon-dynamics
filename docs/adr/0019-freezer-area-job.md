@@ -3,7 +3,8 @@
 Status: Accepted (2026-11-15) by the coordinator under the approver's delegation, with the rulings (R81) on the design
 decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76 and R79 of the
-[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES13 the research.
+[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES13 the research. The coordinator's rulings on the
+review of the Freezer (R84, 2026-11-16) amend decisions 3, 4, 5 and 6.
 
 ## Context
 
@@ -61,7 +62,8 @@ Read on 2026-11-15 in the NeoForge 21.1.265 sources jar:
 3. **The work.** While a Freezer Works, every ceil(1,200 ÷ ceil(F × L ÷ 100)) ticks it freezes one cell, where F is
    `cells_per_minute_at_level_100` (default 60). That is 1 cell per minute at level 1, 30 at level 50 and 60 at level 100.
    Each time, it takes the freezable cell nearest to the worker within `reach` (default 5.0) blocks, measured between block
-   centres, and it takes its claimed cell last. It sets `minecraft:ice` with `UPDATE_ALL`.
+   centres, and it takes its claimed cell last. It sets `minecraft:ice` with `UPDATE_ALL`. An F of 0 or less gives the
+   Freezer no demand, and a fractional F counts as its ceiling (R84).
 4. **Freezable.** A cell is freezable when decision 2 holds and none of these does:
    - Farmland lies within 4 blocks of it horizontally, at its height or one block below it, so the water hydrates the
      farmland.
@@ -69,13 +71,21 @@ Read on 2026-11-15 in the NeoForge 21.1.265 sources jar:
      rule stays explicit.
    - A horizontal neighbour or the cell below holds flowing water, so the source feeds a flow.
    - Its block light is 10 or more, where vanilla freezes no water and the ice would melt again.
+   - Another block needs the water: a block of `#cobblemon_dynamics:needs_adjacent_water` holds one of the four horizontal
+     neighbours of the cell, the block above one of them, or the block below the cell. The tag holds sugar cane, the coral
+     blocks, the corals and wall corals, the conduit and Create's encased fan as an optional entry (R84).
+   - An entity other than a dropped item, an XP orb or the engine's work focus entity is in the cell or in the water column
+     under it, down to the first cell that is not water and at most 3 blocks, so no ice closes in a swimmer or a boat (R84).
 5. **Demand and release.** A Freezer has demand while its claimed cell is freezable. Its handler releases the claim of an
    auto-assigned worker once the cell has no demand, as the farming roles do, so the worker goes to the nearest freezable
    cell of the next scan pass. Ice is solid, so the work spots of the next cells include the new ice, and the worker walks
-   out over the lake.
+   out over the lake. A Working tick reads only the cheap facts of the claimed cell. The farmland, adjacent-water and entity
+   checks run on freeze ticks only. The scan asks the demand of an idle worker's candidates nearest first, and stops at the
+   first with demand (R84).
 6. **Claims.** In the tick of each freeze, the handler asks the use question and the break question of that cell, as a
    harvest that breaks a block asks them (CD-HRV-13, CD-HRV-16). On a refusal it freezes nothing there, and that cell has no
-   demand for that worker for 6,000 ticks.
+   demand for that worker for 6,000 ticks. A worker drops its expired skips and stalls when a claim ends, and the perf
+   diagnostic prints both maps (R84).
 7. **Pace benchmark.** A cold biome tries about 75 columns per minute in each chunk. A level 100 Freezer freezes 60 cells
    per minute and reaches 5 blocks.
 8. **Work Stamina.** It drains only through Working.
@@ -91,6 +101,8 @@ Read on 2026-11-15 in the NeoForge 21.1.265 sources jar:
   water under the top layer stays, as under natural ice.
 - A water source of a farm, an elevator, a stream or a lit pool stays water. A source that a Create pump or another machine
   drains from below can still freeze on top. The player builds such a pool under a roof or a lamp.
+- A conduit needs the water of the 3 × 3 × 3 cube around it, and the rule of R84 reads 9 cells. A surface source diagonally
+  above a conduit, on top of a block beside it, can still freeze, and the conduit then stops. A lamp keeps it open.
 - An ice field melts only by light, so a dark ice field stays. A player who wants water again breaks the ice or lights it.
 - A Freezer works in any biome. Ice in a warm biome melts only by light, as vanilla's ice does.
 - The Work Leash cannot bind a Freezer. A block click never hits a water block, and the handler matches only water.

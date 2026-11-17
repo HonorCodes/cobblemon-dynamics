@@ -15,9 +15,9 @@ import java.util.concurrent.ConcurrentHashMap
 data class AdapterNeeds(val blocks: List<ResourceLocation> = emptyList(), val mixins: List<String> = emptyList())
 
 /**
- * CD-OPT-11: when the server's tags load, one INFO line for each loaded mod of [OptionalMods] names each of its adapters as found,
- * or as missing with what is missing: `class` when its compat package did not register it, `block` when a block id does not
- * resolve, and `mixin` when a mixin did not apply. A pack maintainer reads in one line why a target does not work.
+ * CD-OPT-11: when the server's tags load, one INFO line for each loaded mod of [OptionalMods] with a compat package names each of its
+ * adapters as found, or as missing with what is missing: `class` when its compat package did not register it, `block` when a block
+ * id does not resolve, and `mixin` when a mixin did not apply. A pack maintainer reads in one line why a target does not work.
  */
 object CompatLines {
     private val LOGGER: Logger = LogUtils.getLogger()
@@ -34,12 +34,18 @@ object CompatLines {
         if (event.updateCause != TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) return
         val blocks = event.registryAccess.registryOrThrow(Registries.BLOCK)
         log.newLoad()
-        for (mod in OptionalMods.ALL) {
+        for (mod in reported(OptionalMods.ALL)) {
             val container = ModList.get().getModContainerById(mod.modId).orElse(null) ?: continue
             val needs = { adapter: String -> registered["${mod.modId}/$adapter"] }
             log.info(line(mod, container.modInfo.version.toString(), needs, blocks::containsKey, MixinState::applied))
         }
     }
+
+    /**
+     * The mods of [mods] that log a compat line: each mod whose compat package names its adapters. Tags and data maps alone support
+     * the other mods, so they have no adapter to name. Their entries are optional: they load with their mod and drop without it.
+     */
+    fun reported(mods: List<OptionalMod>): List<OptionalMod> = mods.filter { it.adapters.isNotEmpty() }
 
     /**
      * The line of [mod] at [version]. [needs] gives what each adapter needs, or null for an adapter that its compat package did not

@@ -391,18 +391,19 @@ These checks need a 1.1 build. Check 61 runs on a client with the pinned mods of
 
 ## New roles and other mods (1.2)
 
-These checks need a 1.2 build. Checks 63 and 64 run on a client with the pinned mods of the test pack, and check 64 also on
-the COHO server for its pipes. Checks 65 and 66 run on the COHO server, where the approver plays. Record the results in the
-play-test note of the 1.2 gate report, `docs/testing/v1.2-gate.md`.
+These checks need a 1.2 build. All four run on a COHO test server, where the approver and the players play. The approver
+ruled on 2026-11-17 that no client test runs before the release: "Remember to skip the full client test, the players can
+test, just make sure you're confident in the code." Record the results in the play-test note of the 1.2 gate report,
+`docs/testing/v1.2-gate.md`.
 
 63. **CD-LUM-21.** Setup: a Work Mode pasture with a level 50 Scyther bound to a grown oak with the Work Leash, a level 50
     Diglett, and a Magnemite bound to a chest, all in the work area. Game sounds at full volume. Action: watch and listen for
     up to 5 minutes. Expected: the oak falls with its natural leaves and no sound from the work. The logs, the saplings and
     the sticks lie beside the trunk, on the side that faces the Scyther, and the chest fills. An oak sapling stands on the
     base cell, the Diglett grows it, and the Scyther fells the new tree.
-64. **CD-XPC-04, CD-XPC-11.** Setup: an Experience Collector with 352 XP, placed while you face north, and a Gastly bound to it
-    in a Work Mode pasture. On the COHO server: a Create: Enchantment Industry pipe on the north face, and an Applied
-    Experienced import bus on the bottom face. Action: right-click the collector, read the screen, press "Collect
+64. **CD-XPC-04, CD-XPC-11.** Setup: an Experience Collector with 352 XP, placed while you face north, so that its back is
+    its north face, and a Gastly bound to it in a Work Mode pasture. A Create: Enchantment Industry pipe on the north face,
+    and an Applied Experienced import bus on the bottom face. Action: right-click the collector, read the screen, press "Collect
     experience". Then fill the collector again with orbs and let the pipe and the bus drain it. Expected: the screen reads
     352 XP and level 16, the button gives you exactly 16 levels from level 0, and the collector reads 0. The pipe drains the
     north face, the bus imports the XP into its ME network, and no other face gives XP.
@@ -414,7 +415,7 @@ play-test note of the 1.2 gate report, `docs/testing/v1.2-gate.md`.
     Leash to one of the boiler's 4 firebox blocks. A level 100 Flying-type bound to an IE Windmill with 8 sails, and a level 50
     Fighting-type at a Create: Connected Crank Wheel. Action: watch for 10 minutes, then unbind one of the boiler's Fire-types
     and watch for 1 more minute. Expected: each machine works with its coal untouched, the boiler heats up, the level 49 worker
-    never takes a blast furnace, the plant warms, the sourcelink gains Source, the windmill turns faster than in clear
+    never takes a blast furnace, no Fire-type takes a firebox block without a binding, the plant warms, the sourcelink gains Source, the windmill turns faster than in clear
     weather, and the crank wheel turns. After the unbinding, the other three boiler workers wait in Standby, and the boiler
     burns its coal.
 66. **CD-FRM-03, CD-FRM-04, CD-FRM-05, CD-FRM-08, CD-MCH-04, CD-MCH-06.** Setup: on the COHO server, one Work Mode pasture with
@@ -422,7 +423,8 @@ play-test note of the 1.2 gate report, `docs/testing/v1.2-gate.md`.
     one crop of each COHO family of the crop table of
     [ADR-0020](../adr/0020-machines-and-crops-of-other-mods.md#crops-of-other-mods) at its first growth stage, a Twilight
     Forest blackberry bush, a basic Botany Pot and a hopper Botany Pot with wheat, an Unusual End budding citrine, and a
-    Create: Enchantment Industry Infuser with Apothic Enchanting, bound to the Fairy-type. Action: wait up to 20 minutes, and
-    run one infusion. Expected: each family grows and is harvested as the table states, the bush drops berries and never
+    Create: Enchantment Industry Infuser over its basin with Apothic Enchanting, bound to the Fairy-type. Action: wait up to
+    20 minutes. Then let the Infuser stand idle for 10 seconds, because it reads the stats only while it is idle, and run one
+    infusion. Expected: each family grows and is harvested as the table states, the bush drops berries and never
     itself and goes back to age 2, the basic pot grows and gives its harvest while the hopper pot gets no Harvester, the
     citrine grows buds, and the infusion reads the Fairy-type's extra Quanta.

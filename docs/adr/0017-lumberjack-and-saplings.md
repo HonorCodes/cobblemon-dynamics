@@ -4,6 +4,7 @@ Status: Accepted (2026-11-15) by the coordinator under the approver's delegation
 decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76 and R79 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9 and RES12 the research. The coordinator's
+rulings on the review of the Lumberjack branch (R82, 2026-11-16) amend decisions 3, 4, 5, 7, 8, 9, 10 and 11, and the
 ruling on the detection of Dynamic Trees (R89, 2026-11-17) amends decision 15.
 
 ## Context
@@ -97,7 +98,10 @@ The facts that shape the decision:
      leaves, and not within 6 such steps of a log outside the tree. That is the set that vanilla would let decay once the
      tree is gone, so a neighbouring tree keeps its leaves.
    - A tree needs at least 3 such leaves, as MineColonies' forester does. A trunk with no natural canopy is a build.
-   - Caps: at most 256 logs (`max_logs`) and 1,024 leaves (`max_leaves`). A tree above a cap is skipped whole.
+   - Caps: at most 256 logs (`max_logs`) and 1,024 leaves (`max_leaves`). A tree above a cap is skipped whole. A search
+     that visits more than 4 × `max_leaves` cells of leaves finds no tree (R82).
+   - A cell of a chunk that is not loaded counts as a log, so it keeps the leaves near it, and a log next to such a cell
+     gives no tree (R82).
    - The never tag `#cobblemon_dynamics:lumberjack/never` skips a whole tree when a block of the tree or a block next to
      one is in it. The defaults: `#cobblemon_dynamics:harvest/pick_to_age_0` (Pam's fruit), `#cobblemon:apricorns`,
      `#cobblemon:apricorn_logs`, `cobblemon:apricorn_leaves`, the four magic log cores of the Twilight Forest,
@@ -108,32 +112,43 @@ The facts that shape the decision:
    such as cocoa, vines, a hanging propagule, a snow layer or a torch. The handler asks each such block's `canSurvive`
    against a view of the level in which the tree's cells are empty, and repeats for the blocks next to those, so a chain
    of vines goes as one. The fell removes the shell first, with no shape update, and its loot joins the drops. So no
-   attached block pops with a sound.
+   attached block pops with a sound. An ascending rail whose raised side is a block of the tree joins the shell. Each item
+   frame, glow item frame and painting that hangs on a block of the tree or the shell comes down with no sound, and the
+   frame or the painting and the frame's item join the drops. A block whose check throws plans no fell, and the role stays
+   on (R82).
 5. **Demand.** A Lumberjack has demand while a tree of decision 3 stands on its base. At a sapling or an empty cell, it
-   waits in Standby with its claim and its binding.
+   waits in Standby with its claim and its binding. A base log with no tree waits 1,200 ticks before its next search
+   (R82).
 6. **Pace and Work Stamina.** The fell happens T ticks of Working per log after the work starts. T falls with level, from
    `ticks_per_log_at_level_1` (default 20) to `ticks_per_log_at_level_100` (default 5), so a level 67 worker matches an iron
    axe. Work Stamina drains only through Working, so a big tree costs more.
 7. **Claims.** In the tick that the fell starts, the handler asks the use question and the break question of every block of
    the fell, and the use question of the base cell for the replant. It asks each claim mod once for each chunk and block
    id of the fell, which gives the same answers, because each claim mod decides by chunk and the edit whitelist of FTB
-   Chunks by block. One refusal stops the whole fell, and the tree has no demand for that worker for 6,000 ticks.
+   Chunks by block. One refusal stops the whole fell, and the tree has no demand for that worker for 6,000 ticks. The
+   handler asks once per start of work, which is how "once per claim" of CD-LUM-11 reads. It asks about the cell of each
+   frame and painting of decision 4 once for each chunk and entity type (R82).
 8. **The fell.** The handler removes the blocks with `Level.setBlock` to each cell's fluid and `spawnAfterBreak`: the shell
    with `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE`, then the leaves and the logs from the top, with `UPDATE_ALL`. It removes at
    most `blocks_per_tick` (128) blocks per tick, so a vanilla tree falls in one tick and a mega tree in a few. A fell that
-   has started completes: if the worker's claim ends during it, the handler removes the rest in that tick.
+   has started completes: if the worker's claim ends during it, the handler removes the rest in that tick. A running fell
+   holds a region ticket on each chunk of its plan, so no chunk of the plan unloads before the fell ends. A leaf that is
+   persistent when its step comes stays (R82).
 9. **Drops.** The loot of each block comes from `Block.getDrops` with an empty tool and no entity. The handler merges equal
    stacks and pops them, after the last block, out of the base cell's face toward the work spot, as the Harvester does. A
-   Magnet of the pasture collects them.
+   Magnet of the pasture collects them. A block whose loot throws drops no loot, and the role stays on (R82).
 10. **Replant.** The replant item is a dropped `BlockItem` whose block is in `#minecraft:saplings` and survives in the base
     cell. One item leaves the drops, and the handler plants it in the tick of the last removal. A 2 × 2 trunk replants four
     saplings of one kind when the drops hold four. Otherwise it plants one at the corner cell, except a sapling of
     `#cobblemon_dynamics:lumberjack/needs_four` (default: `minecraft:dark_oak_sapling`), which never grows alone. Then the
     cells stay empty and every item drops. With no sapling in the drops, the base cell stays empty and the binding waits
-    for the player.
+    for the player. A claim can change during a fell of several ticks, so the end of the fell asks the use question of
+    each replant cell again, and a refused replant drops its saplings with the rest (R82).
 11. **Binding.** A Lumberjack binding holds while its base cell holds a log of the target tag, a sapling, or air or a fluid
     above a block that is not air. A bind on a tree that decision 3 refuses is refused with a message, so a player never
-    leashes a worker to a tree that it will not fell.
+    leashes a worker to a tree that it will not fell. A bind on a sapling of `#cobblemon_dynamics:lumberjack/never_saplings`,
+    whose tree the never tag skips, is refused too. Its default holds the mangrove propagule, `#cobblemon:apricorn_saplings`,
+    the four magic saplings of the Twilight Forest and the saplings of Pam's trees (R82).
 12. **Silence.** The handler posts no level event, plays no sound, calls no `Level.destroyBlock` and posts no break event.
     `SilenceTest` scans `handler/tree/`.
 13. **The effect.** Aerial Ace (`aerialace`), with its target particle only if its actor file plays a sound. The build
@@ -145,8 +160,9 @@ The facts that shape the decision:
     CD-CUL-09 stops the Cultivator there.
 15. **Dynamic Trees.** Where Dynamic Trees is loaded, a base log of `#dynamictrees:branches` is felled through
     `BranchBlock.futureBreak(state, level, pos, worker)` with the worker as the entity, so Dynamic Trees drops the wood by its
-    own rules. Dynamic Trees then owns the drops and the regrowth, and the handler replants nothing. Its own fell may play
-    its own sounds (unverified). The compat package `compat/dynamictrees/` holds the only call. A base log of the namespace
+    own rules. Dynamic Trees then owns the drops and the regrowth, and the handler replants nothing. Its own fell is not
+    silent: `futureBreak` posts level event 2001 at the cut, and its falling tree entity plays its own sounds (Task 21 read
+    the 1.7.2 jar). The compat package `compat/dynamictrees/` holds the only call. A base log of the namespace
     `dynamictrees`, whatever its tags, and one that the compat package reports as a `BranchBlock` take the same fell, so a
     renamed branch tag never lets the handler remove the branches itself. With no hook, such a tree is no tree (R89).
 
@@ -161,7 +177,11 @@ The facts that shape the decision:
   beside the trunk with the logs.
 - A fell of a mega tree asks a few hundred claim questions in one tick, fewer with the cache. The removal spreads over a
   few ticks.
-- A Dynamic Trees fell does not follow the silence rule of the other trees if Dynamic Trees plays a sound.
+- A Dynamic Trees fell does not follow the silence rule of the other trees. Its falling tree can also hurt entities where it
+  lands, if the `enableFallingTreeDamage` setting of Dynamic Trees is on.
+- A player's own logs of the same block id that touch a tree belong to the search of decision 3, so they come down with the
+  tree. A fixed item frame on the tree comes down too, a framed map keeps the frame's marker, and the fell takes no leash
+  knot (R82).
 
 ## Alternatives considered
 

@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.build
 
 import codes.honor.cobblemondynamics.compat.OptionalMod
 import codes.honor.cobblemondynamics.compat.OptionalMods
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -134,6 +135,76 @@ class CompatImportsTest {
         }
     }
 
+    /**
+     * CD-OPT-10: the initializer of a Kotlin `object`, of its `init` block and of a top-level property runs where the object or its
+     * file is first used. For a compat package that is the mod's constructor, outside the engine's guard, so a renamed class or field
+     * of another mod there would stop the game at load. Such a property reads the class `by lazy`, or a method reads it.
+     */
+    @Test
+    fun `CD-OPT-10 no object or top-level property of a compat package reads another mod's class in its initializer`() {
+        val files = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/compat").walk().filter { it.extension == "kt" }.toList()
+        assertTrue(files.size > 20, "the scan finds no compat package")
+        val eager = files.flatMap { file -> eagerReads(file.readText()).map { "${file.name}: $it" } }
+        assertTrue(eager.isEmpty(), "initializers that read another mod's class: $eager")
+        // The scan sees an eager read of an imported class, an alias and a dotted package, and passes a lazy read, a getter, a method
+        // and a type argument, which the JVM erases.
+        val sample = """
+            import blusunrize.immersiveengineering.api.IEApi
+            import mekanism.api.heat.IHeatHandler as Heat
+            import net.minecraft.world.level.Level
+
+            val TOP = IEApi.modPreference
+            object Sample {
+                private val alias = Heat.EMPTY
+                val dotted =
+                    appeng.api.AECapabilities.CRANKABLE
+                val lazyRead by lazy { IEApi.modPreference }
+                val getter get() = IEApi.modPreference
+                private val grants = HashMap<IEApi, Level>()
+                fun read() = IEApi.modPreference
+                init {
+                    IEApi.prefersItem()
+                }
+            }
+        """.trimIndent()
+        assertEquals(listOf("TOP", "alias", "dotted", "init"), eagerReads(sample).map { it.substringBefore(' ') })
+    }
+
+    /**
+     * The properties of [source] that read another mod's class in their initializer: those at the top level, in an `object` or in a
+     * companion object, and each `init` block of an object. ktlint's layout of four spaces per level places each member.
+     */
+    private fun eagerReads(source: String): List<String> {
+        val imported = Regex("""^import ([\w.]+)(?: as (\w+))?$""", RegexOption.MULTILINE).findAll(source)
+            .filterNot { match -> OWN_PACKAGES.any { match.groupValues[1].startsWith(it) } }
+            .map { match -> match.groupValues[2].ifEmpty { match.groupValues[1].substringAfterLast('.') } }.toSet()
+        val dotted = OptionalMods.ALL.flatMap { it.packages }.map { it.replace('/', '.') }.toSet()
+        // Each line without its strings and its line comment, so a name in a string or a comment reads nothing.
+        val lines = source.lines().map { it.replace(STRING, "\"\"").substringBefore("//") }
+        val indent = { line: String -> line.takeWhile { it == ' ' }.length }
+        val reads = ArrayList<String>()
+        for ((i, line) in lines.withIndex()) {
+            val member = MEMBER.matchEntire(line.trim()) ?: continue
+            val depth = indent(line)
+            val opener = (i - 1 downTo 0).map { lines[it] }.firstOrNull { it.isNotBlank() && indent(it) == depth - INDENT }
+            if (depth > 0 && (opener == null || !OBJECT.containsMatchIn(opener))) continue
+            val body = (i + 1 until lines.size).takeWhile { lines[it].isBlank() || indent(lines[it]) > depth }
+                .joinToString(" ") { lines[it] }
+            var code = when {
+                member.groupValues[2] == "init" -> body
+                " by lazy" in line || "get()" in line || "const " in member.groupValues[1] -> continue
+                " = " in line -> line.substringAfter(" = ") + " " + body
+                line.trimEnd().endsWith(" =") -> body
+                else -> continue
+            }
+            while (GENERIC.containsMatchIn(code)) code = code.replace(GENERIC, "")
+            val named = imported.filter { Regex("""\b${Regex.escape(it)}\b""").containsMatchIn(code) } +
+                dotted.filter { Regex("""(?<![\w.])${Regex.escape(it)}""").containsMatchIn(code) }
+            if (named.isNotEmpty()) reads += "${member.groupValues[3].ifEmpty { "init" }} reads $named"
+        }
+        return reads
+    }
+
     @Test
     fun `CD-OPT-13 verifyJar refuses each package of an optional mod`() {
         val gradle = File(root, "build.gradle").readText()
@@ -158,5 +229,27 @@ class CompatImportsTest {
         assertTrue("BASE + \"compat.apothic.\", \"apothic_enchanting\"" in plugin, "MixinPlugin applies the stats hook without the mod")
         val mod = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt").readText()
         assertTrue("if (ModList.get().isLoaded(\"apothic_enchanting\")) ApothicCompat.register(modBus)" in mod)
+    }
+
+    private companion object {
+        const val INDENT = 4
+
+        /** The packages that every server loads, which an initializer may read: this mod, the platform and their libraries. */
+        val OWN_PACKAGES = listOf(
+            "codes.honor.", "net.minecraft.", "net.neoforged.", "kotlin.", "java.", "javax.", "com.mojang.", "org.slf4j.",
+            "com.google.", "io.netty.", "it.unimi.", "org.jetbrains.", "com.cobblemon.",
+        )
+
+        /** A property or an `init` block: its modifiers, `val`, `var` or `init`, and the property's name. */
+        private const val MODIFIERS = """(?:(?:private|internal|public|override|lateinit|const|@JvmField|@Volatile)\s+)*"""
+        val MEMBER = Regex("""^($MODIFIERS)(val|var|init)\b\s*(\w*).*""")
+
+        /** A line that opens an object declaration or a companion object, not an object expression. */
+        val OBJECT = Regex("""^\s*(?:(?:private|internal|public|data)\s+)*(?:companion\s+)?object\b""")
+
+        val STRING = Regex(""""[^"]*"""")
+
+        /** A type argument, which the JVM erases, so it loads no class. */
+        val GENERIC = Regex("<[^<>]*>")
     }
 }

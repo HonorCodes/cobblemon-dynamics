@@ -137,9 +137,9 @@ When a bind fails, the action bar shows why:
 | "Not in a Work Mode pasture" | The Cobblemon is not in a pasture with Work Mode on. |
 | "No role fits" | None of the Cobblemon's roles works on the block. |
 | "Outside its pasture's work area" | The block is outside the work area of the Cobblemon's pasture. |
-| "Already assigned to {Cobblemon}" | Another of your Cobblemon has a binding of a machine role on the block. Bindings of the Magnet and Telekinesis never cause this message. |
+| "Already assigned to {Cobblemon}" | Another of your Cobblemon has a binding of a machine role on the block. Bindings of the Magnet, Telekinesis and the Soul Collector never cause this message. |
 | "Already assigned to another player's {species}" | A Cobblemon of another player has a binding of a machine role on the block. The message names its species, never its nickname. |
-| "{target} already has 5 workers" | The container already has as many Magnet and Telekinesis Cobblemon as `logistics.maxWorkersPerContainer` allows, 5 by default. With the key set to 1, the message is "{target} already has a worker". |
+| "{target} already has 5 workers" | The container already has as many Magnet and Telekinesis Cobblemon, or the Experience Collector as many Soul Collectors, as `logistics.maxWorkersPerContainer` allows, 5 by default. With the key set to 1, the message is "{target} already has a worker". |
 | "Select a Cobblemon first" | The selected Cobblemon is no longer yours, for example after a trade or a release. |
 | "Destination must differ from the source" | The second click of a [Telekinesis](#telekinesis) binding is on its source container. |
 | "Too far from its pasture" | The destination of a Telekinesis binding is more than 32 blocks from the pasture block on an axis. |
@@ -154,7 +154,8 @@ When a bind fails, the action bar shows why:
   empties it. Each binding keeps its own source and destination, and it takes one place at each container
   that it names. Such a binding reserves nothing, and it never blocks the worker of a machine on the same
   block. For example, a Stoker heats a furnace while a Telekinesis worker empties it. Each worker still needs
-  its own free work spot. The server config key `logistics.maxWorkersPerContainer` changes the 5.
+  its own free work spot. The server config key `logistics.maxWorkersPerContainer` changes the 5. The
+  [Soul Collector](#soul-collector) shares its Experience Collector in the same way.
 - A bound worker never moves to another target.
 - The binding stays with the Cobblemon through server restarts.
 - A bound worker that is Tired starts on its target after it has recovered. After each rest, a bound worker
@@ -218,7 +219,8 @@ The Cobblemon walks to the block and works it, as a worker in a pasture does. It
 action bar tells you when the work starts, and when and why it stops.
 
 Quick Work uses the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
-Generator, Crystal Tender, Brew Stoker, Brewer, Cultivator and Harvester. It also uses the Muse, whose role file opts in to Quick Work.
+Generator, Crystal Tender, Brew Stoker, Brewer, Cultivator and Harvester, and the Heater on Mekanism, also on the
+machines of other mods. It also uses the Muse, whose role file opts in to Quick Work.
 A pasture gives out the Freezer on its own too, but its role file opts out, so no Ice-type does Quick Work as a Freezer. When only a
 Work Leash role of the Cobblemon fits the block, for example Telekinesis for a Psychic-type at a chest, the action bar shows
 "Chest needs the Work Leash". A Cobblemon with a Fairy type does Quick Work only as a Muse, because it is otherwise a healer.
@@ -538,13 +540,13 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Cranker](#cranker) | `cobblemon_dynamics:cranker` | Fighting, Normal | Hand crank | Auto | Create |
 | [Superheater](#superheater) | `cobblemon_dynamics:superheater` | Dragon | Blaze Burner with a blaze | Auto | Create |
 | [Generator](#generator) | `cobblemon_dynamics:generator` | Electric | A block that accepts Forge Energy | Auto | |
-| [Crystal Tender](#crystal-tender) | `cobblemon_dynamics:crystal_tender` | Rock | Budding amethyst, AE2 budding certus quartz | Auto | |
+| [Crystal Tender](#crystal-tender) | `cobblemon_dynamics:crystal_tender` | Rock | Budding amethyst, budding tumblestones, AE2 budding certus quartz | Auto | |
 | [Brew Stoker](#brew-stoker) | `cobblemon_dynamics:brew_stoker` | Fire | Brewing stand | Auto | |
 | [Brewer](#brewer) | `cobblemon_dynamics:brewer` | Poison | Brewing stand | Auto | |
 | [Cultivator](#cultivator) | `cobblemon_dynamics:cultivator` | Ground | A crop that bone meal grows | Auto | |
 | [Harvester](#harvester) | `cobblemon_dynamics:harvester` | Grass | A fully grown crop | Auto | |
 | [Freezer](#freezer) | `cobblemon_dynamics:freezer` | Ice | A water source under air | Auto, no Quick Work | |
-| [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron | Work Leash | |
+| [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron, farmland | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
 | [Magnet](#magnet) | `cobblemon_dynamics:magnet` | Steel | A container | Work Leash | |
@@ -554,9 +556,14 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
 | [Lumberjack](#lumberjack) | `cobblemon_dynamics:lumberjack` | Bug | A tree, a sapling | Work Leash | |
 | [Soul Collector](#soul-collector) | `cobblemon_dynamics:soul_collector` | Ghost | Experience Collector | Work Leash | |
+| [Heater](#heater) | `cobblemon_dynamics:heater_mekanism`, `cobblemon_dynamics:heater_pneumaticcraft` | Fire | A heat block of Mekanism or PneumaticCraft | Auto on Mekanism, Work Leash on PneumaticCraft | Mekanism or PneumaticCraft |
+
+Many roles also work the machines of other mods, each with a role file that loads only with its mod. The
+role sections below describe them, and [Other mods](#other-mods) lists them by mod.
 
 Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind, the
-Cultivator, the Lumberjack, the Freezer and the Soul Collector. The Superheater superheats only from
+Cultivator, the Lumberjack, the Freezer, the Soul Collector and the Heater. The Superheater superheats only
+from level 50, and the Stoker works the blast furnaces of Immersive Engineering and Railcraft Reborn only from
 level 50. Every other role works the same at every level.
 
 ### Stoker
@@ -569,9 +576,17 @@ The Stoker keeps its furnace lit, as if it burned coal, while the furnace has an
 the result. It lights an unlit furnace. It never takes fuel from the fuel slot, and the flame gauge stays
 full while the furnace cooks. When the Stoker stops, the furnace goes back to its own fuel within 2 ticks.
 
-#### Stoker Immersiveengineering
+The Stoker never works a block of the tag `#cobblemon_dynamics:stoker/never`. By default it holds the Freezer of
+the Aether, which extends the vanilla furnace but burns Icestone to make ice.
 
-**Needs:** Immersive Engineering. **Assignment:** Auto.
+The Stoker also fuels the machines of the mods below, each through its own role file. On each machine, it gives
+free fuel at the machine's own speed, one machine per worker. The machine never takes fuel from its fuel slot
+while the Stoker works, and it goes back to its own fuel when the Stoker stops.
+
+#### Immersive Engineering
+
+**Role id:** `cobblemon_dynamics:stoker_immersiveengineering`. **Needs:** Immersive Engineering.
+**Assignment:** Auto.
 
 The Stoker fuels the alloy kiln at any level, and the crude and the improved blast furnace from level 50. A
 click on any block of the furnace names the whole furnace. The furnace runs at its own speed, and it never
@@ -581,17 +596,17 @@ back when it has.
 
 **Role file parameter:** `blast_furnace_min_level` (50).
 
-#### Stoker Mekanism
+#### Mekanism
 
-**Needs:** Mekanism. **Assignment:** Auto.
+**Role id:** `cobblemon_dynamics:stoker_mekanism`. **Needs:** Mekanism. **Assignment:** Auto.
 
 The Stoker keeps a Fuelwood Heater burning without fuel, at the heater's own 400 J/t of heat. It works only
 while a block beside the heater takes Mekanism heat, such as a thermodynamic conductor, because the heat goes
 nowhere otherwise. The heater never takes fuel from its fuel slot while the Stoker works.
 
-#### Stoker Railcraft
+#### Railcraft Reborn
 
-**Needs:** Railcraft Reborn. **Assignment:** Auto.
+**Role id:** `cobblemon_dynamics:stoker_railcraft`. **Needs:** Railcraft Reborn. **Assignment:** Auto.
 
 From level 50, the Stoker fuels a blast furnace while it has iron to smelt and room for the steel and the
 slag. A click on any brick names the whole furnace, and the furnace never takes fuel from its fuel slot while
@@ -599,9 +614,10 @@ the Stoker works.
 
 **Role file parameter:** `blast_furnace_min_level` (50).
 
-#### Stoker Railcraft Boiler
+#### Railcraft Reborn boilers
 
-**Needs:** Railcraft Reborn. **Assignment:** Work Leash only.
+**Role id:** `cobblemon_dynamics:stoker_railcraft_boiler`. **Needs:** Railcraft Reborn. **Assignment:** Work
+Leash only, so that no worker lights a boiler that you never fueled.
 
 The Stoker fuels a solid-fueled boiler at any level. Bind one Fire-type with the Work Leash to each block of
 the boiler's firebox: a boiler of 1 tank has 1 firebox block, a 2 × 2 boiler 4 and a 3 × 3 boiler 9. The
@@ -611,9 +627,10 @@ the boiler burns its own fuel. The workers also wait while less than half of the
 because Railcraft blows up a hot boiler that gets water into an empty tank. When the workers stop, the boiler
 burns its own fuel again within one fuel step: 16 ticks at low pressure and 8 at high pressure.
 
-#### Stoker PneumaticCraft
+#### PneumaticCraft
 
-**Needs:** PneumaticCraft: Repressurized. **Assignment:** Auto.
+**Role id:** `cobblemon_dynamics:stoker_pneumaticcraft`. **Needs:** PneumaticCraft: Repressurized.
+**Assignment:** Auto.
 
 The Stoker fuels an Air Compressor or an Advanced Air Compressor with no fuel item. It gives the compressor's
 base burn rate: 1 burn tick per tick for the Air Compressor and 5 for the Advanced Air Compressor, which runs a
@@ -623,6 +640,52 @@ while its redstone setting lets the compressor run, and while the air of the com
 pressure below the lowest danger pressure of the compressor and the machines connected to it. Air spreads
 into connected machines with no tier check, so a tier 1 machine beside a tier 2 compressor stops the Stoker
 below 5 bar. When the Stoker stops, the compressor goes back to its own fuel within 2 ticks.
+
+#### Iron Furnaces
+
+**Role id:** `cobblemon_dynamics:stoker_ironfurnaces`. **Needs:** Iron Furnaces. **Assignment:** Auto.
+
+The Stoker keeps each furnace of Iron Furnaces lit, from the copper furnace to the million furnace, at the
+furnace's own speed. A copper furnace smelts an item in 180 ticks and a netherite furnace in 5, so a fast furnace
+saves much more fuel than a vanilla one. The Stoker works only while the furnace's own recipe check passes, and
+only while the furnace runs as a furnace: a furnace with the Factory augment or the Generator augment is no target.
+
+#### Cooking for Blockheads
+
+**Role id:** `cobblemon_dynamics:stoker_cookingforblockheads`. **Needs:** Cooking for Blockheads.
+**Assignment:** Auto.
+
+The Stoker keeps an Oven lit at the oven's own rate while one of its 9 slots cooks, and the flame gauge stays
+full. An oven with a Heating Unit also takes Forge Energy, which a [Generator](#generator) gives.
+
+#### Forbidden & Arcanus
+
+**Role id:** `cobblemon_dynamics:stoker_forbidden_arcanus`. **Needs:** Forbidden & Arcanus. **Assignment:** Auto.
+
+The Stoker keeps a Clibano lit while it can smelt, 100 ticks for each item. A click on any block of the
+3 × 3 × 3 Clibano names the whole Clibano. The Stoker gives the burn of normal fire only, so soul fire and
+enchanted fire still take your own fuel.
+
+#### Cobblemon Incubator
+
+**Role id:** `cobblemon_dynamics:stoker_cobblemon_incubator`. **Needs:** Cobblemon Incubator, with Cobbreeding.
+**Assignment:** Auto.
+
+A Fire-type keeps an Egg Incubator warm. An incubator with no Speed Upgrade then counts its egg down at the
+speed of one Speed Upgrade. An incubator that has a Speed Upgrade gains nothing, so a worker gives at most one
+upgrade. The Stoker works an incubator only while the incubator counts an egg down: not while an Analyse Upgrade
+holds the egg, and not while the incubator's filter refuses the egg. Where the incubator's config turns Speed
+Upgrades off (`speedUpgradeEnabled`), the Stoker gives no speed either and leaves the incubator alone. When the
+Stoker stops, the incubator goes back to its own speed at once.
+
+#### Ars Nouveau
+
+**Role id:** `cobblemon_dynamics:stoker_ars_nouveau`. **Needs:** Ars Nouveau. **Assignment:** Auto.
+
+The Stoker gives a Volcanic Sourcelink the Source of one coal every 1,600 ticks of Working, as a vanilla furnace
+burns one coal in 1,600 ticks. It works only while the sourcelink takes Source and no redstone signal turns it off.
+
+**Role file parameter:** `interval_ticks` (1,600).
 
 ### Wheel Driver
 
@@ -638,9 +701,10 @@ Standby and uses no Work Stamina. When the Wheel Driver stops, the wheel stops w
 A new wheel turns in Create's positive direction. To reverse it, [flip it with the Work
 Leash](#flip-a-water-wheel-or-a-hand-crank).
 
-#### Wheel Driver Immersiveengineering
+#### Immersive Engineering
 
-**Needs:** Immersive Engineering. **Assignment:** Auto.
+**Role id:** `cobblemon_dynamics:wheel_driver_immersiveengineering`. **Needs:** Immersive Engineering.
+**Assignment:** Auto.
 
 The Wheel Driver turns a watermill that has no water, with the torque of an optimized overshot wheel, so a
 Kinetic Dynamo on the wheel gives power. It works only while no real water turns the wheel, and only while a
@@ -663,9 +727,18 @@ blocks from the crank.
 A new crank turns in Create's positive direction. To reverse it, [flip it with the Work
 Leash](#flip-a-water-wheel-or-a-hand-crank).
 
-With AE2 installed, the Cranker also works an AE2 crank on a machine that a crank powers, such as a Charger or
-an Inscriber. It gives the machine one turn every 18 ticks while the machine can take one, as a player at the
-crank does. The AE2 crank charges its machine, but it does not turn on screen.
+With Create: Connected installed, the Cranker also turns its Crank Wheel and Large Crank Wheel, as it turns a hand
+crank.
+
+#### AE2
+
+**Role id:** `cobblemon_dynamics:cranker_ae2`. **Needs:** AE2. **Assignment:** Auto.
+
+The Cranker works an AE2 crank on a machine that a crank powers, such as a Charger or an Inscriber, also the
+machines of ExtendedAE. It gives the machine one turn every 18 ticks while the machine can take one, as a player at
+the crank does. The AE2 crank charges its machine, but it does not turn on screen.
+
+**Role file parameter:** `interval_ticks` (18).
 
 ### Superheater
 
@@ -678,14 +751,30 @@ Below level 50, the Superheater keeps the burner kindled, as coal does. Under a 
 counts 1 heat. From level 50, the Superheater keeps the burner superheated, as a Blaze Cake does. Under a
 boiler, the burner then counts 2 heat.
 
-The Superheater works only while a basin or a fluid tank sits directly on top of the burner. It never works
-a creative Blaze Burner, whose heat a worker cannot change. It never changes the burner's own fuel. When it
-stops, the burner goes back to the heat of its own fuel within 2 ticks.
+The Superheater works only while a block that uses the burner's heat sits directly on top of the burner: a
+block of the tag `#cobblemon_dynamics:superheater/heat_users`. By default it holds Create's basin and fluid tank,
+the cooking pot and the skillet of Farmer's Delight (through Create: Central Kitchen), the distillation tank of
+Create: Diesel Generators and the heat pipe of Create: New Age. Create's own check also counts the Fluid Vessel
+of Create: Connected. The Superheater never works a creative Blaze Burner, whose heat a worker cannot change. It
+never changes the burner's own fuel. When it stops, the burner goes back to the heat of its own fuel within 2
+ticks.
 
 Only Dragon-types heat Blaze Burners. A Fire-type with no Dragon type never works a burner, and the Work Leash
 cannot bind it to one.
 
 **Role file parameters:** `heat` (`seething`), `min_level` (50) and `below_min_level_heat` (`kindled`).
+
+#### Create Crafts & Additions
+
+**Role id:** `cobblemon_dynamics:superheater_createaddition`. **Needs:** Create Crafts & Additions.
+**Assignment:** Auto.
+
+**Target:** a Liquid Blaze Burner.
+
+The Superheater heats a Liquid Blaze Burner as it heats a Blaze Burner: kindled below level 50 and superheated
+from level 50, while a block of the tag of heat users sits on top of it. The burner keeps its own liquid fuel, and
+the Superheater works only while its heat is above the heat of that fuel. When it stops, the burner goes back to
+the heat of its own fuel. The role file has the same parameters as the Superheater's.
 
 ### Generator
 
@@ -732,13 +821,24 @@ charge.
 
 **Types:** Rock. **Level:** any. **Move:** Rock Throw.
 
-**Target:** a block in the tag `#c:budding_blocks`. This includes budding amethyst and, with AE2, budding
-certus quartz.
+**Target:** a block in the tag `#cobblemon_dynamics:crystal_tender_targets`. It holds `#c:budding_blocks`, with
+budding amethyst, Cobblemon's crystal core and, with AE2, budding certus quartz. It also holds Cobblemon's nine
+budding tumblestones, the budding citrine of Unusual End and the corundum blocks of Quark. The budding blocks of
+GeOre and the entro budding blocks of ExtendedAE are in `#c:budding_blocks`, so they are targets too.
 
 The Crystal Tender gives its target 1 extra random tick every 10 ticks, as one AE2 Growth Accelerator does.
-It works only while a face of the block can still grow a bud.
+It works only while a face of the block can still grow a bud. A full type gem cluster on Cobblemon's crystal
+core counts as grown.
 
-**Role file parameter:** `interval_ticks` (10).
+- A budding tumblestone grows only by Cobblemon's own rule: while lava or a magma block lies within 1 block of
+  it, and until it reaches its last stage. The Crystal Tender works it only then.
+- The budding citrine of Unusual End grows only with a worker. The Crystal Tender grows it on 1 extra tick in 5,
+  the pace of budding amethyst, and only into air.
+- If 200 extra ticks in a row change no block of the target or of its faces, the worker leaves that target for
+  6,000 ticks. That covers a block that grows only in some places, such as Quark's corundum above y 24.
+
+**Role file parameters:** `interval_ticks` (10), `scheduled_tick_one_in` (5), `stall_after_unchanged_ticks`
+(200) and `stall_wait_ticks` (6,000).
 
 ### Brew Stoker
 
@@ -762,9 +862,10 @@ Fire and Poison type, works a stand as a Brew Stoker.
 The Brewer makes each brew finish in 200 ticks (10 seconds), not 400 ticks. It works only while a brew runs.
 It never changes the stand's fuel, so the stand needs its own blaze powder.
 
-#### Brewer Iron's Spells 'n Spellbooks
+#### Iron's Spells 'n Spellbooks
 
-**Needs:** Iron's Spells 'n Spellbooks. **Assignment:** Auto.
+**Role id:** `cobblemon_dynamics:brewer_irons_spellbooks`. **Needs:** Iron's Spells 'n Spellbooks.
+**Assignment:** Auto.
 
 **Target:** an Alchemist Cauldron.
 
@@ -786,9 +887,14 @@ Cultivator stops when the crop is fully grown.
 
 **Role file parameters:** `uses_per_minute_at_level_100` (30) and `stamina_ticks_per_use` (100).
 
-#### Cultivator Botany Pots
+The Cultivator's tag also holds `#minecraft:saplings`, so a Ground-type grows saplings in its work area. With a
+bound [Lumberjack](#lumberjack) on the same sapling, the two run a wood line. It never works a block of the tag
+`#cobblemon_dynamics:cultivator/never`. By default it holds the crops of Mystical Agriculture, which bone meal never
+grows.
 
-**Needs:** Botany Pots. **Assignment:** Auto.
+#### Botany Pots
+
+**Role id:** `cobblemon_dynamics:cultivator_botanypots`. **Needs:** Botany Pots. **Assignment:** Auto.
 
 **Target:** any Botany Pots pot with a crop, of any pot type except a waxed pot.
 
@@ -811,9 +917,9 @@ no sound.
 
 **Role file parameter:** `harvest_ticks` (20).
 
-#### Harvester Botany Pots
+#### Botany Pots
 
-**Needs:** Botany Pots. **Assignment:** Auto.
+**Role id:** `cobblemon_dynamics:harvester_botanypots`. **Needs:** Botany Pots. **Assignment:** Auto.
 
 **Target:** a basic Botany Pots pot whose crop is grown. A hopper pot harvests itself, so a Harvester never takes
 one.
@@ -857,7 +963,7 @@ off, and a fraction counts as a whole cell.
 **Types:** Water. **Level:** the rate grows with level. **Move:** Water Gun. **Assignment:** Work Leash only.
 
 **Target:** any block that accepts water through NeoForge's fluid capability, for example a Create fluid
-tank or basin, and a vanilla cauldron.
+tank or basin, a vanilla cauldron, and farmland.
 
 The Pump fills its target with 5 × L mB of water per tick, where L is its level. A level 1 Pump gives 5 mB
 per tick, and a level 100 Pump gives 500 mB per tick. In a cauldron, each 333 mB raises the water by one
@@ -865,6 +971,11 @@ level, up to a full cauldron. The Pump works only while the target accepts water
 fluid does not, and a cauldron accepts water only while it is empty or holds water below the top level.
 
 The Pump needs a binding, so that it never fills a tank that you keep for another fluid.
+
+A Pump bound to farmland waters the field around it. It keeps each farmland block of the work area within 4
+blocks of the bound block horizontally, at the same height, at full moisture, as water does. It checks every 20
+ticks, and it works while one of those blocks is dry. The Pump asks each land claim mod about each dry block. A
+refused block stays dry, and the Pump asks about it again 20 ticks later.
 
 **Role file parameter:** `mb_per_level` (5).
 
@@ -894,6 +1005,11 @@ A level 100 Muse takes a table without Quanta shelves from 15% to 60% Quanta. Th
 | 75 | 12 | 34 |
 | 100 | 15 | 45 |
 
+With Easy Magic installed, the Muse also works Easy Magic's enchanting table, and with Enchanting Infuser installed,
+the Enchanting Infuser and the Advanced Enchanting Infuser. It adds its bookshelves to the power that each of them
+counts, within that block's maximum of 15. With Apothic Enchanting also installed, an Enchanting Infuser counts
+that power as Eterna, so the Muse adds nothing to an infuser.
+
 With Create: Enchantment Industry and Apothic Enchanting installed, a Muse with a Work Leash binding also
 works CEI's Infuser while the Infuser stands over its basin. It adds its Quanta to the stats that the Infuser
 reads from the bookshelves around the block below it. The Infuser reads them only while it is idle, every
@@ -911,7 +1027,14 @@ rule of Work Stamina and heals no ally.
 
 **Target:** a source and a destination: two containers that hold items through NeoForge's item capability,
 such as chests, barrels, furnaces, hoppers, Create's item vaults, depots and chutes, and AE2's ME Interfaces.
-A double chest or a Create item vault is one container.
+A double chest or a Create item vault is one container. A plain vanilla container with no item capability is a
+container too, such as Cobblemon's Gilded Chest, Display Case and Disc Shelf, and the furniture of CobbleFurnies,
+Handcrafted and Valhelsia Furniture.
+
+From a plain container, a worker takes only what a hopper may take: the container's own rule decides. So
+Cobblemon's TM Machine keeps its inputs, and Visual Workbench keeps its crafting grid. A block of the tag
+`#cobblemon_dynamics:logistics/no_fallback` is never a plain container target. By default it holds the
+containers of Lootr and the pedestals of Legendary Monuments, so their loot and their items stay where they are.
 
 A Psychic-type moves items from one container to another. Telekinesis is leash only, so a worker never starts
 it on its own. Its binding takes three clicks:
@@ -939,7 +1062,8 @@ full. The binding clears when the source or the destination is broken or replace
 container. **Assignment:** Work Leash only.
 
 **Target:** a container that holds items through NeoForge's item capability. A double chest or a Create item
-vault is one container.
+vault is one container. A plain vanilla container with no item capability is a container too, with the rules of
+[Telekinesis](#telekinesis).
 
 A Steel-type collects dropped items into a container. The Magnet is leash only: select the Cobblemon with the
 Work Leash, then right-click the container. The worker stands at the container and collects from the whole
@@ -1011,9 +1135,10 @@ spot and starts to work.
 
 **Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
 
-#### Tailwind Immersiveengineering
+#### Immersive Engineering
 
-**Needs:** Immersive Engineering. **Assignment:** Work Leash only.
+**Role id:** `cobblemon_dynamics:tailwind_immersiveengineering`. **Needs:** Immersive Engineering.
+**Assignment:** Work Leash only.
 
 Immersive Engineering stops a windmill at 8 sails, so Tailwind adds wind there, not sails. The windmill's speed
 has a weather factor w: 0.495 in clear weather, 0.66 in rain and 1 in a thunderstorm. A worker of level L sets
@@ -1021,9 +1146,10 @@ it to w + (1 − w) × L ÷ 100, so at level 100 the windmill turns as in a thun
 worker waits in Standby. The worker stands in front of the windmill or behind it, never where the sails turn.
 The windmill turns faster on screen too.
 
-#### Tailwind Mekanism
+#### Mekanism Generators
 
-**Needs:** Mekanism Generators. **Assignment:** Work Leash only.
+**Role id:** `cobblemon_dynamics:tailwind_mekanism`. **Needs:** Mekanism Generators. **Assignment:** Work Leash
+only.
 
 A Flying-type adds wind to a Wind Generator. Bind it to any block of the generator. A generator makes more
 power the higher it stands, and a worker of level L closes L % of the gap to the generator's maximum, so a
@@ -1031,9 +1157,10 @@ level 100 worker makes the maximum of Mekanism's config, 480 J/t by default, at 
 cannot see the sky, or that has a fluid above it, makes nothing, and its worker waits in Standby. The bonus
 ends within 20 ticks of the end of the work, at the generator's next update.
 
-#### Tailwind PneumaticCraft
+#### PneumaticCraft
 
-**Needs:** PneumaticCraft: Repressurized. **Assignment:** Work Leash only.
+**Role id:** `cobblemon_dynamics:tailwind_pneumaticcraft`. **Needs:** PneumaticCraft: Repressurized.
+**Assignment:** Work Leash only.
 
 **Target:** any PneumaticCraft machine that holds air, such as a pressure tube or a Pressure Chamber valve.
 
@@ -1075,6 +1202,13 @@ tree, or on a sapling that grows one, such as a mangrove propagule, shows "{Cobb
 The worker asks each land claim mod about each block of the fell, in the tick that the fell starts. One
 refusal stops the whole fell, and the worker leaves that tree alone for 6,000 ticks.
 
+A Ground-type [Cultivator](#cultivator) grows the sapling that the Lumberjack plants, so the two run a wood line on
+one cell.
+
+With Dynamic Trees installed, the Lumberjack fells a tree of Dynamic Trees through that mod's own fell. Dynamic
+Trees then drops the wood by its own rules and grows the tree back, so the Lumberjack plants nothing. That fell is
+not silent: see [Known limits](#known-limits).
+
 **Role file parameters:** `ticks_per_log_at_level_1` (20), `ticks_per_log_at_level_100` (5), `max_logs`
 (256), `max_leaves` (1,024) and `blocks_per_tick` (128).
 
@@ -1102,11 +1236,12 @@ the collector.
 
 **Types:** Fire. **Level:** the heat grows with level. **Move:** Ember.
 
-A Fire-type warms the heat blocks of other mods.
+A Fire-type warms the heat blocks of Mekanism and PneumaticCraft. The Heater has no role file of its own: each
+mod has one, which loads only with that mod.
 
-#### Heater Mekanism
+#### Mekanism
 
-**Needs:** Mekanism. **Assignment:** Auto.
+**Role id:** `cobblemon_dynamics:heater_mekanism`. **Needs:** Mekanism. **Assignment:** Auto.
 
 **Target:** the valve of a Thermal Evaporation Plant or of a Thermoelectric Boiler. A Heater never warms a
 reactor port, a Heat Generator or a Quantum Entangloporter.
@@ -1118,10 +1253,10 @@ while the structure is formed and colder than 3,000 K, above which a plant runs 
 **Role file parameter:** `heat_per_tick_at_level_100` (1,500), from 0 to 1,870, the heat that a full
 evaporation plant uses.
 
-#### Heater PneumaticCraft
+#### PneumaticCraft
 
-**Needs:** PneumaticCraft: Repressurized. **Assignment:** Work Leash only, because some PneumaticCraft machines
-need a cold side.
+**Role id:** `cobblemon_dynamics:heater_pneumaticcraft`. **Needs:** PneumaticCraft: Repressurized.
+**Assignment:** Work Leash only, because some PneumaticCraft machines need a cold side.
 
 **Target:** any block that takes PneumaticCraft heat on a side, such as an Advanced Air Compressor or a
 Thermal Compressor.
@@ -1247,6 +1382,54 @@ Nether needs `/execute in minecraft:the_nether run cobblemondynamics unbind <pos
   pasture ask whether the pasture's owner may right-click each machine, also while that player is offline.
   See [Land claims](#land-claims). If the claim mod fails with an error, Quick Work and the pastures refuse
   the work, and the log holds one warning.
-- **Other mods.** The Stoker works any furnace that extends the vanilla furnace. The Generator works any
-  block that accepts Forge Energy, and the Pump any block that accepts water, through NeoForge's
-  capabilities.
+### Other mods
+
+The roles work the machines and crops of the mods below with no setup. Each target of another mod works only
+while that mod is installed. The [modpack integration page](modpack-integration.md#mods-that-the-roles-support)
+names the tested version of each mod. Beyond this list, the Stoker works any furnace that extends the vanilla
+furnace, the Generator any block that accepts Forge Energy, and the Pump any block that accepts water, through
+NeoForge's capabilities.
+
+| Mod | Roles and what they work |
+| --- | --- |
+| Immersive Engineering | [Stoker](#stoker): the alloy kiln, and the blast furnaces from level 50. [Wheel Driver](#wheel-driver): the watermill. [Tailwind](#tailwind): the windmill. |
+| Mekanism | [Stoker](#stoker): the Fuelwood Heater. [Heater](#heater): the valves of the Thermal Evaporation Plant and the Thermoelectric Boiler. |
+| Mekanism Generators | [Tailwind](#tailwind): the Wind Generator. |
+| Railcraft Reborn | [Stoker](#stoker): the blast furnace from level 50, and the solid-fueled boilers with the Work Leash. |
+| PneumaticCraft: Repressurized | [Stoker](#stoker): the Air Compressor and the Advanced Air Compressor. [Heater](#heater): a block that takes heat. [Tailwind](#tailwind): a block that holds air. |
+| Iron Furnaces | [Stoker](#stoker): every furnace. |
+| Cooking for Blockheads | [Stoker](#stoker): the Oven. |
+| Forbidden & Arcanus | [Stoker](#stoker): the Clibano. |
+| Cobblemon Incubator | [Stoker](#stoker): the Egg Incubator. |
+| Ars Nouveau | [Stoker](#stoker): the Volcanic Sourcelink. [Cultivator](#cultivator) and [Harvester](#harvester): the pods. |
+| Create Crafts & Additions | [Superheater](#superheater): the Liquid Blaze Burner. |
+| Create: Connected | [Cranker](#cranker): the crank wheels. [Superheater](#superheater): the Fluid Vessel above a burner. |
+| AE2 and ExtendedAE | [Cranker](#cranker): the AE2 crank. [Crystal Tender](#crystal-tender): budding certus quartz and the entro budding blocks. |
+| Botany Pots | [Cultivator](#cultivator) and [Harvester](#harvester): the pots. |
+| Iron's Spells 'n Spellbooks | [Brewer](#brewer): the Alchemist Cauldron. |
+| Easy Magic, Enchanting Infuser, Apothic Enchanting | [Muse](#muse): their tables and infusers, and Quanta with Apothic Enchanting. |
+| Create: Enchantment Industry | [Muse](#muse): the Infuser, with Apothic Enchanting. [Experience Collector](#experience-collector): its XP fluid. |
+| experiencelib and Applied Experienced | [Experience Collector](#experience-collector): the import bus of an ME network. |
+| Dynamic Trees | [Lumberjack](#lumberjack): its trees, through its own fell. [Cultivator](#cultivator): its saplings and rooty soil. |
+| Quark, Unusual End and GeOre | [Crystal Tender](#crystal-tender): corundum, budding citrine and GeOre's budding blocks. |
+| Farmer's Delight, Create: Diesel Generators and Create: New Age | [Superheater](#superheater): the cooking pot and skillet (through Create: Central Kitchen), the distillation tank and the heat pipe. |
+| The Aether | [Stoker](#stoker): never its Freezer. The Altar and the Incubator stay targets. |
+| The Twilight Forest | [Cultivator](#cultivator) and [Harvester](#harvester): the berry bushes, and the oreberries for the Harvester. |
+| Mystical Agriculture | [Harvester](#harvester): its crops. The Cultivator leaves them, because bone meal never grows them. |
+| Cobblemon: Mega Showdown, Ars Elemental, Oh The Biomes We've Gone, Allthemodium, Deep Aether, Deeper and Darker, YUNG's Cave Biomes, the Undergarden and Actually Additions | [Cultivator](#cultivator) and [Harvester](#harvester): their crops, as the integration page lists them. |
+| CobbleFurnies, Handcrafted and Valhelsia Furniture | [Telekinesis](#telekinesis) and [Magnet](#magnet): their furniture containers. |
+
+### Known limits
+
+- **The Freezer and a conduit.** A conduit needs water in all the blocks around it. The Freezer keeps the water
+  beside a conduit and above it, but it can freeze a surface source diagonally above the conduit, on top of a
+  block beside it. The conduit then stops. Light that cell to block light 10 or more to keep it as water.
+- **Hanging things on a tree.** The Lumberjack also takes down fixed item frames. A map in a frame keeps the
+  frame's marker after the fell. The fell ignores leash knots.
+- **Your own logs.** Logs of the same kind that touch a bound tree belong to the tree, so a log build that touches
+  the tree comes down with it.
+- **Dynamic Trees.** A tree of Dynamic Trees falls through that mod's own fell, which can play its sounds. The
+  falling tree can hurt entities where it lands, if the `enableFallingTreeDamage` setting of Dynamic Trees is on.
+  A Cultivator on rooty soil can stop after 20 uses that change nothing at the soil while the tree above still
+  grows, and it then leaves the soil for 5 minutes.
+- **The AE2 crank.** A Cranker charges the machine of an AE2 crank, but the crank does not turn on screen.
