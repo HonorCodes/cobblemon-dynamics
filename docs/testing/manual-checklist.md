@@ -409,11 +409,14 @@ play-test note of the 1.2 gate report, `docs/testing/v1.2-gate.md`.
 65. **CD-HTR-04, CD-FUEL-01, CD-FUEL-02, CD-FUEL-04, CD-FUEL-05, CD-FUEL-06, CD-FUEL-12, CD-FUEL-13, CD-AIR-06, CD-KIN-05.**
     Setup: on the COHO server, one Work Mode pasture with level 50 Fire-types and a level 49 Fire-type. In its work area: an
     Immersive Engineering alloy kiln and a crude blast furnace, a Railcraft Reborn blast furnace and a solid-fueled boiler of
-    one tank, a Mekanism Fuelwood Heater beside a Thermal Evaporation Plant, an Ars Nouveau Volcanic Sourcelink, each with
-    inputs and 1 coal in its fuel slot. A level 100 Flying-type bound to an IE Windmill with 8 sails, and a level 50
-    Fighting-type at a Create: Connected Crank Wheel. Action: watch for 10 minutes. Expected: each machine works with its coal
-    untouched, the level 49 worker never takes a blast furnace, the plant warms, the sourcelink gains Source, the windmill
-    turns faster than in clear weather, and the crank wheel turns.
+    2 × 2 × 2 tanks, half full of water or more, a Mekanism Fuelwood Heater beside a Thermal Evaporation Plant, an Ars Nouveau
+    Volcanic Sourcelink, each with inputs and 1 coal in its fuel slot. Four more level 50 Fire-types, each bound with the Work
+    Leash to one of the boiler's 4 firebox blocks. A level 100 Flying-type bound to an IE Windmill with 8 sails, and a level 50
+    Fighting-type at a Create: Connected Crank Wheel. Action: watch for 10 minutes, then unbind one of the boiler's Fire-types
+    and watch for 1 more minute. Expected: each machine works with its coal untouched, the boiler heats up, the level 49 worker
+    never takes a blast furnace, the plant warms, the sourcelink gains Source, the windmill turns faster than in clear
+    weather, and the crank wheel turns. After the unbinding, the other three boiler workers wait in Standby, and the boiler
+    burns its coal.
 66. **CD-FRM-03, CD-FRM-04, CD-FRM-05, CD-FRM-08, CD-MCH-04, CD-MCH-06.** Setup: on the COHO server, one Work Mode pasture with
     a level 50 Ground-type, a level 50 Grass-type, a level 50 Rock-type and a Fairy-type with the Work Leash. In its work area:
     one crop of each COHO family of the crop table of

@@ -597,12 +597,18 @@ From level 50, the Stoker fuels a blast furnace while it has iron to smelt and r
 slag. A click on any brick names the whole furnace, and the furnace never takes fuel from its fuel slot while
 the Stoker works.
 
-At any level, the Stoker works one block of a solid-fueled firebox, so each block of a firebox takes its own
-worker. Each worker adds at most 1 burn tick per tick to its boiler, as much as a lit furnace burns, and
-stops adding once the boiler holds the fuel of its next cycle. A large boiler burns more than its workers
-give, so its own fuel makes up the rest. A boiler with no water gets no fuel.
+**Role file parameter:** `blast_furnace_min_level` (50).
 
-**Role file parameters:** `blast_furnace_min_level` (50) and `firebox_burn_ticks_per_tick` (1.0).
+#### Stoker Railcraft Boiler
+
+**Needs:** Railcraft Reborn. **Assignment:** Work Leash only.
+
+The Stoker fuels a solid-fueled boiler at any level. Bind one Fire-type with the Work Leash to each block of
+the boiler's firebox: a boiler of 1 tank has 1 firebox block, a 2 × 2 boiler 4 and a 3 × 3 boiler 9. The
+workers fuel the boiler together, and only while every firebox block has its worker at work. Then the boiler
+burns no fuel from its fuel slot. With a firebox block short of its worker, the others wait in Standby and
+the boiler burns its own fuel. The workers also wait while less than half of the boiler's tank holds water,
+because Railcraft blows up a hot boiler that gets water into an empty tank.
 
 ### Wheel Driver
 

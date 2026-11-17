@@ -59,6 +59,7 @@ class BuiltInRoleFilesTest {
         "heater_mekanism" to Row("cobblemon_dynamics:mekanism_heat", setOf("fire"), true, 0, "ember"),
         "tailwind_mekanism" to Row("cobblemon_dynamics:wind_generator", setOf("flying"), false, 0, "gust"),
         "stoker_railcraft" to Row("cobblemon_dynamics:railcraft_fuel", setOf("fire"), true, 0, "ember"),
+        "stoker_railcraft_boiler" to Row("cobblemon_dynamics:railcraft_firebox", setOf("fire"), false, 0, "ember"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -562,6 +563,22 @@ class BuiltInRoleFilesTest {
         val key = autoAssignKey("tailwind_mekanism")
         assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
         assertEquals(listOf("mekanismgenerators"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+    }
+
+    /** R85: an automatic worker would light a boiler that the player never filled or fuelled, so the boiler is leash only. */
+    @Test
+    fun `CD-FUEL-05 the Stoker on Railcraft's boiler is a leash-only Fire role of Railcraft Reborn, and the furnace stays auto`() {
+        val file = File(BuiltInRoles.dir, "stoker_railcraft_boiler.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:railcraft_firebox", role.handler.toString())
+        assertEquals(setOf("fire"), role.types)
+        val key = autoAssignKey("stoker_railcraft_boiler")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
+        assertEquals(listOf("railcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        val furnace = BuiltInRoles.parse("stoker_railcraft")
+        assertEquals("cobblemon_dynamics:railcraft_fuel", furnace.handler.toString())
+        assertTrue(furnace.autoAssign)
+        assertFalse(furnace.params.has("firebox_burn_ticks_per_tick"), "the firebox has its own role file")
     }
 
     @Test

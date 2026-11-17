@@ -1,6 +1,5 @@
 package codes.honor.cobblemondynamics.compat.railcraft
 
-import codes.honor.cobblemondynamics.compat.railcraft.RailcraftFuelRule.Kind
 import codes.honor.cobblemondynamics.compat.railcraft.RailcraftFuelRule.Slot
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import com.google.gson.JsonObject
@@ -44,53 +43,19 @@ class RailcraftFuelRuleTest {
     }
 
     @Test
-    fun `CD-FUEL-04 the level gate of 50 holds for the blast furnace only`() {
+    fun `CD-FUEL-04 the blast furnace takes a worker from level 50`() {
         val minLevel = RailcraftFuelParams.of(BuiltInRoles.parse("stoker_railcraft").params).blastFurnaceMinLevel
         assertEquals(50, minLevel)
-        assertFalse(RailcraftFuelRule.admits(Kind.BLAST_FURNACE, level = 49, minLevel = minLevel))
-        assertTrue(RailcraftFuelRule.admits(Kind.BLAST_FURNACE, level = 50, minLevel = minLevel))
-        assertTrue(RailcraftFuelRule.admits(Kind.FIREBOX, level = 1, minLevel = minLevel))
+        assertEquals(RailcraftFuelParams(50), RailcraftFuelParams.of(JsonObject()))
+        assertFalse(RailcraftFuelRule.admits(level = 49, minLevel = minLevel))
+        assertTrue(RailcraftFuelRule.admits(level = 50, minLevel = minLevel))
     }
 
     @Test
-    fun `CD-FUEL-05 one worker adds at most 1_0 burn tick per tick to a firebox's boiler`() {
-        val cap = RailcraftFuelParams.of(BuiltInRoles.parse("stoker_railcraft").params).fireboxBurnTicksPerTick
-        assertEquals(1.0, cap)
-        assertEquals(RailcraftFuelParams(50, 1.0), RailcraftFuelParams.of(JsonObject()))
-        // 36 high-pressure tanks need about 41 burn ticks per tick, far beyond one worker (BM14).
-        assertEquals(1.0f, RailcraftFuelRule.fireboxGift(burnTime = 0f, need = 331f, cap = cap))
-        assertEquals(0.25f, RailcraftFuelRule.fireboxGift(burnTime = 10.5f, need = 10.75f, cap = cap))
-    }
-
-    @Test
-    fun `CD-FUEL-05 a boiler at its fuel need gets none`() {
-        assertEquals(0f, RailcraftFuelRule.fireboxGift(burnTime = 10.75f, need = 10.75f, cap = 1.0))
-        assertEquals(0f, RailcraftFuelRule.fireboxGift(burnTime = 40f, need = 10.75f, cap = 1.0))
-        assertFalse(RailcraftFuelRule.fireboxDemand(formed = true, hasWater = false), "an empty boiler needs no fuel")
-        assertFalse(RailcraftFuelRule.fireboxDemand(formed = false, hasWater = true))
-        assertTrue(RailcraftFuelRule.fireboxDemand(formed = true, hasWater = true))
-    }
-
-    /**
-     * A boiler burns its fuel once per cycle of 16 ticks at low pressure: it takes fuel items only while its burn time is below the
-     * cycle's need. One worker covers a 1-tank boiler, which needs about 10.75 per cycle, so that boiler never takes its own fuel.
-     */
-    @Test
-    fun `CD-FUEL-13 a boiler that its workers cover never reaches its own fuel step`() {
-        val need = 10.75f
-        var burn = 0f
-        repeat(16) { burn += RailcraftFuelRule.fireboxGift(burn, need, cap = 1.0) }
-        assertTrue(burn >= need, "a cycle ends with $burn of $need")
-        assertEquals(need, burn)
-    }
-
-    @Test
-    fun `CD-FUEL-05 each firebox block is its own target, and every brick of a blast furnace keys its master`() {
+    fun `CD-CLM-04 every brick of a blast furnace keys its master`() {
         val master = BlockPos(0, 64, 0)
-        val firebox = BlockPos(1, 64, 0)
-        assertEquals(firebox, RailcraftFuelRule.canonical(Kind.FIREBOX, firebox, master))
-        assertEquals(master, RailcraftFuelRule.canonical(Kind.BLAST_FURNACE, BlockPos(1, 66, 1), master))
-        assertEquals(firebox, RailcraftFuelRule.canonical(Kind.BLAST_FURNACE, firebox, null))
+        assertEquals(master, RailcraftFuelRule.canonical(BlockPos(1, 66, 1), master))
+        assertEquals(BlockPos(1, 64, 0), RailcraftFuelRule.canonical(BlockPos(1, 64, 0), null))
     }
 
     @Test
