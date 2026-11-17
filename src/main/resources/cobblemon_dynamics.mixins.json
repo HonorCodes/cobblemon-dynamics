@@ -12,6 +12,8 @@
     "compat.cobblebase.PassiveXpMixin",
     "compat.easymagic.ModEnchantmentMenuMixin",
     "compat.enchantinginfuser.InfuserMenuMixin",
+    "compat.immersiveengineering.WatermillBlockEntityMixin",
+    "compat.immersiveengineering.WindmillBlockEntityMixin",
     "create.AirCurrentMixin",
     "create.BlazeBurnerBlockEntityMixin",
     "create.ItemUseOverridesMixin",

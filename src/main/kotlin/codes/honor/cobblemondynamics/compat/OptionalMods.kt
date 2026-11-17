@@ -22,7 +22,7 @@ data class OptionalMod(
  */
 object OptionalMods {
     val ALL: List<OptionalMod> = listOf(
-        OptionalMod("immersiveengineering", listOf("blusunrize/")),
+        OptionalMod("immersiveengineering", listOf("blusunrize/"), listOf("ie_furnace", "ie_watermill", "ie_windmill")),
         OptionalMod("mekanism", listOf("mekanism/")),
         OptionalMod("mekanismgenerators", listOf("mekanism/generators/")),
         OptionalMod("railcraft", listOf("mods/railcraft/")),

@@ -52,6 +52,9 @@ class BuiltInRoleFilesTest {
         "lumberjack" to Row("cobblemon_dynamics:lumberjack", setOf("bug"), false, 0, "aerialace"),
         "freezer" to Row("cobblemon_dynamics:freezer", setOf("ice"), true, 0, "icebeam"),
         "soul_collector" to Row("cobblemon_dynamics:soul_collector", setOf("ghost"), false, 0, "nightshade"),
+        "stoker_immersiveengineering" to Row("cobblemon_dynamics:ie_furnace", setOf("fire"), true, 0, "ember"),
+        "wheel_driver_immersiveengineering" to Row("cobblemon_dynamics:ie_watermill", setOf("water"), true, 0, "watergun"),
+        "tailwind_immersiveengineering" to Row("cobblemon_dynamics:ie_windmill", setOf("flying"), false, 0, "gust"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -522,6 +525,22 @@ class BuiltInRoleFilesTest {
         assertEquals(nightShade.userParticles, effect.actorParticles.map { it.toString() })
         assertEquals(nightShade.targetParticles, effect.targetParticles.map { it.toString() })
         assertEquals(nightShade.animations, effect.animations)
+    }
+
+    @Test
+    fun `CD-KIN-01 the Wheel Driver of Immersive Engineering is an auto-assign Water role that needs the mod`() {
+        val file = File(BuiltInRoles.dir, "wheel_driver_immersiveengineering.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:ie_watermill", role.handler.toString())
+        assertEquals(setOf("water"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(listOf("immersiveengineering"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+    }
+
+    @Test
+    fun `CD-AIR-05 CD-TLW-02 Tailwind on the IE windmill is leash only`() {
+        val key = autoAssignKey("tailwind_immersiveengineering")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
     }
 
     @Test

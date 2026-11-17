@@ -571,14 +571,17 @@ COBBLEBASE_MIXINS = ("AmbientBehaviorMixin", "BaseManagerMixin", "NavigationHelp
 # The three INFO lines at load of the pinned set, each exactly once (CD-CMP-08 to CD-CMP-10).
 LOAD_LINES = (
     # CD-CMP-08: the 3 vanilla and the 5 Create mixins applied, and the stats mixin of Apothic Enchanting, the 4 Cobblebase
-    # mixins and the menu mixins of Easy Magic and Enchanting Infuser skipped because their mods are absent.
+    # mixins, the menu mixins of Easy Magic and Enchanting Infuser and the mill mixins of Immersive Engineering skipped because
+    # their mods are absent.
     re.escape("Mixins: 8 applied [create.AirCurrentMixin, create.BlazeBurnerBlockEntityMixin, create.ItemUseOverridesMixin, "
               "create.WaterWheelBlockEntityMixin, create.WindmillBearingBlockEntityMixin, vanilla.EnchantmentMenuAccess, "
-              "vanilla.EnchantmentMenuMixin, vanilla.WorkerPushMixin], 7 skipped ["
+              "vanilla.EnchantmentMenuMixin, vanilla.WorkerPushMixin], 9 skipped ["
               "compat.apothic.EnchantmentTableStatsMixin (apothic_enchanting absent), ")
     + re.escape(", ".join(f"compat.cobblebase.{name} (cobblebase absent)" for name in COBBLEBASE_MIXINS))
     + re.escape(", compat.easymagic.ModEnchantmentMenuMixin (easymagic absent), "
-                "compat.enchantinginfuser.InfuserMenuMixin (enchantinginfuser absent)")
+                "compat.enchantinginfuser.InfuserMenuMixin (enchantinginfuser absent), "
+                "compat.immersiveengineering.WatermillBlockEntityMixin (immersiveengineering absent), "
+                "compat.immersiveengineering.WindmillBlockEntityMixin (immersiveengineering absent)")
     + re.escape("], 0 applied with no injection [], 0 not applied yet []"),
     # CD-CMP-09: the payload version and the six payloads by direction.
     re.escape("Payloads, version 3: 2 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview], "

@@ -569,6 +569,18 @@ The Stoker keeps its furnace lit, as if it burned coal, while the furnace has an
 the result. It lights an unlit furnace. It never takes fuel from the fuel slot, and the flame gauge stays
 full while the furnace cooks. When the Stoker stops, the furnace goes back to its own fuel within 2 ticks.
 
+#### Stoker Immersiveengineering
+
+**Needs:** Immersive Engineering. **Assignment:** Auto.
+
+The Stoker fuels the alloy kiln at any level, and the crude and the improved blast furnace from level 50. A
+click on any block of the furnace names the whole furnace. The furnace runs at its own speed, and it never
+takes fuel from its fuel slot while the Stoker works. The preheaters of an improved blast furnace still need
+their own power. A Stoker leaves a furnace that has nothing to smelt or no room for the result, and comes
+back when it has.
+
+**Role file parameter:** `blast_furnace_min_level` (50).
+
 ### Wheel Driver
 
 **Types:** Water. **Level:** any. **Move:** Water Gun, aimed at the wheel's axle. **Needs:** Create.
@@ -582,6 +594,16 @@ Standby and uses no Work Stamina. When the Wheel Driver stops, the wheel stops w
 
 A new wheel turns in Create's positive direction. To reverse it, [flip it with the Work
 Leash](#flip-a-water-wheel-or-a-hand-crank).
+
+#### Wheel Driver Immersiveengineering
+
+**Needs:** Immersive Engineering. **Assignment:** Auto.
+
+The Wheel Driver turns a watermill that has no water, with the torque of an optimized overshot wheel, so a
+Kinetic Dynamo on the wheel gives power. It works only while no real water turns the wheel. To reverse the
+wheel, flip it with the Work Leash as a Create wheel. The wheel keeps its direction through restarts.
+
+**Role file parameter:** `virtual_torque` (29), at most the torque of an optimized overshot wheel.
 
 ### Cranker
 
@@ -884,6 +906,16 @@ the worker needs room below the sails, so assemble the windmill before you bind.
 while the windmill is not assembled.
 
 **Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
+
+#### Tailwind Immersiveengineering
+
+**Needs:** Immersive Engineering. **Assignment:** Work Leash only.
+
+Immersive Engineering stops a windmill at 8 sails, so Tailwind adds wind there, not sails. The windmill's speed
+has a weather factor w: 0.495 in clear weather, 0.66 in rain and 1 in a thunderstorm. A worker of level L sets
+it to w + (1 − w) × L ÷ 100, so at level 100 the windmill turns as in a thunderstorm. In a thunderstorm the
+worker waits in Standby. The worker stands in front of the windmill or behind it, never where the sails turn.
+The windmill turns faster on screen too.
 
 ### Lumberjack
 

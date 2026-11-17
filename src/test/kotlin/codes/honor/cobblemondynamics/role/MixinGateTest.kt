@@ -102,6 +102,21 @@ class MixinGateTest {
         assertEquals(1, warnings.size)
     }
 
+    /** CD-OPT-09: the Watermill and the Windmill of Immersive Engineering work only through their hooks. */
+    @Test
+    fun `CD-KIN-02 CD-AIR-05 a missing IE mill mixin disables its role only, with one warning`() {
+        val watermill = role("wheel_driver_immersiveengineering", setOf("water"), handler = "cobblemon_dynamics:ie_watermill")
+        val windmill =
+            role("tailwind_immersiveengineering", setOf("flying"), autoAssign = false, handler = "cobblemon_dynamics:ie_windmill")
+        val kiln = role("stoker_immersiveengineering", setOf("fire"), handler = "cobblemon_dynamics:ie_furnace")
+        assertEquals(MixinState.IE_WATERMILL, MixinGate.REQUIRED[watermill.handler])
+        assertEquals(MixinState.IE_WINDMILL, MixinGate.REQUIRED[windmill.handler])
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(watermill, windmill, kiln), applied = { it != MixinState.IE_WINDMILL }, warn = warnings::add)
+        assertEquals(listOf(kiln.id, watermill.id), gated.active.map { it.definition.id })
+        assertTrue(MixinState.IE_WINDMILL in warnings.single(), warnings.toString())
+    }
+
     /** Easy Magic's table and an infuser stand for the targets of the Muse's shared handler, which Task 2 adds. */
     @Test
     fun `CD-OPT-09 a target mixin that did not apply turns off that target only, with one warning`() {
