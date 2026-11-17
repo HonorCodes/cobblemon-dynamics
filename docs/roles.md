@@ -27,7 +27,7 @@ the Wheel Driver, and does not repeat its numbers.
   logistics roles, the Magnet and Telekinesis, share their containers instead: up to 5
   of their workers together on one container. The Soul Collector shares its Experience
   Collector in the same way. See [ADR 0005](adr/0005-global-claim-registry.md) and its
-  Amendment 1.
+  Amendments 1 and 3.
 - **An area job claims one cell.** A role that works an area, such as the Freezer,
   claims the one cell that its worker walks to and works the cells around the worker.
   Two workers never claim one cell, and an overlap of their reach costs nothing. See
@@ -38,8 +38,10 @@ the Wheel Driver, and does not repeat its numbers.
   that already exists.
 - **Level.** Level changes the output of the Generator, the Pump, the Muse,
   Telekinesis, the Magnet, Tailwind and the Cultivator, and since 1.2 of the Lumberjack,
-  the Soul Collector, the Freezer, the Heater and the targets of other mods that name a
-  level.
+  the Soul Collector, the Freezer and the Heater. On the targets of other mods, level
+  also changes the Generator's charge of a Healing Machine, the Cultivator's pace at a
+  Botany Pots pot, and Tailwind's wind on the Immersive Engineering Windmill, the
+  Mekanism Wind Generator and the air of PneumaticCraft.
   The Superheater superheats only from level 50, and the Stoker works the blast furnaces
   of Immersive Engineering and Railcraft Reborn only from level 50.
   Other roles copy the numbers of the source that they replace, for example the speed
@@ -165,9 +167,9 @@ time.
 The Lumberjack and the Soul Collector are leash-only, and the Freezer is automatic with no Quick Work. The Heater is
 automatic on Mekanism and leash-only on PneumaticCraft. The design is in the spec sheet's areas and in
 [ADR-0017](adr/0017-lumberjack-and-saplings.md), [ADR-0018](adr/0018-experience-collector-and-soul-collector.md),
-[ADR-0019](adr/0019-freezer-area-job.md) and [ADR-0020](adr/0020-machines-and-crops-of-other-mods.md). The rows of 1.2 are
-drafts until the coordinator rules on the design decisions of the
-[1.2 plan](plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions).
+[ADR-0019](adr/0019-freezer-area-job.md) and [ADR-0020](adr/0020-machines-and-crops-of-other-mods.md). The coordinator
+ruled on the design decisions of the [1.2 plan](plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions) on
+2026-11-15 (R81), and on the reviews of the build in R82 to R90.
 
 | Role | Type | Targets | What it does | Move effect | Assignment | Spec area |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -187,10 +189,10 @@ setup. [ADR-0020](adr/0020-machines-and-crops-of-other-mods.md) lists every targ
 
 | Role | New targets | Spec area |
 | --- | --- | --- |
-| Stoker | The alloy kiln and the blast furnaces of Immersive Engineering, the blast furnace and the solid-fueled firebox of Railcraft Reborn, the Fuelwood Heater of Mekanism, the furnaces of Iron Furnaces, the compressors of PneumaticCraft, the oven of Cooking for Blockheads, the Clibano of Forbidden & Arcanus, the Egg Incubator of Cobblemon Incubator and the Volcanic Sourcelink of Ars Nouveau. Never the Aether's Freezer. | FUEL, FIX |
+| Stoker | The alloy kiln of Immersive Engineering, and its blast furnaces from level 50, the blast furnace of Railcraft Reborn from level 50, and its solid-fueled firebox with the Work Leash only, one worker for each firebox block, the Fuelwood Heater of Mekanism, the furnaces of Iron Furnaces, the compressors of PneumaticCraft, the oven of Cooking for Blockheads, the Clibano of Forbidden & Arcanus, the Egg Incubator of Cobblemon Incubator and the Volcanic Sourcelink of Ars Nouveau. Never the Aether's Freezer. | FUEL, FIX |
 | Tailwind | The Wind Generator of Mekanism, the Windmill of Immersive Engineering, and the air machines of PneumaticCraft, below their danger pressure. | AIR |
-| Wheel Driver, Cranker | The Watermill of Immersive Engineering, the crank wheels of Create: Connected and the AE2 Crank. | KIN |
-| Cultivator, Harvester | Botany Pots, and the crops of the crop table of ADR-0020. Never the crops of Mystical Agriculture for the Cultivator, and never a Twilight Forest bush itself for the Harvester. | FRM, FIX |
+| Wheel Driver, Cranker | The Watermill of Immersive Engineering, while a Kinetic Dynamo takes its power, the crank wheels of Create: Connected, and the AE2 Crank, which charges its machine without turning on screen. | KIN |
+| Cultivator, Harvester | Botany Pots, and the crops of the crop table of ADR-0020. Never the crops of Mystical Agriculture for the Cultivator, and never a Twilight Forest bush itself or a growth-only look-alike of cave vines for the Harvester. | FRM, FIX |
 | Superheater | Any heat user above the burner of its tag, such as cooking pots and distillation towers, and the Liquid Blaze Burner of Create Crafts & Additions. | FIX, MCH |
 | Crystal Tender | Cobblemon's budding tumblestones, Unusual End's citrine, Quark's corundum, with full type gem clusters no longer counted as buds. | FIX, MCH |
 | Muse | Easy Magic's table, Enchanting Infuser's infusers, and the Infuser of Create: Enchantment Industry with Apothic Enchanting. | FIX, MCH |
