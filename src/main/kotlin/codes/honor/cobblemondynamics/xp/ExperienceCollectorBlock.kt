@@ -7,6 +7,11 @@ import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.MenuProvider
+import net.minecraft.world.SimpleMenuProvider
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.ContainerLevelAccess
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
@@ -23,10 +28,11 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.DirectionProperty
+import net.minecraft.world.phys.BlockHitResult
 
 /**
- * The Experience Collector (CD-XPC-01): a block that stores XP. Its front faces the player who places it (CD-XPC-02), a comparator
- * reads its fill (CD-XPC-12), and its item keeps the XP of a broken collector (CD-XPC-13).
+ * The Experience Collector (CD-XPC-01): a block that stores XP. Its front faces the player who places it (CD-XPC-02), a right-click
+ * opens its screen (CD-XPC-04), a comparator reads its fill (CD-XPC-12), and its item keeps the XP of a broken collector (CD-XPC-13).
  */
 class ExperienceCollectorBlock(properties: BlockBehaviour.Properties) : BaseEntityBlock(properties) {
     init {
@@ -51,6 +57,28 @@ class ExperienceCollectorBlock(properties: BlockBehaviour.Properties) : BaseEnti
     override fun rotate(state: BlockState, rotation: Rotation): BlockState = state.setValue(FACING, rotation.rotate(state.getValue(FACING)))
 
     override fun mirror(state: BlockState, mirror: Mirror): BlockState = state.rotate(mirror.getRotation(state.getValue(FACING)))
+
+    /**
+     * CD-XPC-15: the screen opens only here, on the block's own use path, so a claim mod that cancels the right-click keeps the player
+     * out, as at a chest. Anyone who reaches this path may collect.
+     */
+    override fun useWithoutItem(
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        player: Player,
+        hitResult: BlockHitResult,
+    ): InteractionResult {
+        if (level.isClientSide) return InteractionResult.SUCCESS
+        player.openMenu(state.getMenuProvider(level, pos))
+        return InteractionResult.CONSUME
+    }
+
+    override fun getMenuProvider(state: BlockState, level: Level, pos: BlockPos): MenuProvider? {
+        val collector = level.getBlockEntity(pos) as? ExperienceCollectorBlockEntity ?: return null
+        val access = ContainerLevelAccess.create(level, pos)
+        return SimpleMenuProvider({ id, _, _ -> CollectorMenu.server(id, collector, access) }, state.block.name)
+    }
 
     /** CD-XPC-12. */
     override fun hasAnalogOutputSignal(state: BlockState): Boolean = true

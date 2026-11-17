@@ -78,5 +78,8 @@
   "cobblemon_dynamics.ui.work_mode.locked": "Only the pasture's owner can change Work Mode",
   "cobblemon_dynamics.ui.stamina": "%s%% Work Stamina",
   "cobblemon_dynamics.charge_cell.energy": "%s / %s FE",
-  "cobblemon_dynamics.experience_collector.stored": "%s / %s XP"
+  "cobblemon_dynamics.experience_collector.stored": "%s / %s XP",
+  "cobblemon_dynamics.experience_collector.points": "Stored: %s XP",
+  "cobblemon_dynamics.experience_collector.level": "Level %s from level 0",
+  "cobblemon_dynamics.experience_collector.collect": "Collect experience"
 }

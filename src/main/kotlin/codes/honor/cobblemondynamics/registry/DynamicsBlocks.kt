@@ -9,6 +9,7 @@ import codes.honor.cobblemondynamics.cell.ChargeCellBlockEntity
 import codes.honor.cobblemondynamics.cell.ChargeCellRules
 import codes.honor.cobblemondynamics.xp.ExperienceCollectorBlock
 import codes.honor.cobblemondynamics.xp.ExperienceCollectorBlockEntity
+import codes.honor.cobblemondynamics.xp.XpFluids
 import com.mojang.serialization.Codec
 import net.minecraft.core.Direction
 import net.minecraft.core.component.DataComponentType
@@ -26,6 +27,7 @@ import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.ICapabilityProvider
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.neoforged.neoforge.energy.IEnergyStorage
+import net.neoforged.neoforge.fluids.capability.IFluidHandler
 import net.neoforged.neoforge.registries.DeferredBlock
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredItem
@@ -98,6 +100,14 @@ object DynamicsBlocks {
                 Capabilities.EnergyStorage.BLOCK,
                 CHARGE_CELL_TYPE.get(),
                 ICapabilityProvider<ChargeCellBlockEntity, Direction?, IEnergyStorage> { cell, _ -> cell.storage },
+            )
+            // CD-XPC-07, CD-XPC-08: the back and the bottom of a collector, while a fluid of the last tag load carries the XP.
+            event.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                EXPERIENCE_COLLECTOR_TYPE.get(),
+                ICapabilityProvider<ExperienceCollectorBlockEntity, Direction?, IFluidHandler> { collector, side ->
+                    collector.fluidTank.takeIf { XpFluids.current != null && collector.isOutput(side) }
+                },
             )
         }
     }

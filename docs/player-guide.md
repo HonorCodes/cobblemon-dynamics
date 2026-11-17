@@ -459,6 +459,17 @@ player from level 0 to level 166. The server config key `experienceCollector.cap
 - When you break the collector, its item keeps the XP. The tooltip of the item shows it, for example "12,345 /
   100,000 XP". The collector that you place from the item holds that XP again.
 - A collector that holds more XP than a lowered limit keeps its XP. It takes no more XP until it holds less.
+- Right-click the collector to open its screen. The screen shows the stored XP in points, and the level that a
+  player at level 0 would reach with it. Press **Collect experience** to take all the stored XP. Anyone who can
+  open the collector can collect, as anyone who can open a chest can take its items. A land claim mod that keeps
+  you out of a chest keeps you out of the collector too.
+- The back and the bottom of the collector are outputs for pipes. Pipes drain the XP as a fluid, and they cannot
+  fill the collector. With Create: Enchantment Industry installed, the fluid is its liquid experience at 1 mB per
+  XP. Otherwise it is the first XP fluid of the tag `c:experience` at 20 mB per XP, for example the XP of
+  Sophisticated Core. A pipe takes whole points of XP only. With no XP fluid installed, the outputs offer no fluid,
+  and the button still works.
+- With experiencelib installed, the back and the bottom also offer its XP capability, so an Applied Experienced
+  import bus takes the XP into an ME network.
 
 | Item | Recipe |
 | --- | --- |
