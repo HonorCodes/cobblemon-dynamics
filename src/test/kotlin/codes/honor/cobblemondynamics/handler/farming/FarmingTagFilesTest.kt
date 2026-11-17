@@ -130,6 +130,21 @@ class FarmingTagFilesTest {
         }
     }
 
+    /**
+     * R90: a growth-only look-alike whose class is vanilla's `CaveVines` takes the cave-vines adapter by its class alone, with no tag,
+     * and its loot is empty. `harvest/never` keeps the Harvester off it even where a pack adds it to the Harvester's tag.
+     */
+    @Test
+    fun `CD-FRM-01 harvest never holds the growth-only look-alikes of a CaveVines class, as optional entries`() {
+        val never = own("harvest/never")
+        for (block in FRM_GROWTH_ONLY_CAVE_VINES) {
+            val entry = never.singleOrNull { it.id == block }
+            assertTrue(entry != null, "harvest/never lacks $block")
+            assertFalse(entry!!.required, "$block in harvest/never is required")
+        }
+        assertTrue(FRM_GROWTH_ONLY.containsAll(FRM_GROWTH_ONLY_CAVE_VINES))
+    }
+
     @Test
     fun `CD-FIX-04 the Cultivator's never tag holds Mystical Agriculture's crops as an optional entry`() {
         val entry = own("cultivator/never").single { it.id == "#mysticalagriculture:crops" }
@@ -190,8 +205,8 @@ class FarmingTagFilesTest {
         )
 
         /**
-         * The blocks of the look-alikes that the Cultivator grows and the Harvester leaves, by the reference check of Task 20: the loot
-         * of Allthemodium's vine body and of Ars Elemental's source vines is empty, the loot of YUNG's prickly peach cactus is the
+         * The blocks of the look-alikes that the Cultivator grows and the Harvester leaves (R90), by the reference check of Task 20: the
+         * loot of Allthemodium's vine body and of Ars Elemental's source vines is empty, the loot of YUNG's prickly peach cactus is the
          * cactus itself, and Deeper Darker's vine tip has no berries. A pick by their loot would drop nothing or the plant.
          */
         val FRM_GROWTH_ONLY = listOf(
@@ -200,6 +215,16 @@ class FarmingTagFilesTest {
             "ars_elemental:source_vines_plant",
             "yungscavebiomes:prickly_peach_cactus",
             "deeperdarker:glowing_vines",
+        )
+
+        /**
+         * The growth-only look-alikes whose class is vanilla's `CaveVines`: Allthemodium's `AncientCaveVinesPlant` implements its
+         * `ACaveVines`, which extends `CaveVines`, and Ars Elemental's source vines extend `CaveVinesBlock` and `CaveVinesPlantBlock`.
+         */
+        val FRM_GROWTH_ONLY_CAVE_VINES = listOf(
+            "allthemodium:ancient_cavevines_plant",
+            "ars_elemental:source_vines",
+            "ars_elemental:source_vines_plant",
         )
         private val FRM_OTHERS = listOf("unusualend:gloopilon_bulb", "undergarden:ditchbulb_plant", "actuallyadditions:coffee")
 

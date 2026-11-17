@@ -5,7 +5,6 @@ import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.handler.vanilla.CauldronFill
 import codes.honor.cobblemondynamics.handler.vanilla.FarmlandMoisture
-import codes.honor.cobblemondynamics.handler.vanilla.TickClock
 import codes.honor.cobblemondynamics.id
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -47,10 +46,13 @@ object FluidFillHandler : TargetHandler {
         level.getBlockState(canonical).let { cauldronOf(it) != null || isFarmland(it) } ||
             Direction.entries.any { level.getCapability(Capabilities.FluidHandler.BLOCK, canonical, it) != null }
 
+    /** Farmland counts its demand at most once in 20 ticks, and leaves out the blocks that the land claim checks refused (R90). */
     override fun hasDemand(ctx: WorkContext): Boolean {
         val rate = mbPerTick(ctx)
         val state = ctx.level.getBlockState(ctx.target)
-        if (isFarmland(state)) return rate > 0 && FarmlandMoisture.hasDemand(ctx.target) { moistureAt(ctx.level, it) }
+        if (isFarmland(state)) {
+            return rate > 0 && wetting(ctx).hasDemand(ctx.target, ctx.now, { moistureAt(ctx.level, it) }, ctx.mayChange)
+        }
         cauldronOf(state)?.let { return rate > 0 && CauldronFill.hasDemand(it.contents, it.level) }
         val port = port(ctx) ?: return false
         return FluidTick.hasDemand(port, rate)
@@ -58,9 +60,7 @@ object FluidFillHandler : TargetHandler {
 
     /** The farmland checks count from the tick that this stretch of work started. */
     override fun onStart(ctx: WorkContext) {
-        if (!isFarmland(ctx.level.getBlockState(ctx.target))) return
-        val wetting = ctx.memo.value as? Wetting
-        if (wetting == null) ctx.memo.value = Wetting(ctx.now) else wetting.since = ctx.now
+        if (isFarmland(ctx.level.getBlockState(ctx.target))) wetting(ctx).since = ctx.now
     }
 
     override fun applyWork(ctx: WorkContext) {
@@ -102,8 +102,9 @@ object FluidFillHandler : TargetHandler {
         return if (isFarmland(state)) state.getValue(FarmBlock.MOISTURE) else null
     }
 
-    /** The tick that the claim's work on farmland started. */
-    private class Wetting(var since: Long)
+    /** The claim's farmland memo. A context outside a claim gets one of its own, which counts the demand at once. */
+    private fun wetting(ctx: WorkContext): FarmlandMoisture.Wetting =
+        ctx.memo.value as? FarmlandMoisture.Wetting ?: FarmlandMoisture.Wetting(ctx.now).also { ctx.memo.value = it }
 
     /**
      * CD-MCH-09: a check on the first tick of work and every 20 ticks after it. Each block goes to moisture 7 with flag 2, as vanilla's
@@ -111,9 +112,7 @@ object FluidFillHandler : TargetHandler {
      */
     private fun wetFarmland(ctx: WorkContext, rate: Int) {
         if (rate <= 0) return
-        val wetting = ctx.memo.value as? Wetting ?: Wetting(ctx.now).also { ctx.memo.value = it }
-        if (!TickClock.every(FarmlandMoisture.CHECK_TICKS, wetting.since, ctx.now)) return
-        FarmlandMoisture.check(ctx.target, { moistureAt(ctx.level, it) }, ctx.mayChange) { pos ->
+        wetting(ctx).work(ctx.target, ctx.now, { moistureAt(ctx.level, it) }, ctx.mayChange) { pos ->
             val farmland = ctx.level.getBlockState(pos)
             ctx.level.setBlock(pos, farmland.setValue(FarmBlock.MOISTURE, FarmlandMoisture.WET), Block.UPDATE_CLIENTS)
         }

@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.handler.item.ContainerFallback
 import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
@@ -11,6 +12,8 @@ import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.Container
+import net.minecraft.world.SimpleContainer
+import net.minecraft.world.WorldlyContainer
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -146,6 +149,45 @@ class MagnetTests {
             helper.assertTrue(!item.isAlive && dirt == 3, "CD-MCH-10: the Gilded Chest holds $dirt dirt")
             helper.succeed()
         }
+    }
+
+    /**
+     * A hopper asks a container's `canTakeItem` before it takes a stack, and so does the fallback of CD-MCH-10, though neither of
+     * NeoForge's wrappers asks it (R90). That is how Cobblemon's TM Machine keeps its inputs. A plain container keeps the slot that
+     * it refuses, and a `WorldlyContainer` is asked of its own slot behind the face. The test uses no block, but a unit test cannot
+     * make an item stack, because the item registry needs FML.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 20, batch = "plain_containers")
+    fun cdMch10TheFallbackTakesNothingThatCanTakeItemRefuses(helper: GameTestHelper) {
+        val takers = ArrayList<Container>()
+        val plain = object : SimpleContainer(ItemStack(Items.WHEAT, 5), ItemStack(Items.WHEAT, 5)) {
+            override fun canTakeItem(target: Container, slot: Int, stack: ItemStack): Boolean {
+                takers += target
+                return slot != 0
+            }
+        }
+        val handler = ContainerFallback.handler(plain, denied = false, face = Direction.NORTH)!!
+        helper.assertTrue(handler.extractItem(0, 5, true).isEmpty, "CD-MCH-10: a simulated take of the refused slot gave items")
+        helper.assertTrue(handler.extractItem(0, 5, false).isEmpty, "CD-MCH-10: a take of the refused slot gave items")
+        helper.assertTrue(plain.getItem(0).count == 5, "CD-MCH-10: the refused slot holds ${plain.getItem(0)}")
+        helper.assertTrue(handler.extractItem(1, 5, false).count == 5, "CD-MCH-10: the allowed slot gave no items")
+        helper.assertTrue(takers.isNotEmpty() && takers.all { it.containerSize == 0 }, "CD-MCH-10: canTakeItem got $takers")
+        val sided = object :
+            SimpleContainer(ItemStack.EMPTY, ItemStack(Items.WHEAT, 5), ItemStack(Items.WHEAT, 5)),
+            WorldlyContainer {
+            override fun getSlotsForFace(side: Direction): IntArray = intArrayOf(1, 2)
+
+            override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, side: Direction?): Boolean = true
+
+            override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, side: Direction): Boolean = true
+
+            override fun canTakeItem(target: Container, slot: Int, stack: ItemStack): Boolean = slot != 2
+        }
+        val top = ContainerFallback.handler(sided, denied = false, face = Direction.UP)!!
+        helper.assertTrue(top.extractItem(0, 5, false).count == 5, "CD-MCH-10: the face's slot 0, the container's slot 1, gave nothing")
+        helper.assertTrue(top.extractItem(1, 5, false).isEmpty, "CD-MCH-10: the face's slot 1, the container's refused slot 2, gave items")
+        helper.assertTrue(sided.getItem(2).count == 5, "CD-MCH-10: the container's refused slot 2 holds ${sided.getItem(2)}")
+        helper.succeed()
     }
 
     /**

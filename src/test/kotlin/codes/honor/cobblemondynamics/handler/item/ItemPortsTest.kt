@@ -88,8 +88,8 @@ class ItemPortsTest {
 
     /**
      * CD-MCH-11: the ids that Task 19 read from Lootr 1.11.38.127 and Legendary Monuments 8.2, whose block entities are vanilla
-     * `Container`s with no item capability, and the Ender Chest, which holds each player's own items. Each entry of another mod is
-     * optional (CD-OPT-12).
+     * `Container`s with no item capability, and the Ender Chest of the ruling on decision 29. The Ender Chest entry guards nothing,
+     * because its block entity is no `Container` (R90). Each entry of another mod is optional (CD-OPT-12).
      */
     @Test
     fun `CD-MCH-11 the deny tag holds Lootr's containers, Legendary Monuments' pedestals and the Ender Chest`() {
