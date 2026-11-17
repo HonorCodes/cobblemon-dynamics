@@ -16,10 +16,6 @@ object IncubatorWarmth {
 
     /** CD-FUEL-11: the speed of [incubator] this tick, from its own speed [own]. Always [own] on a client. */
     @JvmStatic
-    fun speedFor(incubator: BlockEntity, own: Int): Int = IncubatorRule.speed(
-        own = own,
-        upgraded = IncubatorConfig.upgradedSpeed,
-        upgradesEnabled = IncubatorConfig.speedUpgradeEnabled,
-        worked = grants.current(incubator) != null,
-    )
+    fun speedFor(incubator: BlockEntity, own: Int): Int =
+        IncubatorRule.speed(own = own, upgraded = IncubatorConfig.upgradedSpeed, worked = grants.current(incubator) != null)
 }

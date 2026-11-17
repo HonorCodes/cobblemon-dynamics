@@ -5,7 +5,6 @@ import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.id
 import com.nbp.cobblemon_incubator.blockentity.EggIncubatorBlockEntity
-import com.nbp.cobblemon_incubator.config.IncubatorConfig
 import com.nbp.cobblemon_incubator.util.CobbreedingCompat
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
@@ -33,7 +32,6 @@ object EggIncubatorHandler : TargetHandler {
         val incubator = incubatorAt(ctx) ?: return false
         return IncubatorRule.hasDemand(
             hasEgg = CobbreedingCompat.isEgg(incubator.getItem(EggIncubatorBlockEntity.SLOT_INPUT)),
-            upgradesEnabled = IncubatorConfig.speedUpgradeEnabled,
             hasSpeedUpgrade = hasSpeedUpgrade(incubator),
         )
     }
