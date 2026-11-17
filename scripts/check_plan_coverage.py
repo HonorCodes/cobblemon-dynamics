@@ -11,7 +11,10 @@ Phase 3: every row of the LND area, which Phase 1 leaves out, the rows of PHASE_
 each earlier row with a Phase 3 part (the split-row table of the Phase 3 plan), cited inside a task section of the Phase 3 plan.
 1.1: every row of the CUL, HRV and CRP areas, which Phase 1 leaves out, the rows of V11_ROWS, which Phase 1 leaves out too, and
 each earlier row with a 1.1 part (the split-row table of the 1.1 plan), cited inside a task section of the 1.1 plan.
-Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1}]
+1.2: every row of the OPT, FIX, LUM, XPC, SOU, FRZ, HTR, FUEL, AIR, KIN, FRM and MCH areas, which Phase 1 leaves out, the rows
+of V12_ROWS, which Phase 1 leaves out too, and each earlier row with a 1.2 part (the split-row table of the 1.2 plan), cited
+inside a task section of the 1.2 plan.
+Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
 import argparse
@@ -67,6 +70,23 @@ V11_PARTS = (
     "CD-REL-04", "CD-REL-05", "CD-REL-08", "CD-REL-09", "CD-CMP-10", "CD-FX-09",
     "CD-LSH-08", "CD-ASG-12", "CD-ASG-19", "CD-LND-12", "CD-LND-16",
 )
+# 1.2: the new roles and the Experience Collector (R76, R79), the machines and crops of other mods with no setup (R77, R78,
+# R80), the fixes of today's behaviour (R80), and the release 1.2.0.
+PLANS["1.2"] = ("2026-11-15-v1.2-new-roles-and-compat.md",)
+V12_AREAS = {"OPT", "FIX", "LUM", "XPC", "SOU", "FRZ", "HTR", "FUEL", "AIR", "KIN", "FRM", "MCH"}
+# Rows outside the 1.2 areas that are 1.2 work as a whole: the balance checks of the new roles and targets, the capacity key of
+# the Experience Collector and the gate of 1.2.0.
+V12_ROWS = (
+    "CD-BAL-10", "CD-BAL-11", "CD-BAL-12", "CD-BAL-13", "CD-BAL-14", "CD-BAL-15", "CD-BAL-16", "CD-BAL-17",
+    "CD-CFG-20", "CD-REL-17",
+)
+# Earlier rows whose last part is 1.2 work: the split-row table of docs/plans/2026-11-15-v1.2-new-roles-and-compat.md.
+V12_PARTS = (
+    "CD-REL-04", "CD-REL-05", "CD-REL-08", "CD-REL-09", "CD-CMP-08", "CD-CMP-10", "CD-UI-16",
+    "CD-ART-01", "CD-ART-04", "CD-ART-10", "CD-ART-12", "CD-CRP-01", "CD-CRP-02", "CD-CRP-03", "CD-CRP-05", "CD-CRP-19",
+    "CD-CRY-01", "CD-CRY-03", "CD-CRY-05", "CD-STK-01", "CD-BRN-03", "CD-MUS-01", "CD-PMP-01", "CD-TLK-01", "CD-MAG-01",
+    "CD-CRK-01", "CD-CFG-01", "CD-CFG-07", "CD-QWK-03", "CD-FX-09", "CD-LND-12", "CD-LSH-08", "CD-ASG-12", "CD-ASG-19",
+)
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")
 HEADING = re.compile(r"^#{1,3} ", re.MULTILINE)
@@ -77,8 +97,11 @@ def is_phase_2(row: str, area: str) -> bool:
 
 
 def is_later(row: str, area: str) -> bool:
-    """Work that Phase 1 leaves out: Phase 3 work and the work of 1.1."""
-    return area in PHASE_3_AREAS or row in PHASE_3_ROWS or area in V11_AREAS or row in V11_ROWS
+    """Work that Phase 1 leaves out: Phase 3 work and the work of 1.1 and 1.2."""
+    return (
+        area in PHASE_3_AREAS or row in PHASE_3_ROWS or area in V11_AREAS or row in V11_ROWS
+        or area in V12_AREAS or row in V12_ROWS
+    )
 
 
 def require_rows(names: tuple[str, ...], rows: list[tuple[str, str]], lists: str) -> None:
@@ -97,6 +120,9 @@ def spec_rows(phase: str) -> list[str]:
     if phase == "1.1":
         require_rows(V11_PARTS + V11_ROWS, rows, "V11_PARTS or V11_ROWS")
         return [row for row, area in rows if area in V11_AREAS] + list(V11_ROWS) + list(V11_PARTS)
+    if phase == "1.2":
+        require_rows(V12_PARTS + V12_ROWS, rows, "V12_PARTS or V12_ROWS")
+        return [row for row, area in rows if area in V12_AREAS] + list(V12_ROWS) + list(V12_PARTS)
     require_rows(PHASE_2_PARTS + PHASE_2_ROWS, rows, "PHASE_2_PARTS or PHASE_2_ROWS")
     return [row for row, area in rows if is_phase_2(row, area) and row not in PHASE_3_ROWS] + list(PHASE_2_PARTS)
 
