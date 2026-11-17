@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.water
 
+import codes.honor.cobblemondynamics.handler.vanilla.FarmlandMoisture
 import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
@@ -61,9 +62,6 @@ object FreezeRules {
     /** CD-FRZ-09: vanilla freezes no water at this block light or more, and its ice there melts again. */
     const val MIN_UNFROZEN_LIGHT = 10
 
-    /** The farmland box of CD-FRZ-06: `FarmBlock.isNearWater` reads (−4, 0, −4) to (4, 1, 4) around the farmland. */
-    private const val FARMLAND_REACH = 4
-
     /** CD-FRZ-16: the occupant box reaches at most this many cells down the water column under the source. */
     const val MAX_COLUMN_DEPTH = 3
 
@@ -91,14 +89,16 @@ object FreezeRules {
 
     /**
      * CD-FRZ-06: farmland lies within 4 blocks of [cell] horizontally, at its height or one block below it, so the water of [cell]
-     * hydrates it. Reads the 9 × 9 × 2 box once, and stops at the first farmland. [isFarmland] gets one mutable position, which it
+     * hydrates it: `FarmBlock.isNearWater` reads (−4, 0, −4) to (4, 1, 4) around the farmland. The reach is the Pump's on farmland
+     * (CD-MCH-09). Reads the 9 × 9 × 2 box once, and stops at the first farmland. [isFarmland] gets one mutable position, which it
      * must not keep.
      */
     fun hydratesFarmland(cell: BlockPos, isFarmland: (BlockPos) -> Boolean): Boolean {
+        val reach = FarmlandMoisture.REACH
         val pos = BlockPos.MutableBlockPos()
         for (dy in -1..0) {
-            for (dx in -FARMLAND_REACH..FARMLAND_REACH) {
-                for (dz in -FARMLAND_REACH..FARMLAND_REACH) {
+            for (dx in -reach..reach) {
+                for (dz in -reach..reach) {
                     if (isFarmland(pos.setWithOffset(cell, dx, dy, dz))) return true
                 }
             }
