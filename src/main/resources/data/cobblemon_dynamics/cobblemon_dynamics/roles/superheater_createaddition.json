@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "createaddition" }],
+  "handler": "cobblemon_dynamics:liquid_burner",
+  "types": ["dragon"],
+  "auto_assign": true,
+  "priority": 10,
+  "range": 6.0,
+  "params": { "heat": "seething", "min_level": 50, "below_min_level_heat": "kindled" },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["dragonbreath", "spray", "special"],
+    "actor_particles": ["cobblemon:dragonbreath_actor"],
+    "target_particles": ["cobblemon:dragonbreath_target"]
+  }
+}

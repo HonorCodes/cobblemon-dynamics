@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "ae2" }],
+  "handler": "cobblemon_dynamics:ae2_crank",
+  "types": ["fighting", "normal"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 2.0,
+  "params": { "interval_ticks": 18 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["pound", "punch", "tail", "physical"],
+    "actor_particles": [],
+    "target_particles": ["cobblemon:pound_target", "cobblemon:pound_targetsparks"]
+  }
+}

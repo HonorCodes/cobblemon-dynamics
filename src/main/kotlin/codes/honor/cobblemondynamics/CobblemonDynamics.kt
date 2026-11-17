@@ -8,10 +8,13 @@ import codes.honor.cobblemondynamics.command.DynamicsCommands
 import codes.honor.cobblemondynamics.compat.CobblebaseHooks
 import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
 import codes.honor.cobblemondynamics.compat.CompatLines
+import codes.honor.cobblemondynamics.compat.ae2.Ae2Compat
 import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
 import codes.honor.cobblemondynamics.compat.ars_nouveau.ArsNouveauCompat
 import codes.honor.cobblemondynamics.compat.cobblemon_incubator.CobblemonIncubatorCompat
 import codes.honor.cobblemondynamics.compat.cookingforblockheads.CookingForBlockheadsCompat
+import codes.honor.cobblemondynamics.compat.create_connected.CreateConnectedCompat
+import codes.honor.cobblemondynamics.compat.createaddition.CreateAdditionCompat
 import codes.honor.cobblemondynamics.compat.dynamictrees.DynamicTreesCompat
 import codes.honor.cobblemondynamics.compat.easymagic.EasyMagicCompat
 import codes.honor.cobblemondynamics.compat.enchantinginfuser.EnchantingInfuserCompat
@@ -144,6 +147,10 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("forbidden_arcanus")) ForbiddenArcanusCompat.register(modBus)
         if (ModList.get().isLoaded("cobblemon_incubator")) CobblemonIncubatorCompat.register(modBus)
         if (ModList.get().isLoaded("ars_nouveau")) ArsNouveauCompat.register()
+        // CD-KIN-05, CD-KIN-06, CD-MCH-01: the Cranker on Create: Connected and AE2, and the Superheater on the Liquid Blaze Burner.
+        if (ModList.get().isLoaded("create_connected")) CreateConnectedCompat.register()
+        if (ModList.get().isLoaded("ae2")) Ae2Compat.register()
+        if (ModList.get().isLoaded("createaddition")) CreateAdditionCompat.register(modBus)
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.

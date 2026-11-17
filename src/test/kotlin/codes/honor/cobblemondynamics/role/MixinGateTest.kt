@@ -188,6 +188,16 @@ class MixinGateTest {
         assertEquals(setOf(clibano.id, incubator.id), kept.active.map { it.definition.id }.toSet())
     }
 
+    /** The Superheater's handler of Create Crafts & Additions raises the burner's heat through its mixin (CD-MCH-01). */
+    @Test
+    fun `CD-OPT-09 the Liquid Blaze Burner role turns off without its mixin, and the Blaze Burner's stays on`() {
+        val liquid = role("superheater_createaddition", setOf("dragon"), priority = 10, handler = "cobblemon_dynamics:liquid_burner")
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(liquid, superheater), applied = { it != MixinState.LIQUID_BLAZE_BURNER }, warn = warnings::add)
+        assertEquals(listOf(superheater.id), gated.active.map { it.definition.id })
+        assertTrue("cobblemon_dynamics:liquid_burner" in warnings.single() && MixinState.LIQUID_BLAZE_BURNER in warnings.single())
+    }
+
     @Test
     fun `CD-WHL-10 an applied mixin keeps its roles, and a role that needs no mixin stays on`() {
         val warnings = mutableListOf<String>()

@@ -880,7 +880,7 @@ Other role parameters, as fragments of their role files:
 | Flywheel API | `dev.engine-room.flywheel:flywheel-neoforge-api-1.21.1:1.0.6` | `https://maven.createmod.net` | compileOnly |
 | Flywheel | `dev.engine-room.flywheel:flywheel-neoforge-1.21.1:1.0.6` | `https://maven.createmod.net` | localRuntime |
 | Registrate | `com.tterrag.registrate:Registrate:MC1.21-1.3.0+67` | `https://maven.ithundxr.dev/snapshots` | compileOnly, localRuntime |
-| AE2 | `org.appliedenergistics:appliedenergistics2:19.2.19` | Maven Central | localRuntime (GameTests) |
+| AE2 | `org.appliedenergistics:appliedenergistics2:19.2.19`, `transitive = false` | Maven Central | compileOnly (`compat/ae2/`), localRuntime (GameTests) |
 | FTB Chunks | `dev.ftb.mods:ftb-chunks-neoforge:2101.1.23`, `transitive = false` | `https://maven.ftb.dev/releases` | compileOnly, claim run |
 | FTB Teams | `dev.ftb.mods:ftb-teams-neoforge:2101.1.12`, `transitive = false` | `https://maven.ftb.dev/releases` | compileOnly, claim run |
 | FTB Library | `dev.ftb.mods:ftb-library-neoforge:2101.1.39`, `transitive = false` | `https://maven.ftb.dev/releases` | compileOnly, claim run |
@@ -894,7 +894,7 @@ Other role parameters, as fragments of their role files:
 
 Create build 280 is the only 6.0.10 build whose manifest `Git-Hash` equals the release tag. Cobblemon's
 POM lists no dependencies, so KotlinForForge must be declared. If Ponder fails to resolve, add Fuzss's
-maven, as Create's own build does. AE2 pulls GuideME in at runtime. The main code has no AE2 import.
+maven, as Create's own build does. AE2 pulls GuideME in at runtime. The main code imports AE2 only in `compat/ae2/`, for the AE2 Crank (R83).
 The claim mods are compile-only dependencies and mods of their claim runs. `verifyJar` fails a jar that holds a class of
 `dev.ftb`, `xaero`, `dev.architectury`, `com.minecolonies` or `com.ldtteam`. The jars of FTB are "All Rights Reserved"
 and the code of MineColonies is GPL 3.0, so no jar or artifact of the mod holds a part of them.

@@ -11,6 +11,7 @@
     "compat.cobblebase.NavigationHelperMixin",
     "compat.cobblebase.PassiveXpMixin",
     "compat.cobblemon_incubator.EggIncubatorMixin",
+    "compat.createaddition.LiquidBlazeBurnerMixin",
     "compat.easymagic.ModEnchantmentMenuMixin",
     "compat.enchantinginfuser.InfuserMenuMixin",
     "compat.forbidden_arcanus.ClibanoMixin",

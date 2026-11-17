@@ -19,6 +19,8 @@ object MixinGate {
         // CD-OPT-09: the Stoker's handlers of other mods that work through a mixin of their own (CD-FUEL-10, CD-FUEL-11).
         id("clibano") to MixinState.CLIBANO,
         id("egg_incubator") to MixinState.EGG_INCUBATOR,
+        // CD-MCH-01: the Superheater on the Liquid Blaze Burner of Create Crafts & Additions.
+        id("liquid_burner") to MixinState.LIQUID_BLAZE_BURNER,
     )
 
     /** CD-MUS-07: with Apothic Enchanting, the Muse needs the stats hook, because that mod's table menu never runs the menu mixin. */

@@ -283,8 +283,9 @@ dependencies {
     localRuntime "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
     localRuntime "com.tterrag.registrate:Registrate:${registrate_version}"
     localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
-    // CD-GEN-07: the full GameTest run reads an AE2 grid's stored energy through AE2's API. The main source set never sees AE2 (CD-CRY-05).
-    gametestCompileOnly("org.appliedenergistics:appliedenergistics2:${ae2_version}") { transitive = false }
+    // CD-CRY-05 (R83): compat/ae2/ and mixin/compat/ae2/ name AE2's ICrankable API for the AE2 Crank (CD-KIN-06), and no other main
+    // source names AE2. Through compileOnly the full GameTest run reads an AE2 grid's stored energy too (CD-GEN-07).
+    compileOnly("org.appliedenergistics:appliedenergistics2:${ae2_version}") { transitive = false }
     // The claim runs load the jars of COHO 2.4.0. They never go into a CI artifact or a log upload.
     gametestFtbChunksImplementation("dev.ftb.mods:ftb-chunks-neoforge:${ftb_chunks_version}") { transitive = false }
     gametestFtbChunksImplementation("dev.ftb.mods:ftb-teams-neoforge:${ftb_teams_version}") { transitive = false }
@@ -355,7 +356,7 @@ def optionalModPackages = [
         'io/redspace/ironsspellbooks/', 'fuzs/easymagic/', 'fuzs/enchantinginfuser/', 'es/degrassi/experiencelib/',
         'com/dtteam/dynamictrees/', 'dev/shadowsoffire/', 'appeng/', 'vectorwing/', 'com/aetherteam/', 'io/github/razordevs/',
         'net/potionstudios/', 'quek/undergarden/', 'twilightforest/', 'com/blakebr0/mysticalagriculture/',
-        'com/jesz/createdieselgenerators/', 'org/antarcticgardens/cna/'
+        'com/jesz/createdieselgenerators/', 'org/antarcticgardens/cna/', 'com/hlysine/create_connected/'
 ]
 
 // CD-PLAT-04, CD-REL-07: every class is Java 21 bytecode, no Cobblemon asset ships, no test class ships.
@@ -401,11 +402,11 @@ tasks.register('verifyJar') {
     }
 }
 
-// CD-CRY-05: outside compat/ae2/ and mixin/compat/ae2/ (CD-OPT-05), the main source set never imports AE2, and it has no AE2 compile
-// dependency.
+// CD-CRY-05: outside compat/ae2/ and mixin/compat/ae2/ (CD-OPT-05), the main source set never imports AE2, which is a compile-only
+// dependency for those two packages alone (R83).
 tasks.register('verifyNoAe2') {
     group = 'verification'
-    description = 'Fails if the main source set imports appeng outside compat/ae2/ or compiles against AE2.'
+    description = 'Fails if the main source set imports appeng outside compat/ae2/ and mixin/compat/ae2/.'
     def mainSources = fileTree('src/main') { include '**/*.kt', '**/*.java' }
     inputs.files mainSources
     doLast {
@@ -413,10 +414,6 @@ tasks.register('verifyNoAe2') {
             !(it.path.replace('\\', '/') =~ /\/cobblemondynamics\/(mixin\/)?compat\/ae2\//) && it.text =~ /(?m)^\s*import\s+appeng\./
         }
         if (!bad.isEmpty()) throw new GradleException("AE2 imports in src/main: ${bad*.path}")
-        def ae2 = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.findAll {
-            it.moduleVersion.id.group == 'org.appliedenergistics'
-        }
-        if (!ae2.isEmpty()) throw new GradleException("AE2 on the main compile classpath: ${ae2*.name}")
     }
 }
 

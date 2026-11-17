@@ -34,7 +34,9 @@ object OptionalMods {
         OptionalMod("forbidden_arcanus", listOf("com/stal111/forbidden_arcanus/"), listOf("clibano")),
         OptionalMod("cobblemon_incubator", listOf("com/nbp/cobblemon_incubator/"), listOf("egg_incubator")),
         OptionalMod("ars_nouveau", listOf("com/hollingsworth/"), listOf("volcanic_sourcelink")),
-        OptionalMod("createaddition", listOf("com/mrh0/createaddition/")),
+        OptionalMod("createaddition", listOf("com/mrh0/createaddition/"), listOf("liquid_burner")),
+        // Its hook finds the crank wheels' block entity type by id, so no source names its classes (CD-KIN-05).
+        OptionalMod("create_connected", listOf("com/hlysine/create_connected/"), listOf("crank_wheel")),
         OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/")),
         OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/")),
         OptionalMod("easymagic", listOf("fuzs/easymagic/"), listOf("muse_table")),
@@ -43,8 +45,8 @@ object OptionalMods {
         OptionalMod("experiencelib", listOf("es/degrassi/experiencelib/"), listOf("collector_xp")),
         OptionalMod("dynamictrees", listOf("com/dtteam/dynamictrees/"), listOf("lumberjack_fell")),
         OptionalMod("apothic_enchanting", listOf("dev/shadowsoffire/"), compat = "apothic"),
-        // CD-CRY-05: only compat/ae2/ may name AE2.
-        OptionalMod("ae2", listOf("appeng/")),
+        // CD-CRY-05: only compat/ae2/ may name AE2, for the AE2 Crank's ICrankable API (R83).
+        OptionalMod("ae2", listOf("appeng/"), listOf("ae2_crank")),
         OptionalMod("farmersdelight", listOf("vectorwing/"), compat = null),
         OptionalMod("aether", listOf("com/aetherteam/"), compat = null),
         OptionalMod("deep_aether", listOf("io/github/razordevs/"), compat = null),
