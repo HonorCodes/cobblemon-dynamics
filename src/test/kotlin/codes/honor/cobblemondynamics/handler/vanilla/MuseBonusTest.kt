@@ -61,12 +61,22 @@ class MuseBonusTest {
         }
         val expected = mapOf(
             "minecraft:enchanting_table" to true,
-            "easymagic:enchanting_table" to false,
             "enchantinginfuser:enchanting_infuser" to false,
             "enchantinginfuser:advanced_enchanting_infuser" to false,
             "create_enchantment_industry:infuser" to false,
         )
         assertEquals(expected, entries)
+    }
+
+    /**
+     * Easy Magic copies each tag of the vanilla table onto `easymagic:enchanting_table` when tags load, and the server stops loading
+     * its data packs when that table already has a tag of its own. So the vanilla table's entry gives Easy Magic's table the tag.
+     */
+    @Test
+    fun `CD-FIX-05 the Muse's tag leaves Easy Magic's table to the copy of the vanilla table's tags`() {
+        val file = File(System.getProperty("cd.projectDir"), "src/main/resources/data/cobblemon_dynamics/tags/block/muse_targets.json")
+        assertFalse("easymagic:enchanting_table" in file.readText(), "a server with Easy Magic does not start")
+        assertTrue("\"minecraft:enchanting_table\"" in file.readText())
     }
 
     /** CEI's Infuser reads only the stats of Apothic Enchanting, which takes the Muse's Quanta, and it exists only with that mod. */
