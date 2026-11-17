@@ -19,10 +19,12 @@ object MekanismCompat {
 
     /**
      * Mekanism's `mekanism:heat_handler`. NeoForge gives back the one capability of a name and a type, so this is Mekanism's own
-     * entry, with no class of `mekanism.common` loaded.
+     * entry, with no class of `mekanism.common` loaded. It loads Mekanism's class on its first read, in a handler: the object's
+     * initializer runs in the mod's constructor, outside the engine's guard.
      */
-    val HEAT: BlockCapability<IHeatHandler, Direction?> =
+    val HEAT: BlockCapability<IHeatHandler, Direction?> by lazy {
         BlockCapability.createSided(ResourceLocation.fromNamespaceAndPath(MOD, "heat_handler"), IHeatHandler::class.java)
+    }
 
     fun register() {
         CompatLines.register(MOD, "fuelwood_heater", AdapterNeeds(blocks = listOf(block("fuelwood_heater"))))
