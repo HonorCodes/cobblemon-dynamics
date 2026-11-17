@@ -240,7 +240,7 @@ condition. A pack changes a default with its own data pack. The versions are tho
 | Mekanism Generators | 10.7.19.85 | `tailwind_mekanism` (leash) | The Wind Generator, by any of its blocks. |
 | Railcraft Reborn | 1.2.17 | `stoker_railcraft` (auto), `stoker_railcraft_boiler` (leash) | The blast furnace from level 50. Each block of a solid-fueled firebox, in a pool of one worker per block. |
 | PneumaticCraft: Repressurized | 8.2.24 | `stoker_pneumaticcraft` (auto), `heater_pneumaticcraft` (leash), `tailwind_pneumaticcraft` (leash) | The Air Compressor and the Advanced Air Compressor. A block that takes heat on a horizontal face. A block that holds air. |
-| Botany Pots, with Bookshelf 21.1.81 and Prickle 21.1.11 | 21.1.44 | `cultivator_botanypots` (auto), `harvester_botanypots` (auto) | Each pot with a crop. The Harvester takes a basic pot only, never a hopper pot. |
+| Botany Pots, with Bookshelf 21.1.81 and Prickle 21.1.11 | 21.1.44 | `cultivator_botanypots` (auto), `harvester_botanypots` (auto) | Each pot with a crop, except a waxed pot, which never grows. The Harvester takes a basic pot only, never a hopper pot. |
 | Iron Furnaces | 4.3.2 | `stoker_ironfurnaces` (auto) | Each furnace that runs as a furnace, at its own speed. |
 | Cooking for Blockheads, with Balm | 21.1.24 | `stoker_cookingforblockheads` (auto) | The Oven of each color. |
 | Forbidden & Arcanus, with Valhelsia Core | 2.6.1 | `stoker_forbidden_arcanus` (auto) | The Clibano, by any of its blocks. |
@@ -492,7 +492,7 @@ payload by direction.
 - **Tested at the 1.2 gate.** The unit tests read each adapter's facts from the pinned jar of its mod. The test pack's
   case `mods` starts one dedicated server with every supported mod that it can fetch from Modrinth or copy from
   `TESTPACK_LOCAL_JARS`. Its compat lines must name every adapter as found, its roles line every role of another mod as
-  active, and its mixins line every compat mixin as applied. The GameTest run `runGameTestServerCompat` tests each
+  active, and its mixins line no compat mixin as skipped. The GameTest run `runGameTestServerCompat` tests each
   adapter that writes another mod's private state, with that mod on the server. CI runs neither.
 - **Not tested automatically:**
   - Play with two or more players. The approver ruled out multiplayer GameTests, so an audit checks the code instead,

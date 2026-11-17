@@ -157,7 +157,8 @@ on the item. The spec sheet area GEN holds the exact rules.
 
 ## Experience Collector
 
-Version 1.2 adds the **Experience Collector**, a block that stores up to 100,000 XP. A
+Version 1.2 adds the **Experience Collector**, a block that stores up to 100,000 XP by
+default (the server config key `experienceCollector.capacity`). A
 Ghost-type **Soul Collector** bound to it with the Work Leash takes the XP orbs of its
 pasture's work area into it, at a pace that grows with level. It never takes an orb within
 8 blocks of a player, so your XP and your Mending repairs stay yours, and it leaves the

@@ -802,7 +802,7 @@ full target, it waits in Standby. An AE2 Energy Acceptor converts the FE at AE2'
 **Role file parameters:** `base_fe_per_tick` (10), `max_fe_per_tick` (5000), `rare_multiplier` (2.0) and
 `rare_labels` (`legendary`, `mythical`).
 
-#### Healing Machine
+#### Generator Healing Machine
 
 **Role id:** `cobblemon_dynamics:generator_healing_machine`. **Assignment:** Auto.
 
