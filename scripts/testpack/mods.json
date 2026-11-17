@@ -386,5 +386,750 @@
       "pick_to_age_1": 10,
       "upper_half": 2
     }
+  },
+  "optional": {
+    "immersiveengineering": {
+      "project": "immersiveengineering",
+      "version": "12.4.2-194",
+      "version_number": "12.4.2-194",
+      "filename": "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+      "url": "https://cdn.modrinth.com/data/tIm2nV03/versions/uNRARSH2/ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+      "sha512": "862523e84747a8b7eaa65f9b3c337fa832ef9efd0545c27f68e350e01f482c7a1242d0e4bdc2caff3d7eb033508b43a353fcd7150c9b544d0c05765ca2a551b3",
+      "license": "Blu's License of Common Sense"
+    },
+    "mekanism": {
+      "project": "mekanism",
+      "version": "10.7.19.85",
+      "version_number": "10.7.19.85",
+      "filename": "Mekanism-1.21.1-10.7.19.85.jar",
+      "url": "https://cdn.modrinth.com/data/Ce6I4WUE/versions/5KzzycBT/Mekanism-1.21.1-10.7.19.85.jar",
+      "sha512": "66745825330a98f3e4a5ea3a44aff8b00870f715c144edc38dd2f61b4240589600b58ae89efac3b54dbb5aa430b1059dac1a28fd71cac5cc9002bbeb5ba3f22b",
+      "license": "MIT"
+    },
+    "mekanismgenerators": {
+      "project": "mekanism-generators",
+      "version": "10.7.19.85",
+      "version_number": "10.7.19.85",
+      "filename": "MekanismGenerators-1.21.1-10.7.19.85.jar",
+      "url": "https://cdn.modrinth.com/data/OFVYKsAk/versions/a6gl7srE/MekanismGenerators-1.21.1-10.7.19.85.jar",
+      "sha512": "6c3d5b7ea2f67f43c3d169c97de2855a7085f38019cf426e015ccc8ca9bc4f66e96b1cdf4a9afdc92bef7b2e236f16c81415ed5e48736805d5961d29525316d6",
+      "license": "MIT"
+    },
+    "railcraft": {
+      "project": "railcraft-reborn",
+      "version": "1.2.17",
+      "version_number": "1.2.17",
+      "filename": "railcraft-reborn-1.21.1-1.2.17.jar",
+      "url": "https://cdn.modrinth.com/data/rO6kKst6/versions/KLkvVyeW/railcraft-reborn-1.21.1-1.2.17.jar",
+      "sha512": "c3dbe86e3c61495cd2396c4080a1aefda3334469b0a783ddcfabe7c902b48222add35f870b294caebc8c91f0cc62a9eb2d39465f5aa803b1712425f6f15a24e7",
+      "license": "Railcraft Reborn License"
+    },
+    "botanypots": {
+      "project": "botany-pots",
+      "version": "21.1.44",
+      "version_number": "21.1.44",
+      "filename": "botanypots-neoforge-1.21.1-21.1.44.jar",
+      "url": "https://cdn.modrinth.com/data/U6BUTZ7K/versions/RjHfHgSn/botanypots-neoforge-1.21.1-21.1.44.jar",
+      "sha512": "e8a3b2cdad657a29bf12af78bd028a44163551c0c630efa710a671b587312a294024c0aa5711b0fb89612cab0f8671dfddb59096a890fafcc2c561c2dca2b37d",
+      "license": "LGPL-2.1"
+    },
+    "create_connected": {
+      "source": "local",
+      "version": "1.3.3",
+      "filename": "create_connected-1.3.3-mc1.21.1.jar",
+      "sha512": "bd5554afb37bc32d633ddcc9dac791a040021fc65004dc0dce1cb9247034525a28eb2d4cdccb1189be1c7562f29f2c5571ba5b757236b4253fae250f3067e275",
+      "license": "AGPL-3.0"
+    },
+    "extendedae": {
+      "source": "local",
+      "version": "2.2.43",
+      "filename": "ExtendedAE-1.21-2.2.43-neoforge.jar",
+      "sha512": "78b0fdbb93a194df6e5b600d226640ff7af94dd417e3be08c4014c4cdd8d3afd70df33e3b6b671ce5fb855def8f2e0d9550582c8eee7a29790aa198128bfe62b",
+      "license": "LGPL-3.0"
+    },
+    "createaddition": {
+      "project": "createaddition",
+      "version": "1.7.2",
+      "version_number": "neoforge-1.21.1-1.7.2",
+      "filename": "createaddition-1.7.2.jar",
+      "url": "https://cdn.modrinth.com/data/kU1G12Nn/versions/hsjVajlP/createaddition-1.7.2.jar",
+      "sha512": "f3a3ddb5600189da818fc71ea659d17f0d1097c5ad664433eed400b3ecc67d0f9305b348e5b7c5fd872d7a6e51330c7158b3181e77192c576c205a74dd0298ff",
+      "license": "MIT"
+    },
+    "cobblemon_incubator": {
+      "project": "cobblemon-incubator",
+      "version": "1.1.1",
+      "version_number": "1.1.1",
+      "filename": "cobblemon_incubator-neoforge-1.1.1.jar",
+      "url": "https://cdn.modrinth.com/data/iCjYB9NB/versions/NvYs4wKV/cobblemon_incubator-neoforge-1.1.1.jar",
+      "sha512": "af5bf6c10eb988cd1e7bf0168fcba79456bdb11602303c594635bf7102162eec99d5293d3f2b1c61bc93a4c02273a3263eb95de0ca1a7edcb19a5aac5bbdd2ac",
+      "license": "MIT"
+    },
+    "ars_nouveau": {
+      "project": "ars-nouveau",
+      "version": "5.13.5",
+      "version_number": "5.13.5",
+      "filename": "ars_nouveau-1.21.1-5.13.5.jar",
+      "url": "https://cdn.modrinth.com/data/TKB6INcv/versions/ALmdjtiq/ars_nouveau-1.21.1-5.13.5.jar",
+      "sha512": "be9cc13c9bab1808605ef5bb2b8a32a8a3bba169094e364d8aad0c5fafeb8a83ecabbcb0a0dba2b3806e0d3090172c1cf1d89792d814ac2fe9d07018d4445c49",
+      "license": "GPL (jar), All Rights Reserved (Modrinth)"
+    },
+    "ars_elemental": {
+      "source": "local",
+      "version": "0.7.11.0",
+      "filename": "ars_elemental-1.21.1-0.7.11.0.jar",
+      "sha512": "a1ae49322cc2119a1e76772e571d2fbbe36f19508e7ee304a88c1c40d9253cf714acf42c0543c937c2cfa3d17edc44d38eafdebaf77e50cfba18fcb45398b3e3",
+      "license": "LGPL-3.0"
+    },
+    "irons_spellbooks": {
+      "source": "local",
+      "version": "3.16.3",
+      "filename": "irons_spellbooks-1.21.1-3.16.3.jar",
+      "sha512": "2fe112061ecbdf3fc85400404218dbca04fe14e775eb55c626c57274001253b54a2515f5dd4bd7f5672547afe850bc1fbd062b113bd3c96c3867af068da74a97",
+      "license": "All Rights Reserved"
+    },
+    "create_enchantment_industry": {
+      "project": "create-enchantment-industry",
+      "version": "2.5.4b",
+      "version_number": "2.5.4b",
+      "filename": "create-enchantment-industry-2.5.4b.jar",
+      "url": "https://cdn.modrinth.com/data/JWGBpFUP/versions/L6VSDdC4/create-enchantment-industry-2.5.4b.jar",
+      "sha512": "c3d8511f5eec5a4ec7240f69cf6952038d72d4e32b48a0ace7b10d729a4073c1181e6dbcb2f1a1841480e5fc7bc7da3833b8ed4793dd0c3cc057eb8ac488eb3d",
+      "license": "LGPL-3.0-or-later"
+    },
+    "apothic_enchanting": {
+      "project": "apothic-enchanting",
+      "version": "1.6.4",
+      "version_number": "1.21.1-1.6.4",
+      "filename": "ApothicEnchanting-1.21.1-1.6.4.jar",
+      "url": "https://cdn.modrinth.com/data/pL8MtgqY/versions/JAQJkLJ1/ApothicEnchanting-1.21.1-1.6.4.jar",
+      "sha512": "b560ed61810030472c42fa39e6199b1db07c19baba8f78d98b44ab3e1d00a1bebff5f69942bd076fea9754f63940df920cfb19906073b77bcc459bb8d88575de",
+      "license": "MIT"
+    },
+    "experiencelib": {
+      "project": "experiencelib",
+      "version": "1.2.1",
+      "version_number": "1.21.1-1.2.1",
+      "filename": "experiencelib-1.21.1-1.2.1.jar",
+      "url": "https://cdn.modrinth.com/data/SglcIh0L/versions/xrg5MjEA/experiencelib-1.21.1-1.2.1.jar",
+      "sha512": "4e9757f770fda51495e3f63a1d84cf470994efa5482b32d9807d3903a6f3f07d01019561bdac54706d07722e985911307f357e7c5621c5e038786e7023e29e04",
+      "license": "LGPL-3.0 (jar), GPL-3.0 (Modrinth)"
+    },
+    "appex": {
+      "project": "applied-experienced",
+      "version": "1.4.0-build-15",
+      "version_number": "1.21.1-1.4.0-build-15",
+      "filename": "applied-experienced-1.21.1-1.4.0-build-15.jar",
+      "url": "https://cdn.modrinth.com/data/yKwUnZCV/versions/19kiWz3o/applied-experienced-1.21.1-1.4.0-build-15.jar",
+      "sha512": "d5b9b05b3988c08c4dec05d916cfad5e3a4b5d46e984d659ed3ec3964caadc39e97ab234d6102dad2f56f1cfeb3ae1191d3f751b1f1cb7066c36ea97e8262895",
+      "license": "LGPL-3.0 (jar), GPL-3.0 (Modrinth)"
+    },
+    "sophisticatedcore": {
+      "source": "local",
+      "version": "1.5.38.2484",
+      "filename": "sophisticatedcore-1.21.1-1.5.38.2484.jar",
+      "sha512": "7cced68bf66330aaffb2026183843dea411bb7f7edc98ee6458c5c65f7641a9e4e48639a49549ff2a03c3b24dff75566a248fd08003e9adb964e1f311a1de4ec",
+      "license": "All Rights Reserved"
+    },
+    "aether": {
+      "source": "local",
+      "version": "1.5.10",
+      "filename": "aether-1.21.1-1.5.10-neoforge.jar",
+      "sha512": "6265af9d4bb6595db11909bbe0c8a17898f6630e1ef98b1930d3d7d61a90921fa76f26422535242f284155c6301559312933453d3866b2f480f0110a8a1d07b1",
+      "license": "LGPL-3.0 code, All Rights Reserved assets"
+    },
+    "deep_aether": {
+      "project": "deep-aether",
+      "version": "1.1.5.1",
+      "version_number": "1.21.1-1.1.5.1",
+      "filename": "deep_aether-1.21.1-1.1.5.1.jar",
+      "url": "https://cdn.modrinth.com/data/gcHIih5B/versions/MSW5emg8/deep_aether-1.21.1-1.1.5.1.jar",
+      "sha512": "f848fee0a8a73d0696bf721753af1b752b067791900a19a949ce9faa0adcf1f03b29f44e5ea945404c4505891b14dadab89009253cd31cc85c241c07fe9c5684",
+      "license": "GPL-3.0 code, All Rights Reserved assets (jar); LGPL-3.0 (Modrinth)"
+    },
+    "twilightforest": {
+      "source": "local",
+      "version": "4.8.3345",
+      "filename": "twilightforest-1.21.1-4.8.3345-universal.jar",
+      "sha512": "371dd7079b174091363327df70ed64c84e8e36fcab49b4c33bbcbe39650f6bccc12d3e14818cdfbbaa519a999f64a0a92c03ec981f55a315b044dc7cb5c27ef4",
+      "license": "LGPL-2.1"
+    },
+    "biomeswevegone": {
+      "project": "oh-the-biomes-weve-gone",
+      "version": "2.6.3",
+      "version_number": "2.6.3-NeoForge",
+      "filename": "Oh-The-Biomes-Weve-Gone-NeoForge-2.6.3.jar",
+      "url": "https://cdn.modrinth.com/data/NTi7d3Xc/versions/gAxM0bHs/Oh-The-Biomes-Weve-Gone-NeoForge-2.6.3.jar",
+      "sha512": "6b6ec749feb595e8d01b2328a0f630a1e4280bdb804dc1e3bcb29c2ca3fd60911eb27a64cdda7ee0a4719192f154677f07bd261c605791c759ffb73799eeef02",
+      "license": "All Rights Reserved"
+    },
+    "undergarden": {
+      "source": "local",
+      "version": "0.9.7",
+      "filename": "The_Undergarden-1.21.1-0.9.7.jar",
+      "sha512": "ade00cecdf37f6af930882bf3bd5be5c12e2d8f9c991c9e4ef1afaf047306e68a5a66ca33c7535ccee9f719bfecb33b9a019cf7bf4b9a3ca352934b5ba8b2366",
+      "license": "MIT (jar), All Rights Reserved (Modrinth)"
+    },
+    "unusualend": {
+      "project": "unusual_end",
+      "version": "2.3.1b",
+      "version_number": "2.3.1b-neo",
+      "filename": "unusualend-2.3.1b.jar",
+      "url": "https://cdn.modrinth.com/data/WKsNOKFh/versions/oV8w25It/unusualend-2.3.1b.jar",
+      "sha512": "e77dbf8d8941239e3babc97f9ea8588dd7312c2b4dc98737d37a8f7dc0f4887f9826dfe8d41b891cc1fc390aed5fdf6150ce1d43959afb3b35feec3af1a13071",
+      "license": "All Rights Reserved (jar), GPL-3.0-or-later (Modrinth)"
+    },
+    "mega_showdown": {
+      "project": "cobblemon-mega-showdown",
+      "version": "1.3.3",
+      "version_number": "1.3.3+1.8.4+1.21.1-release",
+      "filename": "mega_showdown-neoforge-1.3.3+1.8.4+1.21.1-release.jar",
+      "url": "https://cdn.modrinth.com/data/SszvX85I/versions/TrpwiTL5/mega_showdown-neoforge-1.3.3%2B1.8.4%2B1.21.1-release.jar",
+      "sha512": "880275d4a42ebd7986fc97a927b5117615473c93ab88e0f57ecede95e66f41a6ea3e4bbaf4a0dadd6fd076f00550cf66c3e6611630a1faabd556a818676beafc",
+      "license": "Mega Showdown License v2.1"
+    },
+    "allthemodium": {
+      "source": "local",
+      "version": "3.2.1",
+      "filename": "allthemodium-3.2.1_mc_1.21.1.jar",
+      "sha512": "836967c2e535a27d35bd4db035d5006b122823a70caafe4a5cc1fc87b4b4e1082a30f6dc0794aac2f8be328358f2aa7a66837b15f5fc2acd40de62732f7a4a88",
+      "license": "All Rights Reserved"
+    },
+    "deeperdarker": {
+      "project": "deeperdarker",
+      "version": "1.4.1",
+      "version_number": "1.4.1-neoforge-1.21.1",
+      "filename": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "url": "https://cdn.modrinth.com/data/fnAffV0n/versions/TuD0Zvi3/deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "sha512": "38d8d87878f39a063feb029db17702bedadf7554233ae56db6018c21225b6dff4d4cc31f4b0995254fd488e2a687f3b15bf9647c59dd42b9032791d34316ed0c",
+      "license": "GPL-3.0 (jar), AGPL-3.0 (Modrinth)"
+    },
+    "yungscavebiomes": {
+      "project": "yungs-cave-biomes",
+      "version": "3.1.1",
+      "version_number": "1.21.1-NeoForge-3.1.1",
+      "filename": "YungsCaveBiomes-1.21.1-NeoForge-3.1.1.jar",
+      "url": "https://cdn.modrinth.com/data/cs7iGVq1/versions/HYGqXWqQ/YungsCaveBiomes-1.21.1-NeoForge-3.1.1.jar",
+      "sha512": "9e88b5109e06c791f27c23df16ebd2c535b5b27cf9b748ee6a439dccf3e560d32110b81ace5ea7dcca2992394b439223c20e4f2688e80e263efa103e2b154024",
+      "license": "All Rights Reserved"
+    },
+    "handcrafted": {
+      "project": "handcrafted",
+      "version": "4.0.3",
+      "version_number": "4.0.3",
+      "filename": "handcrafted-neoforge-1.21.1-4.0.3.jar",
+      "url": "https://cdn.modrinth.com/data/pJmCFF0p/versions/JfqnpP2Z/handcrafted-neoforge-1.21.1-4.0.3.jar",
+      "sha512": "4ff5fb2aa9582b886d03f647fe9b8c12a828d29a1787e9c9b463be18192ea798e6a4ac83479623042791bce0bacbf6e3e2c2e9ef086640aeeb6970d3404e7ee4",
+      "license": "Terrarium Licence"
+    },
+    "cobblefurnies": {
+      "project": "cobblefurnies",
+      "version": "1.2",
+      "version_number": "1.2",
+      "filename": "CobbleFurnies-neoforge-1.2.jar",
+      "url": "https://cdn.modrinth.com/data/AXY1OO9m/versions/Ynk3uYUi/CobbleFurnies-neoforge-1.2.jar",
+      "sha512": "ada48117ce384c226a20bb261331fdca32d59f2da6466caa4f7fed8c989ea26c7a548e8227be8c130d3462d3bc31c901962889fd61c8676e016ae104ecdaf934",
+      "license": "MIT"
+    },
+    "valhelsia_furniture": {
+      "project": "valhelsia-furniture",
+      "version": "1.1.1",
+      "version_number": "1.1.1",
+      "filename": "valhelsia_furniture-neoforge-1.21.1-1.1.1.jar",
+      "url": "https://cdn.modrinth.com/data/qmCh2PxS/versions/SZm6bDvf/valhelsia_furniture-neoforge-1.21.1-1.1.1.jar",
+      "sha512": "89825870e1f598346797d8f54ae6f4150cd38c89f34c29fd70c6f518bfaf873185eefaaeeefe0e1f39084ec89732c2a815b8d183d71280c132b6b1cd906284a5",
+      "license": "All Rights Reserved"
+    },
+    "betterarcheology": {
+      "project": "better-archeology",
+      "version": "1.3.9",
+      "version_number": "1.21.1-1.3.9",
+      "filename": "betterarcheology-neoforge-1.21.1-1.3.9.jar",
+      "url": "https://cdn.modrinth.com/data/zCh7omyG/versions/zTMR6t3J/betterarcheology-neoforge-1.21.1-1.3.9.jar",
+      "sha512": "c539aac7eee3ec51d55e9c053d4ad29ee467c9ef6d1206a33a15b7ad5c7937f684453f856ed304b657e6baa8bcc63c6fd56090c46d2d6ff1dcefd0f854a943c2",
+      "license": "MIT"
+    },
+    "farmersdelight": {
+      "project": "farmers-delight",
+      "version": "1.3.4",
+      "version_number": "1.21.1-1.3.4",
+      "filename": "FarmersDelight-1.21.1-1.3.4.jar",
+      "url": "https://cdn.modrinth.com/data/R2OftAxM/versions/XTVZDOol/FarmersDelight-1.21.1-1.3.4.jar",
+      "sha512": "1f6f8796469f747cff36f477b4f589a3d69613882399f9ee7f86db36c7bca9aa4828731f43db15dc6c7f5a4c1bbe3d4092a232e8cef010b09cec0581848fda90",
+      "license": "MIT"
+    },
+    "create_central_kitchen": {
+      "project": "create-central-kitchen",
+      "version": "2.6.2b",
+      "version_number": "2.6.2b",
+      "filename": "create-central-kitchen-2.6.2b.jar",
+      "url": "https://cdn.modrinth.com/data/btq68HMO/versions/qZxkZR8W/create-central-kitchen-2.6.2b.jar",
+      "sha512": "d4d0a383b5288a7272392ae475d67bc947cd019bc627612bd01992f5ecd702bda078fe75302b83c9619eb26a754195e9ef5f2212cb200eef802bb7d49c255358",
+      "license": "LGPL-3.0-or-later"
+    },
+    "ironfurnaces": {
+      "project": "iron-furnaces",
+      "version": "4.3.2",
+      "version_number": "4.3.2",
+      "filename": "ironfurnaces-neoforge-1.21.1-4.3.2.jar",
+      "url": "https://cdn.modrinth.com/data/yPlaLxD1/versions/WZ25JeYB/ironfurnaces-neoforge-1.21.1-4.3.2.jar",
+      "sha512": "88edbca1bd136dddba6da253973800771d5ca3c5632429c4d502326d640da2868f47a41f752492b4bbaf15357652a31c944af23f398b5d480a2e5318860fe7ea",
+      "license": "Apache-2.0"
+    },
+    "pneumaticcraft": {
+      "project": "pneumaticcraft-repressurized",
+      "version": "8.2.24",
+      "version_number": "8.2.24",
+      "filename": "pneumaticcraft-repressurized-8.2.24+mc1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/ncAcdgk7/versions/C6xCLJPt/pneumaticcraft-repressurized-8.2.24%2Bmc1.21.1.jar",
+      "sha512": "e5610fba9678de94866ca7d934d748c4a7bdca1f199e4cdd6b983947014a9cadeaa837db16491e5496844041b0b2cadbf68f48c37e5cf25d09f6262014328f45",
+      "license": "GPL-3.0 (jar), LGPL-2.1 (Modrinth)"
+    },
+    "cookingforblockheads": {
+      "project": "cooking-for-blockheads",
+      "version": "21.1.24",
+      "version_number": "21.1.24+neoforge-1.21.1",
+      "filename": "cookingforblockheads-neoforge-1.21.1-21.1.24.jar",
+      "url": "https://cdn.modrinth.com/data/vJnhuDde/versions/MQCIy6VF/cookingforblockheads-neoforge-1.21.1-21.1.24.jar",
+      "sha512": "bec8bb71b9540fd33bd4e5d1e5f151abc03c4fb97f1477f690d222c9710eabed876e5b2380a37bfdbc24649e1f66d8c963f13e6e738a336e9a0fdc88012d8447",
+      "license": "All Rights Reserved"
+    },
+    "forbidden_arcanus": {
+      "project": "forbidden-arcanus",
+      "version": "2.6.1",
+      "version_number": "2.6.1",
+      "filename": "forbidden_arcanus-2.6.1.jar",
+      "url": "https://cdn.modrinth.com/data/MdlnLS7Q/versions/fNjxgZPH/forbidden_arcanus-2.6.1.jar",
+      "sha512": "012a1d5c779a0173a5c76ea79f429486753f040dfe59739bc45fd0817182d705a80110032f024757f0ac51a9bd10c546a11a730899aa9adbf7251a5040472724",
+      "license": "All Rights Reserved"
+    },
+    "easymagic": {
+      "project": "easy-magic",
+      "version": "21.1.4",
+      "version_number": "v21.1.4-1.21.1-NeoForge",
+      "filename": "EasyMagic-v21.1.4-1.21.1-NeoForge.jar",
+      "url": "https://cdn.modrinth.com/data/9hx3AbJM/versions/MxbfrOEv/EasyMagic-v21.1.4-1.21.1-NeoForge.jar",
+      "sha512": "30c7383c0f3b6d767652fa58c3b4e4ee7169c28f1e7653493db1cd62289447cd0698967453c4fa09dc1327b322e7c7ad8476d24a557ac0cb521d08e8ab5fc8da",
+      "license": "MPL-2.0"
+    },
+    "enchantinginfuser": {
+      "project": "enchanting-infuser",
+      "version": "21.1.4",
+      "version_number": "v21.1.4-1.21.1-NeoForge",
+      "filename": "EnchantingInfuser-v21.1.4-1.21.1-NeoForge.jar",
+      "url": "https://cdn.modrinth.com/data/ePv85y52/versions/AoOYPAOZ/EnchantingInfuser-v21.1.4-1.21.1-NeoForge.jar",
+      "sha512": "2f99f87e8ebfbbb19aeb3e92844e24cb0d6f88c5aadc146779963a1a3276f1212debfd7461c740f313991ee2fcfc5046f1199fc7611976d618c5b204ce60e295",
+      "license": "MPL-2.0"
+    },
+    "quark": {
+      "project": "quark",
+      "version": "4.1-488",
+      "version_number": "4.1-488",
+      "filename": "Quark-4.1-488.jar",
+      "url": "https://cdn.modrinth.com/data/qnQsVE2z/versions/pMjjsBGF/Quark-4.1-488.jar",
+      "sha512": "06f68ae18faa06497bf2495ef8c34b6f34cccd304939736e009aec024879b2998234bc4fedd7abd9125112e7c0afeb5fd7ddbcc54b6034bd4c95b479ed8880f4",
+      "license": "CC BY-NC-SA 3.0"
+    },
+    "geore": {
+      "project": "geore",
+      "version": "6.2.4",
+      "version_number": "6.2.4",
+      "filename": "GeOre-1.21.1-6.2.4.jar",
+      "url": "https://cdn.modrinth.com/data/Xw6zG9hl/versions/73hXLxdm/GeOre-1.21.1-6.2.4.jar",
+      "sha512": "6c1ea5b5899a37427cda563cd94f8340b948e584852b57a1ac8895236a06dd799ed6df6ac3f93e17fcc5b414e7c1cb0362b94e1120f63ece71bf23d8a53027cd",
+      "license": "MIT"
+    },
+    "dynamictrees": {
+      "project": "dynamictrees",
+      "version": "1.7.2",
+      "version_number": "1.7.2",
+      "filename": "dynamictrees-neoforge-1.21.1-1.7.2.jar",
+      "url": "https://cdn.modrinth.com/data/vdjF5PL5/versions/G4uJ0UA0/dynamictrees-neoforge-1.21.1-1.7.2.jar",
+      "sha512": "1faa5f292078fbae45fd8ee9873d22e13522a883f6650e71d1f4755ccfe5c363f606e0d4dc422384553483043883002136921ce5efb544c70d412affb2da076f",
+      "license": "MIT"
+    },
+    "createdieselgenerators": {
+      "project": "create-diesel-generators",
+      "version": "1.3.15",
+      "version_number": "1.21.1-1.3.15",
+      "filename": "createdieselgenerators-1.21.1-1.3.15.jar",
+      "url": "https://cdn.modrinth.com/data/ZM3tt6p1/versions/UoPH8lO1/createdieselgenerators-1.21.1-1.3.15.jar",
+      "sha512": "1507ebcd07d3185aac3ae6ce768b4d6bab16cb6f39776d25a850c8133a4dc5826b8ddbeca112d76afc64deaa37ec177cac4237c6c34621c4b65e73d83f8ab43f",
+      "license": "MIT"
+    },
+    "create_new_age": {
+      "project": "create-new-age",
+      "version": "1.2.0",
+      "version_number": "1.2.0+mc1.21.1",
+      "filename": "create-new-age-1.2.0+neoforge-mc1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/FTeXqI9v/versions/IwtuwMZy/create-new-age-1.2.0%2Bneoforge-mc1.21.1.jar",
+      "sha512": "5075c6482b800af7044b594ad694855e7d56f386cb0354967eafe99d77e84b4e26ee7f880d287672d24d84ea8086fd074b7695e46632f32f215b31ce859ada72",
+      "license": "BSD-3-Clause"
+    },
+    "mysticalagriculture": {
+      "project": "mystical-agriculture",
+      "version": "8.0.29",
+      "version_number": "8.0.29",
+      "filename": "MysticalAgriculture-1.21.1-8.0.29.jar",
+      "url": "https://cdn.modrinth.com/data/C95ReXie/versions/4Wc9oVPI/MysticalAgriculture-1.21.1-8.0.29.jar",
+      "sha512": "022797a3b0dd2fd88d9ce7a16a1204ef5ae6412127807e414fa760e3b6711924a18ce596142b3819272af6fae84e810d4452c449e86f4e1ea4c6da86ca279d02",
+      "license": "MIT"
+    },
+    "actuallyadditions": {
+      "project": "actually-additions",
+      "version": "1.3.26",
+      "version_number": "1.3.26",
+      "filename": "actuallyadditions-1.3.26+mc1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/4K7Q3nqd/versions/iNeJmgFj/actuallyadditions-1.3.26%2Bmc1.21.1.jar",
+      "sha512": "69c9e919fbe3a4c3478a01d2693a944c72e217737c37d6bb94086e07a962404a089cdccd38372df28dc3726df298f00a5b22a433b1c776b04c979a8a7d12c3c6",
+      "license": "MIT"
+    },
+    "kotlinforforge": {
+      "project": "kotlin-for-forge",
+      "version": "5.13.0",
+      "version_number": "5.13.0",
+      "filename": "kotlinforforge-5.13.0-all.jar",
+      "url": "https://cdn.modrinth.com/data/ordsPcFz/versions/9ZlVvei8/kotlinforforge-5.13.0-all.jar",
+      "sha512": "64a26f73e3299ad09b350d3421e3f97a5ccd158d1936fb50fc57f3c88bf6fd33814568bf43a0886f79ada4be65d65d232d9e20a901833150ec5b89a01c46d459",
+      "license": "LGPL-2.1",
+      "library_of": [
+        "cobblemon_incubator"
+      ]
+    },
+    "bookshelf": {
+      "project": "bookshelf-lib",
+      "version": "21.1.81",
+      "version_number": "21.1.81",
+      "filename": "bookshelf-neoforge-1.21.1-21.1.81.jar",
+      "url": "https://cdn.modrinth.com/data/uy4Cnpcm/versions/1sdJl7J1/bookshelf-neoforge-1.21.1-21.1.81.jar",
+      "sha512": "78d4577a8e8fbb241216968475dd73f5b9e5efeb7da802b18a4e6c290e49af6cb4a5676e9855d0d8ff3613f967812e4bd363bbb9196c17c954d19454f84b2214",
+      "license": "LGPL-2.1",
+      "library_of": [
+        "botanypots"
+      ]
+    },
+    "prickle": {
+      "project": "prickle",
+      "version": "21.1.11",
+      "version_number": "21.1.11",
+      "filename": "prickle-neoforge-1.21.1-21.1.11.jar",
+      "url": "https://cdn.modrinth.com/data/aaRl8GiW/versions/EE1FHDyD/prickle-neoforge-1.21.1-21.1.11.jar",
+      "sha512": "154d42795ccf1f3e07714775cdb82fd5db17574319286ced13d86b0456b64e4cf5bb89ffbcbfcefce67b73ed0b83e4e2944e493d79d9a385ff9de23006ee7bf5",
+      "license": "LGPL-2.1",
+      "library_of": [
+        "botanypots"
+      ]
+    },
+    "cobbreeding": {
+      "project": "cobbreeding",
+      "version": "2.4.1",
+      "version_number": "2.4.1",
+      "filename": "Cobbreeding-neoforge-2.4.1.jar",
+      "url": "https://cdn.modrinth.com/data/ItmVb4zY/versions/jzxflH2c/Cobbreeding-neoforge-2.4.1.jar",
+      "sha512": "1c986d7d7ce331bd9a1d4a3f4b1da6cee8e420e294189c4ad876a38884f4229b2a3dd8b3a4a72e9873fa50ac1980f60255d78936e15c0bb833d3177a431b749c",
+      "license": "MIT (jar), MIT with no-AI and no-reupload terms (Modrinth)",
+      "library_of": [
+        "cobblemon_incubator"
+      ]
+    },
+    "architectury": {
+      "project": "architectury-api",
+      "version": "13.0.12",
+      "version_number": "13.0.12+neoforge",
+      "filename": "architectury-13.0.12-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/lhGA9TYQ/versions/xGfBrBzj/architectury-13.0.12-neoforge.jar",
+      "sha512": "286127f99708d1e2723e1dcc9104ebcab258f04db92040fc2394e5b7faf36d731ef3b84e592d94ec0d0f7f899eca84f806b1e012223da4894d4d8af5030ffe0f",
+      "license": "LGPL-3.0",
+      "library_of": [
+        "cobblemon_incubator",
+        "mega_showdown",
+        "cobblefurnies",
+        "betterarcheology"
+      ]
+    },
+    "curios": {
+      "project": "curios",
+      "version": "9.5.1",
+      "version_number": "9.5.1+1.21.1",
+      "filename": "curios-neoforge-9.5.1+1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/vvuO3ImH/versions/yohfFbgD/curios-neoforge-9.5.1%2B1.21.1.jar",
+      "sha512": "5981a267686b744e7e3c227f78cbcd5267c14ac6979a28e814695f4589273998563147207fef4a5cdb7cdbdc39797cd95d9e4abadb55869f18e02a38d0654ae5",
+      "license": "LGPL-3.0-or-later",
+      "library_of": [
+        "ars_nouveau",
+        "irons_spellbooks"
+      ]
+    },
+    "geckolib": {
+      "project": "geckolib",
+      "version": "4.9.3",
+      "version_number": "4.9.3",
+      "filename": "geckolib-neoforge-1.21.1-4.9.3.jar",
+      "url": "https://cdn.modrinth.com/data/8BmcQJ2H/versions/Grwn5rUB/geckolib-neoforge-1.21.1-4.9.3.jar",
+      "sha512": "8dfa5f8c57224a5e34e5098367ea9819ca6dc9c11357cd3062c16da3455c8bd1a483098af7383debc4b9ce8e4d7ab3fdc799b415644eb829da83eb72a7335dfd",
+      "license": "MIT",
+      "library_of": [
+        "ars_nouveau",
+        "irons_spellbooks",
+        "biomeswevegone",
+        "allthemodium",
+        "yungscavebiomes"
+      ]
+    },
+    "playeranimator": {
+      "project": "playeranimator",
+      "version": "2.0.4",
+      "version_number": "2.0.4+1.21.1-forge",
+      "filename": "player-animation-lib-forge-2.0.4+1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/gedNE4y2/versions/HJZB6bmA/player-animation-lib-forge-2.0.4%2B1.21.1.jar",
+      "sha512": "fc00450fb6c95ec1779021bdc726122dacb5915c6baddaacc981cd221b01b8db35f2a0dfde5d6fa6766d877266dc82f58854f571ea53cc5c4d468b80e1548a5f",
+      "license": "MIT",
+      "library_of": [
+        "irons_spellbooks"
+      ]
+    },
+    "irons_lib": {
+      "project": "irons-lib",
+      "version": "2.3.0",
+      "version_number": "1.21.1-2.3.0",
+      "filename": "irons_lib-1.21.1-2.3.0.jar",
+      "url": "https://cdn.modrinth.com/data/9nfaJPtX/versions/dgH7P81J/irons_lib-1.21.1-2.3.0.jar",
+      "sha512": "74c609a583af1547c36ad39a7f89074a221f106fad5a246810d4921f91d0fc2df5660ef75f47f33e5f546cc51147d78ecbcff883da4a53f24002311697d0a99b",
+      "license": "All Rights Reserved",
+      "library_of": [
+        "irons_spellbooks"
+      ]
+    },
+    "create_dragons_plus": {
+      "project": "create-dragons-plus",
+      "version": "1.11.9",
+      "version_number": "1.11.9",
+      "filename": "CreateDragonsPlus-1.11.9.jar",
+      "url": "https://cdn.modrinth.com/data/dzb1a5WV/versions/b0u9vk8C/CreateDragonsPlus-1.11.9.jar",
+      "sha512": "43299e49afe7132515aa8ad545b8c9566d90f12cfb39456b3d6e1ebc8e03f05787fbc420e7cc9495df4d6b585d13e7a4c4c7385f82f20aeb829c9491b725af53",
+      "license": "LGPL-3.0-or-later",
+      "library_of": [
+        "create_enchantment_industry",
+        "create_central_kitchen"
+      ]
+    },
+    "placebo": {
+      "project": "placebo",
+      "version": "9.9.4",
+      "version_number": "1.21.1-9.9.4",
+      "filename": "Placebo-1.21.1-9.9.4.jar",
+      "url": "https://cdn.modrinth.com/data/tCkE8p2N/versions/B5zbSVlT/Placebo-1.21.1-9.9.4.jar",
+      "sha512": "4f3a9c5974132f3638c262c56b0c2886df2bc58027c961aa11d06d0ae2e608b63f24f949b2f8c240989e2a1bfe303fd237c5f2d49269453ad6c2ff1f85f2c648",
+      "license": "MIT",
+      "library_of": [
+        "apothic_enchanting"
+      ]
+    },
+    "apothic_attributes": {
+      "project": "apothic-attributes",
+      "version": "2.11.0",
+      "version_number": "1.21.1-2.11.0",
+      "filename": "ApothicAttributes-1.21.1-2.11.0.jar",
+      "url": "https://cdn.modrinth.com/data/DGaH8Rh0/versions/64fZbLnj/ApothicAttributes-1.21.1-2.11.0.jar",
+      "sha512": "568580e68016161151fc0254fb0da949b42cf285fa2bf7c3aec1cd320405c430483e9eb990aaddef537bfac4aa4beb21db82fbff9249131e05b15063b6839611",
+      "license": "MIT",
+      "library_of": [
+        "apothic_enchanting"
+      ]
+    },
+    "glodium": {
+      "project": "glodium",
+      "version": "2.2",
+      "version_number": "1.21-2.2-neoforge",
+      "filename": "Glodium-1.21-2.2-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/UhW5uCKw/versions/pfbmdJ3b/Glodium-1.21-2.2-neoforge.jar",
+      "sha512": "56a387a1bdaf0146c9a7e14de0aca8b6f53f25d3ba9d46255f142043387282ed9e4fa0011d309e32d9ffe5362b129c07e301226dd4ac11eda9a4f42f27c0b5d1",
+      "license": "MIT",
+      "library_of": [
+        "extendedae"
+      ]
+    },
+    "ae2wtlib": {
+      "project": "applied-energistics-2-wireless-terminals",
+      "version": "19.5.1",
+      "version_number": "19.5.1",
+      "filename": "ae2wtlib-19.5.1.jar",
+      "url": "https://cdn.modrinth.com/data/pNabrMMw/versions/CxSEpEnO/ae2wtlib-19.5.1.jar",
+      "sha512": "0659d755c6ae91551d30c20b948d5bde0a39b2ae9825b1a4e132f0bbd10e032f18d82b6847261360589f36980ed3597ef6c6947b680523a1de767a9b7953682e",
+      "license": "MIT",
+      "library_of": [
+        "appex"
+      ]
+    },
+    "blueprint": {
+      "project": "blueprint",
+      "version": "8.2.0",
+      "version_number": "8.2.0",
+      "filename": "blueprint-1.21.1-8.2.0.jar",
+      "url": "https://cdn.modrinth.com/data/VsM5EDoI/versions/FHOjk8Ez/blueprint-1.21.1-8.2.0.jar",
+      "sha512": "0b523c2d53a56676286ddd13adbe65b1a24f5af6040dbec6af9a38cc535b7ba2531a1879afb7a496c407683eacbfbed22701053861a5fd12271b08ac93239db4",
+      "license": "Abnormals License",
+      "library_of": [
+        "unusualend"
+      ]
+    },
+    "accessories": {
+      "project": "accessories",
+      "version": "1.1.0-beta.54",
+      "version_number": "1.1.0-beta.54+1.21.1",
+      "filename": "accessories-neoforge-1.1.0-beta.54+1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/jtmvUHXj/versions/dy9BbDEy/accessories-neoforge-1.1.0-beta.54%2B1.21.1.jar",
+      "sha512": "2ebf453d11892fc8b12520af3b154a49acd9b93fc10c9c9777dcb6afe3b93ad17b0ce019b35ba7935a2ecb306b7094f97fecf056bbcb4dbeeb8477a76cd93f2d",
+      "license": "MIT",
+      "library_of": [
+        "mega_showdown",
+        "aether"
+      ]
+    },
+    "owo": {
+      "project": "owo-lib",
+      "version": "0.12.15.6-beta.1",
+      "version_number": "0.12.15.6-beta.1+1.21",
+      "filename": "owo-lib-neoforge-0.12.15.6-beta.1+1.21.jar",
+      "url": "https://cdn.modrinth.com/data/ccKDOlHs/versions/wbdHEItB/owo-lib-neoforge-0.12.15.6-beta.1%2B1.21.jar",
+      "sha512": "fc843ef350c4af6748d9fd6ecd3c28f96262cf46d46a8329029f49ea4f9eb87238113a8a415e8bba2c4f346c718bf450194f6f5823dfbf1ae7312529a81c3e5c",
+      "license": "MIT",
+      "library_of": [
+        "mega_showdown",
+        "aether"
+      ]
+    },
+    "yungsapi": {
+      "project": "yungs-api",
+      "version": "5.1.9",
+      "version_number": "1.21.1-NeoForge-5.1.9",
+      "filename": "YungsApi-1.21.1-NeoForge-5.1.9.jar",
+      "url": "https://cdn.modrinth.com/data/Ua7DFN59/versions/2prKITKh/YungsApi-1.21.1-NeoForge-5.1.9.jar",
+      "sha512": "7e3cf0b429e8a1c51dca094c2d8eabf12245bb42cbcd8b6e3e54959f931bef93201b81a08d200b417059aaa438e8eb445c3978a09568597bfb588199b7775967",
+      "license": "LGPL-3.0",
+      "library_of": [
+        "yungscavebiomes"
+      ]
+    },
+    "terrablender": {
+      "source": "local",
+      "version": "4.1.0.8",
+      "filename": "TerraBlender-neoforge-1.21.1-4.1.0.8.jar",
+      "sha512": "d51720b21b4cdaeaf962416575f27209219941b8a0067b0bccab478227f32ad9d91a2b94469925bb7b810ffb446d15b02a5381a5425b3f54739f2f174034870e",
+      "license": "LGPL-3.0",
+      "library_of": [
+        "biomeswevegone",
+        "yungscavebiomes",
+        "deep_aether"
+      ]
+    },
+    "corgilib": {
+      "project": "corgilib",
+      "version": "5.0.0.10",
+      "version_number": "1.21.1-5.0.0.10-NeoForge",
+      "filename": "Corgilib-NeoForge-1.21.1-5.0.0.10.jar",
+      "url": "https://cdn.modrinth.com/data/ziOp6EO8/versions/Za7PInLk/Corgilib-NeoForge-1.21.1-5.0.0.10.jar",
+      "sha512": "38107fc4823b54dee5107abb916231f2a9b18a1ae2947ed4c4d9e1af68e70cfa6d8a84019633074bcba478541b9723a9ed26abfb2e14b28b716180cf70efbca2",
+      "license": "LGPL-3.0",
+      "library_of": [
+        "biomeswevegone"
+      ]
+    },
+    "ohthetreesyoullgrow": {
+      "project": "oh-the-trees-youll-grow",
+      "version": "5.3.6",
+      "version_number": "1.21.1-5.3.6-NeoForge",
+      "filename": "Oh-The-Trees-Youll-Grow-neoforge-1.21.1-5.3.6.jar",
+      "url": "https://cdn.modrinth.com/data/g8NOG5OR/versions/7zqZzoiq/Oh-The-Trees-Youll-Grow-neoforge-1.21.1-5.3.6.jar",
+      "sha512": "ac733a77ded66c847948cae570cff178f8c1b7401983041405021044b2494c430f53b5518a5c7645565a5c612e5bed2f9e944c2681522a3261c53844fc435605",
+      "license": "LGPL-3.0",
+      "library_of": [
+        "biomeswevegone"
+      ]
+    },
+    "resourcefullib": {
+      "project": "resourceful-lib",
+      "version": "3.0.12",
+      "version_number": "3.0.12",
+      "filename": "resourcefullib-neoforge-1.21-3.0.12.jar",
+      "url": "https://cdn.modrinth.com/data/G1hIVOrD/versions/x99nCLTm/resourcefullib-neoforge-1.21-3.0.12.jar",
+      "sha512": "a9d20e345faa9bcb297bd95ac9524205834804d1bb13518397dd4f7f62b352b08c3339ee7f7870d3669078ceeb33d5c31ea527aecce4b31d62ec1ff7d8b562c8",
+      "license": "MIT",
+      "library_of": [
+        "handcrafted"
+      ]
+    },
+    "resourcefulconfig": {
+      "project": "resourceful-config",
+      "version": "3.0.11",
+      "version_number": "3.0.11",
+      "filename": "resourcefulconfig-neoforge-1.21-3.0.11.jar",
+      "url": "https://cdn.modrinth.com/data/M1953qlQ/versions/lSbyRD6v/resourcefulconfig-neoforge-1.21-3.0.11.jar",
+      "sha512": "8e4ccc37732b3f5190e7e98df34dbc1339fe614494fcabf1aeaeab9ad8e5993522964b51be31882000c08c48a6d0096b5458364415bb81f2b2b775a7daf2eb87",
+      "license": "MIT",
+      "library_of": [
+        "betterarcheology"
+      ]
+    },
+    "valhelsia_core": {
+      "source": "local",
+      "version": "1.1.6",
+      "filename": "valhelsia_core-neoforge-1.21.1-1.1.6.jar",
+      "sha512": "d3fc3b07e706ead158b9dd3be9c854dab7f545f37dd65398dcfe7eefe11d5e885e0d7278c9a731efddbb89943a17838c41a60eb0de6806b18172357a07414f2a",
+      "license": "All Rights Reserved",
+      "library_of": [
+        "valhelsia_furniture",
+        "forbidden_arcanus"
+      ]
+    },
+    "balm": {
+      "project": "balm",
+      "version": "21.0.67",
+      "version_number": "21.0.67+neoforge-1.21.1",
+      "filename": "balm-neoforge-1.21.1-21.0.67.jar",
+      "url": "https://cdn.modrinth.com/data/MBAkmtvl/versions/gMedgtzL/balm-neoforge-1.21.1-21.0.67.jar",
+      "sha512": "ad4f4df829b1195446486df818c2c1f0bf6738cb1b30cfdbf9eae4855ce62a66b00f2dc5e0a87409f25ce4eba9bd5c94e1b10d1940af451d5ef7dd7f4b3d8ebd",
+      "license": "All Rights Reserved",
+      "library_of": [
+        "cookingforblockheads"
+      ]
+    },
+    "puzzleslib": {
+      "project": "puzzles-lib",
+      "version": "21.1.66",
+      "version_number": "21.1.66",
+      "filename": "puzzleslib-v21.1.66-mc1.21.1+neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/QAGBst4M/versions/kmN5PWk9/puzzleslib-v21.1.66-mc1.21.1%2Bneoforge.jar",
+      "sha512": "d265016586d39d7e0ac63b064fcad6fd64df79ce885ae81aa1d7a51ba32b4c6849c4b3021b563667eb392599512fe193adfa52b40d99a101ab411dd0b5c5d484",
+      "license": "MPL-2.0",
+      "library_of": [
+        "easymagic",
+        "enchantinginfuser"
+      ]
+    },
+    "zeta": {
+      "project": "zeta",
+      "version": "1.1-40",
+      "version_number": "1.1-40",
+      "filename": "Zeta-1.1-40.jar",
+      "url": "https://cdn.modrinth.com/data/MVARlG2f/versions/9GjNW2Gf/Zeta-1.1-40.jar",
+      "sha512": "a81dcf44f2bfd0fc1a52f00d9ca47a84ad2baf067adedb35eec859f6b9cec7b61ca432e549a3342b10902f84e76d70224cd54400285c8b13a0926835a62c667c",
+      "license": "CC BY-NC-SA 3.0",
+      "library_of": [
+        "quark"
+      ]
+    },
+    "cucumber": {
+      "project": "cucumber",
+      "version": "8.0.16",
+      "version_number": "8.0.16",
+      "filename": "Cucumber-1.21.1-8.0.16.jar",
+      "url": "https://cdn.modrinth.com/data/Rw1NrDzF/versions/8421rqFF/Cucumber-1.21.1-8.0.16.jar",
+      "sha512": "fbc63f23f827061b2a45f33a3867e105268b5a51d9ca92ba3bacd2e2a0af847eb4c367e726a62a455b841e503f8ce73ea9e180285670ddf3ec18a8ba4e72da7d",
+      "license": "MIT",
+      "library_of": [
+        "mysticalagriculture"
+      ]
+    }
   }
 }
