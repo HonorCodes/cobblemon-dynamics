@@ -2,6 +2,8 @@ package codes.honor.cobblemondynamics.test.create
 
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.MixinState
+import codes.honor.cobblemondynamics.ai.BrainBridge
+import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.handler.create.TailwindBonus
 import codes.honor.cobblemondynamics.test.TestKit
@@ -14,6 +16,7 @@ import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import kotlin.math.abs
@@ -105,6 +108,47 @@ class TailwindTests {
             .thenWaitUntil {
                 helper.assertTrue(status() == WorkerStatus.STANDBY, "the Pidgey is ${status()} at a disassembled windmill")
                 helper.assertTrue(helper.level.gameTime - since <= 20, "CD-TLW-08: no Standby within 20 ticks")
+            }
+            .thenSucceed()
+    }
+
+    /**
+     * A Pidgey that stands on the turning sails when its claim starts has arrived, wherever on the sails it stands: the engine puts it
+     * on its spot, and it Works (CD-TLW-11). The pathfinder does not see the sails, so the Pidgey would never reach the spot below
+     * them. It stands over the cell 2 blocks east of the bearing, so its spot, the cell east of the bearing, which is the spot beside
+     * the bearing nearest to it, is 1 block away, beyond the arrival's horizontal reach. Its wander pauses until the claim, as a held
+     * worker's does.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
+    fun cdTlw11AWorkerOnItsSailsOverAnotherCellArrives(helper: GameTestHelper) {
+        val bearing = CreateKit.windmill(helper, bearingRel, sails = 64)
+        val scene = scene(helper)
+        val pidgey = TestKit.tether(helper, scene.pasture, scene.owner, "pidgey level=50")
+        val east = bearingRel.east()
+        fun worker() = TestKit.workerOf(helper, pidgey)
+        fun onTheSails() = bearing.movedContraption?.collidingEntities?.containsKey(pidgey) == true
+        var bound = 0L
+        helper.startSequence()
+            .thenIdle(1)
+            .thenExecute { bearing.assemble() }
+            .thenIdle(1)
+            .thenExecute {
+                val top = helper.absoluteVec(Vec3(east.x + 1.5, east.y + 1.7, east.z + 0.5))
+                pidgey.teleportTo(top.x, top.y, top.z)
+                BrainBridge.pauseWander(pidgey, 40)
+            }
+            .thenWaitUntil { helper.assertTrue(onTheSails(), "the Pidgey has not landed on the sails") }
+            .thenExecute {
+                TestKit.bind(helper, scene.owner, pidgey, bearingRel) ?: throw GameTestAssertException("no binding")
+                bound = helper.level.gameTime
+            }
+            .thenWaitUntil { helper.assertTrue(worker()?.status == WorkerStatus.WORKING, "CD-TLW-11: the Pidgey is ${worker()?.status}") }
+            .thenExecute {
+                val spot = worker()?.spot
+                val ticks = helper.level.gameTime - bound
+                helper.assertTrue(spot == helper.absolutePos(east), "the Pidgey works from $spot, not from the cell east of the bearing")
+                helper.assertTrue(spot != null && WorkEngine.isArrived(pidgey, spot), "the Pidgey is not on its spot")
+                helper.assertTrue(ticks <= 20, "CD-TLW-11: Working $ticks ticks after the bind")
             }
             .thenSucceed()
     }

@@ -32,6 +32,18 @@ object TailwindHandler : TargetHandler {
         return TailwindMath.clearOfSails(canonical, facing, spot, bodyHeight)
     }
 
+    /**
+     * CD-TLW-11: a worker that stands anywhere on this windmill's own sails, above its spot, has arrived. The pathfinder does not see
+     * the sails, so a worker that flies in can land on them, and on them its path holds it at nodes that need not lie over its spot.
+     * Create lists an entity that lands on a contraption until 3 ticks after its last contact.
+     */
+    override fun acceptsArrival(ctx: WorkContext): Boolean {
+        val spot = ctx.spot ?: return false
+        val worker = ctx.worker
+        if (worker.y < spot.y) return false
+        return bearingAt(ctx)?.movedContraption?.collidingEntities?.containsKey(worker) == true
+    }
+
     /** CD-TLW-08: the windmill is assembled and turns. A running windmill always gives at least 1 RPM. */
     override fun hasDemand(ctx: WorkContext): Boolean {
         val bearing = bearingAt(ctx) ?: return false

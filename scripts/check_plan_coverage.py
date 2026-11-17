@@ -4,9 +4,9 @@
 Phase 1 (the default): every row outside the TLK, MAG, FAN, TLW, QWK and ART areas and outside PHASE_2_ROWS, cited anywhere in a
 Phase 1 milestone file. PHASE_2_ROWS holds the Quick Work keys of the server config, the INFO lines at load and the shared
 containers of the logistics roles.
-Phase 2: every row of those six areas and of PHASE_2_ROWS, and each Phase 1 row with a Phase 2 part (the split-row table of the
-Phase 2 plan index), cited inside a task section of a Phase 2 milestone file or of the Phase 2 plan index. A task section runs
-from a "### Task" heading to the next heading of level 1 to 3.
+Phase 2: every row of those six areas and of PHASE_2_ROWS, except the later rows of PHASE_3_ROWS and V12_ROWS, and each Phase 1
+row with a Phase 2 part (the split-row table of the Phase 2 plan index), cited inside a task section of a Phase 2 milestone file
+or of the Phase 2 plan index. A task section runs from a "### Task" heading to the next heading of level 1 to 3.
 Phase 3: every row of the LND area, which Phase 1 leaves out, the rows of PHASE_3_ROWS, which Phases 1 and 2 leave out, and
 each earlier row with a Phase 3 part (the split-row table of the Phase 3 plan), cited inside a task section of the Phase 3 plan.
 1.1: every row of the CUL, HRV and CRP areas, which Phase 1 leaves out, the rows of V11_ROWS, which Phase 1 leaves out too, and
@@ -75,10 +75,11 @@ V11_PARTS = (
 PLANS["1.2"] = ("2026-11-15-v1.2-new-roles-and-compat.md",)
 V12_AREAS = {"OPT", "FIX", "LUM", "XPC", "SOU", "FRZ", "HTR", "FUEL", "AIR", "KIN", "FRM", "MCH"}
 # Rows outside the 1.2 areas that are 1.2 work as a whole: the balance checks of the new roles and targets, the capacity key of
-# the Experience Collector, the creative break of the Charge Cell (R86) and the gate of 1.2.0.
+# the Experience Collector, the creative break of the Charge Cell (R86), the gate of 1.2.0, and the arrival of a Tailwind worker on
+# its sails (R91), which the Phase 2 mode leaves out.
 V12_ROWS = (
     "CD-BAL-10", "CD-BAL-11", "CD-BAL-12", "CD-BAL-13", "CD-BAL-14", "CD-BAL-15", "CD-BAL-16", "CD-BAL-17",
-    "CD-CFG-20", "CD-GEN-13", "CD-REL-17",
+    "CD-CFG-20", "CD-GEN-13", "CD-REL-17", "CD-TLW-11",
 )
 # Earlier rows whose last part is 1.2 work: the split-row table of docs/plans/2026-11-15-v1.2-new-roles-and-compat.md.
 V12_PARTS = (
@@ -124,7 +125,8 @@ def spec_rows(phase: str) -> list[str]:
         require_rows(V12_PARTS + V12_ROWS, rows, "V12_PARTS or V12_ROWS")
         return [row for row, area in rows if area in V12_AREAS] + list(V12_ROWS) + list(V12_PARTS)
     require_rows(PHASE_2_PARTS + PHASE_2_ROWS, rows, "PHASE_2_PARTS or PHASE_2_ROWS")
-    return [row for row, area in rows if is_phase_2(row, area) and row not in PHASE_3_ROWS] + list(PHASE_2_PARTS)
+    later = PHASE_3_ROWS + V12_ROWS
+    return [row for row, area in rows if is_phase_2(row, area) and row not in later] + list(PHASE_2_PARTS)
 
 
 def task_sections(text: str) -> str:

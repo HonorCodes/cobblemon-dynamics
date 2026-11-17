@@ -79,6 +79,13 @@ interface TargetHandler {
     /** Whether a worker [bodyHeight] blocks high may work this target from [spot]. The engine asks only of a spot that passes its own checks. */
     fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean = true
 
+    /**
+     * Whether the context's worker has reached its [WorkContext.spot] although the engine's own rule (CD-ASG-11) says that it has not.
+     * The engine asks only on a Traveling tick of such a worker, and puts an arrived worker on its spot, as after every arrival.
+     * Tailwind accepts a worker that stands anywhere on its own windmill's sails, at or above the spot's height (CD-TLW-11).
+     */
+    fun acceptsArrival(ctx: WorkContext): Boolean = false
+
     /** The lang key that refuses a Work Leash bind when the worker has no spot at the target, or null to bind and report later (CD-LSH-21). */
     val noSpotRefusal: String? get() = null
 
