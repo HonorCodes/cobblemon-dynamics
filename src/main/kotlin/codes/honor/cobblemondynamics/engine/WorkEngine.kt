@@ -420,7 +420,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         guarded(role.handler, Unit) { role.handler.onClaim(context(t, slot, target, role, slot.memo)) }
     }
 
-    /** A leashed worker claims its bound target and no other (CD-ASG-20). A Tired worker waits until it has rested (CD-STA-14). */
+    /**
+     * A leashed worker claims its bound target and no other (CD-ASG-20). A Tired worker waits until it has rested (CD-STA-14). While its
+     * crop's cell is empty, the worker holds no claim (CD-CLM-08) and so no work order, and it waits where it stands (CD-CRP-09).
+     */
     private fun claimBound(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
         val binding = slot.binding ?: return
         val worker = slot.worker
@@ -430,9 +433,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (claims.claimOf(worker.pokemonId) != null || worker.tired || worker.isSkipped(key, t.now)) return
         if (!BrainBridge.canHoldOrder(slot.entity)) return
         val role = t.roles.get(binding.roleId)?.takeIf { RoleSelection.isEligible(it.definition, typesOf(slot.pokemon)) } ?: return
-        val valid = t.level.isLoaded(binding.target) && guarded(role.handler, false) { role.handler.stillValid(t.level, binding.target) }
-        if (valid && claim(t, runtime, slot, binding.target, role, taken, moving = false) == Attempt.NO_SPOT) {
-            cannotReach(t, slot, binding.target)
+        if (!t.level.isLoaded(binding.target)) return
+        if (guarded(role.handler, false) { role.handler.stillValid(t.level, binding.target) }) {
+            val attempt = claim(t, runtime, slot, binding.target, role, taken, moving = false)
+            if (attempt == Attempt.NO_SPOT) cannotReach(t, slot, binding.target)
+        } else if (guarded(role.handler, false) { role.handler.bindingHolds(t.level, binding.target) }) {
+            // Each poll renews the pause before it lapses. Until the first poll, the hold of the released order pauses the wander.
+            BrainBridge.pauseWander(slot.entity, WAIT_PAUSE_TICKS)
         }
     }
 
@@ -1172,6 +1179,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     companion object {
         private const val CANNOT_REACH = "cobblemon_dynamics.leash.cannot_reach"
+
+        /** Two pasture polls, so that the wander pause of a worker that waits for its crop never lapses between polls (CD-CRP-09). */
+        private const val WAIT_PAUSE_TICKS = 2L * PastureRuntime.POLL_TICKS
 
         @Volatile
         private var instance: WorkEngine? = null

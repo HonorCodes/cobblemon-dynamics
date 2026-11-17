@@ -53,6 +53,15 @@ object BrainBridge {
         entity.brain.eraseMemory(CobblemonMemories.PATH_COOLDOWN)
     }
 
+    /**
+     * Cobblemon's wander starts only while `PATH_COOLDOWN` is absent, so this keeps a Pokémon with no work order where it stands for
+     * [ticks], as the hold of a work order does (`WorkMoveTask`). The engine uses it for a leashed worker that waits for its crop
+     * (CD-CRP-09).
+     */
+    fun pauseWander(entity: PokemonEntity, ticks: Long) {
+        entity.brain.setMemoryWithExpiry(CobblemonMemories.PATH_COOLDOWN, true, ticks)
+    }
+
     fun isWorking(entity: PokemonEntity): Boolean = entity.brain.isActive(DynamicsActivities.WORK.get())
 
     fun holdsOrder(entity: PokemonEntity): Boolean = entity.brain.hasMemoryValue(DynamicsMemories.WORK_ORDER.get())
