@@ -24,4 +24,19 @@ class LiquidBurnerRuleTest {
         assertFalse(LiquidBurnerRule.stale(granted = false, shown = "kindled", own = "fading"))
         assertFalse(LiquidBurnerRule.stale(granted = false, shown = "kindled", own = "smouldering"))
     }
+
+    /**
+     * R88: the burner's mixin never lowers its heat, so a worker adds something only above the heat of its own fuel. In Create Crafts &
+     * Additions 1.7.2 no fuel gives Smouldering, a normal fuel Kindled (Fading near its end) and a superheating fuel Seething.
+     */
+    @Test
+    fun `CD-MCH-01 a burner has demand only while the worker's heat is above the heat of its own fuel`() {
+        assertTrue(LiquidBurnerRule.adds(worker = "kindled", own = "smouldering"), "no fuel")
+        assertTrue(LiquidBurnerRule.adds(worker = "kindled", own = "fading"), "a normal fuel near its end")
+        assertTrue(LiquidBurnerRule.adds(worker = "seething", own = "kindled"), "a normal fuel under a level 50 worker")
+        assertFalse(LiquidBurnerRule.adds(worker = "kindled", own = "kindled"), "a normal fuel under a level 49 worker")
+        assertFalse(LiquidBurnerRule.adds(worker = "seething", own = "seething"), "a superheating fuel")
+        assertFalse(LiquidBurnerRule.adds(worker = "kindled", own = "seething"), "a superheating fuel under a level 49 worker")
+        assertFalse(LiquidBurnerRule.adds(worker = "blazing", own = "smouldering"), "a heat that Create does not name")
+    }
 }

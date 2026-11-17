@@ -1,7 +1,6 @@
 package codes.honor.cobblemondynamics.compat.createaddition
 
 import codes.honor.cobblemondynamics.handler.WorkGrants
-import com.mrh0.createaddition.blocks.liquid_blaze_burner.LiquidBlazeBurnerBlockEntity
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 
@@ -19,11 +18,11 @@ object LiquidBurnerHeat {
     @JvmStatic
     fun levelFor(burner: BlockEntity): BlazeBurnerBlock.HeatLevel? = grants.current(burner)
 
-    /** Whether [burner] shows a worker's Seething heat, [shown], that neither a grant nor its own fuel's heat [own] gives any more. */
+    /**
+     * Whether [burner] shows a worker's Seething heat, [shown], that neither a grant nor its own fuel's heat [own] gives any more. The
+     * burner's mixin asks this on the server only, for a burner that is not creative, and reads both heats through its shadows.
+     */
     @JvmStatic
-    fun isStale(burner: LiquidBlazeBurnerBlockEntity, shown: BlazeBurnerBlock.HeatLevel, own: BlazeBurnerBlock.HeatLevel): Boolean {
-        val level = burner.level ?: return false
-        if (level.isClientSide || burner.isCreative) return false
-        return LiquidBurnerRule.stale(granted = levelFor(burner) != null, shown = shown.serializedName, own = own.serializedName)
-    }
+    fun isStale(burner: BlockEntity, shown: BlazeBurnerBlock.HeatLevel, own: BlazeBurnerBlock.HeatLevel): Boolean =
+        LiquidBurnerRule.stale(granted = levelFor(burner) != null, shown = shown.serializedName, own = own.serializedName)
 }

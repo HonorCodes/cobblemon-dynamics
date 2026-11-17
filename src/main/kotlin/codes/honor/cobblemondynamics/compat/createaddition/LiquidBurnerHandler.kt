@@ -35,12 +35,17 @@ object LiquidBurnerHandler : TargetHandler {
 
     /**
      * As the Blaze Burner's (CD-BRN-03, CD-FIX-07): a basin or a fluid tank above by the burner's own test, or a block of the heat users
-     * tag there. A creative burner sets its own heat, so it has no demand.
+     * tag there. A creative burner sets its own heat, so it has no demand. The mixin never lowers the heat of the burner's own fuel, so the
+     * worker adds something only while its heat is above that one (R88).
      */
     override fun hasDemand(ctx: WorkContext): Boolean {
         val burner = burnerAt(ctx.level, ctx.target) ?: return false
+        if (burner.isCreative) return false
         val heatUserAbove = ctx.level.getBlockState(ctx.target.above()).`is`(HEAT_USERS)
-        return !burner.isCreative && HeatGate.hasConsumer(burner.isValidBlockAbove, heatUserAbove) && heatOf(ctx) != null
+        if (!HeatGate.hasConsumer(burner.isValidBlockAbove, heatUserAbove)) return false
+        val heat = heatOf(ctx) ?: return false
+        val own = (burner as? LiquidBurnerAccess)?.`cobblemon_dynamics$ownHeat`() ?: return false
+        return LiquidBurnerRule.adds(worker = heat.serializedName, own = own.serializedName)
     }
 
     /**
