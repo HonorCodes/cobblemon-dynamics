@@ -701,10 +701,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
         val handler = role.handler
         val ctx = context(t, slot, target, role, slot.memo)
-        val arrived = isArrived(slot.entity, spot)
         val before = worker.status
         var event: MachineEvent? = null
         val ok = guarded(handler, false) {
+            // The machine reads arrival only while Traveling, so the handler is asked only then, after the engine's own rule.
+            val arrived = isArrived(slot.entity, spot) || (before == WorkerStatus.TRAVELING && handler.acceptsArrival(ctx))
             event = t.machine.onTick(worker, t.now, arrived, { handler.hasDemand(ctx) }, claim.key, handler.releasesWhenDone)
             when (val e = event) {
                 MachineEvent.StartedWorking -> {

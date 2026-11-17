@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.create
 
+import codes.honor.cobblemondynamics.engine.Arrival
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
@@ -30,6 +31,18 @@ object TailwindHandler : TargetHandler {
     override fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean {
         val facing = level.getBlockState(canonical).getOptionalValue(DirectionalKineticBlock.FACING).orElse(null) ?: return false
         return TailwindMath.clearOfSails(canonical, facing, spot, bodyHeight)
+    }
+
+    /**
+     * CD-TLW-11: a worker that stands on this windmill's own sails over its spot has arrived. The pathfinder does not see the sails,
+     * so a worker that flies in can land on them and never reach the spot below. Create lists an entity that lands on a contraption
+     * until 3 ticks after its last contact.
+     */
+    override fun acceptsArrival(ctx: WorkContext): Boolean {
+        val spot = ctx.spot ?: return false
+        val worker = ctx.worker
+        if (!Arrival.isOver(worker.x, worker.y, worker.z, worker.bbWidth.toDouble(), spot)) return false
+        return bearingAt(ctx)?.movedContraption?.collidingEntities?.containsKey(worker) == true
     }
 
     /** CD-TLW-08: the windmill is assembled and turns. A running windmill always gives at least 1 RPM. */

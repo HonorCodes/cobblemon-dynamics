@@ -634,6 +634,11 @@ references. This section lists what the code uses.
     renewed, so a release that never came leaves no virtual sails after 2 ticks.
   - A work spot keeps the worker's body out of the turning sails: beside or behind the bearing's face.
     Under a windmill that faces up, the spot needs room for the body below the sails.
+  - A worker that stands on the windmill's own sails, within the arrival's reach of its spot on x and z
+    and at any height above the spot, has arrived, and the snap puts it on the spot (CD-TLW-11). The
+    pathfinder does not see the sails, so a worker that flies in can land on them. The engine asks the
+    handler's `acceptsArrival` only on a Traveling tick that its own arrival rule rejects, and every
+    other handler keeps that rule.
 - **Item handlers (Phase 2).** The item vault returns its controller's combined handler from any
   block. A depot accepts an insert only into slot 0 while it is empty. A chute accepts only while it is
   empty. Telekinesis and the Magnet insert a copy of each stack, because the depot and the chute keep
