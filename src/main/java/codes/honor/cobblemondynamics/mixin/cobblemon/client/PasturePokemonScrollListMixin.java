@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 public abstract class PasturePokemonScrollListMixin {
     // correctSize() runs on every frame and sets the list to 70 × 120, so the new height holds for scrolling and clipping alike.
     @ModifyArg(
-            method = "correctSize",
+            method = "correctSize()V",
             at = @At(
                     value = "INVOKE",
                     target = "Lcom/cobblemon/mod/common/client/gui/pasture/PasturePokemonScrollList;setRectangle(IIII)V"),

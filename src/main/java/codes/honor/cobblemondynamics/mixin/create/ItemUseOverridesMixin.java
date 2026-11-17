@@ -15,7 +15,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(ItemUseOverrides.class)
 public abstract class ItemUseOverridesMixin {
-    @Inject(method = "onBlockActivated", at = @At("HEAD"), cancellable = true)
+    @Inject(
+            method = "onBlockActivated(Lnet/neoforged/neoforge/event/entity/player/PlayerInteractEvent$RightClickBlock;)V",
+            at = @At("HEAD"),
+            cancellable = true)
     private static void cobblemon_dynamics$leashFirst(PlayerInteractEvent.RightClickBlock event, CallbackInfo ci) {
         if (LeashInteractions.isWorkLeash(event.getItemStack())) ci.cancel();
     }
