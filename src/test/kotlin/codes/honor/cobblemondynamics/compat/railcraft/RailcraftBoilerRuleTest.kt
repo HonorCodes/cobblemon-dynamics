@@ -216,6 +216,25 @@ class RailcraftBoilerRuleTest {
         assertFalse(RailcraftBoilerRule.supplies(walking))
     }
 
+    /**
+     * Railcraft takes a boiler's fuel only at its fuel steps, so the burn time that a pool leaves when it stops, at most its top-up,
+     * pays one fuel step at most: 16 ticks at low pressure and 8 at high (R85). From any point of a cycle, the boiler then burns its
+     * own coal at its next fuel step.
+     */
+    @Test
+    fun `CD-FUEL-14 the burn time that a stopped pool leaves pays one fuel step of the boiler at most`() {
+        for (pattern in patterns) {
+            for (temperature in listOf(COLD, pattern.maxTemperature)) {
+                for (offset in 0 until pattern.ticksPerCycle) {
+                    val boiler = Boiler(pattern, fuelItems = 1, offset = offset, temperature = temperature)
+                    boiler.burnTime = RailcraftBoilerRule.poolBurn(boiler.need(), pattern.tanks, boiler.heat, pattern.maxTemperature)
+                    while (boiler.steps < 2) boiler.tick()
+                    assertEquals(1, boiler.fuelTaken, "$pattern at $temperature, stopped at offset $offset")
+                }
+            }
+        }
+    }
+
     @Test
     fun `CD-FUEL-15 a boiler below half of its water has no demand and gets no fuel, hot or cold`() {
         assertFalse(RailcraftBoilerRule.hasWater(1_999, TANK))

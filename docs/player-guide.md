@@ -608,7 +608,8 @@ the boiler's firebox: a boiler of 1 tank has 1 firebox block, a 2 × 2 boiler 4 
 workers fuel the boiler together, and only while every firebox block has its worker at work. Then the boiler
 burns no fuel from its fuel slot. With a firebox block short of its worker, the others wait in Standby and
 the boiler burns its own fuel. The workers also wait while less than half of the boiler's tank holds water,
-because Railcraft blows up a hot boiler that gets water into an empty tank.
+because Railcraft blows up a hot boiler that gets water into an empty tank. When the workers stop, the boiler
+burns its own fuel again within one fuel step: 16 ticks at low pressure and 8 at high pressure.
 
 ### Wheel Driver
 
