@@ -4,7 +4,6 @@ import com.cobblemon.mod.common.block.entity.BerryBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.BlockItem
@@ -30,7 +29,8 @@ object HarvestApply {
     /**
      * Harvests the crop at [crop] once. Its items come out of the crop's face toward [spot] (CD-HRV-06). [mayChange] answers the land
      * claim checks of each cell that the harvest changes, in this tick (CD-HRV-13), and [mayBreak] the break question of each cell that
-     * it breaks (CD-HRV-16). One refusal leaves every cell and item as it is. Returns whether the harvest ran.
+     * it breaks (CD-HRV-16). One refusal leaves every cell and item as it is. Returns whether the harvest ran. A pick by loot table
+     * whose table did not load never runs, because it would take the berries and drop nothing (CD-FRM-03).
      */
     fun apply(
         level: ServerLevel,
@@ -53,7 +53,9 @@ object HarvestApply {
             HarvestKind.GOURD -> listOfNotNull(fruit)
             else -> if (whole) listOf(crop, upper) else listOf(crop)
         }
-        val table = HarvestPlans.lootTable(kind, facts)
+        // The server reads a table that no data pack holds as the empty table.
+        val table = HarvestPlans.lootTable(kind, facts)?.let { level.server.reloadableRegistries().getLootTable(it) }
+        if (table === LootTable.EMPTY) return false
         val stacks = if (table != null) {
             roll(level, crop, state, table)
         } else {
@@ -88,13 +90,13 @@ object HarvestApply {
      * CD-FRM-03: the loot of [table] for the crop at [pos], rolled as the Twilight Forest rolls a bush's berries: with the block's
      * state, its center and no tool, and with no player.
      */
-    private fun roll(level: ServerLevel, pos: BlockPos, state: BlockState, table: ResourceKey<LootTable>): List<ItemStack> {
+    private fun roll(level: ServerLevel, pos: BlockPos, state: BlockState, table: LootTable): List<ItemStack> {
         val params = LootParams.Builder(level)
             .withParameter(LootContextParams.BLOCK_STATE, state)
             .withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(pos))
             .withParameter(LootContextParams.TOOL, ItemStack.EMPTY)
             .create(LootContextParamSets.BLOCK)
-        return level.server.reloadableRegistries().getLootTable(table).getRandomItems(params)
+        return table.getRandomItems(params)
     }
 
     /** CD-HRV-11: Cobblemon's own harvest of a berry tree, which sets it back to age 3 with no player and no sound. */

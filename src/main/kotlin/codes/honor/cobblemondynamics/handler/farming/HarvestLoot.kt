@@ -19,7 +19,9 @@ data class HarvestLoot(val lootTable: ResourceKey<LootTable>, val ageAfter: Int)
  * The data map `cobblemon_dynamics:harvest_loot` (blocks): the loot table that a harvest rolls in place of the block's own, and the
  * `age` that the pick leaves. A Twilight Forest bush rolls its berry table and goes to age 2, while its own loot table drops the
  * bush (CD-FIX-03). NeoForge reads no condition at the top of a data map file, so each entry of another mod holds its own
- * `neoforge:mod_loaded` condition (CD-OPT-12).
+ * `neoforge:mod_loaded` condition (CD-OPT-12). An entry of a block with no `age`, or with an `age_after` at or above the block's
+ * highest age, gives no adapter, and the Harvester never picks a block whose entry names a table that did not load. The farming line
+ * names both (CD-CRP-05).
  */
 object HarvestLootMap {
     private val CODEC: Codec<HarvestLoot> = RecordCodecBuilder.create { i ->

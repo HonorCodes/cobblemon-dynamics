@@ -53,12 +53,21 @@ object LoadLines {
 
     /**
      * CD-CRP-05: one farming role's tagged blocks, counted by the crop adapter that reads each one, with the adapters in name order,
-     * and the ids of the tagged blocks that no adapter reads.
+     * and the ids of the tagged blocks that no adapter reads. CD-FRM-03: when an entry of the loot data map names a table that did not
+     * load, the line ends with each such block and its table, in block id order.
      */
-    fun farming(role: String, byAdapter: Map<String, Int>, unadapted: List<ResourceLocation>): String {
+    fun farming(
+        role: String,
+        byAdapter: Map<String, Int>,
+        unadapted: List<ResourceLocation>,
+        unknownTables: Map<ResourceLocation, ResourceLocation> = emptyMap(),
+    ): String {
         val total = byAdapter.values.sum() + unadapted.size
         val counts = byAdapter.entries.sortedBy { it.key }.joinToString(", ") { (adapter, count) -> "$adapter $count" }
-        return "Farming: $role $total blocks [$counts], no adapter [${unadapted.sortedBy { it.toString() }.joinToString(", ")}]"
+        val line = "Farming: $role $total blocks [$counts], no adapter [${unadapted.sortedBy { it.toString() }.joinToString(", ")}]"
+        if (unknownTables.isEmpty()) return line
+        val tables = unknownTables.entries.sortedBy { it.key.toString() }.joinToString(", ") { (block, table) -> "$block ($table)" }
+        return "$line, unknown loot table [$tables]"
     }
 
     /**

@@ -18,7 +18,10 @@ import net.minecraft.world.level.block.state.BlockState
 object HarvesterHandler : TargetHandler {
     const val LANE = "harvester"
 
-    /** A harvest that the land claim checks refused waits as long as a timed-out target (CD-HRV-13). */
+    /**
+     * A harvest that the land claim checks refused waits as long as a timed-out target (CD-HRV-13), and so does a pick whose loot table
+     * did not load (CD-FRM-03).
+     */
     private const val REFUSED_WAIT_TICKS = 6_000L
 
     override val id: ResourceLocation = id("harvester")

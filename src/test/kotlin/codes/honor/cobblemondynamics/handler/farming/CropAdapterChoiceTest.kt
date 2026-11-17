@@ -35,6 +35,22 @@ class CropAdapterChoiceTest {
     }
 
     @Test
+    fun `CD-FRM-03 an entry whose age_after is not below the highest age, or a block with no age, gets no adapter`() {
+        val berries = ResourceKey.create(Registries.LOOT_TABLE, ResourceLocation.parse("twilightforest:blocks/blackberry_bush_berries"))
+        val bush = CropFacts(bonemealable = true, age = 3, ageMax = 3, harvestLoot = HarvestLoot(berries, 2))
+        for (ageAfter in listOf(3, 4)) {
+            // The pick would leave the bush fully grown, so the Harvester would pick it again on each harvest tick.
+            val endless = bush.copy(harvestLoot = HarvestLoot(berries, ageAfter), adapterTags = setOf(HarvestKind.PICK_TO_AGE_0))
+            assertNull(CropAdapters.harvestKind(endless), "age_after $ageAfter of a bush with ages 0 to 3 has an adapter")
+            assertNull(CropAdapters.harvestAdapterName(endless), "the farming line does not count age_after $ageAfter under no adapter")
+        }
+        val ageless = CropFacts(bonemealable = true, harvestLoot = HarvestLoot(berries, 0), adapterTags = setOf(HarvestKind.PICK_TO_AGE_0))
+        assertNull(CropAdapters.harvestKind(ageless), "a block with no age, which a pick never finds fully grown, has an adapter")
+        assertNull(CropAdapters.harvestAdapterName(ageless))
+        assertEquals(HarvestKind.PICK_BY_LOOT_TABLE, CropAdapters.harvestKind(bush.copy(harvestLoot = HarvestLoot(berries, 0))))
+    }
+
+    @Test
     fun `CD-FIX-04 a crop of the Cultivator's never tag gets no growth adapter`() {
         // Mystical Agriculture's crops are CropBlocks in #minecraft:crops whose isBonemealSuccess returns false.
         val mystical = wheat.copy(growable = false)
