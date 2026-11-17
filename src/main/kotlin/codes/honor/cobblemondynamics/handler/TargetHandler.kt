@@ -133,6 +133,16 @@ class WorkContext(
     val mayBreak: (BlockPos) -> Boolean = { true },
     /** The handler stopped its target's demand for this worker for the given ticks, which the engine skips as long (CD-CUL-09). */
     val stalled: (Long) -> Unit = {},
+    /**
+     * The handler stopped the demand of the cell at the position for this worker for the given ticks, as [stalled] does for the target.
+     * An area job, such as the Freezer's, works cells beside its target, and the engine skips such a cell beyond the claim (CD-FRZ-11).
+     */
+    val stalledAt: (BlockPos, Long) -> Unit = { _, _ -> },
+    /**
+     * Whether a [stalled] or a [stalledAt] stopped the demand of the cell at the position for this worker. A target that the worker
+     * skips after a travel timeout or with no work spot is not stalled.
+     */
+    val isStalled: (BlockPos) -> Boolean = { false },
 )
 
 /**

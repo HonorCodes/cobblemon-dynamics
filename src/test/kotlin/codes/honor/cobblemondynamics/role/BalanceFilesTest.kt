@@ -7,6 +7,8 @@ import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import codes.honor.cobblemondynamics.handler.tree.FellClock
 import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
+import codes.honor.cobblemondynamics.handler.water.FreezePace
+import codes.honor.cobblemondynamics.handler.water.FreezerParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -95,6 +97,19 @@ class BalanceFilesTest {
             assertTrue(top <= 4.0, "${role.id} fells $top logs per second of Working")
         }
         assertEquals(5, LumberjackParams.of(BuiltInRoles.parse("lumberjack").params).ticksPerLogAt100)
+    }
+
+    /** A cold biome tries about 75 columns per minute in each chunk (BM8). The level is clamped to 1 to 100, as for the Cultivator. */
+    @Test
+    fun `CD-BAL-12 the default Freezer freezes at most 60 cells per minute`() {
+        val freezers = withHandler("cobblemon_dynamics:freezer")
+        assertTrue(freezers.isNotEmpty(), "no built-in role file uses the Freezer handler")
+        for (role in freezers) {
+            val params = FreezerParams.of(role.params)
+            val top = (1..100).maxOf { level -> 1_200 / FreezePace.intervalTicks(level, params.cellsPerMinuteAt100) }
+            assertTrue(top <= 60, "${role.id} freezes $top cells per minute")
+        }
+        assertEquals(60, FreezerParams.of(BuiltInRoles.parse("freezer").params).cellsPerMinuteAt100)
     }
 
     private companion object {

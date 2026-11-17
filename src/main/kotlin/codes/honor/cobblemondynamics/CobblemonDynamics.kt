@@ -36,6 +36,7 @@ import codes.honor.cobblemondynamics.handler.vanilla.BuddingHandler
 import codes.honor.cobblemondynamics.handler.vanilla.EnchantingHandler
 import codes.honor.cobblemondynamics.handler.vanilla.EnchantingMenus
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
+import codes.honor.cobblemondynamics.handler.water.FreezerHandler
 import codes.honor.cobblemondynamics.leash.LeashComponents
 import codes.honor.cobblemondynamics.leash.LeashInteractions
 import codes.honor.cobblemondynamics.leash.LeashResets
@@ -94,6 +95,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(FluidFillHandler)
         HandlerRegistry.register(EnchantingHandler)
         HandlerRegistry.register(TelekinesisHandler)
+        HandlerRegistry.register(FreezerHandler)
         HandlerRegistry.register(MagnetHandler)
         HandlerRegistry.register(CultivatorHandler)
         HandlerRegistry.register(HarvesterHandler)

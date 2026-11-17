@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:freezer",
+  "types": ["ice"],
+  "auto_assign": true,
+  "quick_work": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "cells_per_minute_at_level_100": 60, "reach": 5.0 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["icebeam", "beam", "special"],
+    "actor_particles": ["cobblemon:icebeam_actorpilot"],
+    "target_particles": [
+      "cobblemon:icebeam_target",
+      "cobblemon:icebeam_targetbuild",
+      "cobblemon:icebeam_targetburst",
+      "cobblemon:icebeam_targetfrost"
+    ]
+  }
+}

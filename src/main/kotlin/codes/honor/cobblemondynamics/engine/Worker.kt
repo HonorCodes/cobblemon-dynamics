@@ -52,5 +52,13 @@ class Worker(val pokemonId: UUID, var pasture: PastureKey?) {
     /** Targets that this worker skips until a tick, after a travel timeout (CD-ASG-14). */
     val skipUntil: MutableMap<TargetKey, Long> = HashMap()
 
-    fun isSkipped(key: TargetKey, now: Long): Boolean = now < (skipUntil[key] ?: Long.MIN_VALUE)
+    /**
+     * Cells whose demand a handler stopped for this worker until a tick (CD-CUL-09, CD-FRZ-11). The worker skips them as targets too.
+     * An area job, such as the Freezer's, works none of them, but it still works a cell of [skipUntil], which it needs no spot at.
+     */
+    val stalledUntil: MutableMap<TargetKey, Long> = HashMap()
+
+    fun isSkipped(key: TargetKey, now: Long): Boolean = now < (skipUntil[key] ?: Long.MIN_VALUE) || isStalled(key, now)
+
+    fun isStalled(key: TargetKey, now: Long): Boolean = now < (stalledUntil[key] ?: Long.MIN_VALUE)
 }
