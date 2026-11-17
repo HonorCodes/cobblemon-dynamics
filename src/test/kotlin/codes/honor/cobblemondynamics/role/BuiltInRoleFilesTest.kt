@@ -66,6 +66,8 @@ class BuiltInRoleFilesTest {
         "tailwind_pneumaticcraft" to Row("cobblemon_dynamics:pnc_air", setOf("flying"), false, 0, "gust"),
         "cultivator_botanypots" to Row("cobblemon_dynamics:pot_cultivator", setOf("ground"), true, 0, "mudsport"),
         "harvester_botanypots" to Row("cobblemon_dynamics:pot_harvester", setOf("grass"), true, 0, "razorleaf"),
+        "generator_healing_machine" to Row("cobblemon_dynamics:healing_charge", setOf("electric"), true, 0, "thundershock"),
+        "brewer_irons_spellbooks" to Row("cobblemon_dynamics:alchemist_cauldron", setOf("poison"), true, 0, "poisongas"),
         // The Stoker on the furnaces of other mods (Task 15 of the 1.2 plan).
         "stoker_ironfurnaces" to Row("cobblemon_dynamics:iron_furnace", setOf("fire"), true, 0, "ember"),
         "stoker_cookingforblockheads" to Row("cobblemon_dynamics:cfb_oven", setOf("fire"), true, 0, "ember"),
@@ -751,5 +753,30 @@ class BuiltInRoleFilesTest {
         }
         assertEquals(CultivatorParams(30, 100), CultivatorParams.of(BuiltInRoles.parse("cultivator_botanypots").params))
         assertEquals(20, HarvestClock.ticksOf(BuiltInRoles.parse("harvester_botanypots").params))
+    }
+
+    /** Cobblemon is required, so the Healing Machine's role file has no condition and loads on every server. */
+    @Test
+    fun `CD-MCH-08 the Generator of the Healing Machine is an auto-assign Electric role with no condition`() {
+        val file = File(BuiltInRoles.dir, "generator_healing_machine.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:healing_charge", role.handler.toString())
+        assertEquals(setOf("electric"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(4, role.params.get("recharge_multiplier_at_level_100")?.asInt)
+        assertFalse(JsonParser.parseString(file.readText()).asJsonObject.has(RoleConditions.KEY))
+        assertEffectOf("generator_healing_machine", "generator")
+    }
+
+    @Test
+    fun `CD-MCH-07 the Brewer of the Alchemist Cauldron is an auto-assign Poison role that needs Iron's Spells 'n Spellbooks`() {
+        val file = File(BuiltInRoles.dir, "brewer_irons_spellbooks.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:alchemist_cauldron", role.handler.toString())
+        assertEquals(setOf("poison"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(1, role.params.get("extra_steps_per_tick")?.asInt)
+        assertEquals(listOf("irons_spellbooks"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("brewer_irons_spellbooks", "brewer")
     }
 }

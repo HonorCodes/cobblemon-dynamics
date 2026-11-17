@@ -711,6 +711,21 @@ full target, it waits in Standby. An AE2 Energy Acceptor converts the FE at AE2'
 **Role file parameters:** `base_fe_per_tick` (10), `max_fe_per_tick` (5000), `rare_multiplier` (2.0) and
 `rare_labels` (`legendary`, `mythical`).
 
+#### Generator Healing Machine
+
+**Role id:** `cobblemon_dynamics:generator_healing_machine`. **Assignment:** Auto.
+
+**Target:** a Cobblemon Healing Machine.
+
+The Generator recharges the Healing Machine at 4 × L ÷ 100 times the machine's own rate, where L is its level, on
+top of the machine's own recharge. With Cobblemon's default config, a machine recharges its 6 charges in 900
+seconds by itself. A level 100 Generator adds 4 times that, so the machine refills 5 times as fast, in 180
+seconds. The Generator works only while the machine holds less than its maximum charge and recharges by itself,
+so not while a player heals at it. It leaves the last step of a charge to the machine, which then shows its full
+charge.
+
+**Role file parameter:** `recharge_multiplier_at_level_100` (4).
+
 ### Crystal Tender
 
 **Types:** Rock. **Level:** any. **Move:** Rock Throw.
@@ -744,6 +759,17 @@ Fire and Poison type, works a stand as a Brew Stoker.
 
 The Brewer makes each brew finish in 200 ticks (10 seconds), not 400 ticks. It works only while a brew runs.
 It never changes the stand's fuel, so the stand needs its own blaze powder.
+
+#### Brewer Iron's Spells 'n Spellbooks
+
+**Needs:** Iron's Spells 'n Spellbooks. **Assignment:** Auto.
+
+**Target:** an Alchemist Cauldron.
+
+The Brewer makes each item in the cauldron cook twice as fast: 51 ticks, not 101. It works only while an item
+cooks. The cauldron itself finishes each item, as it does with no worker.
+
+**Role file parameter:** `extra_steps_per_tick` (1).
 
 ### Cultivator
 

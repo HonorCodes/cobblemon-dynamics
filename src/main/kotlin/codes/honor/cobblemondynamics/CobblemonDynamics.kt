@@ -24,6 +24,7 @@ import codes.honor.cobblemondynamics.compat.forbidden_arcanus.ForbiddenArcanusCo
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
 import codes.honor.cobblemondynamics.compat.immersiveengineering.IeCompat
 import codes.honor.cobblemondynamics.compat.ironfurnaces.IronFurnacesCompat
+import codes.honor.cobblemondynamics.compat.irons_spellbooks.IronsSpellbooksCompat
 import codes.honor.cobblemondynamics.compat.mekanism.MekanismCompat
 import codes.honor.cobblemondynamics.compat.mekanismgenerators.MekanismGeneratorsCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
@@ -39,6 +40,7 @@ import codes.honor.cobblemondynamics.engine.WorkerPush
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import codes.honor.cobblemondynamics.handler.capability.FePushHandler
 import codes.honor.cobblemondynamics.handler.capability.FluidFillHandler
+import codes.honor.cobblemondynamics.handler.cobblemon.HealingChargeHandler
 import codes.honor.cobblemondynamics.handler.create.CreateCompat
 import codes.honor.cobblemondynamics.handler.farming.CultivatorHandler
 import codes.honor.cobblemondynamics.handler.farming.HarvestLootMap
@@ -122,6 +124,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(CultivatorHandler)
         HandlerRegistry.register(HarvesterHandler)
         HandlerRegistry.register(LumberjackHandler)
+        // CD-MCH-08: Cobblemon is required, so the Healing Machine's handler registers on every server.
+        HandlerRegistry.register(HealingChargeHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
         if (ModList.get().isLoaded("create")) CreateCompat.register(modBus)
         // CD-QWK-33: each claim compat class loads only when its mod is present.
@@ -145,6 +149,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("railcraft")) RailcraftCompat.register()
         if (ModList.get().isLoaded("pneumaticcraft")) PncCompat.register(modBus)
         if (ModList.get().isLoaded("botanypots")) BotanyPotsCompat.register()
+        if (ModList.get().isLoaded("irons_spellbooks")) IronsSpellbooksCompat.register(modBus)
         // CD-FUEL-07 to CD-FUEL-12: the Stoker on the furnaces of other mods, each handler only with its mod.
         if (ModList.get().isLoaded("ironfurnaces")) IronFurnacesCompat.register()
         if (ModList.get().isLoaded("cookingforblockheads")) CookingForBlockheadsCompat.register()

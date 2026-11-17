@@ -198,6 +198,17 @@ class MixinGateTest {
         assertTrue("cobblemon_dynamics:liquid_burner" in warnings.single() && MixinState.LIQUID_BLAZE_BURNER in warnings.single())
     }
 
+    /** The Brewer's extra cook step runs in the cauldron's own tick, through its mixin, so without the mixin the role is off. */
+    @Test
+    fun `CD-OPT-09 CD-MCH-07 a missing cauldron mixin disables the Brewer of the Alchemist Cauldron with one warning`() {
+        val cauldron = role("brewer_irons_spellbooks", setOf("poison"), handler = "cobblemon_dynamics:alchemist_cauldron")
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(cauldron, stoker), applied = { it != MixinState.ALCHEMIST_CAULDRON }, warn = warnings::add)
+        assertEquals(listOf(stoker.id), gated.active.map { it.definition.id })
+        assertEquals(1, warnings.size)
+        assertTrue("cobblemon_dynamics:alchemist_cauldron" in warnings.single() && MixinState.ALCHEMIST_CAULDRON in warnings.single())
+    }
+
     @Test
     fun `CD-WHL-10 an applied mixin keeps its roles, and a role that needs no mixin stays on`() {
         val warnings = mutableListOf<String>()

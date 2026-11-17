@@ -9,6 +9,8 @@ import codes.honor.cobblemondynamics.compat.mekanism.HeaterParams
 import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncHeatMath
 import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncHeaterParams
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
+import codes.honor.cobblemondynamics.handler.cobblemon.HealingCharge
+import codes.honor.cobblemondynamics.handler.cobblemon.HealingParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.GrowthPace
 import codes.honor.cobblemondynamics.handler.farming.HarvestClock
@@ -189,6 +191,20 @@ class BalanceFilesTest {
         val interval = SourcelinkRule.intervalOf(BuiltInRoles.parse("stoker_ars_nouveau").params)
         assertTrue(interval >= 1_600, "the Volcanic Sourcelink gets one coal per $interval ticks")
         assertEquals(1_600, interval)
+    }
+
+    /** Cobblemon recharges `maxHealerCharge` in `secondsToChargeHealingMachine`: 6 charges in 900 s on COHO (BM13). */
+    @Test
+    fun `CD-BAL-16 one Generator recharges a Healing Machine at most 4 times as fast as the machine itself`() {
+        val generators = withHandler("cobblemon_dynamics:healing_charge")
+        assertTrue(generators.isNotEmpty(), "no built-in role file uses the Healing Machine handler")
+        val own = HealingCharge.ownPerTick(maxCharge = 6f, secondsToCharge = 900.0)
+        for (role in generators) {
+            val multiplier = HealingParams.of(role.params).multiplierAt100
+            val top = (1..100).maxOf { level -> HealingCharge.workerPerTick(multiplier, level, own) }
+            assertTrue(top <= 4 * own + 1e-12, "${role.id} recharges ${top / own} times the machine's own rate")
+        }
+        assertEquals(4.0, HealingParams.of(BuiltInRoles.parse("generator_healing_machine").params).multiplierAt100)
     }
 
     private companion object {

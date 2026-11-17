@@ -38,7 +38,7 @@ object OptionalMods {
         // Its hook finds the crank wheels' block entity type by id, so no source names its classes (CD-KIN-05).
         OptionalMod("create_connected", listOf("com/hlysine/create_connected/"), listOf("crank_wheel")),
         OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/")),
-        OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/")),
+        OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/"), listOf("alchemist_cauldron")),
         OptionalMod("easymagic", listOf("fuzs/easymagic/"), listOf("muse_table")),
         OptionalMod("enchantinginfuser", listOf("fuzs/enchantinginfuser/"), listOf("muse_infusers")),
         // CD-XPC-11: the XP capability on the outputs of the Experience Collector.

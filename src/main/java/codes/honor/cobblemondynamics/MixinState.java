@@ -37,6 +37,7 @@ public final class MixinState {
     public static final String CLIBANO = "compat.forbidden_arcanus.ClibanoMixin";
     public static final String EGG_INCUBATOR = "compat.cobblemon_incubator.EggIncubatorMixin";
     public static final String LIQUID_BLAZE_BURNER = "compat.createaddition.LiquidBlazeBurnerMixin";
+    public static final String ALCHEMIST_CAULDRON = "compat.irons_spellbooks.AlchemistCauldronMixin";
 
     static final String MIXIN_PACKAGE = "codes.honor.cobblemondynamics.mixin.";
 

@@ -17,6 +17,7 @@
     "compat.forbidden_arcanus.ClibanoMixin",
     "compat.immersiveengineering.WatermillBlockEntityMixin",
     "compat.immersiveengineering.WindmillBlockEntityMixin",
+    "compat.irons_spellbooks.AlchemistCauldronMixin",
     "compat.mekanismgenerators.WindGeneratorMixin",
     "compat.pneumaticcraft.AirCompressorMixin",
     "create.AirCurrentMixin",
