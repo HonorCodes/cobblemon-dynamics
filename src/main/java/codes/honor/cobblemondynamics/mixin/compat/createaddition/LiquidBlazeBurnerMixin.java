@@ -44,8 +44,7 @@ public abstract class LiquidBlazeBurnerMixin implements LiquidBurnerAccess {
     public abstract boolean isCreative();
 
     @Inject(
-            method = "getHeatLevelFromFuelType(Lcom/mrh0/createaddition/blocks/liquid_blaze_burner/LiquidBlazeBurnerBlockEntity$FuelType;)"
-                    + "Lcom/simibubi/create/content/processing/burner/BlazeBurnerBlock$HeatLevel;",
+            method = "getHeatLevelFromFuelType(Lcom/mrh0/createaddition/blocks/liquid_blaze_burner/LiquidBlazeBurnerBlockEntity$FuelType;)Lcom/simibubi/create/content/processing/burner/BlazeBurnerBlock$HeatLevel;",
             at = @At("RETURN"),
             cancellable = true)
     private void cobblemon_dynamics$heat(LiquidBlazeBurnerBlockEntity.FuelType fuel, CallbackInfoReturnable<BlazeBurnerBlock.HeatLevel> cir) {
