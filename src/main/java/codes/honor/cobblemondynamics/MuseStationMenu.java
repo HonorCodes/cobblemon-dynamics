@@ -10,4 +10,10 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
  */
 public interface MuseStationMenu {
     ContainerLevelAccess cobblemon_dynamics$station();
+
+    /**
+     * Counts the station's power again when a Muse starts or stops, and keeps each level that the player chose within what the new
+     * power offers. The station's own update for a new item would reset those levels (CD-FIX-06).
+     */
+    void cobblemon_dynamics$refreshPower();
 }

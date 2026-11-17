@@ -9,6 +9,7 @@ import com.google.gson.JsonObject
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.item.enchantment.ItemEnchantments
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
 import net.neoforged.fml.ModList
@@ -80,6 +81,18 @@ object MuseBonus {
         val cap = minOf(MAX_BOOKSHELVES, limit)
         return if (bonus <= 0 || real >= cap) real else minOf(cap, real + bonus)
     }
+
+    /**
+     * CD-FIX-06: the level that a player chose at an infuser, once a Muse's start or stop changed the power to one that [offered] the
+     * highest level of. A higher level drops to that, but never below the item's [own] level, so the item keeps its enchantments.
+     */
+    @JvmStatic
+    fun clampedLevel(chosen: Int, offered: Int, own: Int): Int = if (chosen <= offered || chosen <= own) chosen else maxOf(offered, own)
+
+    /** Whether [a] and [b] hold the same enchantments at the same levels. Their tooltip flags may differ. */
+    @JvmStatic
+    fun sameLevels(a: ItemEnchantments, b: ItemEnchantments): Boolean =
+        a.size() == b.size() && a.keySet().all { a.getLevel(it) == b.getLevel(it) }
 
     /**
      * CD-FIX-06: with Apothic Enchanting, an infuser counts the Muse's power as Eterna, and the Muse gives only Quanta (CD-MUS-07),

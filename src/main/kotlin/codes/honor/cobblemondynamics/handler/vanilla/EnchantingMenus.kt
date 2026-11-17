@@ -66,12 +66,21 @@ object EnchantingMenus {
     fun isOpenAt(level: ServerLevel, table: BlockPos): Boolean = menusAt(level, table).isNotEmpty()
 
     /**
-     * Each open menu of [table] computes its offers again, as vanilla does when the item in it changes. The seed stays, so the offers
-     * change only with the count of bookshelves. A table whose chunk is gone has no open menu, and is never read.
+     * Each open menu of [table] takes the power of a Muse's start or stop at once. A vanilla or Easy Magic menu computes its offers
+     * again, as vanilla does when the item in it changes. The seed stays, so the offers change only with the count of bookshelves. A
+     * table whose chunk is gone has no open menu, and is never read.
      */
     fun refresh(level: ServerLevel, table: BlockPos) {
         if (!level.isLoaded(table)) return
-        for (menu in menusAt(level, table)) menu.slotsChanged(menu.getSlot(ENCHANT_SLOT).container)
+        for (menu in menusAt(level, table)) refreshMenu(menu) { menu.slotsChanged(menu.getSlot(ENCHANT_SLOT).container) }
+    }
+
+    /**
+     * CD-FIX-06: a [MuseStationMenu] counts its power again and keeps the player's chosen levels within it, because its update for a
+     * new item would reset them. Every other menu runs [recompute].
+     */
+    internal fun refreshMenu(menu: Any, recompute: () -> Unit) {
+        if (menu is MuseStationMenu) menu.`cobblemon_dynamics$refreshPower`() else recompute()
     }
 
     private const val ENCHANT_SLOT = 0

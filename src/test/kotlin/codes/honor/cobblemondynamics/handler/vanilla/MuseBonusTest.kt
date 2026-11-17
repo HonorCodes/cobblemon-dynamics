@@ -36,6 +36,17 @@ class MuseBonusTest {
         assertEquals(0, MuseBonus.bonus(100, params, apothicEnchanting = true).bookshelves)
     }
 
+    /** `InfuserMenu.clickEnchantmentLevelButton` caps a chosen level at the power's `getAvailableEnchantmentLevel` (javap, v21.1.4). */
+    @Test
+    fun `CD-FIX-06 a chosen level above a new power drops to what it offers, and never below the item's own level`() {
+        assertEquals(5, MuseBonus.clampedLevel(chosen = 5, offered = 5, own = 0), "a level within the power changed")
+        assertEquals(2, MuseBonus.clampedLevel(chosen = 2, offered = 4, own = 0), "a rise of the power changed the choice")
+        assertEquals(3, MuseBonus.clampedLevel(chosen = 5, offered = 3, own = 0))
+        assertEquals(0, MuseBonus.clampedLevel(chosen = 3, offered = 0, own = 0), "the item keeps an enchantment that the power lost")
+        assertEquals(2, MuseBonus.clampedLevel(chosen = 5, offered = 1, own = 2), "the item lost its own level")
+        assertEquals(4, MuseBonus.clampedLevel(chosen = 4, offered = 1, own = 5), "a level that the player lowered changed")
+    }
+
     @Test
     fun `CD-MUS-01 CD-FIX-05 CD-FIX-06 the Muse's tag holds the vanilla table, and Easy Magic's table and both infusers as optional`() {
         val file = File(System.getProperty("cd.projectDir"), "src/main/resources/data/cobblemon_dynamics/tags/block/muse_targets.json")
