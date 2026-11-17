@@ -123,7 +123,9 @@ class BindRulesTest {
         }
         val oak = TreeGrid().apply { oak(base) }
         val sapling = TreeGrid().apply { sapling(base) }
-        for ((grid, refused) in listOf(mangrove to true, tall to true, oak to false, sapling to false)) {
+        // R82: the tree that a propagule grows is a mangrove, which the never tag always skips.
+        val propagule = TreeGrid().apply { sapling(base, "minecraft:mangrove_propagule", never = true) }
+        for ((grid, refused) in listOf(mangrove to true, tall to true, propagule to true, oak to false, sapling to false)) {
             val canonical = TreeRules.canonical(grid.read, base, TreeGrid.MAX_LOGS)
             val key = TreeRules.CANNOT_FELL.takeIf { TreeRules.refusesBind(grid.read, canonical, TreeGrid.MAX_LOGS, TreeGrid.MAX_LEAVES) }
             val outcome = BindRules.evaluate(input(roles = listOf(lumberjack), target = key), shape)

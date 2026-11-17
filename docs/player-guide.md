@@ -834,8 +834,8 @@ the pasture. The rest of the tree can rise above the work area.
 
 The tree falls T ticks of Working for each log after the work starts, where T = round(20 − 15 × (L − 1) ÷ 99)
 and L is the worker's level: 20 ticks at level 1, 10 ticks at level 67 and 5 ticks at level 100. The tree
-falls with its own natural leaves and with the blocks that hang on it, such as cocoa, vines and torches, with
-no sound. Leaves that a player placed stay. The drops land beside the trunk, on the side that faces the worker,
+falls with its own natural leaves and with what hangs on it, such as cocoa, vines, torches, item frames and
+paintings, with no sound. Leaves that a player placed stay. The drops land beside the trunk, on the side that faces the worker,
 where a [Magnet](#magnet) collects them. One sapling of the drops goes where the trunk stood. A 2 × 2 trunk
 gets four saplings of one kind when the drops hold four. A dark oak sapling never grows alone, so a dark oak
 gets four saplings or none. With no sapling in the drops, the cell stays empty for you to plant. The binding
@@ -844,7 +844,7 @@ waits on the sapling until a tree stands there again.
 The Lumberjack does not fell a tree with fewer than 3 natural leaves, which is a build, or a tree of more than
 256 logs or 1,024 leaves. It also leaves mangroves, huge nether fungi, apricorn trees, trees with a bee nest or
 a beehive, the fruit trees of Pam's HarvestCraft and the magic trees of the Twilight Forest. A bind on such a
-tree shows "{Cobblemon} cannot fell this tree".
+tree, or on a sapling that grows one, such as a mangrove propagule, shows "{Cobblemon} cannot fell this tree".
 
 The worker asks each land claim mod about each block of the fell, in the tick that the fell starts. One
 refusal stops the whole fell, and the worker leaves that tree alone for 6,000 ticks.

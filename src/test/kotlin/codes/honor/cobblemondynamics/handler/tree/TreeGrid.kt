@@ -29,7 +29,13 @@ class TreeGrid {
     /** A block that is neither a log nor a leaf, such as dirt, cocoa or a bee nest. */
     fun block(pos: BlockPos, id: String, never: Boolean = false): BlockPos = set(pos, CellFacts(rl(id), never = never))
 
-    fun sapling(pos: BlockPos, id: String = OAK_SAPLING): BlockPos = set(pos, CellFacts(rl(id), sapling = true))
+    /** A sapling, which [never] puts in `#cobblemon_dynamics:lumberjack/never_saplings`. */
+    fun sapling(pos: BlockPos, id: String = OAK_SAPLING, never: Boolean = false): BlockPos =
+        set(pos, CellFacts(rl(id), sapling = true, neverSapling = never))
+
+    /** A cell of a chunk that is not loaded, as `TreeFactsReader` reads it. */
+    fun unloaded(pos: BlockPos): BlockPos =
+        set(pos, CellFacts(rl("cobblemon_dynamics:unloaded"), anyLog = true, never = true, unloaded = true))
 
     /** A column of [height] logs from [base] up. */
     fun trunk(base: BlockPos, height: Int, id: String = OAK_LOG, never: Boolean = false): List<BlockPos> =

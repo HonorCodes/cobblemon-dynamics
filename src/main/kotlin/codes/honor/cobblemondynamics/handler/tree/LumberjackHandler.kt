@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.tree
 
+import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
@@ -8,18 +9,30 @@ import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.TicketType
 import net.minecraft.tags.BlockTags
+import net.minecraft.world.entity.decoration.GlowItemFrame
+import net.minecraft.world.entity.decoration.HangingEntity
+import net.minecraft.world.entity.decoration.ItemFrame
+import net.minecraft.world.entity.decoration.Painting
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.LevelReader
+import net.minecraft.world.level.block.BaseRailBlock
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.properties.RailShape
 import net.minecraft.world.level.material.FluidState
+import net.minecraft.world.phys.AABB
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * The Lumberjack's target (ADR-0017): a tree that a Work Leash names, keyed by its trunk base cell. The worker fells the whole tree with
@@ -28,8 +41,14 @@ import net.minecraft.world.level.material.FluidState
  * and no listener of a player's break hears it.
  */
 object LumberjackHandler : TargetHandler {
-    /** How long a claim trusts its last tree search, so that a Working worker does not search the tree on each tick. */
-    private const val RECHECK_TICKS = 20L
+    /** CD-LUM-27: a run ends within a few ticks, and a run that never ends gives its chunks back after this lifespan. */
+    private const val TICKET_TICKS = 600
+
+    /** CD-LUM-27: the ticket of a running fell. Each run has its own number, so two runs that share a chunk keep their own tickets. */
+    private val FELL_TICKET: TicketType<Long> = TicketType.create("cobblemon_dynamics_fell", Comparator.naturalOrder(), TICKET_TICKS)
+
+    private val runs = AtomicLong()
+    private val warnings = OnceLogger()
 
     override val id: ResourceLocation = id("lumberjack")
 
@@ -81,16 +100,23 @@ object LumberjackHandler : TargetHandler {
             return
         }
         if (!memo.clock.isFellTick(ctx.now)) return
-        memo.forgetTree()
+        memo.wait.forget()
         val params = LumberjackParams.of(ctx.role.params)
-        val plan = plan(ctx.level, ctx.target, params) ?: return
-        // CD-LUM-12, CD-LUM-13: every question in this tick, before any block changes, and one refusal changes nothing.
-        if (!FellPlan.allowed(plan, ctx.mayChange, ctx.mayBreak)) {
+        // CD-LUM-12, CD-LUM-13, CD-LUM-29: every question in this tick, before any block changes. A refusal, or a tree that gets no
+        // plan, changes nothing and waits.
+        val fell = fell(ctx.level, ctx.target, params)
+        if (fell == null || !FellPlan.allowed(fell.plan, ctx.mayChange, ctx.mayBreak)) {
             memo.clock.refuse(ctx.now, ctx.stalled)
             return
         }
-        val run = FellRun(plan, params.blocksPerTick)
+        val run = FellRun(fell.plan, params.blocksPerTick, tickets(ctx.level))
         memo.run = run
+        // CD-LUM-30: the item frames and paintings come off first, silently, and their items join the drops.
+        for (entity in fell.hanging) {
+            if (entity.isRemoved) continue
+            memo.loot += dropsOf(entity)
+            entity.discard()
+        }
         if (run.step { remove(ctx.level, it, memo.loot) }) end(ctx, memo, run)
     }
 
@@ -100,15 +126,67 @@ object LumberjackHandler : TargetHandler {
     override fun onUnclaim(ctx: WorkContext) = complete(ctx)
 
     /** The fell of the tree on [base], with its shell, or null when no tree within the role's limits stands there. GameTests read it. */
-    fun plan(level: ServerLevel, base: BlockPos, params: LumberjackParams): FellPlan? {
+    fun plan(level: ServerLevel, base: BlockPos, params: LumberjackParams): FellPlan? = fell(level, base, params)?.plan
+
+    /** A fell, and the item frames and paintings that it takes (CD-LUM-30). */
+    private class Fell(val plan: FellPlan, val hanging: List<HangingEntity>)
+
+    private fun fell(level: ServerLevel, base: BlockPos, params: LumberjackParams): Fell? {
         val reader = TreeFactsReader(level)
         val tree = TreeRules.treeOn(reader::facts, base, params.maxLogs, params.maxLeaves) ?: return null
-        val shell = ShellRule.shell(tree, { pos -> standing(level, pos) }) { pos, gone ->
-            val state = TreeFactsReader.stateOf(level, pos) ?: return@shell true
-            state.canSurvive(HollowLevel(level) { it in tree.cells || it in gone }, pos)
+        // CD-LUM-29: a block of another mod whose check throws plans no fell of this tree, and never turns the role off.
+        val failed: (Throwable) -> Unit = { e ->
+            warnings.warn("shell:${e.javaClass.name}") { "The Lumberjack plans no fell at $base, because a block's check fails: $e" }
         }
-        return FellPlan.of(tree, shell) { reader.facts(it).blockId }
+        val shell = ShellRule.shell(tree, { pos -> standing(level, pos) }, failed) { pos, gone -> stands(level, tree, gone, pos) }
+            ?: return null
+        val hanging = hangingOn(level, tree.cells + shell)
+        val cells = hanging.map { it.pos to BuiltInRegistries.ENTITY_TYPE.getKey(it.type) }
+        return Fell(FellPlan.of(tree, shell, cells) { reader.facts(it).blockId }, hanging)
     }
+
+    /**
+     * CD-LUM-09: whether the block at [pos] stands once the tree's cells and [gone] are empty. An ascending rail also needs its raised
+     * side, which vanilla checks only on a neighbour's update, when it drops the rail where it lies.
+     */
+    private fun stands(level: ServerLevel, tree: Tree, gone: Set<BlockPos>, pos: BlockPos): Boolean {
+        val state = TreeFactsReader.stateOf(level, pos) ?: return true
+        val view = HollowLevel(level) { it in tree.cells || it in gone }
+        if (!state.canSurvive(view, pos)) return false
+        val rail = state.block as? BaseRailBlock ?: return true
+        val side = raisedSide(state.getValue(rail.shapeProperty)) ?: return true
+        return BaseRailBlock.canSupportRigidBlock(view, pos.relative(side))
+    }
+
+    private fun raisedSide(shape: RailShape): Direction? = when (shape) {
+        RailShape.ASCENDING_EAST -> Direction.EAST
+        RailShape.ASCENDING_WEST -> Direction.WEST
+        RailShape.ASCENDING_NORTH -> Direction.NORTH
+        RailShape.ASCENDING_SOUTH -> Direction.SOUTH
+        else -> null
+    }
+
+    /** CD-LUM-30: the item frames, glow item frames and paintings that hang on a cell of [hollow]. */
+    private fun hangingOn(level: ServerLevel, hollow: Set<BlockPos>): List<HangingEntity> {
+        if (hollow.isEmpty()) return emptyList()
+        val box = AABB(
+            hollow.minOf { it.x }.toDouble(),
+            hollow.minOf { it.y }.toDouble(),
+            hollow.minOf { it.z }.toDouble(),
+            hollow.maxOf { it.x } + 1.0,
+            hollow.maxOf { it.y } + 1.0,
+            hollow.maxOf { it.z } + 1.0,
+        ).inflate(1.0)
+        return level.getEntitiesOfClass(HangingEntity::class.java, box) { it is ItemFrame || it is Painting }
+            .filter { entity -> HangingRule.supports(entity.boundingBox, entity.direction).any { it in hollow } }
+    }
+
+    /** What a hanging entity drops when it breaks: the frame and its item, or the painting. */
+    private fun dropsOf(entity: HangingEntity): List<ItemStack> = when (entity) {
+        is GlowItemFrame -> listOf(ItemStack(Items.GLOW_ITEM_FRAME), entity.item.copy())
+        is ItemFrame -> listOf(ItemStack(Items.ITEM_FRAME), entity.item.copy())
+        else -> listOf(ItemStack(Items.PAINTING))
+    }.filterNot { it.isEmpty }
 
     private fun complete(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: return
@@ -116,47 +194,93 @@ object LumberjackHandler : TargetHandler {
         if (run.finish { remove(ctx.level, it, memo.loot) }) end(ctx, memo, run)
     }
 
+    /** CD-LUM-27: the tickets of one run, which keep each chunk of its plan loaded until its end. */
+    private fun tickets(level: ServerLevel): FellRun.Tickets {
+        val run = runs.incrementAndGet()
+        return FellRun.Tickets(
+            add = { chunk -> level.chunkSource.addRegionTicket(FELL_TICKET, ChunkPos(chunk), 0, run) },
+            remove = { chunk -> level.chunkSource.removeRegionTicket(FELL_TICKET, ChunkPos(chunk), 0, run) },
+        )
+    }
+
     /** The cells next to [pos] that hold a block, in loaded chunks. */
     private fun standing(level: ServerLevel, pos: BlockPos): List<BlockPos> =
         TreeSearch.faces(pos).filter { TreeFactsReader.stateOf(level, it)?.isAir == false }
 
-    /** CD-LUM-14, CD-LUM-16: the loot of the cell as it stands, then the cell's fluid. A cell that changed since the plan stays. */
+    /**
+     * CD-LUM-06, CD-LUM-14, CD-LUM-16: the loot of the cell as it stands, then the cell's fluid. A cell whose block changed since the plan
+     * stays, and so does a leaf that a player placed there since.
+     */
     private fun remove(level: ServerLevel, step: FellStep, loot: MutableList<ItemStack>) {
         val state = TreeFactsReader.stateOf(level, step.pos) ?: return
-        if (BuiltInRegistries.BLOCK.getKey(state.block) != step.blockId) return
-        loot += Block.getDrops(state, level, step.pos, level.getBlockEntity(step.pos), null, ItemStack.EMPTY).filterNot { it.isEmpty }
+        if (!FellPlan.stillHolds(step, TreeFactsReader.factsOf(state))) return
+        loot += lootOf(level, step, state)
         val flags = if (step.shell) Block.UPDATE_CLIENTS or Block.UPDATE_KNOWN_SHAPE else Block.UPDATE_ALL
         level.setBlock(step.pos, state.fluidState.createLegacyBlock(), flags)
-        state.spawnAfterBreak(level, step.pos, ItemStack.EMPTY, true)
+        try {
+            state.spawnAfterBreak(level, step.pos, ItemStack.EMPTY, true)
+        } catch (e: Exception) {
+            warnings.warn("break:${step.blockId}") { "The Lumberjack skips the break effects of ${step.blockId}, which fail: $e" }
+        }
     }
 
-    /** CD-LUM-16 to CD-LUM-18: after the last block, the replant takes its saplings from the drops, and the rest pop toward the spot. */
+    /** CD-LUM-29: a block whose loot fails goes with no loot, so the fell still completes and the role stays on. */
+    private fun lootOf(level: ServerLevel, step: FellStep, state: BlockState): List<ItemStack> = try {
+        Block.getDrops(state, level, step.pos, level.getBlockEntity(step.pos), null, ItemStack.EMPTY).filterNot { it.isEmpty }
+    } catch (e: Exception) {
+        warnings.warn("loot:${step.blockId}") { "The Lumberjack drops nothing for ${step.blockId}, because its loot fails: $e" }
+        emptyList()
+    }
+
+    /**
+     * CD-LUM-16 to CD-LUM-18: after the last block, the replant takes its saplings from the drops, and the rest pop toward the spot. The
+     * run ends and gives its chunks back also when a drop fails (CD-LUM-27, CD-LUM-29).
+     */
     private fun end(ctx: WorkContext, memo: Memo, run: FellRun) {
         val level = ctx.level
         val plan = run.plan
-        val drops = FellPlan.merged(memo.loot.map { it to it.count }, same = ItemStack::isSameItemSameComponents)
-        val replant = ReplantRule.choose(
-            drops,
-            plan.base,
-            plan.twoByTwo,
-            isSapling = { saplingOf(it) != null },
-            survives = { stack, cell -> canPlant(level, stack, cell) },
-            needsFour = { stack -> saplingOf(stack)?.defaultBlockState()?.`is`(TreeFactsReader.NEEDS_FOUR) == true },
-        )
-        val sapling = replant?.let { saplingOf(it.item) }?.defaultBlockState()
-        if (replant != null && sapling != null) for (cell in replant.cells) level.setBlock(cell, sapling, Block.UPDATE_ALL)
-        val taken = listOfNotNull(replant?.takeIf { sapling != null }?.let { it.item to it.cells.size })
-        val face = DropFace.toward(plan.base, ctx.spot ?: plan.base)
-        for ((stack, count) in FellPlan.merged(drops, taken, ItemStack::isSameItemSameComponents)) {
-            var left = count
-            while (left > 0) {
-                val size = minOf(left, stack.maxStackSize)
-                Block.popResourceFromFace(level, plan.base, face, stack.copyWithCount(size))
-                left -= size
+        try {
+            val drops = FellPlan.merged(memo.loot.map { it to it.count }, same = ItemStack::isSameItemSameComponents)
+            val chosen = ReplantRule.choose(
+                drops,
+                plan.base,
+                plan.twoByTwo,
+                isSapling = { saplingOf(it) != null },
+                survives = { stack, cell -> canPlant(level, stack, cell) },
+                needsFour = { stack -> saplingOf(stack)?.defaultBlockState()?.`is`(TreeFactsReader.NEEDS_FOUR) == true },
+            )
+            // CD-LUM-17: a claim can change during a fell of several ticks, so the replant asks the use question again.
+            val replant = ReplantRule.allowedBy(chosen, ctx.mayChange)
+            val sapling = replant?.let { saplingOf(it.item) }?.defaultBlockState()
+            if (replant != null && sapling != null) for (cell in replant.cells) level.setBlock(cell, sapling, Block.UPDATE_ALL)
+            val taken = listOfNotNull(replant?.takeIf { sapling != null }?.let { it.item to it.cells.size })
+            val face = DropFace.toward(plan.base, ctx.spot ?: plan.base)
+            for ((stack, count) in FellPlan.merged(
+                drops,
+                taken,
+                ItemStack::isSameItemSameComponents,
+            )) {
+                pop(level, plan.base, face, stack, count)
             }
+        } finally {
+            memo.run = null
+            memo.loot.clear()
+            run.release()
         }
-        memo.run = null
-        memo.loot.clear()
+    }
+
+    /** [count] items like [stack], in stacks of its largest size. A stack that fails to pop leaves the others alone (CD-LUM-29). */
+    private fun pop(level: ServerLevel, base: BlockPos, face: Direction, stack: ItemStack, count: Int) {
+        var left = count
+        while (left > 0) {
+            val size = minOf(left, stack.maxStackSize.coerceAtLeast(1))
+            try {
+                Block.popResourceFromFace(level, base, face, stack.copyWithCount(size))
+            } catch (e: Exception) {
+                warnings.warn("drop:${e.javaClass.name}") { "The Lumberjack loses a drop of ${stack.item}, which fails: $e" }
+            }
+            left -= size
+        }
     }
 
     /** The sapling that [stack] places, if its block is in `#minecraft:saplings`. */
@@ -178,28 +302,17 @@ object LumberjackHandler : TargetHandler {
     /** What one claim keeps: the clock, a fell in progress and its loot, and the last tree search. */
     private class Memo {
         val clock = FellClock()
+        val wait = TreeWait()
         var run: FellRun? = null
         val loot = ArrayList<ItemStack>()
-        private var tree: Tree? = null
-        private var checkedAt: Long? = null
 
-        /** The tree on the claim's target. A base cell with no log of the tag has none, which costs one read. */
+        /** CD-LUM-28: the tree on the claim's target. A base cell with no log of the tag has none, which costs one read. */
         fun tree(ctx: WorkContext): Tree? {
             val base = TreeFactsReader.stateOf(ctx.level, ctx.target)
-            if (base == null || !base.`is`(TreeFactsReader.TARGETS)) {
-                forgetTree()
-                return null
+            return wait.tree(ctx.now, baseIsLog = base != null && base.`is`(TreeFactsReader.TARGETS)) {
+                val params = LumberjackParams.of(ctx.role.params)
+                TreeRules.treeOn(TreeFactsReader(ctx.level)::facts, ctx.target, params.maxLogs, params.maxLeaves)
             }
-            checkedAt?.let { if (ctx.now - it < RECHECK_TICKS) return tree }
-            val params = LumberjackParams.of(ctx.role.params)
-            tree = TreeRules.treeOn(TreeFactsReader(ctx.level)::facts, ctx.target, params.maxLogs, params.maxLeaves)
-            checkedAt = ctx.now
-            return tree
-        }
-
-        fun forgetTree() {
-            tree = null
-            checkedAt = null
         }
     }
 

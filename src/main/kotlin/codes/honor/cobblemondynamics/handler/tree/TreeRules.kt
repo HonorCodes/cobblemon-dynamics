@@ -28,9 +28,14 @@ object TreeRules {
     fun bindingHolds(cell: CellFacts, below: CellFacts): Boolean =
         PlotRule.keeps(cellInRoleTag = cell.logTarget || cell.sapling, cellEmpty = cell.air || cell.fluid, belowIsAir = below.air)
 
-    /** CD-LUM-20: a bind on [base] names no sapling and no tree that the search finds. */
-    fun refusesBind(cells: (BlockPos) -> CellFacts, base: BlockPos, maxLogs: Int, maxLeaves: Int): Boolean =
-        !cells(base).sapling && treeOn(cells, base, maxLogs, maxLeaves) == null
+    /**
+     * CD-LUM-20: a bind on [base] names a sapling of the never-sapling tag, whose grown tree the never tag skips, or a log of no tree
+     * that the search finds.
+     */
+    fun refusesBind(cells: (BlockPos) -> CellFacts, base: BlockPos, maxLogs: Int, maxLeaves: Int): Boolean {
+        val cell = cells(base)
+        return if (cell.sapling) cell.neverSapling else treeOn(cells, base, maxLogs, maxLeaves) == null
+    }
 
     /**
      * CD-LUM-03: a clicked log resolves to the trunk base cell of its logs, and a clicked sapling to itself or to the corner of its 2 × 2

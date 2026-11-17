@@ -119,4 +119,15 @@ class TreeSearchTest {
         for (log in oak.logs) assertEquals(fromBase, find(grid, log), "from $log")
         assertNull(find(grid, oak.leaves.first()), "a leaf is no log of the target tag")
     }
+
+    /** A cell of a chunk that is not loaded could hold more of the tree, so the search finds no tree, also through a corner. */
+    @Test
+    fun `CD-LUM-04 a log next to a cell of a chunk that is not loaded gives no tree`() {
+        for (cell in listOf(base.offset(1, 4, 0), base.offset(1, 5, 1))) {
+            val grid = TreeGrid()
+            grid.oak(base)
+            grid.unloaded(cell)
+            assertNull(find(grid), "an oak next to the unloaded cell $cell")
+        }
+    }
 }

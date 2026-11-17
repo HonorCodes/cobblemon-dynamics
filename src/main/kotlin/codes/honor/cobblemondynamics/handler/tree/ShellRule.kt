@@ -11,9 +11,15 @@ object ShellRule {
     /**
      * The blocks next to the tree, or next to other shell blocks, that fail [survives] once the tree is gone. [survives] gets the shell so
      * far, which reads as empty with the tree's cells, so a chain of vines goes as one. [neighbours] gives the cells that a block can
-     * hold up.
+     * hold up. A [survives] that throws, as a block of another mod can, gives no shell and so no fell, and [failed] hears why
+     * (CD-LUM-29).
      */
-    fun shell(tree: Tree, neighbours: (BlockPos) -> List<BlockPos>, survives: (BlockPos, Set<BlockPos>) -> Boolean): Set<BlockPos> {
+    fun shell(
+        tree: Tree,
+        neighbours: (BlockPos) -> List<BlockPos>,
+        failed: (Throwable) -> Unit = {},
+        survives: (BlockPos, Set<BlockPos>) -> Boolean,
+    ): Set<BlockPos>? {
         val cells = tree.cells
         val shell = LinkedHashSet<BlockPos>()
         val queue = ArrayDeque<BlockPos>()
@@ -22,7 +28,17 @@ object ShellRule {
         while (queue.isNotEmpty()) {
             val pos = queue.removeFirst()
             queued -= pos
-            if (pos in shell || survives(pos, shell)) continue
+            if (pos in shell) continue
+            val stands = try {
+                survives(pos, shell)
+            } catch (e: Exception) {
+                failed(e)
+                return null
+            } catch (e: LinkageError) {
+                failed(e)
+                return null
+            }
+            if (stands) continue
             shell += pos
             // A block that stood can fall once this one is gone.
             for (next in neighbours(pos)) if (next !in cells && next !in shell && queued.add(next)) queue += next

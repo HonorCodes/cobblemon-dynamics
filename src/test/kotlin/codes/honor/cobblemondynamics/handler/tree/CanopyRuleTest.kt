@@ -85,4 +85,26 @@ class CanopyRuleTest {
         assertEquals(chain.take(6).toSet(), canopy)
         assertNull(CanopyRule.canopy(grid.read, setOf(base, base.above(), top), maxLeaves = 5))
     }
+
+    /** A cell of a chunk that is not loaded could hold a log, so the leaves within its reach stay. */
+    @Test
+    fun `CD-LUM-05 a leaf next to a cell of a chunk that is not loaded stays out of the canopy`() {
+        val grid = TreeGrid()
+        val oak = grid.oak(base)
+        grid.unloaded(base.offset(3, 3, 0))
+        val canopy = CanopyRule.canopy(grid.read, oak.logs.toSet()) ?: error("the oak gives no canopy")
+        assertTrue(base.offset(2, 3, 0) !in canopy, "the leaf next to the unloaded cell joined the canopy")
+        assertTrue(base.offset(-2, 2, 0) in canopy, "the oak misses a leaf far from the unloaded cell")
+    }
+
+    @Test
+    fun `CD-LUM-28 a search that visits more than 4 x max_leaves cells of leaves finds no tree`() {
+        val grid = TreeGrid()
+        val log = grid.log(base)
+        val row = (1..6).map { grid.leaf(base.east(it)) }
+        for (x in 7..11) for (z in -2..2) grid.leaf(base.offset(x, 0, z))
+        // The row of 6 leaves is the canopy. With the 19 cells of the sheet within 11 steps, the search visits 25 cells.
+        assertNull(CanopyRule.canopy(grid.read, setOf(log), maxLeaves = 6), "the search passed 24 cells")
+        assertEquals(row.toSet(), CanopyRule.canopy(grid.read, setOf(log), maxLeaves = 7))
+    }
 }

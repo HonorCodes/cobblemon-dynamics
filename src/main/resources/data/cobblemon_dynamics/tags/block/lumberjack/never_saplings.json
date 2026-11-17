@@ -1,0 +1,223 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:mangrove_propagule",
+    "#cobblemon:apricorn_saplings",
+    {
+      "id": "twilightforest:time_sapling",
+      "required": false
+    },
+    {
+      "id": "twilightforest:transformation_sapling",
+      "required": false
+    },
+    {
+      "id": "twilightforest:mining_sapling",
+      "required": false
+    },
+    {
+      "id": "twilightforest:sorting_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:apple_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:avocado_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:candlenut_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:cherry_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:chestnut_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:gooseberry_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:lemon_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:nutmeg_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:orange_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:peach_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:pear_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:plum_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:walnut_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:spiderweb_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:hazelnut_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:pawpaw_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:soursop_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:almond_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:apricot_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:banana_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:cashew_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:cinnamon_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:coconut_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:date_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:dragonfruit_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:durian_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:fig_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:grapefruit_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:lime_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:mango_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:olive_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:papaya_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:paperbark_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:pecan_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:peppercorn_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:persimmon_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:pistachio_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:pomegranate_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:starfruit_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:vanillabean_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:breadfruit_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:guava_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:jackfruit_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:lychee_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:passionfruit_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:rambutan_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:tamarind_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:maple_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:pinenut_sapling",
+      "required": false
+    },
+    {
+      "id": "pamhc2trees:acorn_sapling",
+      "required": false
+    }
+  ]
+}

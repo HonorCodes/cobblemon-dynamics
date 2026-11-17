@@ -120,4 +120,12 @@ class TreeRulesTest {
         assertFalse(TreeRules.refusesBind(TreeGrid().apply { oak(base) }.read, base, MAX_LOGS, MAX_LEAVES))
         assertFalse(TreeRules.refusesBind(TreeGrid().apply { sapling(base) }.read, base, MAX_LOGS, MAX_LEAVES))
     }
+
+    /** R82: the grown tree of such a sapling is always in the never tag, so the bind would wait forever. */
+    @Test
+    fun `CD-LUM-20 a sapling of the never-sapling tag refuses a bind, and an oak sapling does not`() {
+        val propagule = TreeGrid().apply { sapling(base, "minecraft:mangrove_propagule", never = true) }
+        assertTrue(TreeRules.refusesBind(propagule.read, base, MAX_LOGS, MAX_LEAVES))
+        assertFalse(TreeRules.refusesBind(TreeGrid().apply { sapling(base) }.read, base, MAX_LOGS, MAX_LEAVES))
+    }
 }

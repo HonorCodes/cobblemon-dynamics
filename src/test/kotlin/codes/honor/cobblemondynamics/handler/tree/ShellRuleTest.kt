@@ -32,7 +32,7 @@ class ShellRuleTest {
         assertEquals(jungle.leaves.toSet(), tree.leaves)
         val neighbours = { pos: BlockPos -> Direction.entries.map { pos.relative(it) }.filterNot { grid.read(it).air } }
         val survives = { pos: BlockPos, gone: Set<BlockPos> -> holder[pos]?.let { it !in tree.cells && it !in gone } ?: true }
-        val shell = ShellRule.shell(tree, neighbours, survives)
+        val shell = ShellRule.shell(tree, neighbours, survives = survives) ?: error("the jungle tree gives no shell")
         assertEquals(setOf(cocoa, torch) + vines, shell)
         assertEquals(false, flower in shell, "the flower joined the shell")
     }
@@ -46,5 +46,21 @@ class ShellRuleTest {
         val neighbours = { pos: BlockPos -> Direction.entries.map { pos.relative(it) }.filterNot { grid.read(it).air } }
         assertEquals(emptySet<BlockPos>(), ShellRule.shell(tree, neighbours) { _, _ -> true })
         assertEquals(setOf(stone), ShellRule.shell(tree, neighbours) { pos, _ -> pos != stone })
+    }
+
+    /** A block of another mod whose check casts the view to a `Level` throws: the tree then gets no fell, and the role stays on. */
+    @Test
+    fun `CD-LUM-29 a block whose survival check throws gives no shell`() {
+        val grid = TreeGrid()
+        grid.oak(base)
+        val odd = grid.block(base.above().east(), "examplemod:odd_block")
+        val tree = TreeSearch.find(grid.read, base, MAX_LOGS, MAX_LEAVES) ?: error("the oak gives no tree")
+        val neighbours = { pos: BlockPos -> Direction.entries.map { pos.relative(it) }.filterNot { grid.read(it).air } }
+        val errors = ArrayList<Throwable>()
+        val shell = ShellRule.shell(tree, neighbours, { errors += it }) { pos, _ ->
+            if (pos == odd) throw ClassCastException("the view is no Level") else true
+        }
+        assertEquals(null, shell)
+        assertEquals(1, errors.size)
     }
 }

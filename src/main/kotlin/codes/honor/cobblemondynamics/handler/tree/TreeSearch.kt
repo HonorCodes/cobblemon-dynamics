@@ -34,7 +34,11 @@ object TreeSearch {
         while (queue.isNotEmpty()) {
             val pos = queue.removeFirst()
             for (next in around(pos)) {
-                if (next in found || cells(next).blockId != first.blockId) continue
+                if (next in found) continue
+                val cell = cells(next)
+                // A cell that is not loaded could hold more of the tree, which would leave a branch in the air.
+                if (cell.unloaded) return null
+                if (cell.blockId != first.blockId) continue
                 found += next
                 if (found.size > maxLogs) return null
                 queue += next

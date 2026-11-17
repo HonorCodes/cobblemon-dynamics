@@ -15,11 +15,15 @@ import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
+import net.minecraft.world.entity.decoration.ItemFrame
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeavesBlock
+import net.minecraft.world.level.block.RailBlock
 import net.minecraft.world.level.block.VineBlock
 import net.minecraft.world.level.block.WallTorchBlock
+import net.minecraft.world.level.block.state.properties.RailShape
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import kotlin.math.abs
@@ -74,6 +78,8 @@ class LumberjackTests {
      * CD-LUM-03, CD-LUM-06, CD-LUM-09, CD-LUM-14, CD-LUM-17, CD-LUM-19, CD-LUM-22: a level 100 Scyther bound to a log of the oak fells
      * it with every natural leaf, the torch on its trunk and the 3 vines below a leaf, and replants a sapling from the drops. The 4
      * placed leaves on top and the flower beside the trunk stay, and the binding holds. A Magnemite bound to a chest collects the logs.
+     * CD-LUM-30: an item frame with a diamond comes off the trunk with no sound, and a rail that rises onto the base cell joins the
+     * shell, so the chest also gets the frame, the diamond and the rail.
      */
     @GameTest(template = "floor_23x17x23", timeoutTicks = 1_200)
     fun cdLum14LumberjackFellsAndReplants(helper: GameTestHelper) {
@@ -90,12 +96,18 @@ class LumberjackTests {
         helper.setBlock(flower, Blocks.DANDELION)
         val chest = BlockPos(14, 2, 14)
         helper.setBlock(chest, Blocks.CHEST)
+        val rail = base.east()
+        helper.setBlock(rail, Blocks.RAIL.defaultBlockState().setValue(RailBlock.SHAPE, RailShape.ASCENDING_WEST))
+        val frame = ItemFrame(helper.level, helper.absolutePos(base.above(2).east()), Direction.EAST)
+        frame.setItem(ItemStack(Items.DIAMOND))
+        helper.level.addFreshEntity(frame)
         // CD-LUM-09: each block's own canSurvive, against the level with the tree's cells empty.
         val plan = plan(helper)
         val shell = plan.steps.filter { it.shell }.map { TestKit.relative(helper, it.pos) }.toSet()
-        helper.assertTrue(shell == (vines + torch).toSet(), "CD-LUM-09: the shell is $shell")
+        helper.assertTrue(shell == (vines + torch + rail).toSet(), "CD-LUM-09, CD-LUM-30: the shell is $shell")
         val planned = plan.steps.map { TestKit.relative(helper, it.pos) }.toSet()
-        helper.assertTrue(planned == (oak.logs + oak.leaves + vines + torch).toSet(), "the plan holds ${planned.size} blocks")
+        helper.assertTrue(planned == (oak.logs + oak.leaves + vines + torch + rail).toSet(), "the plan holds ${planned.size} blocks")
+        helper.assertTrue(frame.pos in plan.questions, "CD-LUM-30: the fell does not ask about the item frame's cell")
         val scyther = TestKit.tether(helper, pasture, owner, "scyther level=100")
         val magnemite = TestKit.tether(helper, pasture, owner, "magnemite level=50")
         val binding = TestKit.bind(helper, owner, scyther, base.above(3))
@@ -117,18 +129,30 @@ class LumberjackTests {
                         "CD-LUM-06: the placed leaf at $leaf broke",
                     )
                 }
-                for (cell in vines + torch) helper.assertTrue(helper.getBlockState(cell).isAir, "CD-LUM-09: the block at $cell stays")
+                for (cell in vines + torch + rail) {
+                    helper.assertTrue(
+                        helper.getBlockState(cell).isAir,
+                        "CD-LUM-09: the block at $cell stays",
+                    )
+                }
+                helper.assertTrue(frame.isRemoved, "CD-LUM-30: the item frame stays on the felled trunk")
                 helper.assertTrue(helper.getBlockState(flower).`is`(Blocks.DANDELION), "CD-LUM-09: the flower beside the trunk broke")
                 val replant = helper.getBlockState(base)
                 helper.assertTrue(replant.`is`(Blocks.OAK_SAPLING), "CD-LUM-17: the base cell holds $replant after the fell")
                 helper.assertTrue(BindingStore.read(scyther.pokemon) != null, "CD-LUM-19: the Scyther lost its binding at the fell")
                 return@onEachTick
             }
-            if (TestKit.countIn(helper, chest, Items.OAK_LOG) > 0) {
+            val collected = listOf(Items.OAK_LOG, Items.ITEM_FRAME, Items.DIAMOND, Items.RAIL).all {
+                TestKit.countIn(helper, chest, it) > 0
+            }
+            if (collected) {
                 helper.assertTrue(BindingStore.read(scyther.pokemon) != null, "CD-LUM-19: the Scyther lost its binding on the sapling")
                 helper.succeed()
             } else {
-                helper.assertTrue(helper.tick - felledAt <= 200, "CD-LUM-22: the chest holds no oak log 200 ticks after the fell")
+                val held = listOf(Items.OAK_LOG, Items.ITEM_FRAME, Items.DIAMOND, Items.RAIL).associateWith {
+                    TestKit.countIn(helper, chest, it)
+                }
+                helper.assertTrue(helper.tick - felledAt <= 200, "CD-LUM-22, CD-LUM-30: 200 ticks after the fell the chest holds $held")
             }
         }
     }

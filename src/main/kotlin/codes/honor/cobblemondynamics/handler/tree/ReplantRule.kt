@@ -33,4 +33,10 @@ object ReplantRule {
         }
         return saplings.firstOrNull { (item, _) -> !needsFour(item) }?.let { Replant(it.first, listOf(base)) }
     }
+
+    /**
+     * CD-LUM-17: [replant], if the use question of each of its cells still allows it at the end of the fell. A claim can change during a
+     * fell of several ticks, and a refused replant drops its saplings with the rest.
+     */
+    fun <K> allowedBy(replant: Replant<K>?, mayChange: (BlockPos) -> Boolean): Replant<K>? = replant?.takeIf { it.cells.all(mayChange) }
 }

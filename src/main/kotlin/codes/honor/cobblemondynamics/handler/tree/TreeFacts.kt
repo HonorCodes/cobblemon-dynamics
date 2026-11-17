@@ -21,6 +21,10 @@ data class CellFacts(
     val sapling: Boolean = false,
     /** A `LiquidBlock`, such as water (CD-LUM-19). */
     val fluid: Boolean = false,
+    /** A sapling of `#cobblemon_dynamics:lumberjack/never_saplings`, whose grown tree the never tag skips (CD-LUM-20). */
+    val neverSapling: Boolean = false,
+    /** A cell of a chunk that is not loaded, which could hold more of the tree, or a log that keeps a leaf (CD-LUM-04). */
+    val unloaded: Boolean = false,
 ) {
     companion object {
         val AIR = CellFacts(ResourceLocation.withDefaultNamespace("air"), air = true)

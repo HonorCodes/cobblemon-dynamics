@@ -70,4 +70,16 @@ class ReplantRuleTest {
         val replant = choose(listOf(rl(SPRUCE_SAPLING) to 4), twoByTwo = true) { _, cell -> cell == corner }
         assertEquals(ReplantRule.Replant(rl(SPRUCE_SAPLING), listOf(corner)), replant)
     }
+
+    /** A claim can change during a fell of several ticks, so the end of the fell asks the use question of each planted cell again. */
+    @Test
+    fun `CD-LUM-17 a replant whose cell the claim refuses at the end of the fell plants nothing, and every sapling drops`() {
+        val drops = listOf(rl(OAK_SAPLING) to 3)
+        val replant = choose(drops)
+        assertEquals(replant, ReplantRule.allowedBy(replant) { true })
+        assertNull(ReplantRule.allowedBy(replant) { false })
+        assertEquals(drops, kept(drops, ReplantRule.allowedBy(replant) { false }))
+        val square = choose(listOf(rl(DARK_OAK_SAPLING) to 4), twoByTwo = true)
+        assertNull(ReplantRule.allowedBy(square) { it != base.east() }, "a 2 x 2 planted with one cell refused")
+    }
 }

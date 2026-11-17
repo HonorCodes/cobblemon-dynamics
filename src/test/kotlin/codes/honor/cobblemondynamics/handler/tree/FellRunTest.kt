@@ -56,4 +56,20 @@ class FellRunTest {
         assertFalse(run.finish { removed += it })
         assertEquals(58, removed.size)
     }
+
+    /** No chunk of a running fell unloads, so no block of the plan stays and the drops land in a loaded chunk. */
+    @Test
+    fun `CD-LUM-27 a run holds a ticket on each chunk of its plan from its start to its end, and gives each back once`() {
+        val plan = darkOakPlan()
+        val held = ArrayList<Long>()
+        val freed = ArrayList<Long>()
+        val run = FellRun(plan, 128, FellRun.Tickets({ held += it }, { freed += it }))
+        assertEquals(plan.chunks.sorted(), held.sorted())
+        run.step { }
+        run.finish { }
+        assertTrue(freed.isEmpty(), "a ticket ended before the end of the fell")
+        run.release()
+        run.release()
+        assertEquals(held.sorted(), freed.sorted())
+    }
 }

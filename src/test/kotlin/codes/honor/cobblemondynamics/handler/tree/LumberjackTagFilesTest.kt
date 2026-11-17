@@ -80,4 +80,21 @@ class LumberjackTagFilesTest {
             "betterarcheology:rotten_log",
         )
     }
+
+    /** R82: the saplings whose grown trees the never tag always skips. */
+    @Test
+    fun `CD-LUM-20 the never-sapling tag holds its defaults, and each entry of another mod is optional`() {
+        val entries = entries("lumberjack/never_saplings")
+        val ids = entries.map { it.id }
+        assertEquals(ids.size, ids.toSet().size, "an entry is listed twice")
+        val magic = listOf("time", "transformation", "mining", "sorting").map { "twilightforest:${it}_sapling" }
+        val missing = listOf("minecraft:mangrove_propagule", "#cobblemon:apricorn_saplings") + magic - ids.toSet()
+        assertTrue(missing.isEmpty(), "the never-sapling tag lacks $missing")
+        assertEquals(50, ids.count { it.startsWith("pamhc2trees:") && it.endsWith("_sapling") }, "the saplings of Pam's trees")
+        for (entry in entries) {
+            val namespace = entry.id.removePrefix("#").substringBefore(':')
+            assertEquals(namespace in setOf("minecraft", "cobblemon"), entry.required, "${entry.id} is required: ${entry.required}")
+        }
+        assertTrue(Files.exists(CobblemonJar.root.resolve("data/cobblemon/tags/block/apricorn_saplings.json")))
+    }
 }

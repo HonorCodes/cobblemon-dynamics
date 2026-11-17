@@ -125,4 +125,37 @@ class FellPlanTest {
         assertEquals(Direction.EAST, DropFace.toward(base, base.east(2)))
         assertEquals(listOf(log to 5, sapling to 3), FellPlan.merged(loot), "with no replant every item drops")
     }
+
+    /** Between the plan and a later tick of the run, a player can break a natural leaf and place a leaf of the same kind. */
+    @Test
+    fun `CD-LUM-06 a step whose leaf is persistent when it comes stays, and so does a cell whose block changed`() {
+        val leaf = FellStep(BlockPos.ZERO, rl(TreeGrid.OAK_LEAVES), shell = false)
+        assertTrue(FellPlan.stillHolds(leaf, CellFacts(rl(TreeGrid.OAK_LEAVES), leaves = true)))
+        assertFalse(FellPlan.stillHolds(leaf, CellFacts(rl(TreeGrid.OAK_LEAVES), leaves = true, persistent = true)))
+        assertFalse(FellPlan.stillHolds(leaf, CellFacts(rl("minecraft:stone"))))
+        val torch = FellStep(BlockPos.ZERO, rl("minecraft:wall_torch"), shell = true)
+        assertTrue(FellPlan.stillHolds(torch, CellFacts(rl("minecraft:wall_torch"))))
+    }
+
+    @Test
+    fun `CD-LUM-27 the plan holds each chunk of its blocks and of the cells beside its base`() {
+        val (grid, tree, torch) = borderOak()
+        assertEquals(setOf(FellPlan.chunkKey(0, 0), FellPlan.chunkKey(1, 0)), plan(grid, tree, setOf(torch)).chunks)
+        val inner = TreeGrid()
+        inner.oak(BlockPos(8, 64, 8))
+        assertEquals(setOf(FellPlan.chunkKey(0, 0)), plan(inner, tree(inner, BlockPos(8, 64, 8))).chunks)
+        assertEquals(-1L shl 32 or 0xFFFFFFFFL, FellPlan.chunkKey(-1, -1), "a chunk key packs x and z as ChunkPos.asLong does")
+    }
+
+    @Test
+    fun `CD-LUM-30 the plan asks about the cell of each hanging entity once for each chunk and entity type`() {
+        val (grid, tree, torch) = borderOak()
+        val frame = rl("minecraft:item_frame")
+        val hanging = listOf(BlockPos(14, 66, 3) to frame, BlockPos(14, 67, 3) to frame, BlockPos(16, 66, 3) to rl("minecraft:painting"))
+        val plan = FellPlan.of(tree, setOf(torch), hanging) { grid.read(it).blockId }
+        assertTrue(BlockPos(14, 66, 3) in plan.questions, "the frame of chunk 0 is not asked about")
+        assertFalse(BlockPos(14, 67, 3) in plan.questions, "a second frame of chunk 0 is asked about")
+        assertTrue(BlockPos(16, 66, 3) in plan.questions, "the painting of chunk 1 is not asked about")
+        assertEquals(plan(grid, tree, setOf(torch)).questions.size + 2, plan.questions.size)
+    }
 }

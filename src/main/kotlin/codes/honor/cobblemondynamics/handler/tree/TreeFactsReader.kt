@@ -32,7 +32,11 @@ internal class TreeFactsReader(private val level: ServerLevel) {
         /** Saplings that never grow alone, which a 2 × 2 trunk replants only as four (CD-LUM-18). */
         val NEEDS_FOUR: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/needs_four"))
 
-        private val UNLOADED = CellFacts(id("unloaded"), never = true)
+        /** Saplings whose grown trees the never tag skips, so a bind on one is refused (CD-LUM-20). */
+        val NEVER_SAPLINGS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/never_saplings"))
+
+        /** It could hold a log of the tree, or one that keeps a leaf (CD-LUM-04). */
+        private val UNLOADED = CellFacts(id("unloaded"), anyLog = true, never = true, unloaded = true)
 
         /** The state of [pos] in a loaded chunk, or null. A cell above or below the level reads as void air. */
         fun stateOf(level: ServerLevel, pos: BlockPos): BlockState? {
@@ -53,6 +57,7 @@ internal class TreeFactsReader(private val level: ServerLevel) {
                 air = state.isAir,
                 sapling = state.`is`(BlockTags.SAPLINGS),
                 fluid = state.block is LiquidBlock,
+                neverSapling = state.`is`(NEVER_SAPLINGS),
             )
         }
     }
