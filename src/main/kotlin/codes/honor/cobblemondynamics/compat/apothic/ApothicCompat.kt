@@ -1,5 +1,8 @@
 package codes.honor.cobblemondynamics.compat.apothic
 
+import codes.honor.cobblemondynamics.MixinState
+import codes.honor.cobblemondynamics.compat.AdapterNeeds
+import codes.honor.cobblemondynamics.compat.CompatLines
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 
@@ -15,6 +18,8 @@ object ApothicCompat {
      * whether it applied when the role files load (CD-MUS-06). Common setup comes first, so it loads the class.
      */
     fun register(modBus: IEventBus) {
+        // CD-OPT-11: the compat line names the stats hook as the Muse's Quanta at a table.
+        CompatLines.register("apothic_enchanting", "muse_quanta", AdapterNeeds(mixins = listOf(MixinState.APOTHIC_TABLE_STATS)))
         modBus.addListener<FMLCommonSetupEvent> { it.enqueueWork(Runnable { load() }) }
     }
 

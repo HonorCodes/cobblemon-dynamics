@@ -133,7 +133,8 @@ class LoadLinesTest {
             "Compat: immersiveengineering 12.4.2-194 [ie_furnace missing (class), ie_watermill missing (block), ie_windmill found]",
             CompatLines.line(ie, "12.4.2-194", registered, blockExists = { it != lost }, applied = { true }),
         )
+        // A mod that tags and data maps alone support has no adapter, so it logs no line (CompatLinesTest).
         val aether = OptionalMod("aether", listOf("com/aetherteam/"), compat = null)
-        assertEquals("Compat: aether 1.5.10 []", CompatLines.line(aether, "1.5.10", { null }, { true }, { true }))
+        assertEquals(listOf(ie), CompatLines.reported(listOf(ie, aether)))
     }
 }

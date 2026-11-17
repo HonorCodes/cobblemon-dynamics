@@ -3,7 +3,7 @@ package codes.honor.cobblemondynamics.compat
 /**
  * One mod of the table of ADR-0016 that the code supports (CD-OPT-05, CD-OPT-11). [compat] names its packages `compat/<compat>/`
  * and `mixin/compat/<compat>/`, which is the mod id except for `compat/apothic/` of 1.1. A mod with no [compat] works through
- * vanilla classes, block ids and tags alone, so no source names its classes.
+ * vanilla classes, block ids and tags alone, so no source names its classes, and it has no [adapters] and no compat line.
  */
 data class OptionalMod(
     val modId: String,
@@ -44,7 +44,7 @@ object OptionalMods {
         // CD-XPC-11: the XP capability on the outputs of the Experience Collector.
         OptionalMod("experiencelib", listOf("es/degrassi/experiencelib/"), listOf("collector_xp")),
         OptionalMod("dynamictrees", listOf("com/dtteam/dynamictrees/"), listOf("lumberjack_fell")),
-        OptionalMod("apothic_enchanting", listOf("dev/shadowsoffire/"), compat = "apothic"),
+        OptionalMod("apothic_enchanting", listOf("dev/shadowsoffire/"), listOf("muse_quanta"), compat = "apothic"),
         // CD-CRY-05: only compat/ae2/ may name AE2, for the AE2 Crank's ICrankable API (R83).
         OptionalMod("ae2", listOf("appeng/"), listOf("ae2_crank")),
         OptionalMod("farmersdelight", listOf("vectorwing/"), compat = null),
