@@ -1,0 +1,29 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "create:basin",
+      "required": false
+    },
+    {
+      "id": "create:fluid_tank",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:cooking_pot",
+      "required": false
+    },
+    {
+      "id": "farmersdelight:skillet",
+      "required": false
+    },
+    {
+      "id": "createdieselgenerators:distillation_tank",
+      "required": false
+    },
+    {
+      "id": "create_new_age:heat_pipe",
+      "required": false
+    }
+  ]
+}

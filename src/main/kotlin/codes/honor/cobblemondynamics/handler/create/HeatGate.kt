@@ -11,6 +11,12 @@ object HeatGate {
     private const val MIN_LEVEL = "min_level"
     private const val BELOW_MIN_LEVEL_HEAT = "below_min_level_heat"
 
+    /**
+     * CD-BRN-03, CD-FIX-07: a burner's heat has a user: Create's own rule, a basin or a fluid tank above, or a block of the
+     * Superheater's heat users tag directly above, such as Farmer's Delight's cooking pot.
+     */
+    fun hasConsumer(createRule: Boolean, heatUserAbove: Boolean): Boolean = createRule || heatUserAbove
+
     /** Null when the params give no heat at [level]. */
     fun heatFor(params: JsonObject, level: Int): String? {
         val minLevel = params.get(MIN_LEVEL)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt ?: 0

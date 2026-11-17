@@ -1,0 +1,149 @@
+{
+  "replace": false,
+  "values": {
+    "twilightforest:blackberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/blackberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:blueberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/blueberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:raspberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/raspberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:skyberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/skyberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:maloberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/maloberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:blightberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/blightberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:stingberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/stingberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:duskberry_bush": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/duskberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:copper_oreberry": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/copper_oreberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:iron_oreberry": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/iron_oreberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:gold_oreberry": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/gold_oreberry_bush_berries",
+        "age_after": 2
+      }
+    },
+    "twilightforest:essence_oreberry": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "twilightforest"
+        }
+      ],
+      "value": {
+        "loot_table": "twilightforest:blocks/essence_berry_bush_berries",
+        "age_after": 2
+      }
+    }
+  }
+}

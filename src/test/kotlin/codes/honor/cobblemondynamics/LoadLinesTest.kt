@@ -2,6 +2,9 @@ package codes.honor.cobblemondynamics
 
 import codes.honor.cobblemondynamics.LoadLines.MixinEntry
 import codes.honor.cobblemondynamics.LoadLines.MixinStatus
+import codes.honor.cobblemondynamics.compat.AdapterNeeds
+import codes.honor.cobblemondynamics.compat.CompatLines
+import codes.honor.cobblemondynamics.compat.OptionalMod
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import codes.honor.cobblemondynamics.role.FakeHandler
 import codes.honor.cobblemondynamics.role.RoleSet
@@ -83,5 +86,50 @@ class LoadLinesTest {
             "Farming: cultivator 4 blocks [growth 2], no adapter [minecraft:beetroots, minecraft:nether_wart]",
             LoadLines.farming("cultivator", mapOf("growth" to 2), listOf(wart, beetroot)),
         )
+    }
+
+    @Test
+    fun `CD-OPT-04 the skipped line names each skipped role file with its mods, in id order`() {
+        val skipped = mapOf(id("stoker_railcraft") to listOf("railcraft"), id("heater_mekanism") to listOf("mekanism"))
+        assertEquals(
+            "Roles not loaded, their mods are absent: 2 [cobblemon_dynamics:heater_mekanism (mekanism), " +
+                "cobblemon_dynamics:stoker_railcraft (railcraft)]",
+            LoadLines.skippedRoles(skipped),
+        )
+        assertEquals("Roles not loaded, their mods are absent: 0 []", LoadLines.skippedRoles(emptyMap()))
+    }
+
+    @Test
+    fun `CD-OPT-04 a role file that a condition other than an absent mod skipped reads conditions`() {
+        val skipped = mapOf(id("heater_mekanism") to listOf("mekanism"), id("stoker_without_create") to emptyList())
+        assertEquals(
+            "Roles not loaded, their mods are absent: 2 [cobblemon_dynamics:heater_mekanism (mekanism), " +
+                "cobblemon_dynamics:stoker_without_create (conditions)]",
+            LoadLines.skippedRoles(skipped),
+        )
+    }
+
+    @Test
+    fun `CD-OPT-11 the compat line names each adapter as found, or missing with what is missing`() {
+        val ie = OptionalMod("immersiveengineering", listOf("blusunrize/"), listOf("ie_windmill", "ie_furnace", "ie_watermill"))
+        val windmill = "compat.immersiveengineering.WindmillMixin"
+        val needs = mapOf(
+            "ie_furnace" to AdapterNeeds(blocks = listOf(ResourceLocation.parse("immersiveengineering:cokeoven"))),
+            "ie_watermill" to AdapterNeeds(blocks = listOf(ResourceLocation.parse("immersiveengineering:watermill"))),
+            "ie_windmill" to AdapterNeeds(mixins = listOf(windmill)),
+        )
+        assertEquals(
+            "Compat: immersiveengineering 12.4.2-194 [ie_furnace found, ie_watermill found, ie_windmill missing (mixin)]",
+            CompatLines.line(ie, "12.4.2-194", needs::get, blockExists = { true }, applied = { it != windmill }),
+        )
+        // A block id that does not resolve, and an adapter that its compat package never registered, as its class did not load.
+        val lost = ResourceLocation.parse("immersiveengineering:watermill")
+        val registered = { adapter: String -> if (adapter == "ie_furnace") null else needs[adapter] }
+        assertEquals(
+            "Compat: immersiveengineering 12.4.2-194 [ie_furnace missing (class), ie_watermill missing (block), ie_windmill found]",
+            CompatLines.line(ie, "12.4.2-194", registered, blockExists = { it != lost }, applied = { true }),
+        )
+        val aether = OptionalMod("aether", listOf("com/aetherteam/"), compat = null)
+        assertEquals("Compat: aether 1.5.10 []", CompatLines.line(aether, "1.5.10", { null }, { true }, { true }))
     }
 }

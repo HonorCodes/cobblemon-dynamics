@@ -195,6 +195,16 @@ class ClaimRegistryTest {
         assertEquals(b, registry.holderOf(crop("harvester"))?.worker)
     }
 
+    /** A sapling at 0 64 0: the Cultivator claims in its lane, and the Lumberjack, whose handler has no lane, in the null lane. */
+    @Test
+    fun `CD-LUM-24 a Cultivator claim and a Lumberjack claim hold one sapling, and a second Lumberjack claim is refused`() {
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(a, crop("cultivator"), ClaimKind.WORK, pastureA, 0))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(b, crop(null), ClaimKind.WORK, pastureA, 0))
+        assertEquals(ClaimResult.TargetTaken, registry.tryClaim(c, crop(null), ClaimKind.WORK, pastureB, 0))
+        assertEquals(a, registry.holderOf(crop("cultivator"))?.worker)
+        assertEquals(b, registry.holderOf(crop(null))?.worker)
+    }
+
     @Test
     fun `CD-CRP-07 a Cultivator binding reserves the crop against Cultivators only`() {
         reservations[crop("cultivator")] = a

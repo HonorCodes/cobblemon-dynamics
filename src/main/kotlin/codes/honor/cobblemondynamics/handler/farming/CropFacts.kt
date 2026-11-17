@@ -1,6 +1,9 @@
 package codes.honor.cobblemondynamics.handler.farming
 
-/** How the Harvester takes one crop (ADR-0015). The five kinds with a tag come before the kinds of a class (CD-CRP-03). */
+/**
+ * How the Harvester takes one crop (ADR-0015). The pick by loot table of the data map `cobblemon_dynamics:harvest_loot` comes first
+ * (CD-FRM-03), then the five kinds with a tag, then the kinds of a class (CD-CRP-03).
+ */
 enum class HarvestKind(val tag: String?) {
     NEVER("harvest/never"),
     PICK_TO_AGE_0("harvest/pick_to_age_0"),
@@ -11,6 +14,7 @@ enum class HarvestKind(val tag: String?) {
     CAVE_VINES(null),
     GOURD(null),
     CROP(null),
+    PICK_BY_LOOT_TABLE(null),
 }
 
 /** What the adapters read of one block state. [CropFactsReader] fills it from a level, and the unit tests build it by hand. */
@@ -36,4 +40,8 @@ data class CropFacts(
     val upperPresent: Boolean = false,
     /** `CaveVines.BERRIES`. */
     val berries: Boolean = false,
+    /** The block's entry in the data map `cobblemon_dynamics:harvest_loot`, or null. */
+    val harvestLoot: HarvestLoot? = null,
+    /** False for a block of `#cobblemon_dynamics:cultivator/never`, whose bone meal never grows it (CD-FIX-04). */
+    val growable: Boolean = true,
 )

@@ -486,7 +486,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * order of a role that opts in (CD-QWK-36). A Quick Worker has no pasture.
      */
     private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean = RoleSelection.isEligible(role, typesOf(slot.pokemon)) &&
-        (slot.worker.leashed || role.autoAssign || (slot.worker.pasture == null && role.quickWork))
+        (slot.worker.leashed || role.autoAssign || (slot.worker.pasture == null && role.quickWork == true))
 
     /** Steps 3 and 4: the pasture's scan pass, and the assignment when the pass completes. */
     private fun scan(t: Tick, runtime: PastureRuntime) {
@@ -990,7 +990,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             // CD-CRP-13: a claim or a binding of the other farming role leaves the crop free for this one.
             targetFree = claims.isFree(TargetKey.block(t.dimension, canonical, role.handler.claimLane), pokemon.uuid),
             // CD-QWK-36: the Muse's order starts while the table's menu is closed, because R does nothing while a screen is open.
-            waitsForDemand = role.definition.quickWork,
+            waitsForDemand = role.definition.quickWork == true,
         ) { guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, canonical, role)) } }
         if (refusal != null) return tell(aim.owner, refusal, pokemon, name)
         when (claim(t, order, slot, canonical, role, takenSpots(t), moving = false)) {
@@ -1211,10 +1211,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 }
 
-/** A handler that throws is turned off with one warning (CD-PERF-05). The next tick releases the claims of its roles. */
+/**
+ * A handler that throws is turned off with one warning (CD-PERF-05). A `LinkageError` counts too, as when a later version of an
+ * optional mod renames a member that a compat handler calls (CD-OPT-10). The next tick releases the claims of its roles.
+ */
 internal inline fun <T> guarded(handler: TargetHandler, fallback: T, block: () -> T): T = try {
     block()
 } catch (e: Exception) {
+    RoleRegistry.disableHandler(handler.id, e.toString())
+    fallback
+} catch (e: LinkageError) {
     RoleRegistry.disableHandler(handler.id, e.toString())
     fallback
 }

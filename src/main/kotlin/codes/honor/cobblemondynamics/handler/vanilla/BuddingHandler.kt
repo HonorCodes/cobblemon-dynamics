@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.BuddingAmethystBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraft.world.level.block.state.properties.IntegerProperty
 import net.neoforged.neoforge.common.Tags
 
 /**
@@ -23,6 +24,9 @@ import net.neoforged.neoforge.common.Tags
 object BuddingHandler : TargetHandler {
     private const val INTERVAL_TICKS = "interval_ticks"
     private const val DEFAULT_INTERVAL_TICKS = 10
+
+    /** The integer properties that count a bud's growth, such as the `stage` of Cobblemon's type gem clusters. */
+    private val GROWTH = setOf("stage", "age")
 
     override val id: ResourceLocation = id("budding")
 
@@ -40,7 +44,7 @@ object BuddingHandler : TargetHandler {
      * a block whose chunk does not tick its blocks waits.
      */
     override fun hasDemand(ctx: WorkContext): Boolean = ctx.level.shouldTickBlocksAt(ctx.target) &&
-        Direction.entries.any { canGrow(ctx.level.getBlockState(ctx.target.relative(it)), it) }
+        Direction.entries.any { BuddingRules.canGrow(facts(ctx.level.getBlockState(ctx.target.relative(it)), it)) }
 
     /** The memo holds the tick that this stretch of work started, which the random ticks count from. */
     override fun onStart(ctx: WorkContext) {
@@ -56,13 +60,19 @@ object BuddingHandler : TargetHandler {
     }
 
     /**
-     * What vanilla's and AE2's budding blocks grow into on [face]: air or a water source, or a bud of `#c:buds` that this block grew,
-     * which faces away from it. A cluster has stopped growing. A bud with no facing counts as growing.
+     * The facts of [neighbor] on [face]: what vanilla's and AE2's budding blocks grow into, air or a water source, or a bud of
+     * `#c:buds` that faces away from the target. A bud with no facing counts as one that the target grew.
      */
-    private fun canGrow(neighbor: BlockState, face: Direction): Boolean {
-        if (BuddingAmethystBlock.canClusterGrowAtState(neighbor)) return true
-        if (!neighbor.`is`(Tags.Blocks.BUDS)) return false
-        return neighbor.getOptionalValue(BlockStateProperties.FACING).map { it == face }.orElse(true)
+    private fun facts(neighbor: BlockState, face: Direction): BudFacts {
+        val growth = neighbor.properties.firstOrNull { it is IntegerProperty && it.name in GROWTH } as? IntegerProperty
+        return BudFacts(
+            open = BuddingAmethystBlock.canClusterGrowAtState(neighbor),
+            bud = neighbor.`is`(Tags.Blocks.BUDS),
+            cluster = neighbor.`is`(Tags.Blocks.CLUSTERS),
+            facesAway = neighbor.getOptionalValue(BlockStateProperties.FACING).map { it == face }.orElse(true),
+            growth = growth?.let { neighbor.getValue(it) },
+            growthMax = growth?.possibleValues?.max() ?: 0,
+        )
     }
 
     private fun intervalOf(params: JsonObject): Int =

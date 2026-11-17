@@ -7,8 +7,11 @@ import codes.honor.cobblemondynamics.id
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.TagKey
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
@@ -26,13 +29,18 @@ object BurnerHeatHandler : TargetHandler {
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = burnerAt(level, canonical) != null
 
+    /** CD-FIX-07: the blocks above a burner that read its heat, beside Create's basin and fluid tank. */
+    private val HEAT_USERS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("superheater/heat_users"))
+
     /**
-     * CD-BRN-03: Create's own test for a basin or a fluid tank directly above, the blocks that use the heat. A creative burner's tick
-     * returns before it reads the heat level, so a worker's heat never reaches its block state, and it has no demand.
+     * CD-BRN-03, CD-FIX-07: Create's own test for a basin or a fluid tank directly above, or a block of the heat users tag there. A
+     * creative burner's tick returns before it reads the heat level, so a worker's heat never reaches its block state, and it has no
+     * demand.
      */
     override fun hasDemand(ctx: WorkContext): Boolean {
         val burner = burnerAt(ctx.level, ctx.target) ?: return false
-        return !burner.isCreative() && burner.isValidBlockAbove && heatOf(ctx) != null
+        val heatUserAbove = ctx.level.getBlockState(ctx.target.above()).`is`(HEAT_USERS)
+        return !burner.isCreative() && HeatGate.hasConsumer(burner.isValidBlockAbove, heatUserAbove) && heatOf(ctx) != null
     }
 
     override fun onStart(ctx: WorkContext) = applyWork(ctx)

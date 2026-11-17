@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.farming
 
 import codes.honor.cobblemondynamics.fx.CobblemonJar
+import codes.honor.cobblemondynamics.role.RoleConditions
 import com.google.gson.JsonParser
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -27,6 +28,7 @@ class FarmingTagFilesTest {
 
     private val ownFiles = listOf(
         "cultivator_targets",
+        "cultivator/never",
         "harvester_targets",
         "harvest/never",
         "harvest/pick_to_age_0",
@@ -37,16 +39,32 @@ class FarmingTagFilesTest {
 
     private fun own(path: String): List<Entry> = entries(File(dir, "$path.json").readText())
 
-    /** The values of [tag]: the mod's own files, Cobblemon's from its jar, and `#minecraft:crops` as RES8 read it. */
+    /**
+     * The values of [tag]: the mod's own files, Cobblemon's from its jar, `#minecraft:crops` as RES8 read it, and `#minecraft:saplings`
+     * of Minecraft 1.21.1 with the saplings that the Cobblemon jar adds to it.
+     */
     private fun values(tag: String): List<Entry> {
         val namespace = tag.substringBefore(':')
         val path = tag.substringAfter(':')
         return when {
             namespace == "cobblemon_dynamics" -> own(path)
+
             namespace == "cobblemon" -> entries(Files.readString(CobblemonJar.root.resolve("data/cobblemon/tags/block/$path.json")))
+
             tag == "minecraft:crops" -> MINECRAFT_CROPS.map { Entry(it, required = true) }
+
+            tag == "minecraft:saplings" -> MINECRAFT_SAPLINGS.map { Entry(it, required = true) } +
+                entries(Files.readString(CobblemonJar.root.resolve("data/minecraft/tags/block/saplings.json")))
+
             else -> error("no tag file for #$tag")
         }
+    }
+
+    @Test
+    fun `CD-LUM-23 CD-CRP-01 the Cultivator's tag holds the saplings`() {
+        assertTrue("#minecraft:saplings" in own("cultivator_targets").map { it.id }, "the Cultivator's tag lacks #minecraft:saplings")
+        val grown = resolve("cobblemon_dynamics:cultivator_targets")
+        for (sapling in MINECRAFT_SAPLINGS) assertTrue(sapling in grown, "the Cultivator's tag lacks $sapling")
     }
 
     /** Every block id of [tag], through its nested tags. */
@@ -82,6 +100,31 @@ class FarmingTagFilesTest {
     }
 
     @Test
+    fun `CD-FIX-04 the Cultivator's never tag holds Mystical Agriculture's crops as an optional entry`() {
+        val entry = own("cultivator/never").single { it.id == "#mysticalagriculture:crops" }
+        assertFalse(entry.required, "#mysticalagriculture:crops is required")
+    }
+
+    /** The Twilight Forest 4.8.3345 (RES13): the 8 berry bushes and the 4 oreberries, each with its berry table. */
+    @Test
+    fun `CD-FRM-03 CD-FIX-03 the loot data map gives the 12 Twilight Forest blocks their berry tables and age 2`() {
+        val bushes = listOf("blackberry", "blueberry", "raspberry", "skyberry", "maloberry", "blightberry", "stingberry", "duskberry")
+        val ores = mapOf("copper" to "copper_oreberry", "iron" to "iron_oreberry", "gold" to "gold_oreberry", "essence" to "essence_berry")
+        val expected = bushes.associate { "twilightforest:${it}_bush" to "twilightforest:blocks/${it}_bush_berries" } +
+            ores.entries.associate { (ore, table) -> "twilightforest:${ore}_oreberry" to "twilightforest:blocks/${table}_bush_berries" }
+        val file = File(dir.parentFile.parentFile, "data_maps/block/harvest_loot.json")
+        val values = JsonParser.parseString(file.readText()).asJsonObject.getAsJsonObject("values")
+        assertEquals(expected.keys, values.keySet())
+        for ((block, table) in expected) {
+            val entry = values[block].asJsonObject
+            assertEquals(listOf("twilightforest"), RoleConditions.mods(entry), "the condition of $block")
+            val value = entry["value"].asJsonObject
+            assertEquals(table, value["loot_table"].asString, "the table of $block")
+            assertEquals(2, value["age_after"].asInt, "the age after a pick of $block")
+        }
+    }
+
+    @Test
     fun `CD-CUL-10 the Cultivator's tag holds no apricorn and no terrain seed`() {
         val excluded = resolve("cobblemon:apricorns") + resolve("cobblemon:terrain_seeds")
         assertEquals(11, excluded.size, "the Cobblemon jar changed its apricorns or terrain seeds")
@@ -91,6 +134,13 @@ class FarmingTagFilesTest {
     }
 
     private companion object {
+        /** The members of `#minecraft:saplings` in Minecraft 1.21.1, from the data of its client jar. */
+        val MINECRAFT_SAPLINGS = listOf(
+            "minecraft:oak_sapling", "minecraft:spruce_sapling", "minecraft:birch_sapling", "minecraft:jungle_sapling",
+            "minecraft:acacia_sapling", "minecraft:dark_oak_sapling", "minecraft:azalea", "minecraft:flowering_azalea",
+            "minecraft:mangrove_propagule", "minecraft:cherry_sapling",
+        )
+
         /** The members of `#minecraft:crops` that RES8 read: vanilla's, and those of COHO 2.5.0's crop mods, with one Pam's crop of 97. */
         val MINECRAFT_CROPS = setOf(
             "minecraft:wheat", "minecraft:carrots", "minecraft:potatoes", "minecraft:beetroots", "minecraft:melon_stem",

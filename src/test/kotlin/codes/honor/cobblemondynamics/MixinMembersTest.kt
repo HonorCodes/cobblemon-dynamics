@@ -80,6 +80,52 @@ class MixinMembersTest {
         assertEquals(listOf("method getSpeed ()F"), MixinMembers.missingShadows(mixin, changed))
     }
 
+    private val power = "(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)I"
+    private val callback = "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V"
+    private val staticAccess = Opcodes.ACC_PRIVATE or Opcodes.ACC_STATIC
+
+    private fun inject(selectors: List<String>): AnnotationNode =
+        AnnotationNode(MixinMembers.INJECT).also { it.values = mutableListOf("method", selectors) }
+
+    private fun handler(selectors: List<String>, access: Int = Opcodes.ACC_PRIVATE) =
+        method("cobblemon_dynamics\$handler", callback, access, inject(selectors))
+
+    /** The handler of `InfuserMenuMixin` at the return of the infuser's power method, which is an instance method. */
+    private val infuserMixin = classNode("InfuserMenuMixin", methods = listOf(handler(listOf("getAvailablePower$power"))))
+
+    private fun infuser(vararg methods: MethodNode) = classNode("fuzs/enchantinginfuser/InfuserMenu", methods = methods.toList())
+
+    /** Mixin throws when a handler's static modifier differs from its target's, whatever `defaultRequire` says. */
+    @Test
+    fun `an injected method needs the handler's static modifier`() {
+        assertTrue(MixinMembers.hasInjects(infuserMixin))
+        val same = infuser(method("getAvailablePower", power, Opcodes.ACC_PRIVATE))
+        assertEquals(emptyList<String>(), MixinMembers.missingInjectTargets(infuserMixin, same))
+        val static = infuser(method("getAvailablePower", power, staticAccess))
+        assertEquals(listOf("instance method getAvailablePower $power"), MixinMembers.missingInjectTargets(infuserMixin, static))
+        val retyped = infuser(method("getAvailablePower", "(Lnet/minecraft/world/level/Level;)I", Opcodes.ACC_PRIVATE))
+        assertEquals(listOf("instance method getAvailablePower $power"), MixinMembers.missingInjectTargets(infuserMixin, retyped))
+    }
+
+    @Test
+    fun `a static handler needs a static target, and a selector with no descriptor takes the first method of its name`() {
+        val mixin = classNode("ItemUseOverridesMixin", methods = listOf(handler(listOf("onBlockActivated"), staticAccess)))
+        val static = method("onBlockActivated", "(Ljava/lang/Object;)V", Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC)
+        val instance = method("onBlockActivated", "(I)V")
+        assertEquals(emptyList<String>(), MixinMembers.missingInjectTargets(mixin, classNode("Target", methods = listOf(static, instance))))
+        val instanceFirst = classNode("Target", methods = listOf(instance, static))
+        assertEquals(listOf("static method onBlockActivated"), MixinMembers.missingInjectTargets(mixin, instanceFirst))
+    }
+
+    @Test
+    fun `each selector of an inject is read, and a selector with an owner or a wildcard is not`() {
+        val selectors = listOf("isSleeping(Ljava/util/UUID;)Z", "shouldPreventMovement(Ljava/util/UUID;)Z", "tick*", "Lother/Owner;run()V")
+        val mixin = classNode("AmbientBehaviorMixin", methods = listOf(handler(selectors)))
+        val target = classNode("Target", methods = listOf(method("isSleeping", "(Ljava/util/UUID;)Z")))
+        assertEquals(listOf("instance method shouldPreventMovement (Ljava/util/UUID;)Z"), MixinMembers.missingInjectTargets(mixin, target))
+        assertFalse(MixinMembers.hasInjects(airCurrentMixin), "a handler with no annotation reads as an inject")
+    }
+
     @Test
     fun `a mixin with no shadow needs nothing of its target`() {
         val mixin = classNode("Mixin", listOf(field("cobblemon_dynamics\$flow", "I")), listOf(method("cobblemon_dynamics\$heat", "()V")))

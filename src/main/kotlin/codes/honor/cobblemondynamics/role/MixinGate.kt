@@ -19,6 +19,32 @@ object MixinGate {
     fun required(apothicEnchanting: Boolean): Map<ResourceLocation, String> =
         if (apothicEnchanting) REQUIRED + (id("enchanting") to MixinState.APOTHIC_TABLE_STATS) else REQUIRED
 
+    /**
+     * CD-OPT-09: each target inside a shared handler that needs a mixin, by target key, with that mixin, such as a station of another
+     * mod for the Muse. A missing mixin turns off that target only: the handler asks `RoleRegistry.targetOn`. The tasks of 1.2 that
+     * add such a mixin add its target.
+     */
+    val REQUIRED_FOR_TARGET: Map<String, String> = mapOf(
+        "easymagic:enchanting_table" to MixinState.EASY_MAGIC_MENU,
+        "enchantinginfuser:enchanting_infuser" to MixinState.INFUSER_MENU,
+        "enchantinginfuser:advanced_enchanting_infuser" to MixinState.INFUSER_MENU,
+    )
+
+    /**
+     * CD-OPT-09: the targets of [required] whose mod is [loaded] and whose mixin did not apply, with one warning for each, in target
+     * order. A target names its block, whose namespace is its mod: without the mod, the block and its mixin do not exist.
+     */
+    fun offTargets(
+        required: Map<String, String>,
+        applied: (String) -> Boolean,
+        loaded: (String) -> Boolean,
+        warn: (String) -> Unit,
+    ): Set<String> {
+        val off = required.filter { (target, mixin) -> loaded(target.substringBefore(':')) && !applied(mixin) }.toSortedMap()
+        for ((target, mixin) in off) warn("Target $target is disabled: its mixin $mixin did not apply")
+        return off.keys
+    }
+
     fun apply(roles: RoleSet, applied: (String) -> Boolean, warn: (String) -> Unit): RoleSet = apply(roles, applied, REQUIRED, warn)
 
     /** Disables each role whose mixin is missing, with one warning per handler (CD-WHL-10, CD-BRN-07, CD-MUS-06, CD-FAN-17, CD-TLW-10). */

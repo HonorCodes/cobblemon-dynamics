@@ -16,8 +16,9 @@ data class EffectDefinition(
 )
 
 /**
- * One role file. [quickWork] lets a role whose [autoAssign] is false take Quick Work orders, which wait for their target's demand
- * (CD-QWK-36). Only the Muse's file sets it.
+ * One role file. [quickWork] is null when the file has no `quick_work` key: an auto-assign role then takes Quick Work orders, and a
+ * role whose [autoAssign] is false does not. True lets a role whose [autoAssign] is false take orders, which wait for their target's
+ * demand (CD-QWK-36), as the Muse's file does. False keeps an auto-assign role out of Quick Work (CD-FRZ-02).
  */
 data class RoleDefinition(
     val id: ResourceLocation,
@@ -28,5 +29,5 @@ data class RoleDefinition(
     val range: Double,
     val params: JsonObject,
     val effect: EffectDefinition,
-    val quickWork: Boolean = false,
+    val quickWork: Boolean? = null,
 )

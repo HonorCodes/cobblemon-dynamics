@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.handler.farming
 
+import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.level.storage.loot.LootTable
 
 /** [count] items of [item], one stack of a harvest's loot. */
 data class Drop(val item: ResourceLocation, val count: Int)
@@ -47,13 +49,20 @@ data class HarvestPlan(
 /** The pure harvest plan of each crop adapter (ADR-0015). */
 object HarvestPlans {
     /**
+     * CD-FRM-03: the loot table that a harvest of [kind] rolls in place of the block loot of the cells that it takes, or null for that
+     * block loot. A pick by loot table rolls the entry of the data map, never the bush's own table, which drops the bush (CD-FIX-03).
+     */
+    fun lootTable(kind: HarvestKind, f: CropFacts): ResourceKey<LootTable>? =
+        if (kind == HarvestKind.PICK_BY_LOOT_TABLE) f.harvestLoot?.lootTable else null
+
+    /**
      * [loot] is the loot of the cells that [kind] takes: the crop (and its upper half), the upper half alone, the fruit, or the
      * berries of a berry tree. [ownSeeds] are the dropped items whose `BlockItem.getBlock()` is the crop's own block: wheat seeds,
      * a carrot, a Pam's crop item. `Block.asItem()` alone would miss the Pam's crops, whose `asItem()` is a seed item that never
      * drops (RES8). [seeds] maps each dropped item that places another block of the Cultivator's tag to that block. [survives]
      * tells whether a replant of that block can survive in the crop's cell, where null is the crop's own first state. [hasUpper]
      * tells a crop of the crop adapter with an upper half, such as flax. A berry tree keeps its cell, because
-     * `BerryBlockEntity.harvest` already set it back to age 3.
+     * `BerryBlockEntity.harvest` already set it back to age 3. [ageAfter] is the `age` that a pick by loot table leaves (CD-FRM-03).
      */
     fun plan(
         kind: HarvestKind,
@@ -61,6 +70,7 @@ object HarvestPlans {
         ownSeeds: Set<ResourceLocation>,
         seeds: Map<ResourceLocation, ResourceLocation>,
         hasUpper: Boolean,
+        ageAfter: Int = 0,
         survives: (ResourceLocation?) -> Boolean,
     ): HarvestPlan = when (kind) {
         HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT -> breakAndReplant(loot, ownSeeds, seeds, survives, hasUpper)
@@ -71,6 +81,7 @@ object HarvestPlans {
         HarvestKind.GOURD -> HarvestPlan(loot, CellChange.Keep, fruit = CellChange.Clear)
         HarvestKind.BERRY_TREE -> HarvestPlan(loot, CellChange.Keep)
         HarvestKind.NEVER -> HarvestPlan(emptyList(), CellChange.Keep)
+        HarvestKind.PICK_BY_LOOT_TABLE -> HarvestPlan(loot, CellChange.SetAge(ageAfter))
     }
 
     /** The plan of a crop with no upper half. */

@@ -14,7 +14,9 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.packs.resources.ResourceManager
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener
 import net.minecraft.util.profiling.ProfilerFiller
+import net.neoforged.fml.ModList
 import org.slf4j.Logger
+import java.util.TreeMap
 
 /** Loads `data/{namespace}/cobblemon_dynamics/roles/{role}.json` on every data pack load and `/reload`. */
 object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynamics/roles") {
@@ -22,6 +24,13 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
 
     private var parsed: Map<ResourceLocation, RoleDefinition> = emptyMap()
     private val disabledHandlers = DisabledHandlers()
+
+    // CD-OPT-04: the files of the last load that their conditions skipped, with the absent mods that they need.
+    private var skipped: Map<ResourceLocation, List<String>> = emptyMap()
+
+    // CD-OPT-09: the targets inside shared handlers whose mixin did not apply.
+    @Volatile
+    private var offTargets: Set<String> = emptySet()
 
     // Rebuilds after a config change repeat the lines of the last role file load, so each line logs once per load (CD-CFG-10, CD-CMP-10).
     private val log = LoadLog { LOGGER.info(it) }
@@ -34,27 +43,60 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         private set
 
     override fun apply(entries: Map<ResourceLocation, JsonElement>, resourceManager: ResourceManager, profiler: ProfilerFiller) {
+        val ops = makeConditionalOps()
+        load(entries, passes = { RoleConditions.pass(it, ops) })
+    }
+
+    /**
+     * CD-OPT-02: tests the conditions of each file before it parses the file. A file whose conditions fail is neither loaded nor
+     * disabled, and the line of CD-OPT-04 names it with the mods that [loaded] reports absent. Unit tests pass [passes] in place of
+     * NeoForge's conditions, and [loaded] in place of the mod list, which they lack.
+     */
+    internal fun load(
+        entries: Map<ResourceLocation, JsonElement>,
+        passes: (JsonElement) -> Boolean,
+        loaded: (String) -> Boolean = ::modLoaded,
+    ) {
         val roles = HashMap<ResourceLocation, RoleDefinition>()
+        val skipped = TreeMap<ResourceLocation, List<String>>()
         for ((id, json) in entries) {
+            val pass = try {
+                passes(json)
+            } catch (e: RuntimeException) {
+                LOGGER.error("Skipping role file {}: its conditions do not parse: {}", id, e.message)
+                continue
+            }
+            if (!pass) {
+                skipped[id] = RoleConditions.absentMods(json, loaded)
+                continue
+            }
             val result = RoleCodec.parse(id, json)
             val role = result.result().orElse(null)
             if (role != null) roles[id] = role else LOGGER.error(RoleCodec.describeError(id, result))
         }
-        synchronized(this) { replace(roles) }
+        synchronized(this) { replace(roles, skipped) }
     }
+
+    /** The ids of the role files that the last load parsed. Tests only. */
+    internal fun loadedIds(): Set<ResourceLocation> = parsed.keys
+
+    /** The role files of the last load that their conditions skipped, with the mods that they need. Tests only. */
+    internal fun skipped(): Map<ResourceLocation, List<String>> = skipped
 
     /** Replaces the parsed role files exactly as a data pack load does, and returns the previous ones. Tests only. */
     @Synchronized
     fun applyForTest(definitions: Map<ResourceLocation, RoleDefinition>): Map<ResourceLocation, RoleDefinition> {
         val previous = parsed
-        replace(definitions)
+        replace(definitions, skipped)
         return previous
     }
 
     /** A role file load, which `/reload` also runs, gives each handler that threw another try. */
-    private fun replace(roles: Map<ResourceLocation, RoleDefinition>) {
+    private fun replace(roles: Map<ResourceLocation, RoleDefinition>, skipped: Map<ResourceLocation, List<String>>) {
         parsed = roles
+        this.skipped = skipped
         log.newLoad()
+        log.info(LoadLines.skippedRoles(skipped))
         disabledHandlers.clear()
         rebuild()
     }
@@ -70,9 +112,17 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
     fun rebuild() {
         val roles = RoleSet(parsed, ::handlerFor, WorkEngineSettings.current.disabledRoles, log::info)
         val required = MixinGate.required(MuseBonus.withApothicEnchanting)
-        current = MixinGate.apply(roles, MixinState::applied, required) { if (mixinWarnings.add(it)) LOGGER.warn(it) }
+        val warn = { message: String -> if (mixinWarnings.add(message)) LOGGER.warn(message) }
+        current = MixinGate.apply(roles, MixinState::applied, required, warn)
+        offTargets = MixinGate.offTargets(MixinGate.REQUIRED_FOR_TARGET, MixinState::applied, ::modLoaded, warn)
         log.info(LoadLines.roles(parsed.size, current.active.size, current.disabled))
     }
+
+    /**
+     * CD-OPT-09: false for a target inside a shared handler whose mixin did not apply, such as Easy Magic's table for the Muse. Its
+     * handler's other targets and roles keep working.
+     */
+    fun targetOn(target: String): Boolean = target !in offTargets
 
     /**
      * Turns off every role of [handlerId], for a handler whose hook failed, until the server stops or the role files load again. Logs one
@@ -95,6 +145,9 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
 
     /** CD-CRP-22: the roles of one handler are one group, and so are the roles whose handlers claim in a lane: the farming roles. */
     fun sameGroup(a: RoleDefinition, b: RoleDefinition): Boolean = a.handler == b.handler || (laneOf(a.id) != null && laneOf(b.id) != null)
+
+    /** Outside a game, as in unit tests, there is no mod list, so no mod reads as loaded. */
+    private fun modLoaded(modId: String): Boolean = ModList.get()?.isLoaded(modId) == true
 
     private fun handlerFor(id: ResourceLocation): TargetHandler? = if (disabledHandlers.isDisabled(id)) null else HandlerRegistry.get(id)
 }

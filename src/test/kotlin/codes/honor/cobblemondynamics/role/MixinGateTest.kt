@@ -102,6 +102,50 @@ class MixinGateTest {
         assertEquals(1, warnings.size)
     }
 
+    /** Easy Magic's table and an infuser stand for the targets of the Muse's shared handler, which Task 2 adds. */
+    @Test
+    fun `CD-OPT-09 a target mixin that did not apply turns off that target only, with one warning`() {
+        val table = "easymagic:enchanting_table"
+        val infuser = "enchantinginfuser:enchanting_infuser"
+        val required = mapOf(
+            table to "compat.easymagic.ModEnchantmentMenuMixin",
+            infuser to "compat.enchantinginfuser.InfuserMenuMixin",
+        )
+        val warnings = mutableListOf<String>()
+        val off = MixinGate.offTargets(required, applied = { it == required[infuser] }, loaded = { true }, warn = warnings::add)
+        assertEquals(setOf(table), off)
+        assertEquals(1, warnings.size, warnings.toString())
+        assertTrue(table in warnings.single() && required.getValue(table) in warnings.single(), warnings.toString())
+        // The Muse itself stays on: a target mixin never reaches the role gate.
+        val gated = MixinGate.apply(set(muse, stoker), applied = { it == MixinState.ENCHANTMENT_MENU }, warn = warnings::add)
+        assertEquals(listOf(muse.id, stoker.id), gated.active.map { it.definition.id })
+        assertEquals(1, warnings.size, warnings.toString())
+    }
+
+    @Test
+    fun `CD-OPT-09 each target mixin of 1_2 that did not apply turns its target off and names it once`() {
+        assertTrue(MixinGate.REQUIRED_FOR_TARGET.isNotEmpty())
+        for ((target, mixin) in MixinGate.REQUIRED_FOR_TARGET) {
+            val warnings = mutableListOf<String>()
+            val off = MixinGate.offTargets(MixinGate.REQUIRED_FOR_TARGET, applied = {
+                it != mixin
+            }, loaded = { true }, warn = warnings::add)
+            // Targets of one mixin, such as two infusers of one menu, go off together.
+            assertEquals(MixinGate.REQUIRED_FOR_TARGET.filterValues { it == mixin }.keys, off)
+            assertEquals(1, warnings.count { target in it && mixin in it }, warnings.toString())
+        }
+        assertTrue(MixinGate.offTargets(MixinGate.REQUIRED_FOR_TARGET, applied = { true }, loaded = { true }) { error(it) }.isEmpty())
+    }
+
+    /** Without its mod, a target's mixin is skipped, and the target does not exist: no warning reads as a setup problem. */
+    @Test
+    fun `CD-OPT-09 the target of an absent mod gives no warning`() {
+        val off = MixinGate.offTargets(MixinGate.REQUIRED_FOR_TARGET, applied = { false }, loaded = { false }) { error(it) }
+        assertTrue(off.isEmpty(), "$off")
+        assertTrue("easymagic:enchanting_table" in MixinGate.REQUIRED_FOR_TARGET, "Easy Magic's table needs no mixin")
+        assertTrue("enchantinginfuser:enchanting_infuser" in MixinGate.REQUIRED_FOR_TARGET, "the infuser needs no mixin")
+    }
+
     @Test
     fun `CD-WHL-10 an applied mixin keeps its roles, and a role that needs no mixin stays on`() {
         val warnings = mutableListOf<String>()
