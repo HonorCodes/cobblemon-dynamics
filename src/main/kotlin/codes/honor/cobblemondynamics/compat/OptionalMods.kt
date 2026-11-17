@@ -37,8 +37,8 @@ object OptionalMods {
         OptionalMod("createaddition", listOf("com/mrh0/createaddition/")),
         OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/")),
         OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/")),
-        OptionalMod("easymagic", listOf("fuzs/easymagic/")),
-        OptionalMod("enchantinginfuser", listOf("fuzs/enchantinginfuser/")),
+        OptionalMod("easymagic", listOf("fuzs/easymagic/"), listOf("muse_table")),
+        OptionalMod("enchantinginfuser", listOf("fuzs/enchantinginfuser/"), listOf("muse_infusers")),
         OptionalMod("experiencelib", listOf("es/degrassi/experiencelib/")),
         OptionalMod("dynamictrees", listOf("com/dtteam/dynamictrees/")),
         OptionalMod("apothic_enchanting", listOf("dev/shadowsoffire/"), compat = "apothic"),
@@ -49,5 +49,10 @@ object OptionalMods {
         OptionalMod("deep_aether", listOf("io/github/razordevs/"), compat = null),
         OptionalMod("biomeswevegone", listOf("net/potionstudios/"), compat = null),
         OptionalMod("undergarden", listOf("quek/undergarden/"), compat = null),
+        // The mods of the fixes of 1.2 that tags and data maps alone reach (ADR-0020).
+        OptionalMod("twilightforest", listOf("twilightforest/"), compat = null),
+        OptionalMod("mysticalagriculture", listOf("com/blakebr0/mysticalagriculture/"), compat = null),
+        OptionalMod("createdieselgenerators", listOf("com/jesz/createdieselgenerators/"), compat = null),
+        OptionalMod("create_new_age", listOf("org/antarcticgardens/cna/"), compat = null),
     )
 }

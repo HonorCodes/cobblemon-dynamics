@@ -1,0 +1,18 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:enchanting_table",
+    {
+      "id": "easymagic:enchanting_table",
+      "required": false
+    },
+    {
+      "id": "enchantinginfuser:enchanting_infuser",
+      "required": false
+    },
+    {
+      "id": "enchantinginfuser:advanced_enchanting_infuser",
+      "required": false
+    }
+  ]
+}

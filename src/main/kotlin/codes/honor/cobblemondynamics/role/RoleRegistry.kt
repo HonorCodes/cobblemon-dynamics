@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.packs.resources.ResourceManager
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener
 import net.minecraft.util.profiling.ProfilerFiller
+import net.neoforged.fml.ModList
 import org.slf4j.Logger
 import java.util.TreeMap
 
@@ -108,7 +109,7 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         val required = MixinGate.required(MuseBonus.withApothicEnchanting)
         val warn = { message: String -> if (mixinWarnings.add(message)) LOGGER.warn(message) }
         current = MixinGate.apply(roles, MixinState::applied, required, warn)
-        offTargets = MixinGate.offTargets(MixinGate.REQUIRED_FOR_TARGET, MixinState::applied, warn)
+        offTargets = MixinGate.offTargets(MixinGate.REQUIRED_FOR_TARGET, MixinState::applied, ::modLoaded, warn)
         log.info(LoadLines.roles(parsed.size, current.active.size, current.disabled))
     }
 
@@ -139,6 +140,9 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
 
     /** CD-CRP-22: the roles of one handler are one group, and so are the roles whose handlers claim in a lane: the farming roles. */
     fun sameGroup(a: RoleDefinition, b: RoleDefinition): Boolean = a.handler == b.handler || (laneOf(a.id) != null && laneOf(b.id) != null)
+
+    /** Outside a game, as in unit tests, there is no mod list, so no mod reads as loaded. */
+    private fun modLoaded(modId: String): Boolean = ModList.get()?.isLoaded(modId) == true
 
     private fun handlerFor(id: ResourceLocation): TargetHandler? = if (disabledHandlers.isDisabled(id)) null else HandlerRegistry.get(id)
 }

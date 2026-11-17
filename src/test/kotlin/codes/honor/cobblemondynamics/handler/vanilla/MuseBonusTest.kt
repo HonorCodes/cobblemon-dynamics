@@ -3,12 +3,59 @@ package codes.honor.cobblemondynamics.handler.vanilla
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class MuseBonusTest {
     private val params: JsonObject by lazy { BuiltInRoles.parse("muse").params }
     private val atLevel100: Double by lazy { MuseBonus.atLevel100(params) }
+
+    /** Easy Magic's `ModEnchantmentMenu.getEnchantingPower` returns the power that its offers read (javap, v21.1.4). */
+    @Test
+    fun `CD-FIX-05 a power of 10 at Easy Magic's table with a Lv100 Muse reads 15`() {
+        val bonus = MuseBonus.bonus(100, params, apothicEnchanting = false).bookshelves
+        assertEquals(15, MuseBonus.capped(10, bonus))
+    }
+
+    /** Enchanting Infuser's `InfuserMenu.getAvailablePower` clamps to `getEnchantmentPowerLimit()`, 15 for both infusers (javap, v21.1.4). */
+    @Test
+    fun `CD-FIX-06 an infuser's power rises to its limit and no further, and with Apothic Enchanting the Muse adds nothing`() {
+        val bonus = MuseBonus.bonus(100, params, apothicEnchanting = false).bookshelves
+        assertEquals(15, MuseBonus.capped(0, bonus, limit = 15))
+        assertEquals(12, MuseBonus.capped(0, bonus, limit = 12), "the power passes a lower limit")
+        assertEquals(15, MuseBonus.capped(0, bonus, limit = 30), "the Muse adds more than 15 bookshelves")
+        assertEquals(20, MuseBonus.capped(20, bonus, limit = 30), "the Muse lowers a power above 15")
+        val infuser = ResourceLocation.parse("enchantinginfuser:enchanting_infuser")
+        assertFalse(MuseBonus.takesStation(infuser, apothicEnchanting = true), "the Muse works an infuser with Apothic Enchanting")
+        assertTrue(MuseBonus.takesStation(infuser, apothicEnchanting = false))
+        assertTrue(MuseBonus.takesStation(ResourceLocation.parse("minecraft:enchanting_table"), apothicEnchanting = true))
+        assertEquals(0, MuseBonus.bonus(100, params, apothicEnchanting = true).bookshelves)
+    }
+
+    @Test
+    fun `CD-MUS-01 CD-FIX-05 CD-FIX-06 the Muse's tag holds the vanilla table, and Easy Magic's table and both infusers as optional`() {
+        val file = File(System.getProperty("cd.projectDir"), "src/main/resources/data/cobblemon_dynamics/tags/block/muse_targets.json")
+        val values = JsonParser.parseString(file.readText()).asJsonObject.getAsJsonArray("values")
+        val entries = values.associate { value ->
+            if (value.isJsonPrimitive) {
+                value.asString to true
+            } else {
+                value.asJsonObject["id"].asString to
+                    value.asJsonObject["required"].asBoolean
+            }
+        }
+        val expected = mapOf(
+            "minecraft:enchanting_table" to true,
+            "easymagic:enchanting_table" to false,
+            "enchantinginfuser:enchanting_infuser" to false,
+            "enchantinginfuser:advanced_enchanting_infuser" to false,
+        )
+        assertEquals(expected, entries)
+    }
 
     @Test
     fun `CD-MUS-03 the default Muse adds 1, 2, 8 and 15 bookshelves at levels 1, 7, 50 and 100`() {

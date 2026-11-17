@@ -2,9 +2,16 @@ package codes.honor.cobblemondynamics.handler.farming
 
 /** The pure choice of a crop adapter from the facts of a block (ADR-0015). */
 object CropAdapters {
-    /** CD-CRP-03, CD-HRV-03: the first harvest adapter that claims the block, or null for none (CD-CRP-04). */
+    /**
+     * CD-CRP-03, CD-HRV-03: the first harvest adapter that claims the block, or null for none (CD-CRP-04). An entry of the loot data
+     * map comes before every adapter tag (CD-FRM-03).
+     */
     fun harvestKind(f: CropFacts): HarvestKind? = when {
-        f.apricorn || HarvestKind.NEVER in f.adapterTags -> null
+        f.apricorn -> null
+
+        f.harvestLoot != null -> HarvestKind.PICK_BY_LOOT_TABLE
+
+        HarvestKind.NEVER in f.adapterTags -> null
 
         else -> HarvestKind.entries.firstOrNull { it.tag != null && it in f.adapterTags } ?: when {
             f.berryTree -> HarvestKind.BERRY_TREE
@@ -15,12 +22,14 @@ object CropAdapters {
         }
     }
 
-    /** CD-CUL-02: the growth adapter claims every `BonemealableBlock`. */
-    fun grows(f: CropFacts): Boolean = f.bonemealable
+    /** CD-CUL-02, CD-FIX-04: the growth adapter claims every `BonemealableBlock` outside the Cultivator's never tag. */
+    fun grows(f: CropFacts): Boolean = f.bonemealable && f.growable
 
     /** CD-CRP-05: the Harvester's adapter of a block for the load line. `harvest/never` and an apricorn count as `never`. */
-    fun harvestAdapterName(f: CropFacts): String? =
-        if (f.apricorn || HarvestKind.NEVER in f.adapterTags) NEVER else harvestKind(f)?.name?.lowercase()
+    fun harvestAdapterName(f: CropFacts): String? {
+        val kind = harvestKind(f)
+        return if (kind == null && (f.apricorn || HarvestKind.NEVER in f.adapterTags)) NEVER else kind?.name?.lowercase()
+    }
 
     /** CD-CRP-05: the Cultivator's adapter of a block for the load line. */
     fun growthAdapterName(f: CropFacts): String? = if (grows(f)) GROWTH else null

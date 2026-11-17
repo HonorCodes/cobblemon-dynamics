@@ -16,7 +16,8 @@ import net.minecraft.world.level.block.state.properties.Property
 
 /**
  * Reads [CropFacts] from a level (ADR-0015): class flags through vanilla's and Cobblemon's classes, the adapter tags, and the block
- * state properties `age`, `half` and `berries`. It names no class of a crop mod (CD-CRP-19).
+ * state properties `age`, `half` and `berries`, the loot data map and the Cultivator's never tag. It names no class of a crop mod
+ * (CD-CRP-19).
  */
 object CropFactsReader {
     /** The facts of [state] at [pos]. For a two-block crop, [pos] is the lower half, which the farming handlers key by. */
@@ -40,6 +41,8 @@ object CropFactsReader {
             upperHalf = half == DoubleBlockHalf.UPPER,
             upperPresent = half == DoubleBlockHalf.LOWER && level.getBlockState(pos.above()).let { it.block === block && isUpper(it) },
             berries = state.getOptionalValue(BlockStateProperties.BERRIES).orElse(false),
+            harvestLoot = state.blockHolder.getData(HarvestLootMap.TYPE),
+            growable = !state.`is`(FarmingTags.CULTIVATOR_NEVER),
         )
     }
 

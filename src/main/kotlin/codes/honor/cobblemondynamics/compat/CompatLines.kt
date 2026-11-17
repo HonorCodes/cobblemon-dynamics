@@ -24,9 +24,9 @@ object CompatLines {
     private val log = LoadLog { LOGGER.info(it) }
     private val registered = ConcurrentHashMap<String, AdapterNeeds>()
 
-    /** A compat package registers each of its adapters, behind the `ModList.isLoaded` guard of its mod. */
-    fun register(adapter: String, needs: AdapterNeeds = AdapterNeeds()) {
-        registered[adapter] = needs
+    /** A compat package registers each of its adapters, behind the `ModList.isLoaded` guard of its mod [modId]. */
+    fun register(modId: String, adapter: String, needs: AdapterNeeds = AdapterNeeds()) {
+        registered["$modId/$adapter"] = needs
     }
 
     /** The client's copy of the tags posts this event too, so only a data load of the server logs. */
@@ -36,7 +36,8 @@ object CompatLines {
         log.newLoad()
         for (mod in OptionalMods.ALL) {
             val container = ModList.get().getModContainerById(mod.modId).orElse(null) ?: continue
-            log.info(line(mod, container.modInfo.version.toString(), registered::get, blocks::containsKey, MixinState::applied))
+            val needs = { adapter: String -> registered["${mod.modId}/$adapter"] }
+            log.info(line(mod, container.modInfo.version.toString(), needs, blocks::containsKey, MixinState::applied))
         }
     }
 

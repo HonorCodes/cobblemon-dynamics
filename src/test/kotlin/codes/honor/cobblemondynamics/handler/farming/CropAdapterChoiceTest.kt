@@ -1,5 +1,8 @@
 package codes.honor.cobblemondynamics.handler.farming
 
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceKey
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -17,6 +20,28 @@ class CropAdapterChoiceTest {
         assertEquals(HarvestKind.PICK_TO_AGE_0, CropAdapters.harvestKind(wheat.copy(adapterTags = setOf(HarvestKind.PICK_TO_AGE_0))))
         // Hearty grains and hemp are CropBlocks whose upper half is the harvest.
         assertEquals(HarvestKind.UPPER_HALF, CropAdapters.harvestKind(wheat.copy(adapterTags = setOf(HarvestKind.UPPER_HALF))))
+    }
+
+    @Test
+    fun `CD-FRM-03 CD-CRP-03 a block of the loot data map takes the pick by loot table before every adapter tag`() {
+        val berries = ResourceKey.create(Registries.LOOT_TABLE, ResourceLocation.parse("twilightforest:blocks/blackberry_bush_berries"))
+        val bush = CropFacts(bonemealable = true, age = 3, ageMax = 3, harvestLoot = HarvestLoot(berries, 2))
+        assertEquals(HarvestKind.PICK_BY_LOOT_TABLE, CropAdapters.harvestKind(bush))
+        val tagged = bush.copy(adapterTags = setOf(HarvestKind.NEVER, HarvestKind.PICK_TO_AGE_0, HarvestKind.BREAK_AND_REPLANT))
+        assertEquals(HarvestKind.PICK_BY_LOOT_TABLE, CropAdapters.harvestKind(tagged))
+        assertTrue(CropRules.isFullyGrown(HarvestKind.PICK_BY_LOOT_TABLE, bush), "a bush at age 3 has no harvest")
+        assertFalse(CropRules.isFullyGrown(HarvestKind.PICK_BY_LOOT_TABLE, bush.copy(age = 2)), "a bush at age 2 has a harvest")
+        assertEquals("pick_by_loot_table", CropAdapters.harvestAdapterName(bush))
+    }
+
+    @Test
+    fun `CD-FIX-04 a crop of the Cultivator's never tag gets no growth adapter`() {
+        // Mystical Agriculture's crops are CropBlocks in #minecraft:crops whose isBonemealSuccess returns false.
+        val mystical = wheat.copy(growable = false)
+        assertFalse(CropAdapters.grows(mystical))
+        assertNull(CropAdapters.growthAdapterName(mystical))
+        assertTrue(CropAdapters.grows(wheat))
+        assertEquals(HarvestKind.CROP, CropAdapters.harvestKind(mystical), "the never tag of the Cultivator changes the harvest")
     }
 
     @Test

@@ -9,6 +9,8 @@ import codes.honor.cobblemondynamics.compat.CobblebaseHooks
 import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
 import codes.honor.cobblemondynamics.compat.CompatLines
 import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
+import codes.honor.cobblemondynamics.compat.easymagic.EasyMagicCompat
+import codes.honor.cobblemondynamics.compat.enchantinginfuser.EnchantingInfuserCompat
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
 import codes.honor.cobblemondynamics.compat.opac.OpacCompat
@@ -23,6 +25,7 @@ import codes.honor.cobblemondynamics.handler.capability.FePushHandler
 import codes.honor.cobblemondynamics.handler.capability.FluidFillHandler
 import codes.honor.cobblemondynamics.handler.create.CreateCompat
 import codes.honor.cobblemondynamics.handler.farming.CultivatorHandler
+import codes.honor.cobblemondynamics.handler.farming.HarvestLootMap
 import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
 import codes.honor.cobblemondynamics.handler.item.MagnetHandler
 import codes.honor.cobblemondynamics.handler.item.TelekinesisHandler
@@ -101,6 +104,11 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("minecolonies")) MineColoniesCompat.register()
         // CD-MUS-07: the Muse's stats hook in Apothic Enchanting must apply before the role files load.
         if (ModList.get().isLoaded("apothic_enchanting")) ApothicCompat.register(modBus)
+        // CD-FIX-05, CD-FIX-06: the Muse's hooks in the menus of Easy Magic and Enchanting Infuser, also before the role files load.
+        if (ModList.get().isLoaded("easymagic")) EasyMagicCompat.register(modBus)
+        if (ModList.get().isLoaded("enchantinginfuser")) EnchantingInfuserCompat.register(modBus)
+        // CD-FRM-03: the loot data map of the farming roles.
+        HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.
         modBus.addListener<FMLLoadCompleteEvent> { it.enqueueWork(Runnable { LOGGER.info(mixinLine()) }) }
         modBus.addListener<ModConfigEvent.Loading> { onConfigChanged(it.config) }

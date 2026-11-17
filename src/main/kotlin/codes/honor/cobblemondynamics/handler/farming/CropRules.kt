@@ -15,6 +15,7 @@ object CropRules {
         HarvestKind.CAVE_VINES -> f.berries
         HarvestKind.GOURD -> true
         HarvestKind.CROP -> f.cropMaxAge
+        HarvestKind.PICK_BY_LOOT_TABLE -> f.age != null && f.age == f.ageMax
     }
 
     /**

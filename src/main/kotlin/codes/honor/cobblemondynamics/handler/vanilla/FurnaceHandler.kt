@@ -5,8 +5,10 @@ import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.id
 import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.TagKey
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.crafting.SingleRecipeInput
 import net.minecraft.world.level.block.AbstractFurnaceBlock
@@ -15,7 +17,10 @@ import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
-/** The Stoker's target: every furnace, smoker, blast furnace and modded subclass of `AbstractFurnaceBlockEntity` (CD-STK-01). */
+/**
+ * The Stoker's target: every furnace, smoker, blast furnace and modded subclass of `AbstractFurnaceBlockEntity` (CD-STK-01), except
+ * the blocks of `#cobblemon_dynamics:stoker/never`, such as the Aether's Freezer, which burns Icestone to freeze (CD-FIX-01).
+ */
 object FurnaceHandler : TargetHandler {
     private const val SLOT_INPUT = 0
     private const val SLOT_RESULT = 2
@@ -30,11 +35,16 @@ object FurnaceHandler : TargetHandler {
     override val id: ResourceLocation = id("furnace")
     override val scanKind: ScanKind = ScanKind.BLOCK_ENTITY
 
+    private val NEVER: TagKey<Block> = TagKey.create(Registries.BLOCK, id("stoker/never"))
+
+    /** CD-STK-01, CD-FIX-01: a furnace block entity whose block is not in the never tag. */
+    fun isTarget(furnace: Boolean, never: Boolean): Boolean = furnace && !never
+
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
-        blockEntity is AbstractFurnaceBlockEntity
+        isTarget(blockEntity is AbstractFurnaceBlockEntity, state.`is`(NEVER))
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean =
-        level.getBlockEntity(canonical) is AbstractFurnaceBlockEntity
+        isTarget(level.getBlockEntity(canonical) is AbstractFurnaceBlockEntity, level.getBlockState(canonical).`is`(NEVER))
 
     override fun hasDemand(ctx: WorkContext): Boolean = furnaceAt(ctx)?.let { canCook(ctx.level, it) } ?: false
 

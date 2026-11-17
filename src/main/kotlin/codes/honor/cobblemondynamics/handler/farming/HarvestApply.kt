@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.block.entity.BerryBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.BlockItem
@@ -14,6 +15,11 @@ import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.Property
+import net.minecraft.world.level.storage.loot.LootParams
+import net.minecraft.world.level.storage.loot.LootTable
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams
+import net.minecraft.world.phys.Vec3
 
 /**
  * Applies a harvest to the level (ADR-0015). The loot comes from `Block.getDrops` with an empty tool and no entity, so the pack's loot
@@ -47,10 +53,15 @@ object HarvestApply {
             HarvestKind.GOURD -> listOfNotNull(fruit)
             else -> if (whole) listOf(crop, upper) else listOf(crop)
         }
-        val stacks = looted.flatMap { pos ->
-            Block.getDrops(level.getBlockState(pos), level, pos, level.getBlockEntity(pos), null, ItemStack.EMPTY)
+        val table = HarvestPlans.lootTable(kind, facts)
+        val stacks = if (table != null) {
+            roll(level, crop, state, table)
+        } else {
+            looted.flatMap { pos -> Block.getDrops(level.getBlockState(pos), level, pos, level.getBlockEntity(pos), null, ItemStack.EMPTY) }
         }.filterNot { it.isEmpty }
-        val plan = HarvestPlans.plan(kind, stacks.map { Drop(idOf(it), it.count) }, ownSeeds(stacks, state), seeds(stacks, state), whole) {
+        val drops = stacks.map { Drop(idOf(it), it.count) }
+        val ageAfter = facts.harvestLoot?.ageAfter ?: 0
+        val plan = HarvestPlans.plan(kind, drops, ownSeeds(stacks, state), seeds(stacks, state), whole, ageAfter) {
             replantState(it?.let(BuiltInRegistries.BLOCK::get) ?: state.block, state).canSurvive(level, crop)
         }
         val changed = listOfNotNull(
@@ -71,6 +82,19 @@ object HarvestApply {
         if (fruit != null && plan.fruit == CellChange.Clear) clear(level, fruit, Block.UPDATE_ALL)
         drop(level, crop, face, stacks, plan.seed)
         return true
+    }
+
+    /**
+     * CD-FRM-03: the loot of [table] for the crop at [pos], rolled as the Twilight Forest rolls a bush's berries: with the block's
+     * state, its center and no tool, and with no player.
+     */
+    private fun roll(level: ServerLevel, pos: BlockPos, state: BlockState, table: ResourceKey<LootTable>): List<ItemStack> {
+        val params = LootParams.Builder(level)
+            .withParameter(LootContextParams.BLOCK_STATE, state)
+            .withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(pos))
+            .withParameter(LootContextParams.TOOL, ItemStack.EMPTY)
+            .create(LootContextParamSets.BLOCK)
+        return level.server.reloadableRegistries().getLootTable(table).getRandomItems(params)
     }
 
     /** CD-HRV-11: Cobblemon's own harvest of a berry tree, which sets it back to age 3 with no player and no sound. */

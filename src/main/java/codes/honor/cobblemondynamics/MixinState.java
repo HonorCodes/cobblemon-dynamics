@@ -29,6 +29,8 @@ public final class MixinState {
     public static final String COBBLEBASE_BASE_MANAGER = "compat.cobblebase.BaseManagerMixin";
     public static final String COBBLEBASE_PASSIVE_XP = "compat.cobblebase.PassiveXpMixin";
     public static final String APOTHIC_TABLE_STATS = "compat.apothic.EnchantmentTableStatsMixin";
+    public static final String EASY_MAGIC_MENU = "compat.easymagic.ModEnchantmentMenuMixin";
+    public static final String INFUSER_MENU = "compat.enchantinginfuser.InfuserMenuMixin";
 
     static final String MIXIN_PACKAGE = "codes.honor.cobblemondynamics.mixin.";
 

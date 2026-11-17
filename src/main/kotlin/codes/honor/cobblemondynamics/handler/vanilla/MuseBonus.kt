@@ -7,6 +7,7 @@ import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.engine.guarded
 import com.google.gson.JsonObject
 import net.minecraft.core.BlockPos
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
@@ -25,6 +26,7 @@ object MuseBonus {
     const val MAX_QUANTA = 100
 
     private const val APOTHIC_ENCHANTING = "apothic_enchanting"
+    private const val INFUSER = "enchantinginfuser"
     private const val AT_LEVEL_100 = "bookshelves_at_level_100"
     private const val DEFAULT_AT_LEVEL_100 = 15.0
     private const val QUANTA_AT_LEVEL_100 = "quanta_at_level_100"
@@ -68,6 +70,22 @@ object MuseBonus {
      */
     @JvmStatic
     fun capped(real: Int, bonus: Int): Int = if (bonus <= 0 || real >= MAX_BOOKSHELVES) real else minOf(MAX_BOOKSHELVES, real + bonus)
+
+    /**
+     * CD-FIX-06: as [capped], at most the station's own [limit] too, such as an infuser's `getEnchantmentPowerLimit()`. A power at or
+     * above the cap stays as it is.
+     */
+    @JvmStatic
+    fun capped(real: Int, bonus: Int, limit: Int): Int {
+        val cap = minOf(MAX_BOOKSHELVES, limit)
+        return if (bonus <= 0 || real >= cap) real else minOf(cap, real + bonus)
+    }
+
+    /**
+     * CD-FIX-06: with Apothic Enchanting, an infuser counts the Muse's power as Eterna, and the Muse gives only Quanta (CD-MUS-07),
+     * so no infuser is the Muse's target then.
+     */
+    fun takesStation(station: ResourceLocation, apothicEnchanting: Boolean): Boolean = !(apothicEnchanting && station.namespace == INFUSER)
 
     /** The bookshelves of the Muse that Works at [table], 0 when none does or with Apothic Enchanting. The menu mixin calls this. */
     @JvmStatic

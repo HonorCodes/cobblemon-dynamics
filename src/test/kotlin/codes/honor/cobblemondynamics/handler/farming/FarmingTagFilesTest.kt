@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.farming
 
 import codes.honor.cobblemondynamics.fx.CobblemonJar
+import codes.honor.cobblemondynamics.role.RoleConditions
 import com.google.gson.JsonParser
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -27,6 +28,7 @@ class FarmingTagFilesTest {
 
     private val ownFiles = listOf(
         "cultivator_targets",
+        "cultivator/never",
         "harvester_targets",
         "harvest/never",
         "harvest/pick_to_age_0",
@@ -78,6 +80,31 @@ class FarmingTagFilesTest {
                 assertFalse(entry.id == "#minecraft:bee_growables", "$path.json names #minecraft:bee_growables")
                 assertFalse(entry.id == "#cobblemon:crops", "$path.json names #cobblemon:crops, which holds the terrain seeds")
             }
+        }
+    }
+
+    @Test
+    fun `CD-FIX-04 the Cultivator's never tag holds Mystical Agriculture's crops as an optional entry`() {
+        val entry = own("cultivator/never").single { it.id == "#mysticalagriculture:crops" }
+        assertFalse(entry.required, "#mysticalagriculture:crops is required")
+    }
+
+    /** The Twilight Forest 4.8.3345 (RES13): the 8 berry bushes and the 4 oreberries, each with its berry table. */
+    @Test
+    fun `CD-FRM-03 CD-FIX-03 the loot data map gives the 12 Twilight Forest blocks their berry tables and age 2`() {
+        val bushes = listOf("blackberry", "blueberry", "raspberry", "skyberry", "maloberry", "blightberry", "stingberry", "duskberry")
+        val ores = mapOf("copper" to "copper_oreberry", "iron" to "iron_oreberry", "gold" to "gold_oreberry", "essence" to "essence_berry")
+        val expected = bushes.associate { "twilightforest:${it}_bush" to "twilightforest:blocks/${it}_bush_berries" } +
+            ores.entries.associate { (ore, table) -> "twilightforest:${ore}_oreberry" to "twilightforest:blocks/${table}_bush_berries" }
+        val file = File(dir.parentFile.parentFile, "data_maps/block/harvest_loot.json")
+        val values = JsonParser.parseString(file.readText()).asJsonObject.getAsJsonObject("values")
+        assertEquals(expected.keys, values.keySet())
+        for ((block, table) in expected) {
+            val entry = values[block].asJsonObject
+            assertEquals(listOf("twilightforest"), RoleConditions.mods(entry), "the condition of $block")
+            val value = entry["value"].asJsonObject
+            assertEquals(table, value["loot_table"].asString, "the table of $block")
+            assertEquals(2, value["age_after"].asInt, "the age after a pick of $block")
         }
     }
 

@@ -1,7 +1,10 @@
 package codes.honor.cobblemondynamics.handler.farming
 
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 /** The loot of each case comes from the adapter table of ADR-0015. */
@@ -134,5 +137,34 @@ class HarvestPlanTest {
             val plan = HarvestPlans.plan(pick, listOf(Drop(wheat, 1)), emptySet(), emptyMap(), always)
             assertEquals(emptySet<HarvestCell>(), plan.broken(), "$pick")
         }
+    }
+
+    /** The Twilight Forest 4.8.3345: the bush's own loot table drops the bush, and its pick rolls the berry table (RES13). */
+    @Test
+    fun `CD-FIX-03 CD-FRM-03 a grown blackberry bush drops the loot of its berry table only, and goes to age 2`() {
+        val berries = ResourceKey.create(Registries.LOOT_TABLE, ResourceLocation.parse("twilightforest:blocks/blackberry_bush_berries"))
+        val bush = ResourceLocation.parse("twilightforest:blackberry_bush")
+        val blackberry = ResourceLocation.parse("twilightforest:blackberry")
+        val facts = CropFacts(bonemealable = true, age = 3, ageMax = 3, harvestLoot = HarvestLoot(berries, 2))
+        val kind = CropAdapters.harvestKind(facts)
+        assertEquals(HarvestKind.PICK_BY_LOOT_TABLE, kind)
+        // Null stands for the block's own loot table, which the level rolls for every other kind.
+        val tables = mapOf(null to listOf(Drop(bush, 1)), berries to listOf(Drop(blackberry, 1)))
+        val source = HarvestPlans.lootTable(kind!!, facts)
+        assertEquals(berries, source, "the harvest rolls another table than the berry table")
+        val plan = HarvestPlans.plan(
+            kind,
+            tables.getValue(source),
+            emptySet(),
+            emptyMap(),
+            hasUpper = false,
+            survives = always,
+            ageAfter = 2,
+        )
+        assertEquals(listOf(Drop(blackberry, 1)), plan.drops)
+        assertFalse(plan.drops.any { it.item == bush }, "the harvest drops the bush")
+        assertEquals(CellChange.SetAge(2), plan.crop)
+        assertEquals(emptySet<HarvestCell>(), plan.broken(), "the pick breaks a cell")
+        assertEquals(null, HarvestPlans.lootTable(HarvestKind.PICK_TO_AGE_0, facts), "a pick of a tag rolls another table")
     }
 }

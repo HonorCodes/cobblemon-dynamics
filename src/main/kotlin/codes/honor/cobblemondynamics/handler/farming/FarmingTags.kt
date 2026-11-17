@@ -11,6 +11,9 @@ object FarmingTags {
     /** The blocks that a Cultivator grows (CD-CUL-02, CD-CRP-01). */
     val CULTIVATOR_TARGETS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("cultivator_targets"))
 
+    /** The blocks of the Cultivator's tag that its bone meal never grows, such as Mystical Agriculture's crops (CD-FIX-04). */
+    val CULTIVATOR_NEVER: TagKey<Block> = TagKey.create(Registries.BLOCK, id("cultivator/never"))
+
     /** The blocks that a Harvester harvests (CD-HRV-02, CD-CRP-02). */
     val HARVESTER_TARGETS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("harvester_targets"))
 

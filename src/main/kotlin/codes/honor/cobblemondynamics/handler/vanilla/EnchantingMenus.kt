@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.vanilla
 
+import codes.honor.cobblemondynamics.MuseStationMenu
 import codes.honor.cobblemondynamics.mixin.vanilla.EnchantmentMenuAccess
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceKey
@@ -15,9 +16,13 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-/** The enchanting menus that players have open, by table, from NeoForge's container events (CD-MUS-05). */
+/**
+ * The enchanting menus that players have open, by table, from NeoForge's container events (CD-MUS-05): the vanilla menu, whose
+ * subclass Easy Magic's menu is, and the menus of other stations that a mixin makes a [MuseStationMenu], such as Enchanting
+ * Infuser's (CD-FIX-06).
+ */
 object EnchantingMenus {
-    private class Open(val player: Player, val menu: EnchantmentMenu, val dimension: ResourceKey<Level>, val table: BlockPos)
+    private class Open(val player: Player, val menu: AbstractContainerMenu, val dimension: ResourceKey<Level>, val table: BlockPos)
 
     /** One open menu per player, as a player has one. */
     private val open = ConcurrentHashMap<UUID, Open>()
@@ -30,9 +35,13 @@ object EnchantingMenus {
     }
 
     private fun onOpen(player: Player, menu: AbstractContainerMenu) {
-        if (player.level().isClientSide || menu !is EnchantmentMenu) return
-        // Mixin adds the accessor interface to EnchantmentMenu.
-        val access = (menu as EnchantmentMenuAccess).`cobblemon_dynamics$access`()
+        if (player.level().isClientSide) return
+        // Mixin adds the accessor interface to EnchantmentMenu, and the station interface to the menus of other stations.
+        val access = when (menu) {
+            is EnchantmentMenu -> (menu as EnchantmentMenuAccess).`cobblemon_dynamics$access`()
+            is MuseStationMenu -> menu.`cobblemon_dynamics$station`()
+            else -> return
+        }
         val table = access.evaluate { level, pos -> Open(player, menu, level.dimension(), pos.immutable()) }.orElse(null) ?: return
         open[player.uuid] = table
     }
@@ -42,8 +51,8 @@ object EnchantingMenus {
     }
 
     /** The menus of [table] that are open now. An entry whose player left or opened another screen goes, should its event be missed. */
-    fun menusAt(level: ServerLevel, table: BlockPos): List<EnchantmentMenu> {
-        val found = ArrayList<EnchantmentMenu>(1)
+    fun menusAt(level: ServerLevel, table: BlockPos): List<AbstractContainerMenu> {
+        val found = ArrayList<AbstractContainerMenu>(1)
         for (entry in open.values) {
             if (entry.player.isRemoved || entry.player.containerMenu !== entry.menu) {
                 open.remove(entry.player.uuid, entry)

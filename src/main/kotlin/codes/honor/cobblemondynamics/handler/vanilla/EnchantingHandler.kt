@@ -4,16 +4,21 @@ import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.id
+import codes.honor.cobblemondynamics.role.RoleRegistry
 import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.level.block.Blocks
+import net.minecraft.tags.TagKey
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
 /**
- * The Muse's target: a vanilla enchanting table (CD-MUS-01). A Working Muse adds its bookshelves through [MuseBonus], which the
- * enchanting-table mixin reads when the table's menu computes its offers, so the handler has no work of its own on each tick.
+ * The Muse's target: a block of `#cobblemon_dynamics:muse_targets`, the vanilla enchanting table, Easy Magic's table and both infusers
+ * of Enchanting Infuser (CD-MUS-01, CD-FIX-05, CD-FIX-06). A Working Muse adds its bookshelves through [MuseBonus], which the
+ * station's mixin reads when its menu computes its offers or its power, so the handler has no work of its own on each tick.
  */
 object EnchantingHandler : TargetHandler {
     override val id: ResourceLocation = id("enchanting")
@@ -21,10 +26,21 @@ object EnchantingHandler : TargetHandler {
     /** The Muse is leash only (CD-MUS-02), so no scan looks for its targets. */
     override val scanKind: ScanKind = ScanKind.NONE
 
-    override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
-        state.`is`(Blocks.ENCHANTING_TABLE)
+    private val TARGETS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("muse_targets"))
 
-    override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = level.getBlockState(canonical).`is`(Blocks.ENCHANTING_TABLE)
+    override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean = isStation(state)
+
+    override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = isStation(level.getBlockState(canonical))
+
+    /**
+     * A block of the tag whose own mixin applied, as the role gate read it, so a station whose hook a later version of its mod broke
+     * turns off alone (CD-OPT-09). With Apothic Enchanting, no infuser (CD-FIX-06).
+     */
+    private fun isStation(state: BlockState): Boolean {
+        if (!state.`is`(TARGETS)) return false
+        val station = BuiltInRegistries.BLOCK.getKey(state.block)
+        return RoleRegistry.targetOn(station.toString()) && MuseBonus.takesStation(station, MuseBonus.withApothicEnchanting)
+    }
 
     /** CD-MUS-05: only while a player has this table's menu open. */
     override fun hasDemand(ctx: WorkContext): Boolean = EnchantingMenus.isOpenAt(ctx.level, ctx.target)
