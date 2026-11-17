@@ -2,6 +2,8 @@ package codes.honor.cobblemondynamics.leash
 
 import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.handler.BindingShape
+import codes.honor.cobblemondynamics.handler.tree.TreeGrid
+import codes.honor.cobblemondynamics.handler.tree.TreeRules
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.role
 import net.minecraft.core.BlockPos
@@ -9,6 +11,7 @@ import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
@@ -38,6 +41,7 @@ class BindRulesTest {
         types: List<String> = emptyList(),
         places: List<BindRules.Place> = emptyList(),
         maxWorkers: Int = 5,
+        target: String? = null,
     ) = BindRules.Input(
         selection,
         owned,
@@ -53,6 +57,7 @@ class BindRulesTest {
         types = types,
         places = places,
         maxWorkers = maxWorkers,
+        targetRefusal = target,
     )
 
     /** A source click that waits for its destination, at a block other than the clicked one. */
@@ -101,6 +106,35 @@ class BindRulesTest {
         assertEquals("cobblemon_dynamics.leash.not_work_mode", refusal(input(workMode = false, roles = emptyList())).messageKey)
         assertEquals("cobblemon_dynamics.leash.no_role", refusal(input(roles = emptyList(), inside = false)).messageKey)
         assertEquals("cobblemon_dynamics.leash.outside_area", refusal(input(inside = false, boundTo = own("Pikachu"))).messageKey)
+    }
+
+    /** The handler's refusal of the tree, as `LumberjackHandler.bindRefusal` gives it from the level. */
+    @Test
+    fun `CD-LUM-20 binds on a mangrove and a tree of 257 logs are refused with the message, and on an oak and a sapling bind`() {
+        val lumberjack = role("lumberjack", setOf("bug"), autoAssign = false)
+        val base = BlockPos(0, 64, 0)
+        val mangrove = TreeGrid().apply {
+            oak(base, logId = "minecraft:mangrove_log", leafId = "minecraft:mangrove_leaves")
+            for (log in all("minecraft:mangrove_log")) log(log, "minecraft:mangrove_log", never = true)
+        }
+        val tall = TreeGrid().apply {
+            trunk(base, TreeGrid.MAX_LOGS + 1)
+            layer(base.above(TreeGrid.MAX_LOGS + 1), 1)
+        }
+        val oak = TreeGrid().apply { oak(base) }
+        val sapling = TreeGrid().apply { sapling(base) }
+        for ((grid, refused) in listOf(mangrove to true, tall to true, oak to false, sapling to false)) {
+            val canonical = TreeRules.canonical(grid.read, base, TreeGrid.MAX_LOGS)
+            val key = TreeRules.CANNOT_FELL.takeIf { TreeRules.refusesBind(grid.read, canonical, TreeGrid.MAX_LOGS, TreeGrid.MAX_LEAVES) }
+            val outcome = BindRules.evaluate(input(roles = listOf(lumberjack), target = key), shape)
+            if (refused) {
+                val refusal = assertInstanceOf(BindRules.Outcome.Refuse::class.java, outcome)
+                assertEquals("cobblemon_dynamics.leash.cannot_fell", refusal.messageKey)
+                assertTrue(refusal.namesWorker, "the refusal does not name the Pokémon")
+            } else {
+                assertEquals(lumberjack, assertInstanceOf(BindRules.Outcome.Bind::class.java, outcome).role)
+            }
+        }
     }
 
     @Test

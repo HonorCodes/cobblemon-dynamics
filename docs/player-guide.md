@@ -519,9 +519,11 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Fan Catalyst Water](#fan-catalyst-water) | `cobblemon_dynamics:fan_catalyst_water` | Water | Encased fan that faces sideways | Work Leash | Create |
 | [Fan Catalyst Ghost](#fan-catalyst-ghost) | `cobblemon_dynamics:fan_catalyst_ghost` | Ghost | Encased fan that faces sideways | Work Leash | Create |
 | [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
+| [Lumberjack](#lumberjack) | `cobblemon_dynamics:lumberjack` | Bug | A tree, a sapling | Work Leash | |
 
-Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind and the
-Cultivator. The Superheater superheats only from level 50. Every other role works the same at every level.
+Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind, the
+Cultivator and the Lumberjack. The Superheater superheats only from level 50. Every other role works the same
+at every level.
 
 ### Stoker
 
@@ -818,6 +820,37 @@ the worker needs room below the sails, so assemble the windmill before you bind.
 while the windmill is not assembled.
 
 **Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
+
+### Lumberjack
+
+**Types:** Bug. **Level:** the pace grows with level. **Move:** Aerial Ace. **Assignment:** Work Leash only.
+
+**Target:** a tree whose logs are in the tag `#cobblemon_dynamics:lumberjack_targets` (by default
+`#minecraft:logs`), or a sapling.
+
+A Bug-type fells a whole tree and replants it. Select the Cobblemon with the Work Leash, then right-click a log
+of the tree or a sapling. The binding goes to the lowest log of the trunk, which must be in the work area of
+the pasture. The rest of the tree can rise above the work area.
+
+The tree falls T ticks of Working for each log after the work starts, where T = round(20 − 15 × (L − 1) ÷ 99)
+and L is the worker's level: 20 ticks at level 1, 10 ticks at level 67 and 5 ticks at level 100. The tree
+falls with its own natural leaves and with the blocks that hang on it, such as cocoa, vines and torches, with
+no sound. Leaves that a player placed stay. The drops land beside the trunk, on the side that faces the worker,
+where a [Magnet](#magnet) collects them. One sapling of the drops goes where the trunk stood. A 2 × 2 trunk
+gets four saplings of one kind when the drops hold four. A dark oak sapling never grows alone, so a dark oak
+gets four saplings or none. With no sapling in the drops, the cell stays empty for you to plant. The binding
+waits on the sapling until a tree stands there again.
+
+The Lumberjack does not fell a tree with fewer than 3 natural leaves, which is a build, or a tree of more than
+256 logs or 1,024 leaves. It also leaves mangroves, huge nether fungi, apricorn trees, trees with a bee nest or
+a beehive, the fruit trees of Pam's HarvestCraft and the magic trees of the Twilight Forest. A bind on such a
+tree shows "{Cobblemon} cannot fell this tree".
+
+The worker asks each land claim mod about each block of the fell, in the tick that the fell starts. One
+refusal stops the whole fell, and the worker leaves that tree alone for 6,000 ticks.
+
+**Role file parameters:** `ticks_per_log_at_level_1` (20), `ticks_per_log_at_level_100` (5), `max_logs`
+(256), `max_leaves` (1,024) and `blocks_per_tick` (128).
 
 ## Configuration
 

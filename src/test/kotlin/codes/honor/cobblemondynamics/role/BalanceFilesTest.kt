@@ -5,6 +5,8 @@ import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.GrowthPace
 import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
+import codes.honor.cobblemondynamics.handler.tree.FellClock
+import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -80,6 +82,19 @@ class BalanceFilesTest {
             assertTrue(ticks >= 20, "${role.id} harvests $ticks ticks after its work starts")
         }
         assertEquals(20, HarvestClock.ticksOf(BuiltInRoles.parse("harvester").params))
+    }
+
+    /** A player with an iron axe breaks a log in 10 ticks, and Oritech's Treefeller fells 20 logs per second (BM6). */
+    @Test
+    fun `CD-BAL-10 the default Lumberjack fells at most 4 logs per second of Working`() {
+        val lumberjacks = withHandler("cobblemon_dynamics:lumberjack")
+        assertTrue(lumberjacks.isNotEmpty(), "no built-in role file uses the Lumberjack handler")
+        for (role in lumberjacks) {
+            val params = LumberjackParams.of(role.params)
+            val top = (1..100).maxOf { level -> 20.0 / FellClock.ticksPerLog(level, params) }
+            assertTrue(top <= 4.0, "${role.id} fells $top logs per second of Working")
+        }
+        assertEquals(5, LumberjackParams.of(BuiltInRoles.parse("lumberjack").params).ticksPerLogAt100)
     }
 
     private companion object {

@@ -82,6 +82,12 @@ interface TargetHandler {
     /** The lang key that refuses a Work Leash bind when the worker has no spot at the target, or null to bind and report later (CD-LSH-21). */
     val noSpotRefusal: String? get() = null
 
+    /**
+     * The lang key that refuses a Work Leash bind of [role] to [canonical], or null to bind. The message takes the worker's name, as the
+     * Lumberjack's refusal of a tree that it would never fell does (CD-LUM-20).
+     */
+    fun bindRefusal(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): String? = null
+
     /** A work claim on the context's target starts for its worker, or the claim follows the Pokémon to a new entity. */
     fun onClaim(ctx: WorkContext) {}
 

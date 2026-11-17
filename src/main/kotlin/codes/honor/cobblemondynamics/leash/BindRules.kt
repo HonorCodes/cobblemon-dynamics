@@ -25,8 +25,9 @@ object BindRules {
 
         data class AwaitDestination(val role: RoleDefinition) : Outcome
 
-        /** [at] is the container that a [FULL] or [FULL_ONE] refusal names (CD-LSH-29). */
-        data class Refuse(val messageKey: String, val arg: String? = null, val at: BlockPos? = null) : Outcome
+        /** [at] is the container that a [FULL] or [FULL_ONE] refusal names (CD-LSH-29). A refusal that [namesWorker] names the Pokémon. */
+        data class Refuse(val messageKey: String, val arg: String? = null, val at: BlockPos? = null, val namesWorker: Boolean = false) :
+            Outcome
     }
 
     /**
@@ -69,6 +70,8 @@ object BindRules {
         val places: List<Place> = emptyList(),
         /** `logistics.maxWorkersPerContainer` (CD-CFG-19). */
         val maxWorkers: Int = EngineSettings.DEFAULT.maxWorkersPerContainer,
+        /** The bound role's handler refuses the target itself with this lang key, which names the worker, or null (CD-LUM-20). */
+        val targetRefusal: String? = null,
     )
 
     /** What a block click does with the leash's pending source before it reads any block of it (CD-SEC-08). */
@@ -132,6 +135,7 @@ object BindRules {
                 }
             }
         }
+        input.targetRefusal?.let { return Outcome.Refuse(it, namesWorker = true) }
         input.noSpotRefusal?.let { return Outcome.Refuse(it) }
         return if (twoTargets && input.pending == null) Outcome.AwaitDestination(role) else Outcome.Bind(role, input.canonical)
     }
