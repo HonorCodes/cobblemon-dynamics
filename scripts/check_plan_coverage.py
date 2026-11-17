@@ -75,10 +75,10 @@ V11_PARTS = (
 PLANS["1.2"] = ("2026-11-15-v1.2-new-roles-and-compat.md",)
 V12_AREAS = {"OPT", "FIX", "LUM", "XPC", "SOU", "FRZ", "HTR", "FUEL", "AIR", "KIN", "FRM", "MCH"}
 # Rows outside the 1.2 areas that are 1.2 work as a whole: the balance checks of the new roles and targets, the capacity key of
-# the Experience Collector and the gate of 1.2.0.
+# the Experience Collector, the creative break of the Charge Cell (R86) and the gate of 1.2.0.
 V12_ROWS = (
     "CD-BAL-10", "CD-BAL-11", "CD-BAL-12", "CD-BAL-13", "CD-BAL-14", "CD-BAL-15", "CD-BAL-16", "CD-BAL-17",
-    "CD-CFG-20", "CD-REL-17",
+    "CD-CFG-20", "CD-GEN-13", "CD-REL-17",
 )
 # Earlier rows whose last part is 1.2 work: the split-row table of docs/plans/2026-11-15-v1.2-new-roles-and-compat.md.
 V12_PARTS = (

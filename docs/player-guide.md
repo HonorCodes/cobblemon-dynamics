@@ -441,7 +441,8 @@ The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 
 - A comparator reads how full the cell is: 0 when the cell is empty, 1 to 14 while it holds some FE, and 15 when it is
   full.
 - When you break a cell, its item keeps the FE. The tooltip of the item shows it, for example "12,345 / 50,000 FE". The
-  cell that you place from the item holds that FE again. An explosion drops the cell with its FE too.
+  cell that you place from the item holds that FE again. An explosion drops the cell with its FE too, and so does a
+  break in creative mode while the cell holds FE.
 
 | Item | Recipe |
 | --- | --- |

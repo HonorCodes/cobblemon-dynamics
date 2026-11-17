@@ -27,6 +27,9 @@ class ChargeCellBlockEntity(pos: BlockPos, state: BlockState) : BlockEntity(Dyna
     /** CD-GEN-10. */
     val signal: Int get() = ChargeCellRules.comparatorSignal(store.stored)
 
+    /** The FE that the cell holds, which a creative break puts on the item (CD-GEN-13). */
+    val stored: Int get() = store.stored
+
     /** The energy capability of the block on each side, in `Direction` order, made on the first server tick. */
     private var neighbours: List<BlockCapabilityCache<IEnergyStorage, Direction?>>? = null
 
