@@ -182,6 +182,22 @@ class ChargeCellTests {
         helper.succeed()
     }
 
+    /**
+     * CD-GEN-11: an explosion of radius 3 with drop decay, as a creeper's, breaks a full cell, four times, and each drops one item with
+     * its 50,000 FE. The loot condition `minecraft:survives_explosion` that the table had kept a drop 1 time in 3 (R86).
+     */
+    @GameTest(template = "floor_9x5x9")
+    fun cdGen11AnExplodedCellDropsItselfWithItsFe(helper: GameTestHelper) {
+        for (rel in listOf(BlockPos(2, 2, 2), BlockPos(6, 2, 2), BlockPos(2, 2, 6), BlockPos(6, 2, 6))) {
+            cellAt(helper, rel, fe = 50_000)
+            val drops = Explosions.creeperAt(helper, rel)
+            helper.assertBlockNotPresent(DynamicsBlocks.CHARGE_CELL.get(), rel)
+            val fe = drops.filter { it.`is`(DynamicsBlocks.CHARGE_CELL_ITEM.get()) }.map { it.get(DynamicsBlocks.STORED_ENERGY.get()) }
+            helper.assertTrue(fe == listOf(50_000), "CD-GEN-11: the exploded cell at $rel dropped $drops")
+        }
+        helper.succeed()
+    }
+
     /** CD-GEN-12: the recipe of the Recipes table makes one cell, and the same grid without the Thunder Stone makes nothing. */
     @GameTest(template = "floor_9x5x9")
     fun cdGen12CellCraftsFromCopperRedstoneAndAThunderStone(helper: GameTestHelper) {

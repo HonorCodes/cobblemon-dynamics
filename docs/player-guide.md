@@ -441,7 +441,7 @@ The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 
 - A comparator reads how full the cell is: 0 when the cell is empty, 1 to 14 while it holds some FE, and 15 when it is
   full.
 - When you break a cell, its item keeps the FE. The tooltip of the item shows it, for example "12,345 / 50,000 FE". The
-  cell that you place from the item holds that FE again.
+  cell that you place from the item holds that FE again. An explosion drops the cell with its FE too.
 
 | Item | Recipe |
 | --- | --- |
@@ -458,7 +458,8 @@ player from level 0 to level 166. The server config key `experienceCollector.cap
 - A comparator reads how full the collector is: 0 when it is empty, 1 to 14 while it holds some XP, and 15 when
   it is full.
 - When you break the collector, its item keeps the XP. The tooltip of the item shows it, for example "12,345 /
-  100,000 XP". The collector that you place from the item holds that XP again.
+  100,000 XP". The collector that you place from the item holds that XP again. An explosion drops the collector with
+  its XP too, and so does a break in creative mode while the collector holds XP.
 - A collector that holds more XP than a lowered limit keeps its XP. It takes no more XP until it holds less.
 - Right-click the collector to open its screen. The screen shows the stored XP in points, and the level that a
   player at level 0 would reach with it. Press **Collect experience** to take all the stored XP. Anyone who can

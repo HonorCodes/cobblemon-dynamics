@@ -40,7 +40,9 @@ class CollectorMenu private constructor(
     override fun clickMenuButton(player: Player, id: Int): Boolean {
         val collector = collector ?: return false
         if (id != CollectorSlots.COLLECT_BUTTON) return false
-        if (CollectorSlots.press(id, collector.store, !collector.isRemoved, player::giveExperiencePoints) > 0) collector.setChanged()
+        val live = !collector.isRemoved
+        val given = CollectorSlots.press(id, collector.store, live, { player.totalExperience }, player::giveExperiencePoints)
+        if (given > 0) collector.setChanged()
         return true
     }
 
@@ -75,13 +77,18 @@ object CollectorSlots {
 
     /**
      * CD-XPC-05: the button empties [store] and gives its XP to [give] in the same call, unless the collector is gone ([live] false).
-     * Returns the XP given.
+     * NeoForge's `Player.giveExperiencePoints` posts `PlayerXpEvent.XpChange`, which a listener can cancel, so a grant that leaves the
+     * player's [total] XP as it was puts the XP back, also above a lowered capacity. Returns the XP given.
      */
-    fun press(button: Int, store: CollectorStore, live: Boolean = true, give: (Int) -> Unit): Int {
+    fun press(button: Int, store: CollectorStore, live: Boolean = true, total: () -> Int, give: (Int) -> Unit): Int {
         if (button != COLLECT_BUTTON || !live) return 0
         val xp = store.extract(store.stored, simulate = false)
-        if (xp > 0) give(xp)
-        return xp
+        if (xp <= 0) return 0
+        val before = total()
+        give(xp)
+        if (total() != before) return xp
+        store.load(store.stored + xp)
+        return 0
     }
 
     /** The server's data slots, read from [store] at each sync. */

@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.MenuProvider
 import net.minecraft.world.SimpleMenuProvider
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.ContainerLevelAccess
 import net.minecraft.world.item.Item
@@ -78,6 +79,22 @@ class ExperienceCollectorBlock(properties: BlockBehaviour.Properties) : BaseEnti
         val collector = level.getBlockEntity(pos) as? ExperienceCollectorBlockEntity ?: return null
         val access = ContainerLevelAccess.create(level, pos)
         return SimpleMenuProvider({ id, _, _ -> CollectorMenu.server(id, collector, access) }, state.block.name)
+    }
+
+    /**
+     * CD-XPC-13: a break in creative mode drops no loot, so a collector that holds XP drops its item here, with the XP, as a shulker box
+     * that holds items does. An empty collector drops nothing in creative mode.
+     */
+    override fun playerWillDestroy(level: Level, pos: BlockPos, state: BlockState, player: Player): BlockState {
+        val stored = (level.getBlockEntity(pos) as? ExperienceCollectorBlockEntity)?.store?.stored ?: 0
+        if (!level.isClientSide && player.isCreative && stored > 0) {
+            val stack = ItemStack(this)
+            stack.set(DynamicsBlocks.STORED_EXPERIENCE.get(), stored)
+            val drop = ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, stack)
+            drop.setDefaultPickUpDelay()
+            level.addFreshEntity(drop)
+        }
+        return super.playerWillDestroy(level, pos, state, player)
     }
 
     /** CD-XPC-12. */

@@ -4,7 +4,7 @@ Status: Accepted (2026-11-15) by the coordinator under the approver's delegation
 decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76, R79 and R80 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9, RES12 and RES13 the research. The coordinator's
-rulings on the review of Tasks 6 to 8 (R86, 2026-11-16) amend decisions 15 and 17.
+rulings on the review of Tasks 6 to 8 (R86, 2026-11-16) amend decisions 4, 10, 15 and 17.
 
 ## Context
 
@@ -77,9 +77,10 @@ Dire Things are pipe destinations of the collector's output. They are not Soul C
    "Collect experience". The menu syncs the XP to the client in two data slots of 16 bits each, because the vanilla packet
    writes shorts.
 4. **The button.** The button sends vanilla's container button packet. On the server, `clickMenuButton` gives all stored
-   XP to that player through `Player.giveExperiencePoints` and sets the store to 0 in the same tick. Vanilla's own checks
-   apply first: the open menu, no spectator, and the distance of `stillValid` (8 blocks). The mod adds no network payload,
-   so the payload version stays 3.
+   XP to that player through `Player.giveExperiencePoints` and sets the store to 0 in the same tick. A grant that leaves the
+   player's total XP as it was, as when a listener cancels NeoForge's `PlayerXpEvent.XpChange`, puts the XP back (R86).
+   Vanilla's own checks apply first: the open menu, no spectator, and the distance of `stillValid` (8 blocks). The mod adds
+   no network payload, so the payload version stays 3.
 5. **Protection.** The screen opens only through the block's use path, so a claim mod that cancels the right-click keeps the
    player out, as at a chest. The block breaks under the claim mods' rules like any block.
 6. **Fluid output.** The back face (opposite the front) and the bottom face expose `Capabilities.FluidHandler.BLOCK`. The
@@ -97,6 +98,8 @@ Dire Things are pipe destinations of the collector's output. They are not Soul C
    Charge Cell (CD-GEN-10).
 10. **The item.** A broken collector drops an item with the data component `cobblemon_dynamics:stored_experience`, through
     `copy_components` in its loot table, and its tooltip reads "12,345 / 100,000 XP". The placed block takes the XP back.
+    The loot table has no condition `minecraft:survives_explosion`, so an explosion drops the collector too, and a collector
+    that holds XP drops its item for a player in creative mode, as a shulker box does (R86).
 11. **The recipe.** Shaped: iron ingots in the 4 corners, glass in the top middle and on both sides of the middle row, a block
     of lapis lazuli in the centre, and a hopper in the bottom middle. All vanilla items.
 12. **Art.** A block model with a front, a back output and a bottom output, an item model that renders the block, and a screen

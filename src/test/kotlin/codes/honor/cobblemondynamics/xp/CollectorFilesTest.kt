@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.xp
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -57,6 +58,21 @@ class CollectorFilesTest {
         val lang = json("assets/cobblemon_dynamics/lang/en_us.json")
         val tooltip = lang.get(ExperienceCollectorBlock.STORED_KEY).asString
         assertEquals("12,345 / 100,000 XP", String.format(tooltip, CollectorStore.format(12_345), CollectorStore.format(100_000)))
+    }
+
+    /**
+     * An explosion with drop decay, as a creeper's, rolls `minecraft:survives_explosion` at 1 in its radius, so a condition anywhere in
+     * these tables loses the XP or the FE of most exploded blocks (R86). The GameTests of CD-XPC-13 and CD-GEN-11 explode real blocks.
+     */
+    @Test
+    fun `CD-XPC-13 CD-GEN-11 the collector and the Charge Cell drop themselves whatever breaks them`() {
+        for (block in listOf("experience_collector", "charge_cell")) {
+            val table = json("data/cobblemon_dynamics/loot_table/blocks/$block.json")
+            val pool = table.getAsJsonArray("pools").single().asJsonObject
+            val entry = pool.getAsJsonArray("entries").single().asJsonObject
+            assertEquals("cobblemon_dynamics:$block", entry.get("name").asString)
+            for (part in listOf(table, pool, entry)) assertNull(part.get("conditions"), "$block: a loot condition can drop nothing: $part")
+        }
     }
 
     private companion object {
