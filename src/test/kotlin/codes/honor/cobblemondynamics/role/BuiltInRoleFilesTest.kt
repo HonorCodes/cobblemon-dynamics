@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.role
 
 import codes.honor.cobblemondynamics.compat.OptionalMods
 import codes.honor.cobblemondynamics.engine.WorkSpots
+import codes.honor.cobblemondynamics.handler.create.HeatGate
 import codes.honor.cobblemondynamics.handler.create.TailwindMath
 import codes.honor.cobblemondynamics.handler.create.TailwindParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
@@ -60,6 +61,26 @@ class BuiltInRoleFilesTest {
         "tailwind_mekanism" to Row("cobblemon_dynamics:wind_generator", setOf("flying"), false, 0, "gust"),
         "stoker_railcraft" to Row("cobblemon_dynamics:railcraft_fuel", setOf("fire"), true, 0, "ember"),
         "stoker_railcraft_boiler" to Row("cobblemon_dynamics:railcraft_firebox", setOf("fire"), false, 0, "ember"),
+        // The Stoker on the furnaces of other mods (Task 15 of the 1.2 plan).
+        "stoker_ironfurnaces" to Row("cobblemon_dynamics:iron_furnace", setOf("fire"), true, 0, "ember"),
+        "stoker_cookingforblockheads" to Row("cobblemon_dynamics:cfb_oven", setOf("fire"), true, 0, "ember"),
+        "stoker_forbidden_arcanus" to Row("cobblemon_dynamics:clibano", setOf("fire"), true, 0, "ember"),
+        "stoker_cobblemon_incubator" to Row("cobblemon_dynamics:egg_incubator", setOf("fire"), true, 0, "ember"),
+        "stoker_ars_nouveau" to Row("cobblemon_dynamics:volcanic_sourcelink", setOf("fire"), true, 0, "ember"),
+        // The Cranker on the AE2 Crank and the Superheater on the Liquid Blaze Burner (Task 16 of the 1.2 plan).
+        "cranker_ae2" to Row("cobblemon_dynamics:ae2_crank", setOf("fighting", "normal"), true, 0, "pound"),
+        "superheater_createaddition" to Row("cobblemon_dynamics:liquid_burner", setOf("dragon"), true, 10, "dragonbreath"),
+    )
+
+    /** The role files of other mods that Tasks 15 to 17 of the 1.2 plan add, each with the role whose effect it plays. */
+    private val otherModRoles = mapOf(
+        "stoker_ironfurnaces" to "stoker",
+        "stoker_cookingforblockheads" to "stoker",
+        "stoker_forbidden_arcanus" to "stoker",
+        "stoker_cobblemon_incubator" to "stoker",
+        "stoker_ars_nouveau" to "stoker",
+        "cranker_ae2" to "cranker",
+        "superheater_createaddition" to "superheater",
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -367,11 +388,32 @@ class BuiltInRoleFilesTest {
         assertEquals(gust.targetParticles, effect.targetParticles.map { it.toString() })
     }
 
-    /** The Cranker is the only role whose move needs contact. */
+    /** The Cranker is the only role whose move needs contact, on Create's hand cranks and on AE2's Crank alike. */
     @Test
-    fun `CD-ASG-10 every built-in ranged role works from 6 blocks`() {
-        val files = BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") && f.name != "cranker.json" }.orEmpty()
-        for (file in files) assertEquals(6.0, BuiltInRoles.parse(file).range, file.name)
+    fun `CD-ASG-10 every built-in ranged role works from 6 blocks, and every Cranker file from 2`() {
+        val files = BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
+        val (crankers, ranged) = files.partition { it.name.startsWith("cranker") }
+        assertEquals(setOf("cranker.json", "cranker_ae2.json"), crankers.map { it.name }.toSet())
+        for (file in ranged) assertEquals(6.0, BuiltInRoles.parse(file).range, file.name)
+        for (file in crankers) assertEquals(2.0, BuiltInRoles.parse(file).range, file.name)
+    }
+
+    @Test
+    fun `CD-KIN-06 the AE2 crank's file turns once per 18 ticks, and Machop and Rattata may turn it`() {
+        val crank = BuiltInRoles.parse("cranker_ae2")
+        assertEquals(18, crank.params.get("interval_ticks")?.asInt)
+        assertTrue(RoleSelection.isEligible(crank, listOf("fighting")), "Machop")
+        assertTrue(RoleSelection.isEligible(crank, listOf("normal")), "Rattata")
+        assertFalse(RoleSelection.isEligible(crank, listOf("electric")), "Pikachu")
+    }
+
+    /** CD-MCH-01 holds the Superheater's own heats on the Liquid Blaze Burner: Kindled below level 50 and Seething from it. */
+    @Test
+    fun `CD-MCH-01 the liquid burner's file holds the Superheater's heats`() {
+        assertEquals(BuiltInRoles.parse("superheater").params, BuiltInRoles.parse("superheater_createaddition").params)
+        val params = BuiltInRoles.parse("superheater_createaddition").params
+        assertEquals("kindled", HeatGate.heatFor(params, 49))
+        assertEquals("seething", HeatGate.heatFor(params, 50))
     }
 
     @Test
@@ -596,6 +638,23 @@ class BuiltInRoleFilesTest {
             f.nameWithoutExtension to row
         }
         assertEquals(roleTable, actual)
+    }
+
+    /** A Fire-type at a furnace of another mod is the same Stoker to the player: the same move, range and loop as `stoker.json`. */
+    @Test
+    fun `CD-FX-04 every role file of another mod plays its own role's effect, from that role's range`() {
+        for ((name, base) in otherModRoles) {
+            val role = BuiltInRoles.parse(name)
+            val own = BuiltInRoles.parse(base)
+            assertEquals(own.effect, role.effect, name)
+            assertEquals(own.range, role.range, name)
+            assertEquals(own.types, role.types, name)
+        }
+    }
+
+    @Test
+    fun `CD-FUEL-12 the Volcanic Sourcelink's file gives one coal per 1,600 ticks of Working`() {
+        assertEquals(1_600, BuiltInRoles.parse("stoker_ars_nouveau").params.get("interval_ticks")?.asInt)
     }
 
     /**

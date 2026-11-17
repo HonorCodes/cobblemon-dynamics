@@ -3,7 +3,9 @@ package codes.honor.cobblemondynamics.build
 import codes.honor.cobblemondynamics.command.DynamicsCommands
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
+import codes.honor.cobblemondynamics.role.RoleConditions
 import com.electronwill.nightconfig.core.UnmodifiableConfig
+import com.google.gson.JsonParser
 import com.mojang.brigadier.CommandDispatcher
 import net.minecraft.commands.CommandSourceStack
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -26,8 +28,15 @@ class PlayerGuideTest {
     fun `CD-REL-08 the player guide has a section for every built-in role`() {
         val files = File(root, ROLES).listFiles { file -> file.extension == "json" }.orEmpty()
         assertTrue(files.isNotEmpty(), "no role files in $ROLES")
-        assertSections(files.map { roleName(it.nameWithoutExtension) })
+        // The role file of another mod, such as stoker_ironfurnaces, is that mod's part of a role, which the role's own section covers.
+        val conditional = files.filter { JsonParser.parseString(it.readText()).asJsonObject.has(RoleConditions.KEY) }.toSet()
+        val roles = files.filterNot { it in conditional }.map { it.nameWithoutExtension }.toSet()
+        assertSections(files.map { roleName(if (it in conditional) roleOf(it.nameWithoutExtension, roles) else it.nameWithoutExtension) })
     }
+
+    /** The longest name of [roles] that [file] starts with, as `stoker` for `stoker_ironfurnaces`, or else its first word. */
+    private fun roleOf(file: String, roles: Set<String>): String =
+        roles.filter { file.startsWith("${it}_") }.maxByOrNull { it.length } ?: file.substringBefore('_')
 
     @Test
     fun `CD-REL-08 the player guide names every server and client config key`() {

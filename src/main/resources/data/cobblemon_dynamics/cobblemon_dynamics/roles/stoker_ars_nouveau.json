@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "ars_nouveau" }],
+  "handler": "cobblemon_dynamics:volcanic_sourcelink",
+  "types": ["fire"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "interval_ticks": 1600 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["ember", "fire", "spray", "special"],
+    "actor_particles": ["cobblemon:ember_actor"],
+    "target_particles": ["cobblemon:ember_target"]
+  }
+}

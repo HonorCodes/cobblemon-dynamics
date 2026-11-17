@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.handler.create
 import codes.honor.cobblemondynamics.CobblemonDynamics
 import codes.honor.cobblemondynamics.MixinState
 import codes.honor.cobblemondynamics.OnceLogger
+import codes.honor.cobblemondynamics.compat.create_connected.CreateConnectedCompat
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
 import com.simibubi.create.AllBlockEntityTypes
 import com.simibubi.create.api.event.BlockEntityBehaviourEvent
@@ -11,16 +12,23 @@ import com.simibubi.create.content.kinetics.fan.AirCurrent
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import com.simibubi.create.foundation.block.ItemUseOverrides
+import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityType
 import net.neoforged.bus.api.IEventBus
+import net.neoforged.fml.ModList
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
 
 /**
- * The Create integration. Every class that names a Create type sits in this package or in `mixin.create`, and only [register]
- * is called from outside, behind `ModList.isLoaded("create")`, so no Create class loads without Create (CD-PLAT-05).
+ * The Create integration. Every class that names a Create type sits in this package or in `mixin.create`, or in the compat package
+ * of an add-on of Create, which loads only with that add-on and so with Create. Only [register] is called from outside, behind
+ * `ModList.isLoaded("create")`, so no Create class loads without Create (CD-PLAT-05).
  */
 object CreateCompat {
     private val warnings = OnceLogger()
+
+    /** Create: Connected needs Create, so its hook runs here, behind its own mod id. */
+    private val createConnected = ModList.get().isLoaded(CreateConnectedCompat.MOD_ID)
 
     fun register(modBus: IEventBus) {
         // A mixin applies when its target class loads. These class literals load each target of the `create.` mixins during mod
@@ -57,6 +65,12 @@ object CreateCompat {
         event.forType(AllBlockEntityTypes.WATER_WHEEL.get()) { event.attach(DriveBehaviour(it)) }
         event.forType(AllBlockEntityTypes.LARGE_WATER_WHEEL.get()) { event.attach(DriveBehaviour(it)) }
         event.forType(AllBlockEntityTypes.HAND_CRANK.get()) { event.attach(DriveBehaviour(it)) }
+        // CD-KIN-05: Create: Connected's crank wheels are hand cranks to Create, on a block entity type of their own.
+        if (createConnected) {
+            @Suppress("UNCHECKED_CAST")
+            val wheels = CreateConnectedCompat.crankWheelType() as BlockEntityType<SmartBlockEntity>?
+            if (wheels != null) event.forType(wheels) { event.attach(DriveBehaviour(it)) }
+        }
         event.forType(AllBlockEntityTypes.ENCASED_FAN.get()) { event.attach(FanState(it)) }
         event.forType(AllBlockEntityTypes.WINDMILL_BEARING.get()) { event.attach(TailwindBonus(it)) }
     }

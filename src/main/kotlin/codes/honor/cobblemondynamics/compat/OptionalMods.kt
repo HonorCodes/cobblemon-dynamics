@@ -29,12 +29,14 @@ object OptionalMods {
         OptionalMod("pneumaticcraft", listOf("me/desht/pneumaticcraft/")),
         // The classes of Botany Pots extend those of its library Bookshelf, which only Botany Pots' compat package may name.
         OptionalMod("botanypots", listOf("net/darkhax/botanypots/", "net/darkhax/bookshelf/")),
-        OptionalMod("ironfurnaces", listOf("ironfurnaces/")),
-        OptionalMod("cookingforblockheads", listOf("net/blay09/mods/cookingforblockheads/")),
-        OptionalMod("forbidden_arcanus", listOf("com/stal111/forbidden_arcanus/")),
-        OptionalMod("cobblemon_incubator", listOf("com/nbp/cobblemon_incubator/")),
-        OptionalMod("ars_nouveau", listOf("com/hollingsworth/")),
-        OptionalMod("createaddition", listOf("com/mrh0/createaddition/")),
+        OptionalMod("ironfurnaces", listOf("ironfurnaces/"), listOf("iron_furnace")),
+        OptionalMod("cookingforblockheads", listOf("net/blay09/mods/cookingforblockheads/"), listOf("cfb_oven")),
+        OptionalMod("forbidden_arcanus", listOf("com/stal111/forbidden_arcanus/"), listOf("clibano")),
+        OptionalMod("cobblemon_incubator", listOf("com/nbp/cobblemon_incubator/"), listOf("egg_incubator")),
+        OptionalMod("ars_nouveau", listOf("com/hollingsworth/"), listOf("volcanic_sourcelink")),
+        OptionalMod("createaddition", listOf("com/mrh0/createaddition/"), listOf("liquid_burner")),
+        // Its hook finds the crank wheels' block entity type by id, so no source names its classes (CD-KIN-05).
+        OptionalMod("create_connected", listOf("com/hlysine/create_connected/"), listOf("crank_wheel")),
         OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/")),
         OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/")),
         OptionalMod("easymagic", listOf("fuzs/easymagic/"), listOf("muse_table")),
@@ -43,8 +45,8 @@ object OptionalMods {
         OptionalMod("experiencelib", listOf("es/degrassi/experiencelib/"), listOf("collector_xp")),
         OptionalMod("dynamictrees", listOf("com/dtteam/dynamictrees/"), listOf("lumberjack_fell")),
         OptionalMod("apothic_enchanting", listOf("dev/shadowsoffire/"), compat = "apothic"),
-        // CD-CRY-05: only compat/ae2/ may name AE2.
-        OptionalMod("ae2", listOf("appeng/")),
+        // CD-CRY-05: only compat/ae2/ may name AE2, for the AE2 Crank's ICrankable API (R83).
+        OptionalMod("ae2", listOf("appeng/"), listOf("ae2_crank")),
         OptionalMod("farmersdelight", listOf("vectorwing/"), compat = null),
         OptionalMod("aether", listOf("com/aetherteam/"), compat = null),
         OptionalMod("deep_aether", listOf("io/github/razordevs/"), compat = null),
@@ -55,5 +57,8 @@ object OptionalMods {
         OptionalMod("mysticalagriculture", listOf("com/blakebr0/mysticalagriculture/"), compat = null),
         OptionalMod("createdieselgenerators", listOf("com/jesz/createdieselgenerators/"), compat = null),
         OptionalMod("create_new_age", listOf("org/antarcticgardens/cna/"), compat = null),
+        // The mods of the Crystal Tender that its tags alone reach (CD-MCH-02).
+        OptionalMod("quark", listOf("org/violetmoon/quark/"), compat = null),
+        OptionalMod("unusualend", listOf("net/sweety/unusualend/"), compat = null),
     )
 }

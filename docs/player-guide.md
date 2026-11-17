@@ -650,6 +650,10 @@ blocks from the crank.
 A new crank turns in Create's positive direction. To reverse it, [flip it with the Work
 Leash](#flip-a-water-wheel-or-a-hand-crank).
 
+With AE2 installed, the Cranker also works an AE2 crank on a machine that a crank powers, such as a Charger or
+an Inscriber. It gives the machine one turn every 18 ticks while the machine can take one, as a player at the
+crank does. The AE2 crank charges its machine, but it does not turn on screen.
+
 ### Superheater
 
 **Types:** Dragon. **Level:** kindles below level 50, superheats from level 50. **Move:** Dragon Breath.

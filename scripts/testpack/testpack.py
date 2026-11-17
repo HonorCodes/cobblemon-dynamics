@@ -571,15 +571,19 @@ COBBLEBASE_MIXINS = ("AmbientBehaviorMixin", "BaseManagerMixin", "NavigationHelp
 # The three INFO lines at load of the pinned set, each exactly once (CD-CMP-08 to CD-CMP-10).
 LOAD_LINES = (
     # CD-CMP-08: the 3 vanilla and the 5 Create mixins applied, and the stats mixin of Apothic Enchanting, the 4 Cobblebase
-    # mixins, the menu mixins of Easy Magic and Enchanting Infuser, the mill mixins of Immersive Engineering and the Wind
-    # Generator mixin of Mekanism Generators skipped because their mods are absent.
+    # mixins, the menu mixins of Easy Magic and Enchanting Infuser, the mill mixins of Immersive Engineering, the Wind
+    # Generator mixin of Mekanism Generators, the Stoker's mixins of the Egg Incubator and the Clibano and the Superheater's
+    # mixin of the Liquid Blaze Burner skipped because their mods are absent.
     re.escape("Mixins: 8 applied [create.AirCurrentMixin, create.BlazeBurnerBlockEntityMixin, create.ItemUseOverridesMixin, "
               "create.WaterWheelBlockEntityMixin, create.WindmillBearingBlockEntityMixin, vanilla.EnchantmentMenuAccess, "
-              "vanilla.EnchantmentMenuMixin, vanilla.WorkerPushMixin], 10 skipped ["
+              "vanilla.EnchantmentMenuMixin, vanilla.WorkerPushMixin], 13 skipped ["
               "compat.apothic.EnchantmentTableStatsMixin (apothic_enchanting absent), ")
     + re.escape(", ".join(f"compat.cobblebase.{name} (cobblebase absent)" for name in COBBLEBASE_MIXINS))
-    + re.escape(", compat.easymagic.ModEnchantmentMenuMixin (easymagic absent), "
+    + re.escape(", compat.cobblemon_incubator.EggIncubatorMixin (cobblemon_incubator absent), "
+                "compat.createaddition.LiquidBlazeBurnerMixin (createaddition absent), "
+                "compat.easymagic.ModEnchantmentMenuMixin (easymagic absent), "
                 "compat.enchantinginfuser.InfuserMenuMixin (enchantinginfuser absent), "
+                "compat.forbidden_arcanus.ClibanoMixin (forbidden_arcanus absent), "
                 "compat.immersiveengineering.WatermillBlockEntityMixin (immersiveengineering absent), "
                 "compat.immersiveengineering.WindmillBlockEntityMixin (immersiveengineering absent), "
                 "compat.mekanismgenerators.WindGeneratorMixin (mekanismgenerators absent)")
@@ -588,8 +592,8 @@ LOAD_LINES = (
     re.escape("Payloads, version 3: 2 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview], "
               "4 to the server [cobblemon_dynamics:work_mode_toggle, cobblemon_dynamics:pasture_panel_open, "
               "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request]"),
-    # CD-CMP-10: every role file loads and is active.
-    re.escape("Roles: 21 loaded, 21 active, 0 disabled []"),
+    # CD-CMP-10: every role file loads and is active: the 21 with no condition and the AE2 Crank's, beside AE2.
+    re.escape("Roles: 22 loaded, 22 active, 0 disabled []"),
 )
 # CD-CMP-10: without Create and AE2, the 7 roles of Create's handlers are disabled, each with its reason.
 CREATE_ROLES = ("cranker", "fan_catalyst_fire", "fan_catalyst_ghost", "fan_catalyst_water", "superheater", "tailwind",

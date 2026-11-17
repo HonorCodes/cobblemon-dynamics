@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "unusualend:citrine_bud",
+      "required": false
+    },
+    {
+      "id": "unusualend:large_citrine_bud",
+      "required": false
+    }
+  ]
+}

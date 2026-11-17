@@ -5,7 +5,7 @@
   "auto_assign": true,
   "priority": 0,
   "range": 6.0,
-  "params": { "interval_ticks": 10 },
+  "params": { "interval_ticks": 10, "scheduled_tick_one_in": 5, "stall_after_unchanged_ticks": 200, "stall_wait_ticks": 6000 },
   "effect": {
     "loop_ticks": 40,
     "idle_ticks": 40,

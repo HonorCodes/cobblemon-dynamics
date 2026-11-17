@@ -171,6 +171,33 @@ class MixinGateTest {
         assertTrue("enchantinginfuser:enchanting_infuser" in MixinGate.REQUIRED_FOR_TARGET, "the infuser needs no mixin")
     }
 
+    /** The Stoker's handlers of Forbidden & Arcanus and Cobblemon Incubator write through their mixins (CD-FUEL-10, CD-FUEL-11). */
+    @Test
+    fun `CD-OPT-09 the Clibano and the Egg Incubator roles turn off without their mixins, with one warning each`() {
+        val clibano = role("stoker_forbidden_arcanus", setOf("fire"), handler = "cobblemon_dynamics:clibano")
+        val incubator = role("stoker_cobblemon_incubator", setOf("fire"), handler = "cobblemon_dynamics:egg_incubator")
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(clibano, incubator, stoker), applied = { false }, warn = warnings::add)
+        assertEquals(listOf(stoker.id), gated.active.map { it.definition.id })
+        assertEquals(2, warnings.size, warnings.toString())
+        assertTrue(warnings.any { "cobblemon_dynamics:clibano" in it && MixinState.CLIBANO in it }, warnings.toString())
+        assertTrue(warnings.any { "cobblemon_dynamics:egg_incubator" in it && MixinState.EGG_INCUBATOR in it }, warnings.toString())
+        val kept = MixinGate.apply(set(clibano, incubator), applied = { it == MixinState.CLIBANO || it == MixinState.EGG_INCUBATOR }) {
+            error(it)
+        }
+        assertEquals(setOf(clibano.id, incubator.id), kept.active.map { it.definition.id }.toSet())
+    }
+
+    /** The Superheater's handler of Create Crafts & Additions raises the burner's heat through its mixin (CD-MCH-01). */
+    @Test
+    fun `CD-OPT-09 the Liquid Blaze Burner role turns off without its mixin, and the Blaze Burner's stays on`() {
+        val liquid = role("superheater_createaddition", setOf("dragon"), priority = 10, handler = "cobblemon_dynamics:liquid_burner")
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(liquid, superheater), applied = { it != MixinState.LIQUID_BLAZE_BURNER }, warn = warnings::add)
+        assertEquals(listOf(superheater.id), gated.active.map { it.definition.id })
+        assertTrue("cobblemon_dynamics:liquid_burner" in warnings.single() && MixinState.LIQUID_BLAZE_BURNER in warnings.single())
+    }
+
     @Test
     fun `CD-WHL-10 an applied mixin keeps its roles, and a role that needs no mixin stays on`() {
         val warnings = mutableListOf<String>()
