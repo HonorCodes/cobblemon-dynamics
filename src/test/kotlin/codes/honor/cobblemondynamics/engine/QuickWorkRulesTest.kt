@@ -66,11 +66,28 @@ class QuickWorkRulesTest {
 
     @Test
     fun `CD-QWK-36 a role that opts in takes an order with no auto-assign flag and no scan, but not with two targets`() {
-        assertTrue(muse.quickWork, "muse.json opts in to Quick Work")
+        assertTrue(muse.quickWork == true, "muse.json opts in to Quick Work")
         assertTrue(QuickWorkRules.mayOrder(muse, scanned = false, shape = BindingShape.SINGLE))
         assertFalse(QuickWorkRules.mayOrder(muse.copy(quickWork = false), scanned = false, shape = BindingShape.SINGLE))
+        // A leash-only role whose file has no key takes no order.
+        assertFalse(QuickWorkRules.mayOrder(muse.copy(quickWork = null), scanned = false, shape = BindingShape.SINGLE))
         val optedTelekinesis = telekinesis.copy(quickWork = true)
         assertFalse(QuickWorkRules.mayOrder(optedTelekinesis, scanned = false, shape = BindingShape.SOURCE_AND_DESTINATION))
+    }
+
+    /** The Freezer of 1.2 is an auto-assign role whose file sets `quick_work` to false. Its handler and file arrive in Task 9. */
+    @Test
+    fun `CD-FRZ-02 CD-QWK-03 an auto-assign role whose file sets quick_work false gets no order, and one with no key gets one`() {
+        val freezerId = ResourceLocation.fromNamespaceAndPath("cobblemon_dynamics", "freezer")
+        val freezer = stoker.copy(id = freezerId, handler = freezerId, types = setOf("ice"), quickWork = false)
+        assertNull(stoker.quickWork, "stoker.json has a quick_work key")
+        assertFalse(QuickWorkRules.mayOrder(freezer, scanned = true, shape = BindingShape.SINGLE))
+        // No message: the Freezer needs no Work Leash, it only takes no orders.
+        assertEquals(QuickWorkRules.Pick.None, pick(listOf(freezer), listOf("ice")))
+        assertTrue(QuickWorkRules.mayOrder(stoker, scanned = true, shape = BindingShape.SINGLE))
+        assertEquals(QuickWorkRules.Pick.Order(stoker), pick(listOf(stoker), listOf("fire")))
+        // A role that opts out never shadows a fitting role that takes orders.
+        assertEquals(QuickWorkRules.Pick.Order(stoker), pick(listOf(freezer, stoker), listOf("ice", "fire")))
     }
 
     @Test

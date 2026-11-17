@@ -7,6 +7,7 @@ import codes.honor.cobblemondynamics.client.DynamicsClient
 import codes.honor.cobblemondynamics.command.DynamicsCommands
 import codes.honor.cobblemondynamics.compat.CobblebaseHooks
 import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
+import codes.honor.cobblemondynamics.compat.CompatLines
 import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
@@ -107,6 +108,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         NeoForge.EVENT_BUS.addListener<AddReloadListenerEvent> { it.addListener(RoleRegistry) }
         // CD-CRP-05: the farming lines count the tagged blocks once the tags of a data load are bound.
         NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { FarmingLines.onTagsUpdated(it) }
+        // CD-OPT-11: the compat line of each loaded optional mod, once its compat package registered its adapters and the tags are bound.
+        NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { CompatLines.onTagsUpdated(it) }
         EngineEvents.register()
         WorkerPush.warnIfMissing()
         LeashInteractions.register()

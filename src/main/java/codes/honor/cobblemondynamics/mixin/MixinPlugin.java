@@ -4,9 +4,11 @@ import codes.honor.cobblemondynamics.MixinMembers;
 import codes.honor.cobblemondynamics.MixinState;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.neoforged.fml.loading.FMLLoader;
 import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;
@@ -23,19 +25,46 @@ import org.spongepowered.asm.service.MixinService;
 public final class MixinPlugin implements IMixinConfigPlugin {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String BASE = "codes.honor.cobblemondynamics.mixin.";
-    private static final Map<String, String> REQUIRED_MOD_BY_PACKAGE = Map.of(
-            BASE + "create.", "create",
-            BASE + "compat.cobblebase.", "cobblebase",
-            BASE + "compat.apothic.", "apothic_enchanting");
+    /**
+     * CD-OPT-08: the mod ids of ADR-0016 whose mixins live in {@code mixin/compat/<modid>/}, as {@code compat/OptionalMods.kt} lists
+     * them. The plugin runs while Mixin prepares its config, before the mod's own classes load, so it keeps its own copy, which
+     * {@code MixinPluginTest} keeps in step.
+     */
+    private static final List<String> OPTIONAL_MODS = List.of(
+            "immersiveengineering", "mekanism", "mekanismgenerators", "railcraft", "pneumaticcraft", "botanypots", "ironfurnaces",
+            "cookingforblockheads", "forbidden_arcanus", "cobblemon_incubator", "ars_nouveau", "createaddition",
+            "create_enchantment_industry", "irons_spellbooks", "easymagic", "enchantinginfuser", "experiencelib", "dynamictrees", "ae2");
+
+    /** Each mixin package of an optional mod, with the mod id that it needs. */
+    public static final Map<String, String> REQUIRED_MOD_BY_PACKAGE = packageMap();
+
+    private static Map<String, String> packageMap() {
+        Map<String, String> map = new HashMap<>();
+        map.put(BASE + "create.", "create");
+        map.put(BASE + "compat.cobblebase.", "cobblebase");
+        map.put(BASE + "compat.apothic.", "apothic_enchanting");
+        for (String modId : OPTIONAL_MODS) map.put(BASE + "compat." + modId + ".", modId);
+        return Map.copyOf(map);
+    }
+
+    /**
+     * Why the plugin skips {@code mixinClassName}, such as {@code easymagic absent}, or null when the mod of its package is
+     * {@code present} or it needs none.
+     */
+    public static String skipReason(String mixinClassName, Predicate<String> present) {
+        for (Map.Entry<String, String> entry : REQUIRED_MOD_BY_PACKAGE.entrySet()) {
+            if (mixinClassName.startsWith(entry.getKey()) && !present.test(entry.getValue())) return entry.getValue() + " absent";
+        }
+        return null;
+    }
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         MixinState.recordOffered(mixinClassName);
-        for (Map.Entry<String, String> entry : REQUIRED_MOD_BY_PACKAGE.entrySet()) {
-            if (mixinClassName.startsWith(entry.getKey()) && FMLLoader.getLoadingModList().getModFileById(entry.getValue()) == null) {
-                MixinState.recordSkipped(mixinClassName, entry.getValue() + " absent");
-                return false;
-            }
+        String reason = skipReason(mixinClassName, modId -> FMLLoader.getLoadingModList().getModFileById(modId) != null);
+        if (reason != null) {
+            MixinState.recordSkipped(mixinClassName, reason);
+            return false;
         }
         return targetHasShadows(targetClassName, mixinClassName);
     }

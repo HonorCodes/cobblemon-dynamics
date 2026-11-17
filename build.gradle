@@ -251,6 +251,28 @@ dependencies {
     // (SHA-1 d88e75b6), and the unit tests read its classes to check the stats hook's target.
     compileOnly("dev.shadowsoffire:ApothicEnchanting:${apothic_enchanting_version}") { transitive = false }
     testRuntimeOnly("dev.shadowsoffire:ApothicEnchanting:${apothic_enchanting_version}") { transitive = false }
+    // CD-OPT-14: the optional mods of ADR-0016 that the code names, at the versions of the 1.2 plan's Mod pins. Only their packages
+    // compat/<modid>/ and mixin/compat/<modid>/ name them (CD-OPT-05), and verifyJar keeps their classes out of the jar (CD-OPT-13).
+    // AE2 keeps the build's pin, which the main source set does not compile against (CD-CRY-05).
+    compileOnly("maven.modrinth:immersiveengineering:${immersiveengineering_version}") { transitive = false }
+    compileOnly("maven.modrinth:mekanism:${mekanism_version}") { transitive = false }
+    compileOnly("maven.modrinth:mekanism-generators:${mekanism_version}") { transitive = false }
+    compileOnly("maven.modrinth:railcraft-reborn:${railcraft_version}") { transitive = false }
+    compileOnly("maven.modrinth:pneumaticcraft-repressurized:${pneumaticcraft_version}") { transitive = false }
+    compileOnly("maven.modrinth:botany-pots:${botanypots_version}") { transitive = false }
+    compileOnly("maven.modrinth:bookshelf-lib:${bookshelf_version}") { transitive = false }
+    compileOnly("maven.modrinth:iron-furnaces:${ironfurnaces_version}") { transitive = false }
+    compileOnly("maven.modrinth:cooking-for-blockheads:${cookingforblockheads_version}") { transitive = false }
+    compileOnly("maven.modrinth:forbidden-arcanus:${forbidden_arcanus_version}") { transitive = false }
+    compileOnly("maven.modrinth:cobblemon-incubator:${cobblemon_incubator_version}") { transitive = false }
+    compileOnly("maven.modrinth:ars-nouveau:${ars_nouveau_version}") { transitive = false }
+    compileOnly("maven.modrinth:createaddition:${createaddition_version}") { transitive = false }
+    compileOnly("maven.modrinth:create-enchantment-industry:${create_enchantment_industry_version}") { transitive = false }
+    compileOnly("maven.modrinth:irons-spells-n-spellbooks:${irons_spellbooks_version}") { transitive = false }
+    compileOnly("maven.modrinth:easy-magic:${easymagic_version}") { transitive = false }
+    compileOnly("maven.modrinth:enchanting-infuser:${enchantinginfuser_version}") { transitive = false }
+    compileOnly("maven.modrinth:experiencelib:${experiencelib_version}") { transitive = false }
+    compileOnly("maven.modrinth:dynamictrees:${dynamictrees_version}") { transitive = false }
 
     localRuntime("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
     localRuntime "net.createmod.ponder:ponder-neoforge:${ponder_version}"
@@ -318,6 +340,17 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 21
 }
 
+// CD-OPT-13: the package of each optional mod of ADR-0016, as compat/OptionalMods.kt lists them. CompatImportsTest keeps the two
+// in step.
+def optionalModPackages = [
+        'blusunrize/', 'mekanism/', 'mekanism/generators/', 'mods/railcraft/', 'me/desht/pneumaticcraft/', 'net/darkhax/botanypots/',
+        'net/darkhax/bookshelf/', 'ironfurnaces/', 'net/blay09/mods/cookingforblockheads/', 'com/stal111/forbidden_arcanus/',
+        'com/nbp/cobblemon_incubator/', 'com/hollingsworth/', 'com/mrh0/createaddition/', 'plus/dragons/createenchantmentindustry/',
+        'io/redspace/ironsspellbooks/', 'fuzs/easymagic/', 'fuzs/enchantinginfuser/', 'es/degrassi/experiencelib/',
+        'com/dtteam/dynamictrees/', 'dev/shadowsoffire/', 'appeng/', 'vectorwing/', 'com/aetherteam/', 'io/github/razordevs/',
+        'net/potionstudios/', 'quek/undergarden/'
+]
+
 // CD-PLAT-04, CD-REL-07: every class is Java 21 bytecode, no Cobblemon asset ships, no test class ships.
 tasks.register('verifyJar') {
     group = 'verification'
@@ -344,6 +377,8 @@ tasks.register('verifyJar') {
                 if (['dev/ftb/', 'xaero/', 'dev/architectury/', 'com/minecolonies/', 'com/ldtteam/'].any { e.name.startsWith(it) }) {
                     problems << "${e.name}: bundles a class of a claim mod"
                 }
+                // CD-OPT-13: the optional mods are compile-only dependencies, and several are All Rights Reserved.
+                if (optionalModPackages.any { e.name.startsWith(it) }) problems << "${e.name}: bundles a class of an optional mod"
                 if (e.name.startsWith('codes/honor/cobblemondynamics/test/') || e.name.startsWith('codes/honor/cobblemondynamics/coretest/')) {
                     problems << "${e.name}: GameTest class in the jar"
                 }
@@ -359,14 +394,17 @@ tasks.register('verifyJar') {
     }
 }
 
-// CD-CRY-05: the main source set never imports AE2 and has no AE2 compile dependency.
+// CD-CRY-05: outside compat/ae2/ and mixin/compat/ae2/ (CD-OPT-05), the main source set never imports AE2, and it has no AE2 compile
+// dependency.
 tasks.register('verifyNoAe2') {
     group = 'verification'
-    description = 'Fails if the main source set imports appeng or compiles against AE2.'
+    description = 'Fails if the main source set imports appeng outside compat/ae2/ or compiles against AE2.'
     def mainSources = fileTree('src/main') { include '**/*.kt', '**/*.java' }
     inputs.files mainSources
     doLast {
-        def bad = mainSources.files.findAll { it.text =~ /(?m)^\s*import\s+appeng\./ }
+        def bad = mainSources.files.findAll {
+            !(it.path.replace('\\', '/') =~ /\/cobblemondynamics\/(mixin\/)?compat\/ae2\//) && it.text =~ /(?m)^\s*import\s+appeng\./
+        }
         if (!bad.isEmpty()) throw new GradleException("AE2 imports in src/main: ${bad*.path}")
         def ae2 = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.findAll {
             it.moduleVersion.id.group == 'org.appliedenergistics'

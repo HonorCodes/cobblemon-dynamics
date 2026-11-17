@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.role
 
+import codes.honor.cobblemondynamics.compat.OptionalMods
 import codes.honor.cobblemondynamics.engine.WorkSpots
 import codes.honor.cobblemondynamics.handler.create.TailwindMath
 import codes.honor.cobblemondynamics.handler.create.TailwindParams
@@ -198,7 +199,7 @@ class BuiltInRoleFilesTest {
     @Test
     fun `CD-QWK-36 only the Muse role file opts in to Quick Work`() {
         val files = BuiltInRoles.dir.listFiles { file -> file.extension == "json" }.orEmpty()
-        val optedIn = files.filter { BuiltInRoles.parse(it).quickWork }.map { it.nameWithoutExtension }
+        val optedIn = files.filter { BuiltInRoles.parse(it).quickWork == true }.map { it.nameWithoutExtension }
         assertEquals(listOf("muse"), optedIn)
     }
 
@@ -418,5 +419,36 @@ class BuiltInRoleFilesTest {
             f.nameWithoutExtension to row
         }
         assertEquals(roleTable, actual)
+    }
+
+    /**
+     * Each handler's id, from its `override val id: ResourceLocation = id("...")`, with the source file that declares it. A handler
+     * declared in another form fails the test below, so the scan never misses a handler of a compat package.
+     */
+    private fun handlerSources(): Map<String, File> {
+        val declaration = Regex("""override val id: ResourceLocation = id\("([a-z0-9_/.-]+)"\)""")
+        val sources = File(System.getProperty("cd.projectDir"), "src/main/kotlin").walk().filter { it.extension == "kt" }
+        return sources.flatMap { file -> declaration.findAll(file.readText()).map { "cobblemon_dynamics:${it.groupValues[1]}" to file } }
+            .toMap()
+    }
+
+    @Test
+    fun `CD-OPT-03 each role file of a compat package's handler needs that package's mod, and no other file has conditions`() {
+        val handlers = handlerSources()
+        val files = BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().sortedBy { it.name }
+        assertTrue(files.isNotEmpty())
+        for (file in files) {
+            val json = JsonParser.parseString(file.readText())
+            val handler = BuiltInRoles.parse(file).handler.toString()
+            val source = handlers[handler] ?: error("${file.name}: no source declares the handler $handler")
+            val path = source.invariantSeparatorsPath
+            val mod = OptionalMods.ALL.firstOrNull { it.compat != null && "/cobblemondynamics/compat/${it.compat}/" in path }
+            if (mod == null) {
+                val conditions = json.asJsonObject.has(RoleConditions.KEY)
+                assertFalse(conditions, "${file.name} has conditions, but no compat package declares its handler")
+            } else {
+                assertEquals(listOf(mod.modId), RoleConditions.mods(json), "${file.name}: the mod_loaded conditions of a ${mod.modId} role")
+            }
+        }
     }
 }

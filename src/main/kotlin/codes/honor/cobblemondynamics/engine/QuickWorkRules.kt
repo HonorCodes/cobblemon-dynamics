@@ -77,15 +77,19 @@ object QuickWorkRules {
     fun traceRange(enabled: Boolean, ownerBattling: Boolean, targetRange: Int, leashRange: Int): Int? =
         if (enabled && !ownerBattling) minOf(targetRange, leashRange) else null
 
-    /** CD-QWK-03: a role that an auto claim takes, from a pasture scan, on one target, or one that opts in to Quick Work (CD-QWK-36). */
+    /**
+     * CD-QWK-03: a role that an auto claim takes, from a pasture scan, on one target. A file's `quick_work` decides where it holds the
+     * key: true opts a role in (CD-QWK-36), and false keeps an auto-assign role out (CD-FRZ-02).
+     */
     fun mayOrder(role: RoleDefinition, scanned: Boolean, shape: BindingShape): Boolean =
-        ((role.autoAssign && scanned) || role.quickWork) && shape == BindingShape.SINGLE
+        (role.quickWork ?: (role.autoAssign && scanned)) && shape == BindingShape.SINGLE
 
     /**
      * CD-QWK-03 to CD-QWK-05, CD-QWK-36. [fitting] are the roles that the Pokémon's [types], primary first, make it eligible for and
      * whose handler matches the aimed block. [orderable] is [mayOrder] of each. A Fairy-type is a healer, which no auto claim gives a
-     * machine (CD-ASG-04), so it gets an order only for a role that opts in to Quick Work, and otherwise nothing. Between the roles of
-     * one group of [sameGroup], such as the two farming roles, the role with [hasDemand] on the aimed block wins (CD-CRP-21).
+     * machine (CD-ASG-04), so it gets an order only for a role that opts in to Quick Work, and otherwise nothing. A role that opts out
+     * gets no order and sends no Work Leash message, as it needs no leash (CD-FRZ-02). Between the roles of one group of [sameGroup],
+     * such as the two farming roles, the role with [hasDemand] on the aimed block wins (CD-CRP-21).
      */
     fun pick(
         fitting: List<RoleDefinition>,
@@ -95,7 +99,7 @@ object QuickWorkRules {
         hasDemand: (RoleDefinition) -> Boolean = { true },
         sameGroup: (RoleDefinition, RoleDefinition) -> Boolean = RoleSelection.SAME_HANDLER,
     ): Pick {
-        val candidates = if (hasFairyType) fitting.filter { it.quickWork } else fitting
+        val candidates = fitting.filter { if (hasFairyType) it.quickWork == true else it.quickWork != false }
         if (candidates.isEmpty()) return Pick.None
         val role = RoleSelection.best(candidates.filter(orderable), types, sameGroup, hasDemand) ?: return Pick.NeedsLeash
         return Pick.Order(role)

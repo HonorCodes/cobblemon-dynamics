@@ -59,6 +59,25 @@ object LoadLines {
         return "Farming: $role $total blocks [$counts], no adapter [${unadapted.sortedBy { it.toString() }.joinToString(", ")}]"
     }
 
+    /** CD-OPT-04: each role file that its conditions skipped, with the mods that it needs, in id order. */
+    fun skippedRoles(skipped: Map<ResourceLocation, List<String>>): String {
+        val names = skipped.entries.sortedBy { it.key.toString() }.joinToString(", ") { (id, mods) ->
+            if (mods.isEmpty()) id.toString() else "$id (${mods.joinToString(", ")})"
+        }
+        return "Roles not loaded, their mods are absent: ${skipped.size} [$names]"
+    }
+
+    /** One adapter of an optional mod, with what it misses (`block`, `mixin` or `class`), or nothing when it was found. */
+    data class Adapter(val name: String, val missing: List<String> = emptyList())
+
+    /** CD-OPT-11: one loaded optional mod with its version, and each of its adapters as found or missing, in name order. */
+    fun compat(modId: String, version: String, adapters: List<Adapter>): String {
+        val names = adapters.sortedBy { it.name }.joinToString(", ") { adapter ->
+            if (adapter.missing.isEmpty()) "${adapter.name} found" else "${adapter.name} missing (${adapter.missing.joinToString(", ")})"
+        }
+        return "Compat: $modId $version [$names]"
+    }
+
     /** CD-CMP-10: the number of roles loaded and active, and each disabled role with its reason, in id order. */
     fun roles(loaded: Int, active: Int, disabled: Map<ResourceLocation, String>): String {
         val names = disabled.entries.sortedBy { it.key.toString() }.joinToString(", ") { (id, reason) -> "$id ($reason)" }

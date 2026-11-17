@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.build
 
+import codes.honor.cobblemondynamics.compat.OptionalMod
+import codes.honor.cobblemondynamics.compat.OptionalMods
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -7,6 +9,17 @@ import java.io.File
 
 class CompatImportsTest {
     private val root = File(System.getProperty("cd.projectDir"))
+
+    private fun mainSources(): List<File> = File(root, "src/main").walk().filter { it.extension == "kt" || it.extension == "java" }.toList()
+
+    /** True when [path] is in `compat/<name>/` or `mixin/compat/<name>/` of the main source set. */
+    private fun inCompat(path: String, name: String): Boolean =
+        "/cobblemondynamics/compat/$name/" in path || "/cobblemondynamics/mixin/compat/$name/" in path
+
+    /** The compat packages that may name the dotted [prefix]: those of each optional mod whose packages it covers or holds. */
+    private fun compatOf(prefix: String): List<String> = OptionalMods.ALL.filter { mod ->
+        mod.packages.map { it.replace('/', '.') }.any { it.startsWith(prefix) || prefix.startsWith(it) }
+    }.mapNotNull { it.compat }
 
     @Test
     fun `CD-QWK-33 only the compat package of a claim mod names it, and only behind isLoaded`() {
@@ -53,11 +66,73 @@ class CompatImportsTest {
             "ianm1647.",
             "com.jorgaomc.",
         )
-        val sources = File(root, "src/main").walk().filter { it.extension == "kt" || it.extension == "java" }.toList()
+        // CD-OPT-05: the compat packages of a mod of ADR-0016 are the only exceptions, such as compat/immersiveengineering/.
+        val exceptions = prefixes.associateWith(::compatOf)
+        val sources = mainSources()
         assertTrue(sources.isNotEmpty())
         for (file in sources) {
             val text = file.readText()
-            for (prefix in prefixes) assertFalse(prefix in text, "${file.invariantSeparatorsPath} names $prefix")
+            val path = file.invariantSeparatorsPath
+            for (prefix in prefixes) {
+                if (exceptions.getValue(prefix).none { inCompat(path, it) }) assertFalse(prefix in text, "$path names $prefix")
+            }
+        }
+    }
+
+    /**
+     * A place that names a package belongs to the mod with the longest matching prefix, so `mekanism.generators.` names Mekanism
+     * Generators and not Mekanism. A prefix counts only where no letter, digit or dot comes before it, so the compat package
+     * `codes.honor.cobblemondynamics.compat.mekanism.` does not name Mekanism.
+     */
+    private fun namedMods(text: String): Map<String, OptionalMod> {
+        val owners = HashMap<Int, Pair<String, OptionalMod>>()
+        for (mod in OptionalMods.ALL) {
+            for (prefix in mod.packages.map { it.replace('/', '.') }) {
+                for (match in Regex("""(?<![\w.])""" + Regex.escape(prefix)).findAll(text)) {
+                    val held = owners[match.range.first]
+                    if (held == null || prefix.length > held.first.length) owners[match.range.first] = prefix to mod
+                }
+            }
+        }
+        return owners.values.associate { it }
+    }
+
+    @Test
+    fun `CD-OPT-05 CD-CRY-05 only the compat packages of an optional mod name its classes`() {
+        val sources = mainSources()
+        assertTrue(sources.isNotEmpty())
+        for (file in sources) {
+            val path = file.invariantSeparatorsPath
+            for ((prefix, mod) in namedMods(file.readText())) {
+                val name = mod.compat
+                assertTrue(name != null && inCompat(path, name), "$path names $prefix of ${mod.modId} outside its compat packages")
+            }
+        }
+        // The scan finds the one compat package of ADR-0016 that 1.1 already has.
+        val apothic = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/compat/apothic/ApothicCompat.kt").readText()
+        assertTrue(namedMods(apothic).values.any { it.modId == "apothic_enchanting" }, "the scan does not see Apothic Enchanting")
+    }
+
+    @Test
+    fun `CD-OPT-06 each compat package of an optional mod registers only behind isLoaded`() {
+        val mod = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt").readText()
+        val packages = OptionalMods.ALL.filter { it.compat != null }
+            .filter { File(root, "src/main/kotlin/codes/honor/cobblemondynamics/compat/${it.compat}").isDirectory }
+        assertTrue(packages.isNotEmpty())
+        for (optional in packages) {
+            val guard = "if (ModList.get().isLoaded(\"${optional.modId}\"))"
+            assertTrue(guard in mod, "compat/${optional.compat}/ registers without its guard")
+        }
+    }
+
+    @Test
+    fun `CD-OPT-13 verifyJar refuses each package of an optional mod`() {
+        val gradle = File(root, "build.gradle").readText()
+        val list = Regex("""def optionalModPackages = \[([^\]]*)]""").find(gradle)?.groupValues?.get(1)
+            ?: error("build.gradle has no optionalModPackages list")
+        val refused = Regex("'([^']+)'").findAll(list).map { it.groupValues[1] }.toSet()
+        for (mod in OptionalMods.ALL) {
+            for (prefix in mod.packages) assertTrue(prefix in refused, "verifyJar does not refuse $prefix of ${mod.modId}")
         }
     }
 

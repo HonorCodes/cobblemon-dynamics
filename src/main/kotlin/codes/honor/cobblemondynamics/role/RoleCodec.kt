@@ -8,6 +8,7 @@ import com.mojang.serialization.JsonOps
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.util.ExtraCodecs
+import java.util.Optional
 
 /** Parses the body of one role file, `data/{namespace}/cobblemon_dynamics/roles/{role}.json`. */
 object RoleCodec {
@@ -38,7 +39,7 @@ object RoleCodec {
         val range: Double,
         val params: JsonElement,
         val effect: EffectDefinition,
-        val quickWork: Boolean,
+        val quickWork: Optional<Boolean>,
     )
 
     // auto_assign has no default, so a leash-only role file that leaves it out fails to parse (CD-PMP-02, CD-MUS-02).
@@ -52,7 +53,8 @@ object RoleCodec {
             Codec.DOUBLE.optionalFieldOf("range", 6.0).forGetter { it.range },
             ExtraCodecs.JSON.optionalFieldOf("params", JsonObject()).forGetter { it.params },
             EFFECT.fieldOf("effect").forGetter { it.effect },
-            Codec.BOOL.optionalFieldOf("quick_work", false).forGetter { it.quickWork },
+            // Absent, true or false: see RoleDefinition.quickWork (CD-QWK-36, CD-FRZ-02).
+            Codec.BOOL.optionalFieldOf("quick_work").forGetter { it.quickWork },
         ).apply(i, ::Body)
     }
 
@@ -78,7 +80,7 @@ object RoleCodec {
                     range = b.range,
                     params = b.params.asJsonObject,
                     effect = b.effect,
-                    quickWork = b.quickWork,
+                    quickWork = b.quickWork.orElse(null),
                 ),
             )
         }
