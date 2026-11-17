@@ -352,7 +352,9 @@ Cobblemon ticks each Cobblemon's Brain in `customServerAiStep`. Our part of that
 4. At the work spot, a hold task keeps `PATH_COOLDOWN` set. Cobblemon's wander task needs both
    `WALK_TARGET` and `PATH_COOLDOWN` to be absent, so wandering stays paused. Cobblemon's `move_to_owner`
    also waits while `PATH_COOLDOWN` is set. So the end of a Quick Work order erases it, and the Cobblemon
-   follows its owner from the next tick (CD-QWK-15).
+   follows its owner from the next tick (CD-QWK-15). A leashed farming worker whose crop's cell is empty
+   has no claim and so no work order (CD-CLM-08). Each pasture poll sets `PATH_COOLDOWN` on it for 40
+   ticks, so it waits at its spot for the replant (CD-CRP-09).
 5. On a bed, a task snaps the Cobblemon to the bed center every tick, and a worker that rests in place to
    where it stood. It then sets `enablePoseTypeRecalculation=false` and `POSE_TYPE=SLEEP`. It never sets
    the battle SLEEP status, because that status persists. It marks the pose in the entity's NeoForge

@@ -4,6 +4,8 @@ import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.TargetKey
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
+import codes.honor.cobblemondynamics.engine.PastureRuntime
+import codes.honor.cobblemondynamics.engine.ScanScheduler
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
@@ -251,6 +253,61 @@ class FarmingTests {
                 }
             }
             lastAge = age
+        }
+    }
+
+    /**
+     * CD-CRP-09: a leashed Diglett whose wheat is harvested by hand waits at its work spot while the cell is empty. The cell stays
+     * empty for 600 ticks, in which Cobblemon's wander would otherwise start. The wheat is planted again in a tick whose pasture poll
+     * has already run, so the engine sees it at the next poll, 20 ticks later. A worker off its spot would also need the walk back,
+     * which does not fit in the 40 ticks.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_400)
+    fun cdCrp09LeashedWorkerWaitsAtTheEmptyCell(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val crop = plant(helper, BlockPos(5, 1, 3), wheat(0))
+        val diglett = TestKit.tether(helper, scene.second, scene.first, "diglett level=50")
+        val bound = TestKit.bind(helper, scene.first, diglett, crop)
+        helper.assertTrue(bound?.roleId == id("cultivator"), "the Diglett bound as ${bound?.roleId}")
+        val pollPhase = ScanScheduler.phaseFor(scene.second.blockPos.asLong(), PastureRuntime.POLL_TICKS)
+        var step = "work"
+        var changedAt = 0L
+        var spot = diglett.position()
+        helper.onEachTick {
+            val now = helper.tick
+            val status = TestKit.workerOf(helper, diglett)?.status
+            when (step) {
+                "work" -> if (status == WorkerStatus.WORKING) {
+                    helper.setBlock(crop, wheat(7))
+                    step = "grown"
+                }
+
+                "grown" -> if (status == WorkerStatus.STANDBY) {
+                    // A harvest by hand: the cell holds air above the farmland.
+                    spot = diglett.position()
+                    helper.setBlock(crop, Blocks.AIR)
+                    changedAt = now
+                    step = "empty"
+                }
+
+                "empty" -> {
+                    helper.assertTrue(BindingStore.read(diglett.pokemon) != null, "CD-CRP-09: the Diglett lost its binding")
+                    val moved = Math.hypot(diglett.x - spot.x, diglett.z - spot.z)
+                    helper.assertTrue(moved <= 0.5, "CD-CRP-09: the Diglett moved $moved blocks off its spot while the cell was empty")
+                    val polled = Math.floorMod(helper.level.gameTime - pollPhase, PastureRuntime.POLL_TICKS.toLong()) == 0L
+                    if (now - changedAt >= 600 && polled) {
+                        helper.setBlock(crop, wheat(0))
+                        changedAt = now
+                        step = "planted"
+                    }
+                }
+
+                "planted" -> if (status == WorkerStatus.WORKING) {
+                    helper.succeed()
+                } else {
+                    helper.assertTrue(now - changedAt <= 40, "CD-CRP-09: the Diglett is not Working 40 ticks after the planting")
+                }
+            }
         }
     }
 
