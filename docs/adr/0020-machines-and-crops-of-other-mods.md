@@ -162,8 +162,11 @@ Each entry of another mod is optional.
     `#cobblemon_dynamics:crystal/scheduled_tick` (`unusualend:budding_citrine`) and the unwaxed corundum blocks of Quark
     4.1-488 (ids unverified). A self-growing bud has demand while Cobblemon's own rule lets it grow: a block of
     `#cobblemon:tumblestone_heat_source` within 1 block, and a next stage. A block of `crystal/scheduled_tick` gets its
-    scheduled `tick` in place of a random tick, and the buds of `#cobblemon_dynamics:crystal/buds` (`unusualend:citrine_bud`,
-    `large_citrine_bud`) count as buds of `#c:buds`.
+    scheduled `tick` in place of a random tick, on 1 extra tick in 5 (`scheduled_tick_one_in`), and only air counts as an
+    open face of it. Unusual End's budding citrine grows only under a worker: its random tick does nothing in Minecraft
+    1.21.1, and its scheduled tick grows a face into air with no roll of its own, so the gate gives it the pace of budding
+    amethyst (R88). The buds of `#cobblemon_dynamics:crystal/buds` (`unusualend:citrine_bud`, `large_citrine_bud`) count as
+    buds of `#c:buds`.
 12. **The Crystal Tender's stall.** If 200 extra ticks in a row change no block of the target and of its faces, the target has
     no demand for that worker for 6,000 ticks. That covers a budding block that grows only in some places, such as Just Dire
     Things' time crystal outside its dimension or Quark's corundum above y 24.

@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.handler.vanilla
 
+import codes.honor.cobblemondynamics.role.BuiltInRoles
+import com.google.gson.JsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -48,9 +50,47 @@ class BuddingRulesTest {
         val bud = BudFacts(bud = BuddingRules.isBud(inBudsTag = false, inCrystalBuds = true))
         assertTrue(BuddingRules.hasDemand(citrine) { listOf(bud) }, "a citrine bud of crystal/buds")
         assertFalse(BuddingRules.hasDemand(citrine) { listOf(BudFacts()) }, "a face with a solid block")
-        assertEquals(ExtraTick.SCHEDULED, BuddingRules.extraTick(citrine))
-        assertEquals(ExtraTick.RANDOM, BuddingRules.extraTick(CrystalFacts()))
-        assertEquals(ExtraTick.RANDOM, BuddingRules.extraTick(CrystalFacts(selfGrowing = true, heatSourceNear = true)))
+        assertEquals(ExtraTick.SCHEDULED, BuddingRules.extraTick(citrine, roll = 0))
+        assertEquals(ExtraTick.RANDOM, BuddingRules.extraTick(CrystalFacts(), roll = 0))
+        assertEquals(ExtraTick.RANDOM, BuddingRules.extraTick(CrystalFacts(selfGrowing = true, heatSourceNear = true), roll = 0))
+    }
+
+    /**
+     * R88: Unusual End 2.3.1b's `BuddingCitrineUpdateTickProcedure` grows a random face into air on every scheduled tick, with no roll of
+     * its own, and the citrine's random tick does nothing. Budding amethyst grows a random face on 1 random tick in 5, so the citrine gets
+     * its scheduled tick on 1 extra tick in 5, and its rate matches.
+     */
+    @Test
+    fun `CD-MCH-04 the budding citrine gets its scheduled tick on 1 extra tick in 5, and a random-tick block on every one`() {
+        val oneIn = BuddingRules.scheduledTickOneIn(BuiltInRoles.parse("crystal_tender").params)
+        assertEquals(5, oneIn, "the default file's scheduled_tick_one_in")
+        val ticks = (0 until oneIn).map { BuddingRules.extraTick(CrystalFacts(scheduledTick = true), roll = it) }
+        assertEquals(listOf(ExtraTick.SCHEDULED, ExtraTick.NONE, ExtraTick.NONE, ExtraTick.NONE, ExtraTick.NONE), ticks)
+        assertTrue((0 until oneIn).all { BuddingRules.extraTick(CrystalFacts(), roll = it) == ExtraTick.RANDOM }, "budding amethyst")
+    }
+
+    @Test
+    fun `CD-MCH-04 a file with no scheduled tick key gets 1 in 5, and a value below 1 counts as 1`() {
+        assertEquals(5, BuddingRules.scheduledTickOneIn(JsonObject()))
+        assertEquals(1, BuddingRules.scheduledTickOneIn(JsonObject().apply { addProperty("scheduled_tick_one_in", 0) }))
+    }
+
+    /** R88: the citrine's tick grows a bud only into air (`isEmptyBlock`), so a water source on its face is no free face. */
+    @Test
+    fun `CD-MCH-04 only air is an open face of a block of the scheduled tick tag`() {
+        assertFalse(BuddingRules.isOpen(air = false, clusterCanGrow = true, scheduledTick = true), "a water source beside the citrine")
+        assertTrue(BuddingRules.isOpen(air = true, clusterCanGrow = true, scheduledTick = true), "air beside the citrine")
+        assertTrue(BuddingRules.isOpen(air = false, clusterCanGrow = true, scheduledTick = false), "a water source beside budding amethyst")
+        assertFalse(BuddingRules.isOpen(air = false, clusterCanGrow = false, scheduledTick = false), "a solid block")
+    }
+
+    /** R88: a claim reads the 27 blocks around a tumblestone at most once per 20 ticks. */
+    @Test
+    fun `CD-MCH-03 a claim reads a tumblestone's heat source again only after 20 ticks`() {
+        assertTrue(BuddingRules.heatCheckDue(checkedAt = null, now = 100), "the claim's first read")
+        assertFalse(BuddingRules.heatCheckDue(checkedAt = 100, now = 100))
+        assertFalse(BuddingRules.heatCheckDue(checkedAt = 100, now = 119))
+        assertTrue(BuddingRules.heatCheckDue(checkedAt = 100, now = 120))
     }
 
     @Test
