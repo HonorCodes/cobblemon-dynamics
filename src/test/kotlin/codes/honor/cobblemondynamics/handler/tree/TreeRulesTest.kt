@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.DARK_OAK_SA
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.DT_OAK_BRANCH
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.MAX_LEAVES
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.MAX_LOGS
+import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.OAK_LOG
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.SPRUCE_SAPLING
 import net.minecraft.core.BlockPos
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -168,5 +169,39 @@ class TreeRulesTest {
             for (leaf in layer(base.above(5), 1)) leaf(leaf, persistent = true)
         }
         assertNull(TreeRules.treeOn(placed.read, base, MAX_LOGS, MAX_LEAVES, dynamicTrees = true), "branches with placed leaves only")
+    }
+
+    /**
+     * R89: after a rename of the branch tag, a removal by the handler would still leave Dynamic Trees to destroy the rest of the tree
+     * with no drops. So a base of the namespace `dynamictrees` picks Dynamic Trees' own fell, whatever its tags.
+     */
+    @Test
+    fun `CD-LUM-25 a base of the namespace dynamictrees picks the Dynamic Trees fell with no branch tag`() {
+        val grid = TreeGrid().apply { dynamicOak(base, dynamicBranch = false) }
+        assertEquals(Feller.DYNAMIC_TREES, TreeRules.feller(grid.read(base), dynamicTrees = true))
+        assertTrue(TreeRules.hasDemand(grid.read, base, MAX_LOGS, MAX_LEAVES, dynamicTrees = true), "the tree has no demand")
+        assertFalse(TreeRules.refusesBind(grid.read, base, MAX_LOGS, MAX_LEAVES, dynamicTrees = true), "a bind on it is refused")
+    }
+
+    /** R89: with no hook, such a tree is no tree, as a tree in the branch tag is, so the handler never fells it itself. */
+    @Test
+    fun `CD-LUM-25 with no hook a base of the namespace dynamictrees with no branch tag is no tree`() {
+        val grid = TreeGrid().apply { dynamicOak(base, dynamicBranch = false) }
+        assertNull(TreeRules.feller(grid.read(base), dynamicTrees = false))
+        assertNull(TreeRules.treeOn(grid.read, base, MAX_LOGS, MAX_LEAVES, dynamicTrees = false))
+        assertFalse(TreeRules.hasDemand(grid.read, base, MAX_LOGS, MAX_LEAVES, dynamicTrees = false))
+        assertTrue(TreeRules.refusesBind(grid.read, base, MAX_LOGS, MAX_LEAVES, dynamicTrees = false))
+    }
+
+    /**
+     * R89: the rule compares the whole namespace. An add-on of Dynamic Trees with a namespace of its own counts through the branch tag
+     * or the hook's `BranchBlock` test, which these cells lack.
+     */
+    @Test
+    fun `CD-LUM-25 only the namespace dynamictrees itself picks the Dynamic Trees fell`() {
+        for (id in listOf(OAK_LOG, "example:dynamictrees_log", "dynamictreesplus:example_branch")) {
+            val grid = TreeGrid().apply { oak(base, logId = id) }
+            for (hook in listOf(true, false)) assertEquals(Feller.OWN, TreeRules.feller(grid.read(base), hook), "$id with the hook: $hook")
+        }
     }
 }

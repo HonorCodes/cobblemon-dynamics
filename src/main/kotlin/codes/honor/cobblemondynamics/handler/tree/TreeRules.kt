@@ -20,16 +20,26 @@ object TreeRules {
     /** CD-LUM-20: "{Pokémon} cannot fell this tree". */
     const val CANNOT_FELL = "cobblemon_dynamics.leash.cannot_fell"
 
+    /** R89: the namespace of Dynamic Trees, whose logs and branches fall only by that mod's own fell, whatever their tags. */
+    const val DYNAMIC_TREES_NAMESPACE = "dynamictrees"
+
     /** CD-LUM-02: a log of `#cobblemon_dynamics:lumberjack_targets`, or a block of `#minecraft:saplings`. */
     fun matches(cell: CellFacts): Boolean = cell.logTarget || cell.sapling
 
     /**
-     * CD-LUM-25: who fells the tree whose base log is [base]. A branch of `#dynamictrees:branches` falls through Dynamic Trees' own
+     * CD-LUM-25, R89: a block of Dynamic Trees: a branch by the tag or by the hook ([CellFacts.dynamicBranch]), or any block of the
+     * namespace `dynamictrees`, whatever its tags. The logs of a tree all have its base's block id ([TreeSearch.logs]), so the base
+     * answers for the whole tree.
+     */
+    fun isDynamicTrees(cell: CellFacts): Boolean = cell.dynamicBranch || cell.blockId.namespace == DYNAMIC_TREES_NAMESPACE
+
+    /**
+     * CD-LUM-25: who fells the tree whose base log is [base]. A base of Dynamic Trees ([isDynamicTrees]) falls through that mod's own
      * fell, the hook that its compat package registers while the mod is loaded ([dynamicTrees]). With no hook, such a tree has no
      * feller, because a removal by the handler would leave Dynamic Trees to destroy the rest of the tree with no drops.
      */
     fun feller(base: CellFacts, dynamicTrees: Boolean): Feller? = when {
-        !base.dynamicBranch -> Feller.OWN
+        !isDynamicTrees(base) -> Feller.OWN
         dynamicTrees -> Feller.DYNAMIC_TREES
         else -> null
     }

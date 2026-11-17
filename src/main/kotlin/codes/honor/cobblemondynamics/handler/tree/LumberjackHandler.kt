@@ -44,9 +44,12 @@ import java.util.concurrent.atomic.AtomicLong
  */
 object LumberjackHandler : TargetHandler {
     /** CD-LUM-25: the fell of a mod whose trees fall by its own rules. Its compat package registers one while the mod is loaded. */
-    fun interface ModFell {
+    interface ModFell {
         /** Fells the tree whose base log is [base] for [worker], or returns false when [base] holds no tree of the mod. */
         fun fell(level: ServerLevel, base: BlockPos, worker: LivingEntity): Boolean
+
+        /** R89: whether [state] is a branch of the mod, whatever its tags. */
+        fun isBranch(state: BlockState): Boolean
     }
 
     /** CD-LUM-25: Dynamic Trees' own fell, which `compat/dynamictrees/` registers while that mod is loaded. */
@@ -177,6 +180,25 @@ object LumberjackHandler : TargetHandler {
         }
         return try {
             hook.fell(ctx.level, base, ctx.worker)
+        } catch (e: Exception) {
+            failed(e)
+        } catch (e: LinkageError) {
+            failed(e)
+        }
+    }
+
+    /**
+     * R89: whether the hook reports [state] as a branch of Dynamic Trees. A test that fails reports no branch and leaves the role on
+     * (CD-LUM-29), and the branch tag and the namespace of `TreeRules.isDynamicTrees` still find the trees of Dynamic Trees.
+     */
+    internal fun hookedBranch(state: BlockState): Boolean {
+        val hook = dynamicTrees ?: return false
+        val failed = { e: Throwable ->
+            warnings.warn("dynamictrees-branch:${e.javaClass.name}") { "Dynamic Trees fails to tell whether $state is a branch: $e" }
+            false
+        }
+        return try {
+            hook.isBranch(state)
         } catch (e: Exception) {
             failed(e)
         } catch (e: LinkageError) {
