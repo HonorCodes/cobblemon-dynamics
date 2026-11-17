@@ -181,4 +181,42 @@ class LumberjackTests {
             if (workingAt >= 0 && helper.tick - workingAt >= 60) helper.succeed()
         }
     }
+
+    /**
+     * CD-LUM-23, CD-LUM-24: the wood line. A level 100 Diglett grows the oak sapling of a level 100 Scyther's binding with bone meal, and
+     * the Scyther fells the grown oak. GameTest chunks get no random ticks, so the oak grew from the Diglett's growth uses. No flower
+     * stands within 2 blocks of the sapling, so the oak grows with no bee nest, which the never tag skips. The template leaves room above
+     * the sapling for a fancy oak, which grows from 1 sapling in 10.
+     */
+    @GameTest(template = "floor_23x17x23", timeoutTicks = 3_600)
+    fun cdLum23WoodLine(helper: GameTestHelper) {
+        val (owner, pasture) = scene(helper)
+        helper.setBlock(base.below(), Blocks.DIRT)
+        helper.setBlock(base, Blocks.OAK_SAPLING)
+        val sapling = helper.absolutePos(base)
+        val since = helper.level.gameTime
+        val scyther = TestKit.tether(helper, pasture, owner, "scyther level=100")
+        val binding = TestKit.bind(helper, owner, scyther, base)
+        helper.assertTrue(binding?.roleId == id("lumberjack"), "the Scyther bound as ${binding?.roleId}")
+        helper.assertTrue(binding?.target == sapling, "CD-LUM-03: the binding names ${binding?.target}, not the sapling")
+        TestKit.tether(helper, pasture, owner, "diglett level=100")
+        var grown = false
+        helper.onEachTick {
+            if (!grown) {
+                if (!helper.getBlockState(base).`is`(Blocks.OAK_LOG)) return@onEachTick
+                grown = true
+                val uses = BonemealUses.uses.filter { it.pos == sapling && it.tick >= since }
+                val byDiglett = uses.isNotEmpty() && uses.all { it.player == null }
+                helper.assertTrue(byDiglett, "CD-LUM-23: the oak grew with no growth use of the Diglett")
+                return@onEachTick
+            }
+            if (oakLogs(helper) > 0) return@onEachTick
+            helper.assertTrue(BindingStore.read(scyther.pokemon) != null, "CD-LUM-19: the Scyther lost its binding at the fell")
+            helper.succeed()
+        }
+    }
+
+    /** The oak logs around the base, up to the height of a fancy oak. */
+    private fun oakLogs(helper: GameTestHelper): Int =
+        BlockPos.betweenClosed(base.offset(-7, 0, -7), base.offset(7, 18, 7)).count { helper.getBlockState(it).`is`(Blocks.OAK_LOG) }
 }
