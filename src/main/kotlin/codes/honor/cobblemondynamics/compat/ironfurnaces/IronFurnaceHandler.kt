@@ -17,6 +17,9 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import java.util.WeakHashMap
+
+private typealias CookingCheck = RecipeManager.CachedCheck<SingleRecipeInput, AbstractCookingRecipe>
 
 /**
  * The Stoker's target in Iron Furnaces: every furnace whose block entity extends `BlockIronFurnaceTileBase`, which no vanilla furnace
@@ -27,15 +30,16 @@ object IronFurnaceHandler : TargetHandler {
     override val id: ResourceLocation = id("iron_furnace")
     override val scanKind: ScanKind = ScanKind.BLOCK_ENTITY
 
-    // One cached recipe lookup per recipe type, as the furnace keeps its own. Server thread only.
-    private val checks = HashMap<RecipeType<*>, RecipeManager.CachedCheck<SingleRecipeInput, AbstractCookingRecipe>>()
+    // One recipe lookup per furnace, keyed by its block entity, which a replaced block or an unloaded chunk lets go. Server thread only.
+    private val checks = WeakHashMap<BlockEntity, FurnaceCheck<RecipeType<AbstractCookingRecipe>, CookingCheck>>()
 
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         blockEntity is BlockIronFurnaceTileBase
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = level.getBlockEntity(canonical) is BlockIronFurnaceTileBase
 
-    override fun hasDemand(ctx: WorkContext): Boolean = furnaceAt(ctx)?.let { IronFurnaceRule.hasDemand(facts(ctx.level, it)) } ?: false
+    override fun hasDemand(ctx: WorkContext): Boolean =
+        furnaceAt(ctx)?.let { IronFurnaceRule.hasDemand(facts(ctx.level, it, ctx.now)) } ?: false
 
     /**
      * The furnace writes its `LIT` state only when its own burning starts or ends, so the worker lights a furnace that it starts, as the
@@ -43,7 +47,7 @@ object IronFurnaceHandler : TargetHandler {
      */
     override fun applyWork(ctx: WorkContext) {
         val furnace = furnaceAt(ctx) ?: return
-        val facts = facts(ctx.level, furnace)
+        val facts = facts(ctx.level, furnace, ctx.now)
         val burnTime = IronFurnaceRule.burnTime(facts)
         if (burnTime == facts.burnTime) return
         furnace.furnaceBurnTime = burnTime
@@ -56,16 +60,22 @@ object IronFurnaceHandler : TargetHandler {
 
     private fun furnaceAt(ctx: WorkContext): BlockIronFurnaceTileBase? = ctx.level.getBlockEntity(ctx.target) as? BlockIronFurnaceTileBase
 
-    private fun facts(level: ServerLevel, furnace: BlockIronFurnaceTileBase) =
-        IronFurnaceFacts(furnaceMode = furnace.isFurnace, canSmelt = canSmelt(level, furnace), burnTime = furnace.furnaceBurnTime)
-
-    /** The furnace's own protected `canSmelt` over the recipe of its current recipe type, which an augment turns to smoking or blasting. */
-    private fun canSmelt(level: ServerLevel, furnace: BlockIronFurnaceTileBase): Boolean {
-        val input = furnace.getItem(BlockIronFurnaceTileBase.INPUT)
-        if (input.isEmpty) return false
+    /** The demand and the work of one tick share the furnace's recipe lookup, which runs once in that tick [now]. */
+    private fun facts(level: ServerLevel, furnace: BlockIronFurnaceTileBase, now: Long): IronFurnaceFacts {
         @Suppress("UNCHECKED_CAST")
         val type = furnace.recipeType as RecipeType<AbstractCookingRecipe>
-        val check = checks.getOrPut(type) { RecipeManager.createCheck(type) }
+        val check = FurnaceCheck.forType(checks[furnace], type) { RecipeManager.createCheck(it) }.also { checks[furnace] = it }
+        return IronFurnaceFacts(
+            furnaceMode = furnace.isFurnace,
+            canSmelt = check.canSmelt(now) { canSmelt(level, furnace, it) },
+            burnTime = furnace.furnaceBurnTime,
+        )
+    }
+
+    /** The furnace's own protected `canSmelt` over the recipe of its current recipe type, which an augment turns to smoking or blasting. */
+    private fun canSmelt(level: ServerLevel, furnace: BlockIronFurnaceTileBase, check: CookingCheck): Boolean {
+        val input = furnace.getItem(BlockIronFurnaceTileBase.INPUT)
+        if (input.isEmpty) return false
         val recipe = check.getRecipeFor(SingleRecipeInput(input), level).orElse(null) ?: return false
         val result = recipe.value().getResultItem(level.registryAccess())
         if (result.isEmpty) return false

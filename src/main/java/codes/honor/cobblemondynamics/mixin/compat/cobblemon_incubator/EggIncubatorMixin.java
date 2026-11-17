@@ -9,9 +9,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Runs a worked Egg Incubator at the speed of one Speed Upgrade (CD-FUEL-11). The incubator reads this speed on each tick of an egg,
- * and only its returned value changes, so an incubator with the upgrade gets nothing more and the speed is its own again on the tick that
- * the work ends (CD-FUEL-14). Without the injection the role gate turns the Stoker's incubator role off (CD-OPT-09).
+ * Runs a worked Egg Incubator at the speed of one Speed Upgrade, where the incubator's config turns Speed Upgrades on (CD-FUEL-11). The
+ * incubator reads this speed on each tick of an egg, and only its returned value changes, so an incubator with the upgrade gets nothing
+ * more and the speed is its own again on the tick that the work ends (CD-FUEL-14). Without the injection the role gate turns the Stoker's
+ * incubator role off (CD-OPT-09). The injection runs in the incubator's own tick, so {@code speedFor} reads the incubator's config only
+ * for a warmed incubator, and behind the engine's guard (R88).
  */
 @Mixin(EggIncubatorBlockEntity.class)
 public abstract class EggIncubatorMixin {

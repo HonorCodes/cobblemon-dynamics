@@ -98,7 +98,7 @@ number is a parameter of its role file.
 | Stoker (`stoker_pneumaticcraft`, `pnc_compressor`, auto) | PneumaticCraft: Repressurized 8.2.24 | Air Compressor, Advanced Air Compressor | Adds up to the machine's base burn rate to the public `burnTime`, and sets the private `maxBurnTime` through an accessor for the gauge, while the pressure stays below the danger pressure. | 1 burn tick per tick, 5 for the Advanced | 10 mL of air per tick, 50 for the Advanced |
 | Stoker (`stoker_cookingforblockheads`, `cfb_oven`, auto) | Cooking for Blockheads 21.1.24 | Oven | Keeps the public `furnaceBurnTime` at 2 or more and `currentItemBurnTime` equal while a slot cooks. | The oven's own rate | 9 slots, 200 ticks each |
 | Stoker (`stoker_forbidden_arcanus`, `clibano`, auto) | Forbidden & Arcanus 2.6.1 | Clibano | An accessor mixin keeps the private `burnTime` at 2 or more and `burnDuration` equal while it smelts, with normal fire. | Normal fire only | 100 ticks per smelt |
-| Stoker (`stoker_cobblemon_incubator`, `egg_incubator`, auto) | Cobblemon Incubator 1.1.1 | Egg Incubator | A mixin at the return of `incubationSpeed()` gives `upgradedSpeed` while a Fire-type works an incubator with no Speed Upgrade. | One Speed Upgrade at most | One Speed Upgrade |
+| Stoker (`stoker_cobblemon_incubator`, `egg_incubator`, auto) | Cobblemon Incubator 1.1.1 | Egg Incubator | A mixin at the return of `incubationSpeed()` gives `upgradedSpeed` while a Fire-type works an incubator with no Speed Upgrade, where the incubator's config turns Speed Upgrades on. An Analyse Upgrade or a filter that rejects the egg leaves no demand (R88). | One Speed Upgrade at most | One Speed Upgrade |
 | Stoker (`stoker_ars_nouveau`, `volcanic_sourcelink`, auto) | Ars Nouveau 5.13.5 | Volcanic Sourcelink | Every 1,600 ticks of Working, the sourcelink gets the Source of one coal through its public Source method (the method unverified). | One coal per 1,600 ticks | A furnace's coal rate |
 | Heater, new role (`heater_mekanism`, `mekanism_heat`, auto) | Mekanism 10.7.19.85 | `#cobblemon_dynamics:heater_targets`: `mekanism:thermal_evaporation_valve`, `mekanism:boiler_valve` | Pushes heat through `IHeatHandler.handleHeat(double)` of `mekanism:heat_handler` on the face nearest the worker, while the handler's temperature is below 3,000 K. | ceil(1,500 × L ÷ 100) J per tick | A full evaporation plant (height 18) uses about 1,870 J/t, and a level 100 Generator through a Resistive Heater gives 7,500 J/t |
 | Heater (`heater_pneumaticcraft`, `pnc_heat`, leash) | PneumaticCraft: Repressurized 8.2.24 | Any block entity with `PNCCapabilities.HEAT_EXCHANGER_BLOCK` on a horizontal face | Adds heat through `IHeatExchangerLogic.addHeat(double)` on the horizontal face nearest the worker, never on the null side, which returns a dummy. | max(0, (1,300 − T) ÷ 100) × L ÷ 100 per tick, T in kelvin | One lava block, about 10 heat per tick into a 300 K machine |
@@ -220,3 +220,7 @@ mark skip, and the mods with no NeoForge 1.21.1 build (Thermal Expansion, Therma
   act as a weaker Generator, not as a machine-capped role.
 - **A fake player for Botany Pots' fertilizer.** Rejected: its `BasicFertilizer.apply` needs a real player and throws without
   one.
+
+## Notes
+
+Code that a mixin runs inside another mod's tick reads that mod only through shadows, or inside `try/catch (LinkageError)` (R88).
