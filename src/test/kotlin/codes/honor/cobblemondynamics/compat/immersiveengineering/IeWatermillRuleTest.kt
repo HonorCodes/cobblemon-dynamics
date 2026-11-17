@@ -104,6 +104,12 @@ class IeWatermillRuleTest {
         assertEquals(1, loaded.direction)
     }
 
+    /** Decision 22: the compat run measured IE 12.4.2-194's optimized overshot wheel at a raw torque of 23.60, scaled 29.50. */
+    @Test
+    fun `CD-BAL-14 the cap is the measured torque of an optimized overshot wheel`() {
+        assertEquals(29.5, IeWatermillRule.OPTIMIZED_OVERSHOT_TORQUE, 0.01)
+    }
+
     @Test
     fun `CD-KIN-02 CD-BAL-14 the role file's torque never passes an optimized overshot wheel`() {
         val params = WatermillParams.of(BuiltInRoles.parse("wheel_driver_immersiveengineering").params)
