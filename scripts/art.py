@@ -632,6 +632,16 @@ GUI_GROUPS = {
 # The order of the sprites inside a group. A sprite that is not listed follows, in path order.
 SPRITE_ORDER = ("on", "off", "hover", "disabled", "panel_bar", "panel_fill", "head_bar", "head_fill",
                 "idle", "traveling", "working", "standby", "tired", "sleeping", "healing")
+# The scale of a screen's background on the sheet, and what each screen class draws over its background, at the positions
+# of that class: the labels (x or None to centre, y, text, colour) and the button (x, y, width, height, text).
+SCREEN_SCALE = 3
+SCREEN_MOCKUPS = {
+    "experience_collector": (
+        [(None, 6, "Experience Collector", "404040"), (24, 22, "Stored: 12,345 XP", "80ff20"),
+         (24, 34, "Level 68 from level 0", "80ff20")],
+        (28, 54, 120, 20, "Collect experience"),
+    ),
+}
 TABS = ROOT / "src/main/kotlin/codes/honor/cobblemondynamics/registry/DynamicsTabs.kt"
 STAMINA_BAR = ROOT / "src/main/kotlin/codes/honor/cobblemondynamics/client/StaminaBar.kt"
 # The Work Stamina bar at the stamina of manual checklist check 57, with the tint that StaminaBar.color gives it there.
@@ -856,6 +866,50 @@ def isometric(textures: dict, elements: list, size: int) -> bytes:
     return bytes(canvas)
 
 
+def turned(elements: list) -> list:
+    """[elements] turned 180 degrees about the vertical axis, so that the view from the south-east shows their north face."""
+    across = {"north": "south", "south": "north", "east": "west", "west": "east"}
+    out = []
+    for element in elements:
+        (x0, y0, z0), (x1, y1, z1) = element["from"], element["to"]
+        faces = {across.get(side, side): face for side, face in element.get("faces", {}).items()}
+        out.append({**element, "from": [16 - x1, y0, 16 - z1], "to": [16 - x0, y1, 16 - z0], "faces": faces})
+    return out
+
+
+def faced(block: str) -> bool:
+    """True for a block whose states turn its model to a facing, as a furnace's do, so that its front and back differ."""
+    path = ASSETS / f"blockstates/{block}.json"
+    variants = json.loads(path.read_text(encoding="utf-8")).get("variants", {}) if path.is_file() else {}
+    return any("facing=" in key for key in variants)
+
+
+def screen_images(source: pathlib.Path) -> Canvas:
+    """A screen's background at 3x and at 1x, on the page."""
+    width, height, rgba = parse_pixels(source.read_text(encoding="utf-8"), source.name)
+    big = width * SCREEN_SCALE + 8
+    out = Canvas(big + GAP + width + 8, height * SCREEN_SCALE + 8)
+    out.sprite(0, 0, width, height, rgba, SCREEN_SCALE, PAGE)
+    out.sprite(big + GAP, 0, width, height, rgba, 1, PAGE)
+    return out
+
+
+def screen_mockup(source: pathlib.Path, mockup: tuple) -> Canvas:
+    """A screen's background at 3x with the lines and the button that its screen class draws over it, in the sheet's font."""
+    width, height, rgba = parse_pixels(source.read_text(encoding="utf-8"), source.name)
+    out = Canvas(width * SCREEN_SCALE + 8, height * SCREEN_SCALE + 8)
+    out.sprite(0, 0, width, height, rgba, SCREEN_SCALE, PAGE)
+    labels, (bx, by, bw, bh, button) = mockup
+    for x, y, text, color in labels:
+        left = (width * SCREEN_SCALE - text_width(text)) // 2 if x is None else x * SCREEN_SCALE
+        out.text(4 + left, 4 + y * SCREEN_SCALE, text, bytes.fromhex(color))
+    out.fill(4 + bx * SCREEN_SCALE, 4 + by * SCREEN_SCALE, bw * SCREEN_SCALE, bh * SCREEN_SCALE, INK)
+    out.fill(4 + bx * SCREEN_SCALE + 3, 4 + by * SCREEN_SCALE + 3, bw * SCREEN_SCALE - 6, bh * SCREEN_SCALE - 6, LIGHT_SLOT)
+    label_x = 4 + bx * SCREEN_SCALE + (bw * SCREEN_SCALE - text_width(button)) // 2
+    out.text(label_x, 4 + by * SCREEN_SCALE + (bh * SCREEN_SCALE - 9 * TEXT) // 2, button, bytes.fromhex("ffffff"))
+    return out
+
+
 def texture_card(source: pathlib.Path, name: str, path: str) -> Canvas:
     width, height, rgba = parse_pixels(source.read_text(encoding="utf-8"), source.name)
     return card(sprite_images(width, height, rgba), name, path)
@@ -943,20 +997,39 @@ def spritesheet(record: pathlib.Path, note: str) -> Canvas:
                 drawn.append(card(images, f"{name} at {percent}% in game", f"the fill tinted {tint.lower()}"))
     if drawn:
         sections.append(("UI sprites: Work Stamina bar as the game draws it", drawn))
-    others = [source for source in gui if source.parent.relative_to(ART / "textures").as_posix() not in GUI_GROUPS]
+    screens = [source for source in gui if source.parent == ART / "textures/gui"]
+    others = [source for source in gui
+              if source not in screens and source.parent.relative_to(ART / "textures").as_posix() not in GUI_GROUPS]
     if others:
         sections.append(("UI sprites: other", [texture_card(source, source.stem, shipped_path(source))
                                                 for source in others]))
+    for source in screens:
+        name = names.get(f"block.{NAMESPACE}.{source.stem}", source.stem)
+        cards = [card(screen_images(source), f"{name} screen: the background", shipped_path(source))]
+        if source.stem in SCREEN_MOCKUPS:
+            cards.append(card(screen_mockup(source, SCREEN_MOCKUPS[source.stem]), f"{name} screen as the game draws it",
+                              "a mock-up: the game draws the text and the button"))
+        sections.append((f"Screen: {name}", cards))
+    pending = read_record(record)
+    faces = [source for source in textures if source.parent == ART / "textures/block"
+             and pending.get(rel(source), ("", "pending"))[:2] != (sha256(source), "approved")]
+    if faces:
+        sections.append(("Block faces: new or changed since their review",
+                         [texture_card(source, source.stem.replace("_", " ").capitalize(), shipped_path(source))
+                          for source in faces]))
     blocks = []
     for source in sorted((ART / "models/item").glob("*.json")):
         model_textures, elements = resolve_model(output_of(source))
         if elements:
-            image = Canvas(128 + 8, 128 + 8, LIGHT_SLOT)
-            image.sprite(0, 0, 128, 128, isometric(model_textures, elements, 128), 1, LIGHT_SLOT)
             name = names.get(f"block.{NAMESPACE}.{source.stem}", source.stem)
-            blocks.append(card(image, name, shipped_path(source)))
+            views = [("from the front", turned(elements)), ("from the back", elements)] if faced(source.stem) else [
+                ("", elements)]
+            for view, shown in views:
+                image = Canvas(128 + 8, 128 + 8, LIGHT_SLOT)
+                image.sprite(0, 0, 128, 128, isometric(model_textures, shown, 128), 1, LIGHT_SLOT)
+                blocks.append(card(image, f"{name} {view}".strip(), shipped_path(source)))
     if blocks:
-        sections.append(("Blocks: representative 3D art, unchanged", blocks))
+        sections.append(("Blocks: representative 3D art", blocks))
     header = ["Each sprite shows at 8x and at 1x, on a light inventory slot (top) and on a dark one (bottom).",
               f"Record each verdict in {rel(record)}. Made by py scripts/art.py review."]
     return compose("Cobblemon Dynamics art review", header + ([note] if note else []), sections)

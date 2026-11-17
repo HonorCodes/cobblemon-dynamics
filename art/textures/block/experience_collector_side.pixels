@@ -1,23 +1,36 @@
-# experience_collector_side: a placeholder until the art of Task 22
+# experience_collector_side: an iron plate with a slit that shows the XP inside, and the lapis band
 size 16 16
 palette
-  a #4a4d54
-  b #8c9098
-  l #2f5fb0
+  2 #3d8a15
+  3 #62bb1d
+  4 #97dd2b
+  5 #cff46a
+  B #1e3a80
+  b #3260c0
+  c #5b88dd
+  d #6b707a
+  g #bfe8e2
+  h #c9cdd4
+  l #a9aeb7
+  m #8b909a
+  o #1d1d23
+  r #e3e6eb
+  s #5c5d67
+  t #18311c
 pixels
-aaaaaaaaaaaaaaaa
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-alllllllllllllla
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-aaaaaaaaaaaaaaaa
+oooooooooooooooo
+ohhhhhhhhhhhhhlo
+ohrmmmmmmmmmmrso
+ohmssssssssssmso
+ohmsdddsddddlmso
+ohmsddstgsddlmso
+ohmsddsttsddlmso
+ohmsdds45sddlmso
+ohmsdds33sddlmso
+ohmsddl22lddlmso
+ohmllllllllllmso
+occcccccccccccbo
+oBbbbbbbbbbbbbBo
+ohrmmmmmmmmmmrso
+olssssssssssssso
+oooooooooooooooo

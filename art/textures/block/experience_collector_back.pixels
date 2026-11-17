@@ -1,24 +1,36 @@
-# experience_collector_back: a placeholder until the art of Task 22
+# experience_collector_back: the output port for pipes, ringed with XP, and the lapis band
 size 16 16
 palette
-  a #4a4d54
-  b #8c9098
-  g #5fcf3a
-  k #1e1f24
+  1 #24560f
+  2 #3d8a15
+  3 #62bb1d
+  4 #97dd2b
+  B #1e3a80
+  b #3260c0
+  c #5b88dd
+  d #6b707a
+  e #3a3d44
+  h #c9cdd4
+  k #111216
+  l #a9aeb7
+  m #8b909a
+  o #1d1d23
+  r #e3e6eb
+  s #5c5d67
 pixels
-aaaaaaaaaaaaaaaa
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbggggggggbbba
-abbbgkkkkkkgbbba
-abbbgkkkkkkgbbba
-abbbgkkkkkkgbbba
-abbbgkkkkkkgbbba
-abbbgkkkkkkgbbba
-abbbgkkkkkkgbbba
-abbbggggggggbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-aaaaaaaaaaaaaaaa
+oooooooooooooooo
+ohhhhhhhhhhhhhlo
+ohrmdoooooodmrso
+ohmdoeeeeeeommso
+ohmmoe4333eommso
+ohmmoe3kk2eommso
+ohmmoe3kk2eommso
+ohmmoe3221eommso
+ohmmoeeeeeeommso
+ohmmdoooooodmmso
+ohmmmmmmmmmmmmso
+occcccccccccccbo
+oBbbbbbbbbbbbbBo
+ohrmmmmmmmmmmrso
+olssssssssssssso
+oooooooooooooooo

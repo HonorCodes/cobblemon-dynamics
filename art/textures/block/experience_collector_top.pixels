@@ -1,23 +1,32 @@
-# experience_collector_top: a placeholder until the art of Task 22
+# experience_collector_top: the intake grate over the XP, in a lapis rim
 size 16 16
 palette
-  a #4a4d54
-  b #8c9098
-  k #1e1f24
+  3 #62bb1d
+  4 #97dd2b
+  B #1e3a80
+  b #3260c0
+  c #5b88dd
+  h #c9cdd4
+  k #111216
+  l #a9aeb7
+  m #8b909a
+  o #1d1d23
+  r #e3e6eb
+  s #5c5d67
 pixels
-aaaaaaaaaaaaaaaa
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbkkkkkkkkbbba
-abbbkkkkkkkkbbba
-abbbkkkkkkkkbbba
-abbbkkkkkkkkbbba
-abbbkkkkkkkkbbba
-abbbkkkkkkkkbbba
-abbbkkkkkkkkbbba
-abbbkkkkkkkkbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-abbbbbbbbbbbbbba
-aaaaaaaaaaaaaaaa
+oooooooooooooooo
+ohhhhhhhhhhhhhlo
+ohrmmmmmmmmmmrso
+ohmcccccccccbmso
+ohmckkkkkkkkBmso
+ohmckllllllkBmso
+ohmck343434kBmso
+ohmckllllllkBmso
+ohmck434343kBmso
+ohmckllllllkBmso
+ohmck343434kBmso
+ohmckkkkkkkkBmso
+ohmbBBBBBBBBBmso
+ohrmmmmmmmmmmrso
+olssssssssssssso
+oooooooooooooooo
