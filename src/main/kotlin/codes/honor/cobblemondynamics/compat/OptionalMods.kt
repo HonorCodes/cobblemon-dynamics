@@ -37,7 +37,7 @@ object OptionalMods {
         OptionalMod("createaddition", listOf("com/mrh0/createaddition/"), listOf("liquid_burner")),
         // Its hook finds the crank wheels' block entity type by id, so no source names its classes (CD-KIN-05).
         OptionalMod("create_connected", listOf("com/hlysine/create_connected/"), listOf("crank_wheel")),
-        OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/")),
+        OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/"), listOf("muse_infuser")),
         OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/"), listOf("alchemist_cauldron")),
         OptionalMod("easymagic", listOf("fuzs/easymagic/"), listOf("muse_table")),
         OptionalMod("enchantinginfuser", listOf("fuzs/enchantinginfuser/"), listOf("muse_infusers")),

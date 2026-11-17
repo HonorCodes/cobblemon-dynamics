@@ -7,6 +7,7 @@ import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.engine.guarded
 import com.google.gson.JsonObject
 import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.enchantment.ItemEnchantments
@@ -32,6 +33,7 @@ object MuseBonus {
     private const val DEFAULT_AT_LEVEL_100 = 15.0
     private const val QUANTA_AT_LEVEL_100 = "quanta_at_level_100"
     private const val DEFAULT_QUANTA_AT_LEVEL_100 = 45.0
+    private val CEI_INFUSER: ResourceLocation = ResourceLocation.fromNamespaceAndPath("create_enchantment_industry", "infuser")
 
     /** Whether Apothic Enchanting is loaded, read once. Outside a game, as in unit tests, there is no mod list, so it reads false. */
     val withApothicEnchanting: Boolean by lazy { ModList.get()?.isLoaded(APOTHIC_ENCHANTING) == true }
@@ -96,9 +98,14 @@ object MuseBonus {
 
     /**
      * CD-FIX-06: with Apothic Enchanting, an infuser counts the Muse's power as Eterna, and the Muse gives only Quanta (CD-MUS-07),
-     * so no infuser is the Muse's target then.
+     * so no infuser is the Muse's target then. CD-MCH-06: CEI's Infuser reads only the stats of Apothic Enchanting, and exists only
+     * with that mod, so it is the Muse's target only then.
      */
-    fun takesStation(station: ResourceLocation, apothicEnchanting: Boolean): Boolean = !(apothicEnchanting && station.namespace == INFUSER)
+    fun takesStation(station: ResourceLocation, apothicEnchanting: Boolean): Boolean = when {
+        station.namespace == INFUSER -> !apothicEnchanting
+        station == CEI_INFUSER -> apothicEnchanting
+        else -> true
+    }
 
     /** The bookshelves of the Muse that Works at [table], 0 when none does or with Apothic Enchanting. The menu mixin calls this. */
     @JvmStatic
@@ -108,16 +115,30 @@ object MuseBonus {
     @JvmStatic
     fun quantaOf(level: LevelReader, table: BlockPos): Float = at(level, table).quanta
 
-    /** The engine lives on the server thread, so a client level or another thread gets no bonus. */
+    /**
+     * The bonus of the Muse that Works at [table], or at a station above it whose mod gathers its stats there, such as CEI's Infuser
+     * (CD-MCH-06). The engine lives on the server thread, so a client level or another thread gets no bonus.
+     */
     private fun at(level: LevelReader, table: BlockPos): Bonus = guarded(EnchantingHandler, NONE) {
         val server = level as? ServerLevel ?: return@guarded NONE
         if (!server.server.isSameThread) return@guarded NONE
         val engine = WorkEngine.get() ?: return@guarded NONE
-        val claim = engine.claims.holderOf(TargetKey.block(server.dimension().location(), table))
-        if (claim?.kind != ClaimKind.WORK || engine.worker(claim.worker)?.status != WorkerStatus.WORKING) return@guarded NONE
-        val role = engine.roleOf(claim.worker)?.takeIf { it.handler === EnchantingHandler } ?: return@guarded NONE
-        val pokemon = engine.pokemonOf(claim.worker) ?: return@guarded NONE
-        bonus(pokemon.level, role.definition.params, withApothicEnchanting)
+        workingAt(server, engine, table)
+            ?: MuseStations.above(table).firstNotNullOfOrNull { station ->
+                workingAt(server, engine, station)?.takeIf {
+                    MuseStations.gathersBelow(BuiltInRegistries.BLOCK.getKey(server.getBlockState(station).block), station.y - table.y)
+                }
+            }
+            ?: NONE
+    }
+
+    /** The bonus of the Muse whose work claim holds [pos] while it Works, or null. */
+    private fun workingAt(server: ServerLevel, engine: WorkEngine, pos: BlockPos): Bonus? {
+        val claim = engine.claims.holderOf(TargetKey.block(server.dimension().location(), pos))
+        if (claim?.kind != ClaimKind.WORK || engine.worker(claim.worker)?.status != WorkerStatus.WORKING) return null
+        val role = engine.roleOf(claim.worker)?.takeIf { it.handler === EnchantingHandler } ?: return null
+        val pokemon = engine.pokemonOf(claim.worker) ?: return null
+        return bonus(pokemon.level, role.definition.params, withApothicEnchanting)
     }
 
     private fun number(params: JsonObject, key: String): Double? =

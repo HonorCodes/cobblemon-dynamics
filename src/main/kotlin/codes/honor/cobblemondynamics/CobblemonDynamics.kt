@@ -15,6 +15,7 @@ import codes.honor.cobblemondynamics.compat.botanypots.BotanyPotsCompat
 import codes.honor.cobblemondynamics.compat.cobblemon_incubator.CobblemonIncubatorCompat
 import codes.honor.cobblemondynamics.compat.cookingforblockheads.CookingForBlockheadsCompat
 import codes.honor.cobblemondynamics.compat.create_connected.CreateConnectedCompat
+import codes.honor.cobblemondynamics.compat.create_enchantment_industry.CeiCompat
 import codes.honor.cobblemondynamics.compat.createaddition.CreateAdditionCompat
 import codes.honor.cobblemondynamics.compat.dynamictrees.DynamicTreesCompat
 import codes.honor.cobblemondynamics.compat.easymagic.EasyMagicCompat
@@ -150,6 +151,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("pneumaticcraft")) PncCompat.register(modBus)
         if (ModList.get().isLoaded("botanypots")) BotanyPotsCompat.register()
         if (ModList.get().isLoaded("irons_spellbooks")) IronsSpellbooksCompat.register(modBus)
+        if (ModList.get().isLoaded("create_enchantment_industry")) CeiCompat.register()
         // CD-FUEL-07 to CD-FUEL-12: the Stoker on the furnaces of other mods, each handler only with its mod.
         if (ModList.get().isLoaded("ironfurnaces")) IronFurnacesCompat.register()
         if (ModList.get().isLoaded("cookingforblockheads")) CookingForBlockheadsCompat.register()

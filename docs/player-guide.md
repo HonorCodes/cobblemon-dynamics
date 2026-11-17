@@ -894,6 +894,12 @@ A level 100 Muse takes a table without Quanta shelves from 15% to 60% Quanta. Th
 | 75 | 12 | 34 |
 | 100 | 15 | 45 |
 
+With Create: Enchantment Industry and Apothic Enchanting installed, a Muse with a Work Leash binding also
+works CEI's Infuser while the Infuser stands over its basin. It adds its Quanta to the stats that the Infuser
+reads from the bookshelves around the block below it. The Infuser reads them only while it is idle, every
+10 seconds, and an infusion keeps the stats that it started with. More Quanta can take a recipe out of its
+range, so bind a Muse only to an Infuser whose recipes want them.
+
 Fairy-types heal by default, so the Muse needs a binding or a Quick Work order. A Muse follows the worker
 rule of Work Stamina and heals no ally.
 
