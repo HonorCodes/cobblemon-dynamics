@@ -100,6 +100,16 @@ class LoadLinesTest {
     }
 
     @Test
+    fun `CD-OPT-04 a role file that a condition other than an absent mod skipped reads conditions`() {
+        val skipped = mapOf(id("heater_mekanism") to listOf("mekanism"), id("stoker_without_create") to emptyList())
+        assertEquals(
+            "Roles not loaded, their mods are absent: 2 [cobblemon_dynamics:heater_mekanism (mekanism), " +
+                "cobblemon_dynamics:stoker_without_create (conditions)]",
+            LoadLines.skippedRoles(skipped),
+        )
+    }
+
+    @Test
     fun `CD-OPT-11 the compat line names each adapter as found, or missing with what is missing`() {
         val ie = OptionalMod("immersiveengineering", listOf("blusunrize/"), listOf("ie_windmill", "ie_furnace", "ie_watermill"))
         val windmill = "compat.immersiveengineering.WindmillMixin"

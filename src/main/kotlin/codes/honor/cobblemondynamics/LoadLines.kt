@@ -4,6 +4,8 @@ import net.minecraft.resources.ResourceLocation
 
 /** The INFO lines at load, which a pack maintainer reads in the server log (CD-CMP-08 to CD-CMP-10, R65). */
 object LoadLines {
+    private const val OTHER_CONDITIONS = "conditions"
+
     enum class MixinStatus { APPLIED, SKIPPED, NO_INJECTION, NOT_APPLIED_YET }
 
     data class MixinEntry(val name: String, val status: MixinStatus, val reason: String? = null)
@@ -59,10 +61,13 @@ object LoadLines {
         return "Farming: $role $total blocks [$counts], no adapter [${unadapted.sortedBy { it.toString() }.joinToString(", ")}]"
     }
 
-    /** CD-OPT-04: each role file that its conditions skipped, with the mods that it needs, in id order. */
+    /**
+     * CD-OPT-04: each role file that its conditions skipped, in id order, with the absent mods that it needs, or `conditions` for a
+     * file that another condition skipped.
+     */
     fun skippedRoles(skipped: Map<ResourceLocation, List<String>>): String {
         val names = skipped.entries.sortedBy { it.key.toString() }.joinToString(", ") { (id, mods) ->
-            if (mods.isEmpty()) id.toString() else "$id (${mods.joinToString(", ")})"
+            "$id (${if (mods.isEmpty()) OTHER_CONDITIONS else mods.joinToString(", ")})"
         }
         return "Roles not loaded, their mods are absent: ${skipped.size} [$names]"
     }

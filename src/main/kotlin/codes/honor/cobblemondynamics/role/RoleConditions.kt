@@ -24,7 +24,14 @@ object RoleConditions {
     fun pass(json: JsonElement, ops: DynamicOps<JsonElement>): Boolean =
         !(json is JsonObject && json.has(KEY)) || ICondition.conditionsMatched(ops, json)
 
-    /** CD-OPT-04: the mod ids of the `neoforge:mod_loaded` conditions of [json], in their order, for the line of the skipped files. */
+    /**
+     * CD-OPT-04: the mods that a skipped file needs, which the line of the skipped files names: the mod ids of its top-level
+     * `neoforge:mod_loaded` conditions that [loaded] reports absent, in their order. Empty for a file that another condition skipped,
+     * such as `neoforge:not` or `neoforge:or`, so the line never blames a mod that is installed.
+     */
+    fun absentMods(json: JsonElement, loaded: (String) -> Boolean): List<String> = mods(json).filterNot(loaded)
+
+    /** CD-OPT-03, CD-OPT-12: the mod ids of the top-level `neoforge:mod_loaded` conditions of [json], in their order. */
     fun mods(json: JsonElement): List<String> {
         val conditions = (json as? JsonObject)?.get(KEY) as? JsonArray ?: return emptyList()
         return conditions.mapNotNull { condition ->

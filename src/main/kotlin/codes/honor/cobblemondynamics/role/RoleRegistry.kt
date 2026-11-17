@@ -25,7 +25,7 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
     private var parsed: Map<ResourceLocation, RoleDefinition> = emptyMap()
     private val disabledHandlers = DisabledHandlers()
 
-    // CD-OPT-04: the files of the last load that their conditions skipped, with the mods that they need.
+    // CD-OPT-04: the files of the last load that their conditions skipped, with the absent mods that they need.
     private var skipped: Map<ResourceLocation, List<String>> = emptyMap()
 
     // CD-OPT-09: the targets inside shared handlers whose mixin did not apply.
@@ -44,14 +44,19 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
 
     override fun apply(entries: Map<ResourceLocation, JsonElement>, resourceManager: ResourceManager, profiler: ProfilerFiller) {
         val ops = makeConditionalOps()
-        load(entries) { RoleConditions.pass(it, ops) }
+        load(entries, passes = { RoleConditions.pass(it, ops) })
     }
 
     /**
      * CD-OPT-02: tests the conditions of each file before it parses the file. A file whose conditions fail is neither loaded nor
-     * disabled, and the line of CD-OPT-04 names it. Unit tests pass [passes] in place of NeoForge's conditions.
+     * disabled, and the line of CD-OPT-04 names it with the mods that [loaded] reports absent. Unit tests pass [passes] in place of
+     * NeoForge's conditions, and [loaded] in place of the mod list, which they lack.
      */
-    internal fun load(entries: Map<ResourceLocation, JsonElement>, passes: (JsonElement) -> Boolean) {
+    internal fun load(
+        entries: Map<ResourceLocation, JsonElement>,
+        passes: (JsonElement) -> Boolean,
+        loaded: (String) -> Boolean = ::modLoaded,
+    ) {
         val roles = HashMap<ResourceLocation, RoleDefinition>()
         val skipped = TreeMap<ResourceLocation, List<String>>()
         for ((id, json) in entries) {
@@ -62,7 +67,7 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
                 continue
             }
             if (!pass) {
-                skipped[id] = RoleConditions.mods(json)
+                skipped[id] = RoleConditions.absentMods(json, loaded)
                 continue
             }
             val result = RoleCodec.parse(id, json)
