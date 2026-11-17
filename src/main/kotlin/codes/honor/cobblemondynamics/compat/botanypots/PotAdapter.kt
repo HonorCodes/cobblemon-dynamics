@@ -24,9 +24,19 @@ object PotAdapter {
     /** Whether [blockEntity] is a Botany Pot, by its type's id, with no class of Botany Pots. */
     fun isPot(blockEntity: BlockEntity): Boolean = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(blockEntity.type) == POT
 
+    /**
+     * The facts of a pot, with the crop's required ticks computed once. `canHarvest()` computes them again, so this reads the harvest
+     * as it does, in its order: the soil and the crop, the growth against the required ticks, and the crop's own `canHarvest`.
+     */
     fun facts(blockEntity: BlockEntity): PotFacts? {
         val pot = blockEntity as? BotanyPotBlockEntity ?: return null
-        return PotFacts(pot.potType.name, pot.canBonemeal(), pot.canHarvest(), pot.growthTime(), pot.requiredGrowthTicks)
+        val level = pot.level ?: return null
+        val soil = pot.orInvalidateSoil
+        val crop = pot.orInvalidateCrop
+        val required = pot.requiredGrowthTicks
+        val growth = pot.growthTime()
+        val canHarvest = soil != null && crop != null && growth >= required && crop.canHarvest(pot.recipeContext, level)
+        return PotFacts(pot.potType.name, pot.canBonemeal(), canHarvest, growth, required)
     }
 
     /** CD-FRM-04: the growth of one use and the bone meal cooldown after it, as Botany Pots' own bone meal sets them. */
