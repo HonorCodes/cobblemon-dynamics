@@ -787,17 +787,23 @@ CROP_FAMILIES = (
     ("aether: berry_bush", 1, None, "break_and_replant"),
     ("deep_aether: squash_stem", 1, "growth", "never"),
     ("deep_aether: attached_squash_stem", 1, None, "gourd"),
+    ("deep_aether: golden_vines, golden_vines_plant (ADR-0020)", 2, "growth", "cave_vines_tag"),
     # Oh The Biomes We've Gone 2.6.3
     ("biomeswevegone: pale_pumpkin_stem", 1, "growth", "never"),
     ("biomeswevegone: attached_pale_pumpkin_stem", 1, None, "gourd"),
     ("biomeswevegone: blueberry_bush, oddion_crop", 2, "growth", "pick_to_age_1"),
+    ("biomeswevegone: apple_fruit, green_apple_fruit, baobab_fruit, yucca_fruit, soul_fruit (ADR-0020)", 5, "growth",
+     "pick_to_age_0"),
+    ("biomeswevegone: white_puffball (ADR-0020)", 1, "growth", "pick_to_age_1"),
     # The Undergarden 0.9.6
     ("undergarden: underbean_bush, blisterberry_bush", 2, "growth", "pick_to_age_1"),
     ("undergarden: gloomgourd_stem", 1, "growth", "never"),
     ("undergarden: gloomgourd_stem_attached", 1, None, "gourd"),
+    ("undergarden: ditchbulb_plant (ADR-0020)", 1, "growth", "pick_to_age_0"),
     # Ars Nouveau 5.13.5 and Occultism 1.227.0
     ("ars_nouveau: magebloom_crop", 1, "growth", "crop"),
     ("ars_nouveau: sourceberry_bush", 1, "growth", "pick_to_age_1"),
+    ("ars_nouveau: bastion_pod, bombegranate_pod, frostaya_pod, mendosteen_pod (ADR-0020)", 4, "growth", "break_and_replant"),
     ("occultism: datura", 1, "growth", "crop"),
     # Regions Unexplored 0.6.3
     ("regions_unexplored: salmonberry_bush", 1, "growth", "pick_to_age_1"),

@@ -1,0 +1,106 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:ender_chest",
+    {
+      "id": "lootr:lootr_chest",
+      "required": false
+    },
+    {
+      "id": "lootr:lootr_trapped_chest",
+      "required": false
+    },
+    {
+      "id": "lootr:lootr_barrel",
+      "required": false
+    },
+    {
+      "id": "lootr:lootr_shulker",
+      "required": false
+    },
+    {
+      "id": "lootr:lootr_inventory",
+      "required": false
+    },
+    {
+      "id": "lootr:decorated_pot",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:steed_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:dialga_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:entei_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:giratina_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:heatran_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:ho_oh_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:hoopa_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:kyurem_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:latias_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:lugia_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:mew_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:palkia_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:raikou_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:reshiram_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:suicune_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:zacian_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:zamazenta_pedestal",
+      "required": false
+    },
+    {
+      "id": "legendarymonuments:zekrom_pedestal",
+      "required": false
+    }
+  ]
+}

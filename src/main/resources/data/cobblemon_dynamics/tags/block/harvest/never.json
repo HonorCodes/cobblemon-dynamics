@@ -29,6 +29,18 @@
     {
       "id": "undergarden:gloomgourd_stem",
       "required": false
+    },
+    {
+      "id": "allthemodium:ancient_cavevines_plant",
+      "required": false
+    },
+    {
+      "id": "ars_elemental:source_vines",
+      "required": false
+    },
+    {
+      "id": "ars_elemental:source_vines_plant",
+      "required": false
     }
   ]
 }

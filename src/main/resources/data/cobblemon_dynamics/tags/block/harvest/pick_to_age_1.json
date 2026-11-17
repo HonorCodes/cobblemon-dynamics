@@ -30,6 +30,14 @@
     {
       "id": "regions_unexplored:salmonberry_bush",
       "required": false
+    },
+    {
+      "id": "mega_showdown:max_mushroom",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:white_puffball",
+      "required": false
     }
   ]
 }

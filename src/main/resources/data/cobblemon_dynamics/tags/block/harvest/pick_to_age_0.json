@@ -212,6 +212,30 @@
     {
       "id": "pamhc2trees:pampinenut",
       "required": false
+    },
+    {
+      "id": "biomeswevegone:apple_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:green_apple_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:baobab_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:yucca_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:soul_fruit",
+      "required": false
+    },
+    {
+      "id": "undergarden:ditchbulb_plant",
+      "required": false
     }
   ]
 }

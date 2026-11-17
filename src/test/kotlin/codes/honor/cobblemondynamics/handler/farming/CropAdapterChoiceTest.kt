@@ -68,6 +68,32 @@ class CropAdapterChoiceTest {
         assertEquals(HarvestKind.PICK_TO_AGE_0, CropAdapters.harvestKind(pickAndHalf))
     }
 
+    /** The cave-vine look-alikes of ADR-0020 have the vanilla `berries` property but no `CaveVines` class (RES11). */
+    @Test
+    fun `CD-FRM-02 a block with a berries property in the cave-vines tag gets the cave-vines adapter, also in break_and_replant`() {
+        val vines = CropFacts(bonemealable = true, berries = true, adapterTags = setOf(HarvestKind.CAVE_VINES_TAG))
+        assertEquals(HarvestKind.CAVE_VINES_TAG, CropAdapters.harvestKind(vines))
+        val replanted = vines.copy(adapterTags = setOf(HarvestKind.BREAK_AND_REPLANT, HarvestKind.CAVE_VINES_TAG))
+        assertEquals(HarvestKind.CAVE_VINES_TAG, CropAdapters.harvestKind(replanted), "break_and_replant came first")
+        val halved = vines.copy(adapterTags = setOf(HarvestKind.UPPER_HALF, HarvestKind.CAVE_VINES_TAG))
+        assertEquals(HarvestKind.UPPER_HALF, CropAdapters.harvestKind(halved), "the cave-vines tag came before upper_half")
+        assertEquals("harvest/cave_vines", HarvestKind.CAVE_VINES_TAG.tag)
+        assertEquals(
+            listOf(HarvestKind.UPPER_HALF, HarvestKind.CAVE_VINES_TAG, HarvestKind.BREAK_AND_REPLANT),
+            HarvestKind.entries.filter { it in setOf(HarvestKind.UPPER_HALF, HarvestKind.CAVE_VINES_TAG, HarvestKind.BREAK_AND_REPLANT) },
+        )
+        // The adapter of vanilla's cave vines: grown while the berries hang, and a pick takes them.
+        assertTrue(CropRules.isFullyGrown(HarvestKind.CAVE_VINES_TAG, vines))
+        assertFalse(CropRules.isFullyGrown(HarvestKind.CAVE_VINES_TAG, vines.copy(berries = false)))
+        val berries = listOf(Drop(ResourceLocation.parse("deep_aether:goldenleaf_berries"), 1))
+        val plan = HarvestPlans.plan(HarvestKind.CAVE_VINES_TAG, berries, emptySet(), emptyMap()) { true }
+        assertEquals(HarvestPlan(berries, CellChange.ClearBerries), plan)
+        assertEquals(HarvestPlans.plan(HarvestKind.CAVE_VINES, berries, emptySet(), emptyMap()) { true }, plan)
+        assertFalse(CropRules.cultivatorDemand(true, HarvestKind.CAVE_VINES_TAG, vines), "the Cultivator grows berries that hang")
+        assertTrue(CropRules.cultivatorDemand(true, HarvestKind.CAVE_VINES_TAG, vines.copy(berries = false)))
+        assertEquals("cave_vines_tag", CropAdapters.harvestAdapterName(vines), "CD-CRP-05: the farming line's name of the kind")
+    }
+
     @Test
     fun `CD-CRP-03 the class adapters`() {
         val berryTree = CropFacts(berryTree = true, bonemealable = true, age = 5, ageMax = 5)

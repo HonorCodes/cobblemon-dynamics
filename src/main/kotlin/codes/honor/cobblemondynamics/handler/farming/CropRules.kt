@@ -12,7 +12,7 @@ object CropRules {
         HarvestKind.UPPER_HALF -> f.age != null && f.age == f.ageMax && f.upperPresent
         HarvestKind.BREAK_AND_REPLANT -> f.age == null || f.age == f.ageMax
         HarvestKind.BERRY_TREE -> f.age != null && f.age == f.ageMax
-        HarvestKind.CAVE_VINES -> f.berries
+        HarvestKind.CAVE_VINES, HarvestKind.CAVE_VINES_TAG -> f.berries
         HarvestKind.GOURD -> true
         HarvestKind.CROP -> f.cropMaxAge
         HarvestKind.PICK_BY_LOOT_TABLE -> f.age != null && f.age == f.ageMax

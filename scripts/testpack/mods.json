@@ -372,17 +372,18 @@
   },
   "crops_expected": {
     "cultivator": {
-      "growth": 270
+      "growth": 283
     },
     "harvester": {
       "berry_tree": 70,
-      "break_and_replant": 3,
+      "break_and_replant": 7,
       "cave_vines": 2,
+      "cave_vines_tag": 2,
       "crop": 121,
       "gourd": 5,
       "never": 10,
-      "pick_to_age_0": 53,
-      "pick_to_age_1": 9,
+      "pick_to_age_0": 59,
+      "pick_to_age_1": 10,
       "upper_half": 2
     }
   }
