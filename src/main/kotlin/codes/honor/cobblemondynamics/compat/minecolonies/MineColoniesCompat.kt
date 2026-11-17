@@ -61,12 +61,16 @@ object MineColoniesCompat {
         return ColonyBreak.allows(ColonyBreak.Facts(protection, colony != null, colony?.let { rankBreaks(it.permissions) } ?: true))
     }
 
-    private val ACTIONS = mapOf(
-        ColonyRightClick.Need.ACCESS_HUTS to Action.ACCESS_HUTS,
-        ColonyRightClick.Need.ACCESS_TOGGLEABLES to Action.ACCESS_TOGGLEABLES,
-        ColonyRightClick.Need.RIGHTCLICK_BLOCK to Action.RIGHTCLICK_BLOCK,
-        ColonyRightClick.Need.OPEN_CONTAINER to Action.OPEN_CONTAINER,
-    )
+    /**
+     * MineColonies' action for each need. It reads MineColonies' constants only when a check asks, inside the guard of [LandClaims],
+     * never while the mod's constructor loads this class, so a later MineColonies that renames one fails the check and not the game.
+     */
+    private fun actionOf(need: ColonyRightClick.Need): Action = when (need) {
+        ColonyRightClick.Need.ACCESS_HUTS -> Action.ACCESS_HUTS
+        ColonyRightClick.Need.ACCESS_TOGGLEABLES -> Action.ACCESS_TOGGLEABLES
+        ColonyRightClick.Need.RIGHTCLICK_BLOCK -> Action.RIGHTCLICK_BLOCK
+        ColonyRightClick.Need.OPEN_CONTAINER -> Action.OPEN_CONTAINER
+    }
 
     /** The colony whose land holds [pos], as its event handler decides. `getColonyByPosFromWorld` loads the chunk, so callers ask isLoaded first. */
     private fun colonyAt(level: ServerLevel, pos: BlockPos): IColony? =
@@ -89,7 +93,7 @@ object MineColoniesCompat {
             container = hasItemHandler(level, pos, state),
         )
         val protection = IMinecoloniesAPI.getInstance().config.server.enableColonyProtection.get()
-        return ColonyRightClick.allows(block, protection, hostile(permissions)) { has(permissions, ACTIONS.getValue(it)) }
+        return ColonyRightClick.allows(block, protection, hostile(permissions)) { has(permissions, actionOf(it)) }
     }
 
     /** As the event handler asks: with no side, then with each side. */
