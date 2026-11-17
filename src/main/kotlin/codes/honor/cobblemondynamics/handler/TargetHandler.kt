@@ -82,7 +82,7 @@ interface TargetHandler {
     /**
      * Whether the context's worker has reached its [WorkContext.spot] although the engine's own rule (CD-ASG-11) says that it has not.
      * The engine asks only on a Traveling tick of such a worker, and puts an arrived worker on its spot, as after every arrival.
-     * Tailwind accepts a worker that stands on its own windmill's sails over the spot (CD-TLW-11).
+     * Tailwind accepts a worker that stands anywhere on its own windmill's sails, at or above the spot's height (CD-TLW-11).
      */
     fun acceptsArrival(ctx: WorkContext): Boolean = false
 

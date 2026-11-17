@@ -1,6 +1,5 @@
 package codes.honor.cobblemondynamics.handler.create
 
-import codes.honor.cobblemondynamics.engine.Arrival
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
@@ -34,14 +33,14 @@ object TailwindHandler : TargetHandler {
     }
 
     /**
-     * CD-TLW-11: a worker that stands on this windmill's own sails over its spot has arrived. The pathfinder does not see the sails,
-     * so a worker that flies in can land on them and never reach the spot below. Create lists an entity that lands on a contraption
-     * until 3 ticks after its last contact.
+     * CD-TLW-11: a worker that stands anywhere on this windmill's own sails, above its spot, has arrived. The pathfinder does not see
+     * the sails, so a worker that flies in can land on them, and on them its path holds it at nodes that need not lie over its spot.
+     * Create lists an entity that lands on a contraption until 3 ticks after its last contact.
      */
     override fun acceptsArrival(ctx: WorkContext): Boolean {
         val spot = ctx.spot ?: return false
         val worker = ctx.worker
-        if (!Arrival.isOver(worker.x, worker.y, worker.z, worker.bbWidth.toDouble(), spot)) return false
+        if (worker.y < spot.y) return false
         return bearingAt(ctx)?.movedContraption?.collidingEntities?.containsKey(worker) == true
     }
 

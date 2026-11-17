@@ -37,26 +37,4 @@ class ArrivalTest {
         assertFalse(Arrival.isAt(6.5, 3.5, 10.5, 0.6, spot))
         assertFalse(Arrival.isAt(6.5, 0.5, 10.5, 0.6, spot))
     }
-
-    /** A Pidgey that stands on the sails of a windmill that faces up is 1.63 blocks above its spot, too high for [Arrival.isAt]. */
-    @Test
-    fun `CD-TLW-11 a worker at any height above the spot, within the reach of isAt on x and z, is over it`() {
-        assertFalse(Arrival.isAt(6.5, 3.63, 10.5, 0.6, spot))
-        assertTrue(Arrival.isOver(6.5, 3.63, 10.5, 0.6, spot))
-        assertTrue(Arrival.isOver(7.2, 40.0, 10.5, 0.6, spot))
-        assertFalse(Arrival.isOver(7.3, 3.63, 10.5, 0.6, spot))
-        assertFalse(Arrival.isOver(6.5, 3.63, 9.7, 0.6, spot))
-    }
-
-    @Test
-    fun `CD-TLW-11 a worker 1 to 2 blocks wide is over the spot where navigation stops it`() {
-        assertTrue(Arrival.isOver(7.5, 3.63, 11.5, 1.1, spot))
-        assertFalse(Arrival.isOver(7.9, 3.63, 11.0, 1.1, spot))
-    }
-
-    @Test
-    fun `CD-TLW-11 a worker below the spot's floor is not over it`() {
-        assertTrue(Arrival.isOver(6.5, 2.0, 10.5, 0.6, spot))
-        assertFalse(Arrival.isOver(6.5, 1.9, 10.5, 0.6, spot))
-    }
 }

@@ -1006,8 +1006,8 @@ assemble.
 
 The worker stands beside or behind the bearing, never where the sails turn. Under a windmill that faces up,
 the worker needs room below the sails, so assemble the windmill before you bind. A worker waits in Standby
-while the windmill is not assembled. A worker that lands on the turning sails right above its work spot drops
-to that spot and starts to work.
+while the windmill is not assembled. A worker that lands anywhere on the turning sails drops down to its work
+spot and starts to work.
 
 **Role file parameters:** `bonus_per_level_of_real_sails` (0.01) and `max_total_sails` (128).
 

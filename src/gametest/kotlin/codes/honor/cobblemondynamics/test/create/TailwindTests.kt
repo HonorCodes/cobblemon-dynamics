@@ -113,12 +113,14 @@ class TailwindTests {
     }
 
     /**
-     * A Pidgey that stands on the turning sails over a work spot when its claim starts has arrived: the engine puts it on the spot, and
-     * it Works (CD-TLW-11). The pathfinder does not see the sails, so the Pidgey would never reach the spot below them. It stands over
-     * the cell east of the bearing, which is the spot nearest to it, and its wander pauses until the claim, as a held worker's does.
+     * A Pidgey that stands on the turning sails when its claim starts has arrived, wherever on the sails it stands: the engine puts it
+     * on its spot, and it Works (CD-TLW-11). The pathfinder does not see the sails, so the Pidgey would never reach the spot below
+     * them. It stands over the cell 2 blocks east of the bearing, so its spot, the cell east of the bearing, which is the spot beside
+     * the bearing nearest to it, is 1 block away, beyond the arrival's horizontal reach. Its wander pauses until the claim, as a held
+     * worker's does.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
-    fun cdTlw11AWorkerOnItsSailsOverItsSpotArrives(helper: GameTestHelper) {
+    fun cdTlw11AWorkerOnItsSailsOverAnotherCellArrives(helper: GameTestHelper) {
         val bearing = CreateKit.windmill(helper, bearingRel, sails = 64)
         val scene = scene(helper)
         val pidgey = TestKit.tether(helper, scene.pasture, scene.owner, "pidgey level=50")
@@ -131,7 +133,7 @@ class TailwindTests {
             .thenExecute { bearing.assemble() }
             .thenIdle(1)
             .thenExecute {
-                val top = helper.absoluteVec(Vec3(east.x + 0.5, east.y + 1.7, east.z + 0.5))
+                val top = helper.absoluteVec(Vec3(east.x + 1.5, east.y + 1.7, east.z + 0.5))
                 pidgey.teleportTo(top.x, top.y, top.z)
                 BrainBridge.pauseWander(pidgey, 40)
             }

@@ -17,16 +17,9 @@ object Arrival {
     /** How far from the spot's lowest corner, on x and z, navigation stops a mob [bbWidth] blocks wide. */
     fun stopOffset(bbWidth: Double): Double = (bbWidth + 1.0).toInt() * 0.5
 
-    fun isAt(x: Double, y: Double, z: Double, bbWidth: Double, spot: BlockPos): Boolean =
-        isWithinReach(x, z, bbWidth, spot) && abs(y - spot.y) < MAX_DY
-
-    /** Within the reach of [isAt] on x and z, at the spot's floor or at any height above it (CD-TLW-11). */
-    fun isOver(x: Double, y: Double, z: Double, bbWidth: Double, spot: BlockPos): Boolean =
-        isWithinReach(x, z, bbWidth, spot) && y >= spot.y
-
-    private fun isWithinReach(x: Double, z: Double, bbWidth: Double, spot: BlockPos): Boolean {
+    fun isAt(x: Double, y: Double, z: Double, bbWidth: Double, spot: BlockPos): Boolean {
         val stop = stopOffset(bbWidth)
         val reach = max(MIN_REACH, bbWidth / 2.0)
-        return abs(x - (spot.x + stop)) <= reach && abs(z - (spot.z + stop)) <= reach
+        return abs(x - (spot.x + stop)) <= reach && abs(z - (spot.z + stop)) <= reach && abs(y - spot.y) < MAX_DY
     }
 }
