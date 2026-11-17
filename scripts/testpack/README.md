@@ -140,8 +140,10 @@ and `:` on Linux. The script copies each jar from the first folder that holds it
 
 The case passes when these checks pass:
 
-- Each mod of `COMPAT_ADAPTERS` in `testpack.py` is installed and logs one compat line, which names each of its adapters
-  as found (CD-OPT-11). `TestpackModsCaseTest` keeps that table equal to `compat/OptionalMods.kt`.
+- Each mod of `COMPAT_ADAPTERS` in `testpack.py`, the mods with a compat package, is installed and logs one compat line,
+  which names each of its adapters as found (CD-OPT-11). A mod that tags and data maps alone support logs no line (R92),
+  so a compat line for a mod outside the table fails the case. `TestpackModsCaseTest` keeps that table equal to the mods
+  of `compat/OptionalMods.kt` that log a line.
 - The roles line names each role file of the built jar as loaded and active, with none disabled (CD-CMP-10), and the
   line of the skipped role files reads `Roles not loaded, their mods are absent: 0 []` (CD-OPT-04).
 - The mixins line names each mixin of the jar's config as applied, except the 4 Cobblebase mixins, which skip because

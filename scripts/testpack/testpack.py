@@ -870,8 +870,8 @@ def scenario_crops(server: Server) -> None:
 # TESTPACK_LOCAL_JARS hold, with their libraries: the "optional" pins of mods.json. Each is the file of COHO pack 2.7.0 where the
 # pack has the mod, and the 1.2 plan's pin otherwise. Its kotlinforforge pin replaces the pinned 5.10.0 with the pack's 5.13.0.
 MODS_BOOT_TIMEOUT = 900
-# CD-OPT-11: the adapters of each mod of compat/OptionalMods.kt, which logs one compat line for each of these mods that is loaded,
-# with an empty list for a mod that works through tags and data maps alone. TestpackModsCaseTest keeps the two in step.
+# CD-OPT-11 (R92): the adapters of each mod of compat/OptionalMods.kt that has a compat package, which logs one compat line for each
+# of these mods that is loaded. A mod that tags and data maps alone support logs no line. TestpackModsCaseTest keeps the two in step.
 COMPAT_ADAPTERS = {
     "immersiveengineering": ("ie_furnace", "ie_watermill", "ie_windmill"),
     "mekanism": ("fuelwood_heater", "mekanism_heat"),
@@ -892,19 +892,8 @@ COMPAT_ADAPTERS = {
     "enchantinginfuser": ("muse_infusers",),
     "experiencelib": ("collector_xp",),
     "dynamictrees": ("lumberjack_fell",),
-    "apothic_enchanting": (),
+    "apothic_enchanting": ("muse_quanta",),
     "ae2": ("ae2_crank",),
-    "farmersdelight": (),
-    "aether": (),
-    "deep_aether": (),
-    "biomeswevegone": (),
-    "undergarden": (),
-    "twilightforest": (),
-    "mysticalagriculture": (),
-    "createdieselgenerators": (),
-    "create_new_age": (),
-    "quark": (),
-    "unusualend": (),
 }
 COMPAT_LINE = r"Compat: (\S+) (\S+) \[([^\]]*)\]"
 ROLES_LINE = r"Roles: \d+ loaded, \d+ active, \d+ disabled \["
