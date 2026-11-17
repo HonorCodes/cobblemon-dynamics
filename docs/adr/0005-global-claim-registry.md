@@ -133,3 +133,19 @@ Cultivator claim and one Harvester claim at once. A binding of a farming role re
 own role. A Cultivator and a Harvester, auto-assigned or bound, share a crop, and two workers of one role do not.
 Every other role claims in the null lane, which is the key of 1.0, so nothing else changes. ADR-0015, decision 9, holds the
 rule, and the rows CD-CRP-06 to CD-CRP-08 and CD-CRP-13 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) test it.
+
+## Amendment 3: the Soul Collector, the pots and the sapling cell (2026-11-15)
+
+Status: Accepted (2026-11-15), with [ADR-0017](0017-lumberjack-and-saplings.md),
+[ADR-0018](0018-experience-collector-and-soul-collector.md) and [ADR-0020](0020-machines-and-crops-of-other-mods.md).
+
+1.2 adds no new kind of claim. Three new roles use the kinds of Amendments 1 and 2:
+
+- **The Soul Collector** marks its targets as shared, as the logistics roles do. Its claims on an Experience Collector count
+  toward `logistics.maxWorkersPerContainer` with those of the logistics roles, so up to 5 workers by default work one
+  collector. A collector holds no items, so in practice only Soul Collectors share it. A Soul Collector binding reserves
+  nothing and takes one place at its collector (ADR-0018, decision 14).
+- **The Botany Pots handlers** claim in the farming lanes: the pot Cultivator in the Cultivator's lane, and the pot Harvester
+  in the Harvester's lane. So a pot holds one Cultivator and one Harvester at once, as a crop does (ADR-0020).
+- **The Lumberjack** claims in the null lane, and the Cultivator in its own lane. So a Ground-type that grows a sapling and
+  a bound Bug-type that fells the grown tree share the base cell (ADR-0017, decision 14).

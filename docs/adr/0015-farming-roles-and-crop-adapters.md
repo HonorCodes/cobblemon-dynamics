@@ -394,3 +394,25 @@ Read for decision 7 of the plan, after the coordinator's ruling (R74):
 - **The use question alone for a harvest that breaks a block**, as ruling 6 first gave it. Rejected by R74: FTB Chunks and
   MineColonies decide breaking apart from right-clicks, so a team that lets allies use its blocks but not edit them would
   lose its crops to an ally's Harvester.
+
+## Amendment (2026-11-15, 1.2): the crops of other mods
+
+Status: Accepted (2026-11-15), with [ADR-0020](0020-machines-and-crops-of-other-mods.md) (R80, R81). R89 and R90 of the
+[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) set the growth-only look-alikes.
+
+- **The families of ADR-0020.** The crop table of ADR-0020 adds the families of Mega Showdown, Ars Nouveau and Ars
+  Elemental, the Twilight Forest, Oh The Biomes We've Gone, Allthemodium, Deep Aether, Deeper and Darker, YUNG's Cave
+  Biomes, Unusual End, the Undergarden, Actually Additions and Dynamic Trees. Each entry of another mod in a target tag is
+  optional (CD-FRM-01). Five cave-vine look-alikes are growth only: the Cultivator grows them, and the Harvester never takes
+  them (R90).
+- **Pick by loot table.** The data map `cobblemon_dynamics:harvest_loot` (blocks) gives a block a loot table and the `age`
+  value after a pick. It comes before every adapter tag of decision 3. Such a block is fully grown at its highest `age`. A
+  pick drops that table's loot, rolled with the block's state, and sets `age`, with no block broken. The default file lists
+  the 8 berry bushes and the 4 oreberries of the Twilight Forest, each entry with its own condition on that mod.
+- **The cave-vines tag.** `#cobblemon_dynamics:harvest/cave_vines` gives the cave-vines adapter to a block with a `berries`
+  property that is no `CaveVines`. It comes after `harvest/upper_half` and before `harvest/break_and_replant`.
+- **Growth only where bone meal fails.** The Cultivator never claims a block of `#cobblemon_dynamics:cultivator/never`, whose
+  default holds `#mysticalagriculture:crops`: their bone meal never succeeds (CD-FIX-04).
+
+The adapters still read vanilla classes, block state properties, tags and now the data map, so no crop mod needs a compat
+package. Botany Pots is no crop family: its pots have handlers of their own in `compat/botanypots/` (ADR-0020).

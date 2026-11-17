@@ -202,3 +202,14 @@ Things is in neither source, so the case leaves it out.
 - **A GameTest run for each mod.** Rejected as too heavy for the shared machine. Only the adapters that write private state
   get GameTests, in one run.
 - **CurseForge downloads in the test pack.** Rejected: they need an API key, and some authors forbid third-party downloads.
+
+## Amendment (2026-11-17, Task 23): no compat line for a mod of tags alone
+
+The coordinator's audit of the merged 1.2 code found that the compat line of decision 8 read `[]` for each mod that tags and
+data maps alone support, such as the Aether and the Twilight Forest. Such a mod has no adapter to name. Its tag entries are
+optional and its data map entries carry a condition, so they load with the mod and drop without it. The mods of the table
+that `OptionalMods` does not list logged no line at all.
+
+Now only a mod with a compat package logs a compat line, and each such line names at least one adapter. Apothic Enchanting
+names its stats hook as `muse_quanta`. The mixins line still names each compat mixin, and the farming lines still count the
+tagged crops of each adapter (CD-CRP-05). `CompatLinesTest` holds the rule.

@@ -57,3 +57,19 @@ spare Cobblemon to work in the meantime.
   the blaze-cake chain for superheated burners.
 - **Hard global caps per pasture.** Simple, but it would punish the machine-capped roles that need no
   cap.
+
+## Amendment (2026-11-15, 1.2): machine-capped targets of other mods
+
+1.2 adds three targets of other mods to the machine-capped roles of this rule (ADR-0020, R80). On each, a worker raises the
+machine only up to the machine's own maximum, and never past it (CD-BAL-14):
+
+- **Tailwind on the Mekanism Wind Generator.** A level 100 worker gives the generator's `windGenerationMax`: 480 J/t with
+  Mekanism's default config. A generator that sees no sky gives nothing, with or without a worker.
+- **Tailwind on the Immersive Engineering Windmill.** A level 100 worker turns the windmill as a thunderstorm does. IE's cap
+  of 8 sails stays.
+- **The Wheel Driver on the Immersive Engineering Watermill.** The worker gives the torque of an optimized overshot wheel,
+  and only through the Kinetic Dynamo beside the wheel.
+
+Each other new role and target of 1.2 names its cap and its benchmark in CD-BAL-10 to CD-BAL-16. CD-BAL-17 records the two
+balance flags that the approver accepts: the Seething heat of a level 50 Superheater in PneumaticCraft machines, and the SU
+of a level 100 Generator through the motors of Create: New Age.
