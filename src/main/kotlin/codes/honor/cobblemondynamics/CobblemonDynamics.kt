@@ -11,6 +11,7 @@ import codes.honor.cobblemondynamics.compat.CompatLines
 import codes.honor.cobblemondynamics.compat.ae2.Ae2Compat
 import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
 import codes.honor.cobblemondynamics.compat.ars_nouveau.ArsNouveauCompat
+import codes.honor.cobblemondynamics.compat.botanypots.BotanyPotsCompat
 import codes.honor.cobblemondynamics.compat.cobblemon_incubator.CobblemonIncubatorCompat
 import codes.honor.cobblemondynamics.compat.cookingforblockheads.CookingForBlockheadsCompat
 import codes.honor.cobblemondynamics.compat.create_connected.CreateConnectedCompat
@@ -142,6 +143,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         // Mekanism Generators needs Mekanism, whose classes its compat package also names.
         if (ModList.get().isLoaded("mekanismgenerators")) MekanismGeneratorsCompat.register(modBus)
         if (ModList.get().isLoaded("railcraft")) RailcraftCompat.register()
+        if (ModList.get().isLoaded("pneumaticcraft")) PncCompat.register(modBus)
+        if (ModList.get().isLoaded("botanypots")) BotanyPotsCompat.register()
         // CD-FUEL-07 to CD-FUEL-12: the Stoker on the furnaces of other mods, each handler only with its mod.
         if (ModList.get().isLoaded("ironfurnaces")) IronFurnacesCompat.register()
         if (ModList.get().isLoaded("cookingforblockheads")) CookingForBlockheadsCompat.register()
@@ -152,7 +155,6 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("create_connected")) CreateConnectedCompat.register()
         if (ModList.get().isLoaded("ae2")) Ae2Compat.register()
         if (ModList.get().isLoaded("createaddition")) CreateAdditionCompat.register(modBus)
-        if (ModList.get().isLoaded("pneumaticcraft")) PncCompat.register(modBus)
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.

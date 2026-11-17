@@ -758,6 +758,17 @@ Cultivator stops when the crop is fully grown.
 
 **Role file parameters:** `uses_per_minute_at_level_100` (30) and `stamina_ticks_per_use` (100).
 
+#### Cultivator Botany Pots
+
+**Needs:** Botany Pots. **Assignment:** Auto.
+
+**Target:** any Botany Pots pot with a crop, of any pot type except a waxed pot.
+
+The Cultivator gives the pot the growth of one bone meal on each use, as a player's bone meal does: a random 400
+to 600 ticks, never past 20 ticks before the crop is grown, and then a cooldown of 20 ticks. Its pace and its Work
+Stamina cost are those of the Cultivator on a crop. The pot shows green sparkles with no sound. A pot takes one
+Cultivator and one Harvester at the same time.
+
 ### Harvester
 
 **Types:** Grass. **Level:** any. **Move:** Razor Leaf.
@@ -771,6 +782,17 @@ crop item, leaves the harvest. A bush or a vine keeps its plant, and only its fr
 no sound.
 
 **Role file parameter:** `harvest_ticks` (20).
+
+#### Harvester Botany Pots
+
+**Needs:** Botany Pots. **Assignment:** Auto.
+
+**Target:** a basic Botany Pots pot whose crop is grown. A hopper pot harvests itself, so a Harvester never takes
+one.
+
+The Harvester harvests the pot 20 ticks after it starts work, as a player's click does: the crop's harvest drops
+out of the side of the pot that faces the worker, and the crop starts to grow again. The seed and the soil stay in
+the pot. The harvest makes no sound.
 
 ### Freezer
 

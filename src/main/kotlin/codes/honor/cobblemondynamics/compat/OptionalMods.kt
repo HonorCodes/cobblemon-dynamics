@@ -28,7 +28,7 @@ object OptionalMods {
         OptionalMod("railcraft", listOf("mods/railcraft/"), listOf("railcraft_fuel", "railcraft_firebox")),
         OptionalMod("pneumaticcraft", listOf("me/desht/pneumaticcraft/"), listOf("pnc_compressor", "pnc_heat", "pnc_air")),
         // The classes of Botany Pots extend those of its library Bookshelf, which only Botany Pots' compat package may name.
-        OptionalMod("botanypots", listOf("net/darkhax/botanypots/", "net/darkhax/bookshelf/")),
+        OptionalMod("botanypots", listOf("net/darkhax/botanypots/", "net/darkhax/bookshelf/"), listOf("pot_cultivator", "pot_harvester")),
         OptionalMod("ironfurnaces", listOf("ironfurnaces/"), listOf("iron_furnace")),
         OptionalMod("cookingforblockheads", listOf("net/blay09/mods/cookingforblockheads/"), listOf("cfb_oven")),
         OptionalMod("forbidden_arcanus", listOf("com/stal111/forbidden_arcanus/"), listOf("clibano")),

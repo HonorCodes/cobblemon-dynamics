@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.claim
 
+import codes.honor.cobblemondynamics.compat.botanypots.PotRules
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.handler.xp.SoulCollectorHandler
 import codes.honor.cobblemondynamics.pasture.PastureKey
@@ -228,6 +229,19 @@ class ClaimRegistryTest {
         assertEquals(ClaimResult.Reserved, registry.tryClaim(c, crop("cultivator"), ClaimKind.WORK, pastureA, 0))
         assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(b, crop("harvester"), ClaimKind.WORK, pastureA, 0))
         assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(a, crop("cultivator"), ClaimKind.WORK, pastureA, 0))
+    }
+
+    /** A Botany Pot at 0 64 0, keyed by the lanes of its two pot roles. */
+    private fun pot(lane: String) = TargetKey.block(overworld, BlockPos(0, 64, 0), lane)
+
+    @Test
+    fun `CD-FRM-06 a pot holds one claim of each farming lane`() {
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(a, pot(PotRules.CULTIVATOR_LANE), ClaimKind.WORK, pastureA, 0))
+        assertInstanceOf(ClaimResult.Granted::class.java, registry.tryClaim(b, pot(PotRules.HARVESTER_LANE), ClaimKind.WORK, pastureA, 0))
+        assertEquals(ClaimResult.TargetTaken, registry.tryClaim(c, pot(PotRules.CULTIVATOR_LANE), ClaimKind.WORK, pastureB, 0))
+        assertEquals(ClaimResult.TargetTaken, registry.tryClaim(c, pot(PotRules.HARVESTER_LANE), ClaimKind.WORK, pastureB, 0))
+        assertEquals(a, registry.holderOf(pot(PotRules.CULTIVATOR_LANE))?.worker)
+        assertEquals(b, registry.holderOf(pot(PotRules.HARVESTER_LANE))?.worker)
     }
 
     private companion object {

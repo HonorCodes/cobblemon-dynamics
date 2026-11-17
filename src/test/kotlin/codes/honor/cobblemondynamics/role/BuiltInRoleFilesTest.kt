@@ -64,6 +64,8 @@ class BuiltInRoleFilesTest {
         "stoker_pneumaticcraft" to Row("cobblemon_dynamics:pnc_compressor", setOf("fire"), true, 0, "ember"),
         "heater_pneumaticcraft" to Row("cobblemon_dynamics:pnc_heat", setOf("fire"), false, 0, "ember"),
         "tailwind_pneumaticcraft" to Row("cobblemon_dynamics:pnc_air", setOf("flying"), false, 0, "gust"),
+        "cultivator_botanypots" to Row("cobblemon_dynamics:pot_cultivator", setOf("ground"), true, 0, "mudsport"),
+        "harvester_botanypots" to Row("cobblemon_dynamics:pot_harvester", setOf("grass"), true, 0, "razorleaf"),
         // The Stoker on the furnaces of other mods (Task 15 of the 1.2 plan).
         "stoker_ironfurnaces" to Row("cobblemon_dynamics:iron_furnace", setOf("fire"), true, 0, "ember"),
         "stoker_cookingforblockheads" to Row("cobblemon_dynamics:cfb_oven", setOf("fire"), true, 0, "ember"),
@@ -732,5 +734,22 @@ class BuiltInRoleFilesTest {
         assertEquals(50, role.params.get("air_per_tick_at_level_100")?.asInt)
         assertEquals(listOf("pneumaticcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
         assertEffectOf("tailwind_pneumaticcraft", "tailwind")
+    }
+
+    /** A pot takes the farming roles' own numbers and moves (ADR-0020). */
+    @Test
+    fun `CD-FRM-04 CD-FRM-05 the pot roles are the auto-assign farming roles, and they need Botany Pots`() {
+        for ((name, base) in listOf("cultivator_botanypots" to "cultivator", "harvester_botanypots" to "harvester")) {
+            val file = File(BuiltInRoles.dir, "$name.json")
+            val role = BuiltInRoles.parse(file)
+            val own = BuiltInRoles.parse(base)
+            assertEquals(own.types, role.types, name)
+            assertTrue(role.autoAssign, name)
+            assertEquals(own.params, role.params, name)
+            assertEquals(listOf("botanypots"), RoleConditions.mods(JsonParser.parseString(file.readText())), name)
+            assertEffectOf(name, base)
+        }
+        assertEquals(CultivatorParams(30, 100), CultivatorParams.of(BuiltInRoles.parse("cultivator_botanypots").params))
+        assertEquals(20, HarvestClock.ticksOf(BuiltInRoles.parse("harvester_botanypots").params))
     }
 }
