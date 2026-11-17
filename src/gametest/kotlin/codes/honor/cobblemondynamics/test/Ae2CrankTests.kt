@@ -14,6 +14,7 @@ import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.DirectionProperty
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -43,12 +44,9 @@ class Ae2CrankTests {
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 9), owner)
         TestKit.workMode(pasture, true)
         TestKit.standBeside(owner, pasture)
-        helper.setBlock(chargerRel, TestKit.ae2Block("ae2:charger"))
-        var crank = TestKit.ae2Block("ae2:crank").defaultBlockState()
-        val facing = crank.block.stateDefinition.getProperty("facing") as? DirectionProperty
-            ?: throw GameTestAssertException("the AE2 Crank has no facing property")
-        crank = crank.setValue(facing, Direction.UP)
-        helper.setBlock(crankRel, crank)
+        // A charger takes a turn on every face but its front, so its front faces north, away from the crank on its top.
+        helper.setBlock(chargerRel, facing(TestKit.ae2Block("ae2:charger").defaultBlockState(), Direction.NORTH))
+        helper.setBlock(crankRel, facing(TestKit.ae2Block("ae2:crank").defaultBlockState(), Direction.UP))
         val charger = helper.level.getBlockEntity(helper.absolutePos(chargerRel)) as? ChargerBlockEntity
             ?: throw GameTestAssertException("no AE2 Charger")
         val crystal = ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.parse("ae2:certus_quartz_crystal")))
@@ -69,6 +67,13 @@ class Ae2CrankTests {
             }
             helper.assertTrue(helper.tick - workingSince <= 600, "CD-KIN-06: the crystal is not charged after 600 ticks of work")
         }
+    }
+
+    /** [state] of an AE2 block with its `facing` property set to [direction]. */
+    private fun facing(state: BlockState, direction: Direction): BlockState {
+        val property = state.block.stateDefinition.getProperty("facing") as? DirectionProperty
+            ?: throw GameTestAssertException("${state.block} has no facing property")
+        return state.setValue(property, direction)
     }
 
     private companion object {
