@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.handler.water
 
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkArea
+import codes.honor.cobblemondynamics.fx.WorkFocusEntity
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
@@ -155,12 +156,16 @@ object FreezerHandler : TargetHandler {
 
     /**
      * CD-FRZ-16: an entity in the cell or in the water column under it, such as a swimming player, a diver, a boat or a wild Cobblemon,
-     * which ice would close in. A dropped item and an XP orb do not count.
+     * which ice would close in. A dropped item and an XP orb do not count, and neither does the work focus entity, which the engine
+     * puts at the centre of a Working worker's target for its effect: otherwise no Freezer could freeze its own claimed cell.
      */
     private fun occupied(level: ServerLevel, cell: BlockPos): Boolean {
         val box = FreezeRules.occupantBox(cell) { level.isLoaded(it) && level.getFluidState(it).`is`(FluidTags.WATER) }
-        return level.getEntities(null as Entity?, box) { it !is ItemEntity && it !is ExperienceOrb && !it.isSpectator }.isNotEmpty()
+        return level.getEntities(null as Entity?, box) { holdsWater(it) }.isNotEmpty()
     }
+
+    private fun holdsWater(entity: Entity): Boolean =
+        entity !is ItemEntity && entity !is ExperienceOrb && entity !is WorkFocusEntity && !entity.isSpectator
 
     private fun kindOf(state: BlockState): WaterCell {
         val fluid = state.fluidState
