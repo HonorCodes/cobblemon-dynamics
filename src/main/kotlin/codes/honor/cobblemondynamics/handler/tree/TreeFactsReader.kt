@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.id
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.tags.BlockTags
 import net.minecraft.tags.TagKey
@@ -29,11 +30,15 @@ internal class TreeFactsReader(private val level: ServerLevel) {
         /** A tree with a block of this tag, or next to one, stays (CD-LUM-08). */
         val NEVER: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/never"))
 
-        /** Saplings that never grow alone, which a 2 × 2 trunk replants only as four (CD-LUM-18). */
-        val NEEDS_FOUR: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/needs_four"))
-
         /** Saplings whose grown trees the never tag skips, so a bind on one is refused (CD-LUM-20). */
         val NEVER_SAPLINGS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/never_saplings"))
+
+        /**
+         * The branches of Dynamic Trees, which only that mod fills, so the tag is empty without it (CD-LUM-25). The hook and the
+         * namespace find a branch also after a rename of the tag (R89).
+         */
+        val DYNAMIC_BRANCHES: TagKey<Block> =
+            TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(TreeRules.DYNAMIC_TREES_NAMESPACE, "branches"))
 
         /** It could hold a log of the tree, or one that keeps a leaf (CD-LUM-04). */
         private val UNLOADED = CellFacts(id("unloaded"), anyLog = true, never = true, unloaded = true)
@@ -58,6 +63,7 @@ internal class TreeFactsReader(private val level: ServerLevel) {
                 sapling = state.`is`(BlockTags.SAPLINGS),
                 fluid = state.block is LiquidBlock,
                 neverSapling = state.`is`(NEVER_SAPLINGS),
+                dynamicBranch = state.`is`(DYNAMIC_BRANCHES) || LumberjackHandler.hookedBranch(state),
             )
         }
     }

@@ -26,6 +26,13 @@ class TreeGrid {
     fun leaf(pos: BlockPos, id: String = OAK_LEAVES, persistent: Boolean = false, never: Boolean = false): BlockPos =
         set(pos, CellFacts(rl(id), leaves = true, persistent = persistent, never = never))
 
+    /**
+     * A branch of Dynamic Trees: a log of the target tag through `#minecraft:logs`, and of `#dynamictrees:branches` (CD-LUM-25). With
+     * [dynamicBranch] false, neither that tag nor the hook knows it, as after a rename of the tag (R89).
+     */
+    fun branch(pos: BlockPos, id: String = DT_OAK_BRANCH, dynamicBranch: Boolean = true): BlockPos =
+        set(pos, CellFacts(rl(id), logTarget = true, anyLog = true, dynamicBranch = dynamicBranch))
+
     /** A block that is neither a log nor a leaf, such as dirt, cocoa or a bee nest. */
     fun block(pos: BlockPos, id: String, never: Boolean = false): BlockPos = set(pos, CellFacts(rl(id), never = never))
 
@@ -67,6 +74,12 @@ class TreeGrid {
             cross(base.above(5), leafId)
         return Shape(logs, leaves)
     }
+
+    /** An oak of Dynamic Trees in the shape of [oak]: its branches, and its own leaves, which Dynamic Trees grows with `PERSISTENT` false. */
+    fun dynamicOak(base: BlockPos, dynamicBranch: Boolean = true): Shape =
+        oak(base, logId = DT_OAK_BRANCH, leafId = DT_OAK_LEAVES).also { shape ->
+            for (log in shape.logs) branch(log, dynamicBranch = dynamicBranch)
+        }
 
     /** A fancy oak: a trunk of 7 logs, a branch that steps through corners and one that steps through edges, with leaves at each end. */
     fun fancyOak(base: BlockPos): Shape {
@@ -124,6 +137,8 @@ class TreeGrid {
         const val JUNGLE_LOG = "minecraft:jungle_log"
         const val JUNGLE_LEAVES = "minecraft:jungle_leaves"
         const val SPRUCE_SAPLING = "minecraft:spruce_sapling"
+        const val DT_OAK_BRANCH = "dynamictrees:oak_branch"
+        const val DT_OAK_LEAVES = "dynamictrees:oak_leaves"
 
         /** The limits of the default role file (CD-LUM-26). */
         const val MAX_LOGS = 256

@@ -3,7 +3,8 @@
 Status: Accepted (2026-11-15) by the coordinator under the approver's delegation, with the rulings (R81) on the design
 decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76 and R79 of the
-[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9 and RES12 the research.
+[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9 and RES12 the research. The coordinator's
+ruling on the detection of Dynamic Trees (R89, 2026-11-17) amends decision 15.
 
 ## Context
 
@@ -145,7 +146,9 @@ The facts that shape the decision:
 15. **Dynamic Trees.** Where Dynamic Trees is loaded, a base log of `#dynamictrees:branches` is felled through
     `BranchBlock.futureBreak(state, level, pos, worker)` with the worker as the entity, so Dynamic Trees drops the wood by its
     own rules. Dynamic Trees then owns the drops and the regrowth, and the handler replants nothing. Its own fell may play
-    its own sounds (unverified). The compat package `compat/dynamictrees/` holds the only call.
+    its own sounds (unverified). The compat package `compat/dynamictrees/` holds the only call. A base log of the namespace
+    `dynamictrees`, whatever its tags, and one that the compat package reports as a `BranchBlock` take the same fell, so a
+    renamed branch tag never lets the handler remove the branches itself. With no hook, such a tree is no tree (R89).
 
 ## Consequences
 

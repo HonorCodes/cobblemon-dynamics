@@ -25,6 +25,11 @@ data class CellFacts(
     val neverSapling: Boolean = false,
     /** A cell of a chunk that is not loaded, which could hold more of the tree, or a log that keeps a leaf (CD-LUM-04). */
     val unloaded: Boolean = false,
+    /**
+     * A branch of Dynamic Trees, which fells its own trees (CD-LUM-25): one of `#dynamictrees:branches`, or one that the hook reports as
+     * a `BranchBlock` while that mod is loaded (R89). `TreeRules.isDynamicTrees` also counts the namespace `dynamictrees`.
+     */
+    val dynamicBranch: Boolean = false,
 ) {
     companion object {
         val AIR = CellFacts(ResourceLocation.withDefaultNamespace("air"), air = true)
