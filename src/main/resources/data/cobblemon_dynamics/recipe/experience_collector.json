@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "IGI",
+    "GLG",
+    "IHI"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "G": { "item": "minecraft:glass" },
+    "L": { "item": "minecraft:lapis_block" },
+    "H": { "item": "minecraft:hopper" }
+  },
+  "result": { "id": "cobblemon_dynamics:experience_collector", "count": 1 }
+}

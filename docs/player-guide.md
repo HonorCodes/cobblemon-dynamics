@@ -21,7 +21,7 @@ of Minecraft, NeoForge, Cobblemon and the optional mods.
 Each Cobblemon then walks to a block that one of its roles fits, and works it.
 
 In creative mode, the **Cobblemon Dynamics** tab of the creative inventory holds every item of the mod: the Work
-Leash, the four beds and the [Charge Cell](#charge-cell).
+Leash, the four beds, the [Charge Cell](#charge-cell) and the [Experience Collector](#experience-collector).
 
 ## Work Mode
 
@@ -446,6 +446,23 @@ The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 
 | Item | Recipe |
 | --- | --- |
 | Charge Cell | Shaped: a Thunder Stone (`cobblemon:thunder_stone`) in the center, redstone dust above and below it, and 6 copper ingots in the side columns. |
+
+## Experience Collector
+
+The Experience Collector is a block that stores experience (XP). It holds up to 100,000 XP, enough to take a
+player from level 0 to level 166. The server config key `experienceCollector.capacity` sets the limit.
+
+- When you place the collector, its front turns toward you, as the front of a furnace does. Its back and its
+  bottom face away from you.
+- A comparator reads how full the collector is: 0 when it is empty, 1 to 14 while it holds some XP, and 15 when
+  it is full.
+- When you break the collector, its item keeps the XP. The tooltip of the item shows it, for example "12,345 /
+  100,000 XP". The collector that you place from the item holds that XP again.
+- A collector that holds more XP than a lowered limit keeps its XP. It takes no more XP until it holds less.
+
+| Item | Recipe |
+| --- | --- |
+| Experience Collector | Shaped: iron ingots in the 4 corners, glass in the top middle and on both sides of the middle row, a block of lapis lazuli in the centre, and a hopper in the bottom middle. |
 
 ## Farming
 
@@ -920,6 +937,7 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `roles.disabled` | `[]` | role ids | Roles to turn off, for example `["cobblemon_dynamics:stoker"]`. The [Roles](#roles) table lists the ids. |
 | `compat.cobbleworkers` | `true` | `true`, `false` | With Cobbleworkers installed, mark the workers of Work Mode pastures as resting for Cobbleworkers. |
 | `compat.cobblebase` | `true` | `true`, `false` | With Cobblebase installed, stop its pasture behavior in Work Mode pastures. |
+| `experienceCollector.capacity` | 100,000 | 1,000 to 1,000,000 | Most XP that one [Experience Collector](#experience-collector) holds. A collector that holds more after you lower the value keeps its XP, and takes no more until it holds less. |
 
 ### Client config
 

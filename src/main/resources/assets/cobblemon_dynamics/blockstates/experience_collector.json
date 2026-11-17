@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "cobblemon_dynamics:block/experience_collector" },
+    "facing=east": { "model": "cobblemon_dynamics:block/experience_collector", "y": 90 },
+    "facing=south": { "model": "cobblemon_dynamics:block/experience_collector", "y": 180 },
+    "facing=west": { "model": "cobblemon_dynamics:block/experience_collector", "y": 270 }
+  }
+}
