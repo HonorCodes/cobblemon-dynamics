@@ -76,7 +76,7 @@ object HarvestPlans {
         HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT -> breakAndReplant(loot, ownSeeds, seeds, survives, hasUpper)
         HarvestKind.PICK_TO_AGE_0 -> HarvestPlan(loot, CellChange.SetAge(0))
         HarvestKind.PICK_TO_AGE_1 -> HarvestPlan(loot, CellChange.SetAge(1))
-        HarvestKind.CAVE_VINES -> HarvestPlan(loot, CellChange.ClearBerries)
+        HarvestKind.CAVE_VINES, HarvestKind.CAVE_VINES_TAG -> HarvestPlan(loot, CellChange.ClearBerries)
         HarvestKind.UPPER_HALF -> HarvestPlan(loot, CellChange.Keep, upper = CellChange.Clear)
         HarvestKind.GOURD -> HarvestPlan(loot, CellChange.Keep, fruit = CellChange.Clear)
         HarvestKind.BERRY_TREE -> HarvestPlan(loot, CellChange.Keep)

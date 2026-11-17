@@ -2,13 +2,15 @@ package codes.honor.cobblemondynamics.handler.farming
 
 /**
  * How the Harvester takes one crop (ADR-0015). The pick by loot table of the data map `cobblemon_dynamics:harvest_loot` comes first
- * (CD-FRM-03), then the five kinds with a tag, then the kinds of a class (CD-CRP-03).
+ * (CD-FRM-03), then the six kinds with a tag, then the kinds of a class (CD-CRP-03). [CAVE_VINES_TAG] is the cave-vines adapter for a
+ * block with vanilla's `berries` property but no `CaveVines` class, such as the vines of Deep Aether (CD-FRM-02).
  */
 enum class HarvestKind(val tag: String?) {
     NEVER("harvest/never"),
     PICK_TO_AGE_0("harvest/pick_to_age_0"),
     PICK_TO_AGE_1("harvest/pick_to_age_1"),
     UPPER_HALF("harvest/upper_half"),
+    CAVE_VINES_TAG("harvest/cave_vines"),
     BREAK_AND_REPLANT("harvest/break_and_replant"),
     BERRY_TREE(null),
     CAVE_VINES(null),
@@ -38,7 +40,10 @@ data class CropFacts(
     val upperHalf: Boolean = false,
     /** A lower half with its upper half above it. */
     val upperPresent: Boolean = false,
-    /** `CaveVines.BERRIES`. */
+    /**
+     * `CaveVines.BERRIES`, which is vanilla's `BlockStateProperties.BERRIES`. A block state finds a property by identity, so a mod's
+     * own `berries` property reads false. The look-alikes of ADR-0020 use vanilla's (CD-FRM-02).
+     */
     val berries: Boolean = false,
     /** The block's entry in the data map `cobblemon_dynamics:harvest_loot`, or null. */
     val harvestLoot: HarvestLoot? = null,

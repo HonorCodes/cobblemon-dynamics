@@ -35,6 +35,7 @@ class FarmingTagFilesTest {
         "harvest/pick_to_age_1",
         "harvest/upper_half",
         "harvest/break_and_replant",
+        "harvest/cave_vines",
     )
 
     private fun own(path: String): List<Entry> = entries(File(dir, "$path.json").readText())
@@ -67,9 +68,17 @@ class FarmingTagFilesTest {
         for (sapling in MINECRAFT_SAPLINGS) assertTrue(sapling in grown, "the Cultivator's tag lacks $sapling")
     }
 
-    /** Every block id of [tag], through its nested tags. */
-    private fun resolve(tag: String): Set<String> =
-        values(tag).flatMapTo(HashSet()) { if (it.id.startsWith("#")) resolve(it.id.drop(1)) else setOf(it.id) }
+    /**
+     * Every block id of [tag], through its nested tags. An optional tag of a mod whose tag files the test does not read, such as
+     * `#dynamictrees:saplings`, stays as its `#id`.
+     */
+    private fun resolve(tag: String): Set<String> = values(tag).flatMapTo(HashSet()) {
+        when {
+            !it.id.startsWith("#") -> setOf(it.id)
+            !it.required && it.id.removePrefix("#").substringBefore(':') !in READ_TAGS -> setOf(it.id)
+            else -> resolve(it.id.drop(1))
+        }
+    }
 
     @Test
     fun `CD-CRP-01 CD-CRP-02 each family of the adapter table is in its tags`() {
@@ -96,6 +105,28 @@ class FarmingTagFilesTest {
                 assertFalse(entry.id == "#minecraft:bee_growables", "$path.json names #minecraft:bee_growables")
                 assertFalse(entry.id == "#cobblemon:crops", "$path.json names #cobblemon:crops, which holds the terrain seeds")
             }
+        }
+    }
+
+    /**
+     * The crop table of ADR-0020, with the ids that Task 20 read from each pinned jar. The Twilight Forest's blocks take the pick by
+     * loot table of the data map (CD-FRM-03), and Unusual End's bulb and Actually Additions' coffee the crop adapter of their class.
+     */
+    @Test
+    fun `CD-FRM-01 each family of the crop table of ADR-0020 is in the tags of its roles, and each entry is optional`() {
+        val cultivator = resolve("cobblemon_dynamics:cultivator_targets")
+        for (block in FRM_GROWN) assertTrue(block in cultivator, "the Cultivator's tag lacks $block")
+        for (block in FRM_OREBERRIES) assertFalse(block in cultivator, "the Cultivator's tag holds $block, which bone meal never grows")
+        val harvester = resolve("cobblemon_dynamics:harvester_targets")
+        for (block in FRM_HARVESTED) assertTrue(block in harvester, "the Harvester's tag lacks $block")
+        for (block in FRM_GROWTH_ONLY) assertFalse(block in harvester, "the Harvester's tag holds $block, whose loot lacks its berries")
+        for ((path, blocks) in FRM_ADAPTER_TAGS) {
+            val tagged = resolve("cobblemon_dynamics:$path")
+            for (block in blocks) assertTrue(block in tagged, "#cobblemon_dynamics:$path lacks $block")
+        }
+        val families = FRM_GROWN + FRM_HARVESTED
+        for (path in ownFiles) {
+            for (entry in own(path).filter { it.id in families }) assertFalse(entry.required, "${entry.id} in $path.json is required")
         }
     }
 
@@ -134,6 +165,60 @@ class FarmingTagFilesTest {
     }
 
     private companion object {
+        /** The namespaces whose tag files [values] reads. */
+        val READ_TAGS = setOf("cobblemon_dynamics", "cobblemon", "minecraft")
+
+        private val FRM_PODS = listOf(
+            "ars_nouveau:bastion_pod",
+            "ars_nouveau:bombegranate_pod",
+            "ars_nouveau:frostaya_pod",
+            "ars_nouveau:mendosteen_pod",
+            "ars_elemental:flashpine_pod",
+        )
+        private val FRM_BUSHES = "blackberry blueberry raspberry skyberry maloberry blightberry stingberry duskberry".split(" ")
+            .map { "twilightforest:${it}_bush" }
+        val FRM_OREBERRIES = listOf("copper", "iron", "gold", "essence").map { "twilightforest:${it}_oreberry" }
+        private val FRM_FRUIT = listOf("apple_fruit", "green_apple_fruit", "baobab_fruit", "yucca_fruit", "soul_fruit")
+            .map { "biomeswevegone:$it" }
+
+        /** The blocks of the five cave-vine look-alikes whose own loot holds their berries, so the cave-vines adapter picks them. */
+        private val FRM_PICKED_VINES = listOf(
+            "allthemodium:ancient_cavevines",
+            "deep_aether:golden_vines",
+            "deep_aether:golden_vines_plant",
+            "deeperdarker:glowing_vines_plant",
+        )
+
+        /**
+         * The blocks of the look-alikes that the Cultivator grows and the Harvester leaves, by the reference check of Task 20: the loot
+         * of Allthemodium's vine body and of Ars Elemental's source vines is empty, the loot of YUNG's prickly peach cactus is the
+         * cactus itself, and Deeper Darker's vine tip has no berries. A pick by their loot would drop nothing or the plant.
+         */
+        val FRM_GROWTH_ONLY = listOf(
+            "allthemodium:ancient_cavevines_plant",
+            "ars_elemental:source_vines",
+            "ars_elemental:source_vines_plant",
+            "yungscavebiomes:prickly_peach_cactus",
+            "deeperdarker:glowing_vines",
+        )
+        private val FRM_OTHERS = listOf("unusualend:gloopilon_bulb", "undergarden:ditchbulb_plant", "actuallyadditions:coffee")
+
+        /** The families of the crop table that the growth adapter takes, Dynamic Trees' by its two tags. */
+        val FRM_GROWN = listOf("mega_showdown:max_mushroom") + FRM_PODS + FRM_BUSHES + FRM_FRUIT + "biomeswevegone:white_puffball" +
+            FRM_PICKED_VINES + FRM_GROWTH_ONLY + FRM_OTHERS + listOf("#dynamictrees:saplings", "#dynamictrees:rooty_soil")
+
+        /** The families of the crop table that a harvest adapter takes. */
+        val FRM_HARVESTED = listOf("mega_showdown:max_mushroom") + FRM_PODS + FRM_BUSHES + FRM_OREBERRIES + FRM_FRUIT +
+            "biomeswevegone:white_puffball" + FRM_PICKED_VINES + FRM_OTHERS
+
+        /** The families of the crop table whose harvest adapter is a tag, by the tag's path. */
+        val FRM_ADAPTER_TAGS = mapOf(
+            "harvest/pick_to_age_1" to listOf("mega_showdown:max_mushroom", "biomeswevegone:white_puffball"),
+            "harvest/break_and_replant" to FRM_PODS,
+            "harvest/pick_to_age_0" to FRM_FRUIT + "undergarden:ditchbulb_plant",
+            "harvest/cave_vines" to FRM_PICKED_VINES,
+        )
+
         /** The members of `#minecraft:saplings` in Minecraft 1.21.1, from the data of its client jar. */
         val MINECRAFT_SAPLINGS = listOf(
             "minecraft:oak_sapling", "minecraft:spruce_sapling", "minecraft:birch_sapling", "minecraft:jungle_sapling",
