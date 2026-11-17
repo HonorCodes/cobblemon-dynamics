@@ -38,7 +38,11 @@ public abstract class ClibanoMixin implements ClibanoAccess {
     private void updateAppearance(Level level) {
     }
 
-    @Inject(method = "serverTick", at = @At("HEAD"))
+    @Inject(
+            method = "serverTick(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;"
+                    + "Lnet/minecraft/world/level/block/state/BlockState;"
+                    + "Lcom/stal111/forbidden_arcanus/common/block/entity/clibano/ClibanoMainBlockEntity;)V",
+            at = @At("HEAD"))
     private static void cobblemon_dynamics$stoke(Level level, BlockPos pos, BlockState state, ClibanoMainBlockEntity clibano, CallbackInfo ci) {
         if (ClibanoStoking.isGranted(clibano)) ((ClibanoAccess) (Object) clibano).cobblemon_dynamics$keepLit(level);
     }
