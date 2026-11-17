@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "railcraft" }],
+  "handler": "cobblemon_dynamics:railcraft_fuel",
+  "types": ["fire"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "blast_furnace_min_level": 50, "firebox_burn_ticks_per_tick": 1.0 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["ember", "fire", "spray", "special"],
+    "actor_particles": ["cobblemon:ember_actor"],
+    "target_particles": ["cobblemon:ember_target"]
+  }
+}

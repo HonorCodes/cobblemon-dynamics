@@ -589,6 +589,21 @@ The Stoker keeps a Fuelwood Heater burning without fuel, at the heater's own 400
 while a block beside the heater takes Mekanism heat, such as a thermodynamic conductor, because the heat goes
 nowhere otherwise. The heater never takes fuel from its fuel slot while the Stoker works.
 
+#### Stoker Railcraft
+
+**Needs:** Railcraft Reborn. **Assignment:** Auto.
+
+From level 50, the Stoker fuels a blast furnace while it has iron to smelt and room for the steel and the
+slag. A click on any brick names the whole furnace, and the furnace never takes fuel from its fuel slot while
+the Stoker works.
+
+At any level, the Stoker works one block of a solid-fueled firebox, so each block of a firebox takes its own
+worker. Each worker adds at most 1 burn tick per tick to its boiler, as much as a lit furnace burns, and
+stops adding once the boiler holds the fuel of its next cycle. A large boiler burns more than its workers
+give, so its own fuel makes up the rest. A boiler with no water gets no fuel.
+
+**Role file parameters:** `blast_furnace_min_level` (50) and `firebox_burn_ticks_per_tick` (1.0).
+
 ### Wheel Driver
 
 **Types:** Water. **Level:** any. **Move:** Water Gun, aimed at the wheel's axle. **Needs:** Create.

@@ -58,6 +58,7 @@ class BuiltInRoleFilesTest {
         "stoker_mekanism" to Row("cobblemon_dynamics:fuelwood_heater", setOf("fire"), true, 0, "ember"),
         "heater_mekanism" to Row("cobblemon_dynamics:mekanism_heat", setOf("fire"), true, 0, "ember"),
         "tailwind_mekanism" to Row("cobblemon_dynamics:wind_generator", setOf("flying"), false, 0, "gust"),
+        "stoker_railcraft" to Row("cobblemon_dynamics:railcraft_fuel", setOf("fire"), true, 0, "ember"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")

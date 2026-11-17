@@ -25,7 +25,7 @@ object OptionalMods {
         OptionalMod("immersiveengineering", listOf("blusunrize/"), listOf("ie_furnace", "ie_watermill", "ie_windmill")),
         OptionalMod("mekanism", listOf("mekanism/"), listOf("fuelwood_heater", "mekanism_heat")),
         OptionalMod("mekanismgenerators", listOf("mekanism/generators/"), listOf("wind_generator")),
-        OptionalMod("railcraft", listOf("mods/railcraft/")),
+        OptionalMod("railcraft", listOf("mods/railcraft/"), listOf("railcraft_fuel")),
         OptionalMod("pneumaticcraft", listOf("me/desht/pneumaticcraft/")),
         // The classes of Botany Pots extend those of its library Bookshelf, which only Botany Pots' compat package may name.
         OptionalMod("botanypots", listOf("net/darkhax/botanypots/", "net/darkhax/bookshelf/")),
