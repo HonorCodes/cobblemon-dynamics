@@ -7,7 +7,6 @@ import codes.honor.cobblemondynamics.handler.vanilla.TickClock
 import codes.honor.cobblemondynamics.id
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
-import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.BoneMealItem
@@ -108,7 +107,7 @@ object CultivatorHandler : TargetHandler {
      * A cell in a chunk that is not loaded counts as missing.
      */
     private fun saplingGrows(level: ServerLevel, pos: BlockPos, state: BlockState): Boolean {
-        if (BuiltInRegistries.BLOCK.getKey(state.block) !in SaplingRules.NEEDS_FOUR) return true
+        if (!state.`is`(SaplingRules.NEEDS_FOUR)) return true
         return SaplingRules.inFullSquare { dx, dz ->
             val cell = pos.offset(dx, 0, dz)
             level.isLoaded(cell) && level.getBlockState(cell).`is`(state.block)

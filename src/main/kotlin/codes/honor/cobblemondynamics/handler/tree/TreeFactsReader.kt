@@ -30,9 +30,6 @@ internal class TreeFactsReader(private val level: ServerLevel) {
         /** A tree with a block of this tag, or next to one, stays (CD-LUM-08). */
         val NEVER: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/never"))
 
-        /** Saplings that never grow alone, which a 2 × 2 trunk replants only as four (CD-LUM-18). */
-        val NEEDS_FOUR: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/needs_four"))
-
         /** Saplings whose grown trees the never tag skips, so a bind on one is refused (CD-LUM-20). */
         val NEVER_SAPLINGS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("lumberjack/never_saplings"))
 

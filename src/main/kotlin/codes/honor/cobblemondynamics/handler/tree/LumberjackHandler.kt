@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.handler.farming.DropFace
+import codes.honor.cobblemondynamics.handler.farming.SaplingRules
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleRegistry
@@ -285,7 +286,7 @@ object LumberjackHandler : TargetHandler {
                 plan.twoByTwo,
                 isSapling = { saplingOf(it) != null },
                 survives = { stack, cell -> canPlant(level, stack, cell) },
-                needsFour = { stack -> saplingOf(stack)?.defaultBlockState()?.`is`(TreeFactsReader.NEEDS_FOUR) == true },
+                needsFour = { stack -> saplingOf(stack)?.defaultBlockState()?.`is`(SaplingRules.NEEDS_FOUR) == true },
             )
             // CD-LUM-17: a claim can change during a fell of several ticks, so the replant asks the use question again.
             val replant = ReplantRule.allowedBy(chosen, ctx.mayChange)
