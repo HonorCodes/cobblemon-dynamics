@@ -12,16 +12,22 @@ class CollectorStore(stored: Int = 0, val capacity: () -> Int) {
         private set
 
     /** The XP that the store takes now: none at or above the capacity. */
-    val room: Int get() = maxOf(0, capacity() - stored)
+    val room: Int get() = roomUnder(capacity())
+
+    /**
+     * The XP that the store takes under [limit], a capacity read once, so that the inserts of one batch see one capacity whatever a config
+     * reload does meanwhile (CD-SOU-07).
+     */
+    fun roomUnder(limit: Int): Int = maxOf(0, limit - stored)
 
     /** Sets the XP from a save or an item. It keeps XP above the capacity, so a lowered capacity loses none. */
     fun load(xp: Int) {
         stored = maxOf(0, xp)
     }
 
-    /** Takes up to [amount], never past the capacity, and returns what it took. */
-    fun insert(amount: Int): Int {
-        val taken = amount.coerceIn(0, room)
+    /** Takes up to [amount], never past [limit], the capacity unless the caller read it once for a batch, and returns what it took. */
+    fun insert(amount: Int, limit: Int = capacity()): Int {
+        val taken = amount.coerceIn(0, roomUnder(limit))
         stored += taken
         return taken
     }

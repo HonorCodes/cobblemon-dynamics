@@ -35,8 +35,11 @@ class ExperienceCollectorBlockEntity(pos: BlockPos, state: BlockState) :
     /** CD-XPC-07: true for the back face and the bottom face only. */
     fun isOutput(side: Direction?): Boolean = CollectorFaces.isOutput(front, side)
 
-    /** Adds up to [xp] and returns what the collector took. A change marks the block entity changed, which also tells comparators. */
-    fun insert(xp: Int): Int = store.insert(xp).also { if (it > 0) setChanged() }
+    /**
+     * Adds up to [xp] under [limit], the capacity unless a batch read it once, and returns what the collector took. A change marks the
+     * block entity changed, which also tells comparators.
+     */
+    fun insert(xp: Int, limit: Int = store.capacity()): Int = store.insert(xp, limit).also { if (it > 0) setChanged() }
 
     /** A turned collector has its outputs on other faces, so its neighbours look up its capabilities again. */
     @Deprecated("Deprecated in Java")

@@ -31,6 +31,22 @@ class CollectorStoreTest {
         assertEquals(1, store.insert(5))
     }
 
+    /** A Soul Collector's batch reads the capacity once, so a config reload in the middle of the batch neither loses nor makes XP (R86). */
+    @Test
+    fun `CD-SOU-07 an insert under a capacity read once ignores a later change of the capacity`() {
+        var capacity = 100_000
+        val store = CollectorStore(99_000) { capacity }
+        val limit = store.capacity()
+        assertEquals(1_000, store.roomUnder(limit))
+        capacity = 99_500
+        assertEquals(500, store.room)
+        assertEquals(1_000, store.insert(1_000, limit))
+        assertEquals(100_000, store.stored)
+        assertEquals(0, store.insert(1, limit))
+        assertEquals(0, store.roomUnder(limit))
+        assertEquals(0, CollectorStore(5) { 100 }.roomUnder(3), "a store above a limit has room")
+    }
+
     @Test
     fun `CD-XPC-03 an extract gives up to the stored XP, and a simulated one removes nothing`() {
         val store = CollectorStore(500) { 100_000 }

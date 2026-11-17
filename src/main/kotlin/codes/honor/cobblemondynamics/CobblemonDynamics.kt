@@ -38,6 +38,7 @@ import codes.honor.cobblemondynamics.handler.vanilla.EnchantingHandler
 import codes.honor.cobblemondynamics.handler.vanilla.EnchantingMenus
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
 import codes.honor.cobblemondynamics.handler.water.FreezerHandler
+import codes.honor.cobblemondynamics.handler.xp.PlayerDeaths
 import codes.honor.cobblemondynamics.handler.xp.SoulCollectorHandler
 import codes.honor.cobblemondynamics.leash.LeashComponents
 import codes.honor.cobblemondynamics.leash.LeashInteractions
@@ -138,6 +139,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         LeashResets.register()
         QuickWork.register()
         EnchantingMenus.register()
+        // CD-SOU-12: the spots where players died, whose orbs the Soul Collector leaves for 6,000 ticks.
+        PlayerDeaths.register()
         DynamicsCommands.register()
     }
 

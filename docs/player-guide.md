@@ -925,8 +925,9 @@ right-click the collector. The worker stands at the collector and takes the orbs
 pasture, nearest first: ceil(10 × L ÷ 100) orb units every second, where L is its level. That is 1 at level 1, 5
 at level 50 and 10 at level 100, so a level 100 worker takes orbs as fast as a player picks them up. It leaves
 every orb within 8 blocks of a player who is not a spectator, so it never takes your XP or the repairs of your
-Mending gear. It moves only the XP of the orbs, and takes none that the collector has no room for. A worker waits
-in Standby while no orb lies in range or the collector is full.
+Mending gear. For 5 minutes after a player dies, it also leaves every orb within 8 blocks of the spot of the death,
+so the XP that the player dropped waits for them. It moves only the XP of the orbs, and takes none that the
+collector has no room for. A worker waits in Standby while no orb lies in range or the collector is full.
 
 Up to 5 Soul Collectors can share one Experience Collector. Each Cobblemon needs its own free work spot beside
 the collector.

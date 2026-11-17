@@ -3,7 +3,8 @@
 Status: Accepted (2026-11-15) by the coordinator under the approver's delegation, with the rulings (R81) on the design
 decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76, R79 and R80 of the
-[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9, RES12 and RES13 the research.
+[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9, RES12 and RES13 the research. The coordinator's
+rulings on the review of Tasks 6 to 8 (R86, 2026-11-16) amend decisions 15 and 17.
 
 ## Context
 
@@ -111,13 +112,16 @@ Dire Things are pipe destinations of the collector's output. They are not Soul C
 15. **Orbs.** Every 20 ticks, the worker queries the `ExperienceOrb` entities in its pasture's work area once, as the Magnet
     queries items. It never takes an orb that has a non-spectator player within `player_distance` (default 8) blocks. That
     is the radius at which vanilla makes an orb follow a player, so the role never takes a player's XP or Mending repairs.
+    For 6,000 ticks after a player dies, the life of an orb, the spot of the death counts as such a player, because the player
+    respawns away from the orbs of the death. The spots live in memory, at most 256 (R86).
 16. **Pace.** In each batch, the worker takes at most ceil(U × L ÷ 100) orb units, nearest first, where U is
     `orb_units_per_second_at_level_100` (default 10). A level 100 Soul Collector takes one unit per 2 ticks, as a player
     does.
 17. **No XP lost or made.** An orb holds `value` × `count` XP, and an access transformer line makes `count` public, as
     Create: Enchantment Industry and Modular Routers do. The worker takes a whole unit while the collector has room for it.
     It takes part of an orb with a count of 1 by lowering its `value`, and it discards an orb that reaches 0. It takes
-    nothing from an orb whose unit does not fit and whose count is above 1.
+    nothing from an orb whose unit does not fit and whose count is above 1. A batch reads the capacity once, puts each take
+    into the collector before it changes the orb, and changes the orb only by the XP that the collector took (R86).
 18. **Demand.** While a takeable orb lies in the work area and the collector has room. A worker with no demand waits in
     Standby.
 19. **Work Stamina.** It drains only through Working (CD-STA-06), as for the Magnet.
