@@ -26,6 +26,18 @@ class ArrivalTest {
         assertFalse(Arrival.isAt(7.9, 2.0, 11.0, 1.1, spot))
     }
 
+    /**
+     * The walk to the spot ends once the mob stands in the spot's cell, because the work order's walk target has a close-enough distance
+     * of 0. A Dragonair 1.1 blocks wide that enters the cell from the side away from the corner stops up to 1 block from the corner.
+     */
+    @Test
+    fun `CD-ASG-11 a worker 1 to 2 blocks wide that stands in the spot's cell has arrived`() {
+        assertTrue(Arrival.isAt(6.05, 2.0, 10.05, 1.1, spot))
+        assertTrue(Arrival.isAt(6.95, 2.9, 10.01, 1.1, spot))
+        assertFalse(Arrival.isAt(5.95, 2.0, 10.05, 1.1, spot), "the cell to the west, beyond the corner's reach")
+        assertFalse(Arrival.isAt(6.05, 3.0, 10.05, 1.1, spot), "the cell above")
+    }
+
     @Test
     fun `a Wailord, 8 blocks wide, stays arrived after the snap to the spot's center`() {
         assertTrue(Arrival.isAt(6.5, 2.0, 10.5, 8.0, spot))

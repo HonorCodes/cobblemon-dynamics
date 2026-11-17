@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.test.create
 
 import codes.honor.cobblemondynamics.MOD_ID
+import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.test.TestKit
@@ -13,11 +14,14 @@ import com.simibubi.create.content.processing.burner.BlazeBurnerBlock
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlock.HeatLevel
 import com.simibubi.create.content.processing.burner.BlazeBurnerBlockEntity
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.util.Mth
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
@@ -135,6 +139,105 @@ class BurnerTests {
             helper.assertTrue(heat == HeatLevel.SEETHING, "the burner reads $heat $worked ticks after a Lv50 Superheater starts")
             helper.succeed()
         }
+    }
+
+    /**
+     * CD-ASG-11, CD-SUP-01: a Lv50 Dragonair 1 to 2 blocks wide stands in its work spot's cell when its claim starts, at the cell's corner
+     * farthest from the corner where navigation stops such a body. Cobblemon's walk to the spot ends once the Dragonair stands in that
+     * cell, so it has arrived: it Works at once instead of waiting 600 ticks for its travel timeout (the flake of cdSup01Lv50Seething).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 400)
+    fun cdAsg11WideWorkerInItsSpotCellArrives(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val burner = CreateKit.filledBurner(helper, burnerRel)
+        CreateKit.basin(helper, aboveRel)
+        val dragon = tetherDragonair(helper, scene, WIDE_SCALE)
+        helper.assertTrue(dragon.bbWidth >= 1f, "the Dragonair is ${dragon.bbWidth} wide, not 1 to 2 blocks")
+        // The basin leaves a body this wide no room beside the burner, so its spot is the cell 2 blocks south of it.
+        val cell = BlockPos(7, 2, 7)
+        val at = helper.absoluteVec(Vec3(cell.x + 0.05, cell.y.toDouble(), cell.z + 0.05))
+        var claimedAt = -1L
+        helper.onEachTick {
+            if (holdBeforeClaim(helper, dragon, at)) return@onEachTick
+            val worker = TestKit.workerOf(helper, dragon) ?: throw GameTestAssertException("the Dragonair is no worker")
+            if (claimedAt < 0) {
+                // An arrival in the claim's own tick snaps the Dragonair to the spot's center before this check runs, so the hold, which
+                // puts it back within 0.02 of `at` on every tick before the claim, is what keeps it in the cell's far corner.
+                claimedAt = worker.claimTick
+                helper.assertTrue(worker.spot == helper.absolutePos(cell), "the Dragonair's spot is ${worker.spot}, not its own cell")
+            }
+            val worked = workedTicks(helper, dragon, burner)
+            if (worked == null) {
+                val ticks = helper.level.gameTime - claimedAt
+                helper.assertTrue(ticks < 2, "CD-ASG-11: the Dragonair in its spot's cell is ${worker.status} $ticks ticks after its claim")
+            } else if (worked >= 1) {
+                val late = worker.statusSince - claimedAt
+                helper.assertTrue(late <= 1, "CD-ASG-11: the Dragonair started Working $late ticks after its claim")
+                val heat = CreateKit.heatAt(helper, burnerRel)
+                helper.assertTrue(heat == HeatLevel.SEETHING, "the burner reads $heat $worked ticks after a Lv50 Superheater starts")
+                helper.succeed()
+            }
+        }
+    }
+
+    /**
+     * CD-ASG-11, CD-SUP-01: a Lv50 Dragonair narrower than a block stands pressed against the pasture block's south face when its claim
+     * starts. Cobblemon starts each path in the cell at the lowest corner of the mob's box, here the pasture block's cell, which the
+     * Dragonair can never enter, so its navigation reports it stuck. The engine moves it to the middle of its own cell, it walks around
+     * the pasture block, and it Works long before the travel timeout of 600 ticks (the flake of cdSup01Lv50Seething).
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 600)
+    fun cdAsg11WorkerPressedAgainstThePastureReachesItsSpot(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val burner = CreateKit.filledBurner(helper, burnerRel)
+        CreateKit.basin(helper, aboveRel)
+        val dragon = tetherDragonair(helper, scene, NARROW_SCALE)
+        helper.assertTrue(dragon.bbWidth < 1f, "the Dragonair is ${dragon.bbWidth} wide, not narrower than a block")
+        // The pasture block's top half fills its cell from the north to its south face, above a plate that nearly reaches the cell's edge.
+        val top = scene.pasture.blockPos.above()
+        val face = helper.level.getBlockState(top).getCollisionShape(helper.level, top).toAabbs().filter { it.maxY > PLATE_TOP }
+            .maxOf { it.maxZ } + top.z
+        val at = Vec3(top.x + 0.5, top.y + PLATE_TOP, face + dragon.bbWidth / 2.0 + 0.002)
+        var claimedAt = -1L
+        helper.onEachTick {
+            if (holdBeforeClaim(helper, dragon, at)) return@onEachTick
+            val worker = TestKit.workerOf(helper, dragon) ?: throw GameTestAssertException("the Dragonair is no worker")
+            if (claimedAt < 0) {
+                claimedAt = worker.claimTick
+                val box = dragon.boundingBox
+                val corner = BlockPos(Mth.floor(box.minX), Mth.floor(box.minY + 0.5), Mth.floor(box.minZ))
+                helper.assertTrue(corner == top, "the corner of the Dragonair's box is in $corner, not in the pasture block's cell")
+            }
+            val worked = workedTicks(helper, dragon, burner)
+            if (worked == null) {
+                val ticks = helper.level.gameTime - claimedAt
+                helper.assertTrue(ticks < PRESSED_LIMIT, "the pressed Dragonair is ${worker.status} $ticks ticks after its claim")
+            } else if (worked >= 1) {
+                val heat = CreateKit.heatAt(helper, burnerRel)
+                helper.assertTrue(heat == HeatLevel.SEETHING, "the burner reads $heat $worked ticks after a Lv50 Superheater starts")
+                helper.succeed()
+            }
+        }
+    }
+
+    /** A Lv50 Dragonair whose size is [scale] times its species' size, so its width does not vary with Cobblemon's own size roll. */
+    private fun tetherDragonair(helper: GameTestHelper, scene: Scene, scale: Float): PokemonEntity {
+        val pokemon = TestKit.pokemon("dragonair level=50")
+        pokemon.scaleModifier = scale
+        Cobblemon.storage.getPC(scene.owner).add(pokemon)
+        if (!scene.pasture.tether(scene.owner, pokemon, Direction.SOUTH)) throw GameTestAssertException("tether failed for the Dragonair")
+        return TestKit.pasturedEntity(helper, scene.pasture, pokemon.uuid) ?: throw GameTestAssertException("no Dragonair after tether")
+    }
+
+    /**
+     * Until [entity] holds a claim, pauses its wander, puts it back on [at] whenever it drifts, and returns true. Its velocity is left
+     * alone, so it stays on the ground, where its navigation can plan the path of its claim.
+     */
+    private fun holdBeforeClaim(helper: GameTestHelper, entity: PokemonEntity, at: Vec3): Boolean {
+        if (TestKit.claimOf(helper, entity) != null) return false
+        BrainBridge.pauseWander(entity, HOLD_PAUSE_TICKS)
+        if (Vec3(entity.x - at.x, 0.0, entity.z - at.z).length() > HOLD_DRIFT) entity.teleportTo(at.x, at.y, at.z)
+        return true
     }
 
     /**
@@ -307,6 +410,20 @@ class BurnerTests {
 
     private companion object {
         const val FUEL_TICKS = 1_000
+
+        /** A Dragonair is 1.1 × 0.9 blocks wide at size 1, and Cobblemon rolls its size within about 5% of that. */
+        const val WIDE_SCALE = 1.05f
+        const val NARROW_SCALE = 0.96f
+
+        /** How far a held worker may drift before the hold puts it back, and how long each tick of the hold pauses its wander. */
+        const val HOLD_DRIFT = 0.02
+        const val HOLD_PAUSE_TICKS = 2L
+
+        /** The height of the plate at the foot of the pasture block's top half. */
+        const val PLATE_TOP = 0.0625
+
+        /** Within the travel timeout of 600 ticks, with room for a stuck check of 100 ticks and 2 path countdowns of up to 39 ticks. */
+        const val PRESSED_LIMIT = 400L
     }
 
     private fun assertBoiler(helper: GameTestHelper, expected: HeatLevel, heat: Int) {
