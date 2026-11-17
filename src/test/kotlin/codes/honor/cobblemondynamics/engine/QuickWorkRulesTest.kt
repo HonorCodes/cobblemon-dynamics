@@ -75,11 +75,14 @@ class QuickWorkRulesTest {
         assertFalse(QuickWorkRules.mayOrder(optedTelekinesis, scanned = false, shape = BindingShape.SOURCE_AND_DESTINATION))
     }
 
-    /** The Freezer of 1.2 is an auto-assign role whose file sets `quick_work` to false. Its handler and file arrive in Task 9. */
+    /** The Freezer is an auto-assign role whose file sets `quick_work` to false. A Freezer aimed at a water block gets no order. */
     @Test
     fun `CD-FRZ-02 CD-QWK-03 an auto-assign role whose file sets quick_work false gets no order, and one with no key gets one`() {
-        val freezerId = ResourceLocation.fromNamespaceAndPath("cobblemon_dynamics", "freezer")
-        val freezer = stoker.copy(id = freezerId, handler = freezerId, types = setOf("ice"), quickWork = false)
+        val freezer = BuiltInRoles.parse("freezer")
+        assertTrue(
+            freezer.autoAssign && freezer.quickWork == false,
+            "freezer.json has auto_assign ${freezer.autoAssign}, quick_work ${freezer.quickWork}",
+        )
         assertNull(stoker.quickWork, "stoker.json has a quick_work key")
         assertFalse(QuickWorkRules.mayOrder(freezer, scanned = true, shape = BindingShape.SINGLE))
         // No message: the Freezer needs no Work Leash, it only takes no orders.

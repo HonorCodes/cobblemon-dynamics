@@ -218,7 +218,8 @@ The Cobblemon walks to the block and works it, as a worker in a pasture does. It
 action bar tells you when the work starts, and when and why it stops.
 
 Quick Work uses the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
-Generator, Crystal Tender, Brew Stoker, Brewer, Cultivator and Harvester. It also uses the Muse, whose role file opts in to Quick Work. When only a
+Generator, Crystal Tender, Brew Stoker, Brewer, Cultivator and Harvester. It also uses the Muse, whose role file opts in to Quick Work.
+A pasture gives out the Freezer on its own too, but its role file opts out, so no Ice-type does Quick Work as a Freezer. When only a
 Work Leash role of the Cobblemon fits the block, for example Telekinesis for a Psychic-type at a chest, the action bar shows
 "Chest needs the Work Leash". A Cobblemon with a Fairy type does Quick Work only as a Muse, because it is otherwise a healer.
 
@@ -511,6 +512,7 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Brewer](#brewer) | `cobblemon_dynamics:brewer` | Poison | Brewing stand | Auto | |
 | [Cultivator](#cultivator) | `cobblemon_dynamics:cultivator` | Ground | A crop that bone meal grows | Auto | |
 | [Harvester](#harvester) | `cobblemon_dynamics:harvester` | Grass | A fully grown crop | Auto | |
+| [Freezer](#freezer) | `cobblemon_dynamics:freezer` | Ice | A water source under air | Auto, no Quick Work | |
 | [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
@@ -522,8 +524,8 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Lumberjack](#lumberjack) | `cobblemon_dynamics:lumberjack` | Bug | A tree, a sapling | Work Leash | |
 
 Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind, the
-Cultivator and the Lumberjack. The Superheater superheats only from level 50. Every other role works the same
-at every level.
+Cultivator, the Lumberjack and the Freezer. The Superheater superheats only from level 50. Every other role
+works the same at every level.
 
 ### Stoker
 
@@ -668,6 +670,36 @@ crop item, leaves the harvest. A bush or a vine keeps its plant, and only its fr
 no sound.
 
 **Role file parameter:** `harvest_ticks` (20).
+
+### Freezer
+
+**Types:** Ice. **Level:** the pace grows with level. **Move:** Ice Beam. **Assignment:** Auto, no Quick Work.
+
+**Target:** a water source with air above it, in the work area.
+
+An Ice-type turns the top layer of the water in its work area into ice, as a lake freezes in a cold biome. It
+claims one water source and works from the shore or from the ice beside it. It freezes the water within 5 blocks
+of itself, the nearest water first and its claimed source last. Then it takes the next source and walks out over
+the new ice. A worker freezes ceil(60 × L ÷ 100) sources per minute, where L is its level: 1 at level 1, 30 at
+level 50 and 60 at level 100. The freezes make no sound, and the water under the ice stays water.
+
+The Freezer leaves these sources as water:
+
+- Water that hydrates farmland: farmland lies within 4 blocks of it, at its height or one block below it.
+- The top of a bubble column, so an elevator keeps working.
+- A source beside or above flowing water, so a stream, an item channel or a waterfall keeps its source.
+- Water at a block light of 10 or more, where vanilla freezes no water and the ice would melt again.
+- Water that sugar cane, a coral, a coral block, a conduit or an encased fan of Create needs: such a block beside the
+  source, on a block beside it, or under it. The tag `#cobblemon_dynamics:needs_adjacent_water` holds these blocks.
+- A source with a player, a Cobblemon, a boat or another entity in it, or in the water up to 3 blocks under it. A
+  dropped item or an XP orb does not count.
+
+The worker asks each land claim mod about each source, in the tick that it freezes that source. A refusal leaves
+the source as water, and the worker leaves it alone for 6,000 ticks. The Freezer never melts ice. Vanilla melts
+it where the light is bright enough. To get the water back, break the ice or light it.
+
+**Role file parameters:** `cells_per_minute_at_level_100` (60) and `reach` (5.0). A pace of 0 or less turns the Freezer
+off, and a fraction counts as a whole cell.
 
 ### Pump
 
@@ -904,9 +936,11 @@ Each role is a JSON file in a data pack, at `data/<namespace>/cobblemon_dynamics
 built-in files use the namespace `cobblemon_dynamics`, and a data pack file at the same path replaces one.
 A role file holds the role's types, its auto-assign flag, its priority, its range, its handler, the handler's
 parameters and its effect. The range is the largest distance from the work spot to the target. The role
-sections above name each parameter. The optional key `quick_work` (default `false`) lets a role whose
-`auto_assign` is false take Quick Work orders, if the role has one target. Such an order starts while the target
-needs no work, and its Cobblemon waits there with no time limit. Only the Muse's file sets it.
+sections above name each parameter. The optional key `quick_work` changes which roles take Quick Work orders.
+With `true`, a role whose `auto_assign` is false takes them, if the role has one target. Such an order starts
+while the target needs no work, and its Cobblemon waits there with no time limit. With `false`, a role whose
+`auto_assign` is true takes none. A file without the key follows its `auto_assign` flag. The Muse's file sets
+`true`, and the Freezer's file sets `false`.
 
 The `effect` object holds these keys:
 

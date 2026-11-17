@@ -35,9 +35,10 @@ object Assigner {
         if (!mayAutoAssign(w)) {
             null
         } else {
+            // Nearest first, so the demand of a releasing role, such as the Freezer's whole test, runs only until a target has it.
             options(w, candidates, isFree)
-                .filter { (candidate, _) -> !candidate.needsDemand || candidate.hasDemand() }
-                .minWithOrNull(nearestTo(w))
+                .sortedWith(nearestTo(w))
+                .firstOrNull { (candidate, _) -> !candidate.needsDemand || candidate.hasDemand() }
         }
 
     /** CD-ASG-19: the nearest free target with demand, for an auto worker that waited in Standby long enough. */
@@ -50,8 +51,8 @@ object Assigner {
         null
     } else {
         options(w, candidates.filter { it.key != current }, isFree)
-            .filter { (candidate, _) -> candidate.hasDemand() }
-            .minWithOrNull(nearestTo(w))
+            .sortedWith(nearestTo(w))
+            .firstOrNull { (candidate, _) -> candidate.hasDemand() }
     }
 
     // CD-ASG-04: a Fairy type heals and never takes a machine through an auto claim. CD-STA-09: a Tired worker takes none.

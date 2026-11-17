@@ -585,12 +585,12 @@ LOAD_LINES = (
               "4 to the server [cobblemon_dynamics:work_mode_toggle, cobblemon_dynamics:pasture_panel_open, "
               "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request]"),
     # CD-CMP-10: every role file loads and is active.
-    re.escape("Roles: 18 loaded, 18 active, 0 disabled []"),
+    re.escape("Roles: 20 loaded, 20 active, 0 disabled []"),
 )
 # CD-CMP-10: without Create and AE2, the 7 roles of Create's handlers are disabled, each with its reason.
 CREATE_ROLES = ("cranker", "fan_catalyst_fire", "fan_catalyst_ghost", "fan_catalyst_water", "superheater", "tailwind",
                 "wheel_driver")
-ROLES_WITHOUT_CREATE = (re.escape("Roles: 18 loaded, 11 active, 7 disabled [")
+ROLES_WITHOUT_CREATE = (re.escape("Roles: 20 loaded, 13 active, 7 disabled [")
                         + ", ".join(re.escape(f"cobblemon_dynamics:{role} (handler ") + r"[a-z_:]+ is not registered\)"
                                     for role in CREATE_ROLES)
                         + re.escape("]"))

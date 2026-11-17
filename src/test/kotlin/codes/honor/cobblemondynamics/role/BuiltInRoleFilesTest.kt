@@ -8,6 +8,7 @@ import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
+import codes.honor.cobblemondynamics.handler.water.FreezerParams
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import net.minecraft.world.phys.Vec3
@@ -48,6 +49,7 @@ class BuiltInRoleFilesTest {
         "cultivator" to Row("cobblemon_dynamics:cultivator", setOf("ground"), true, 0, "mudsport"),
         "harvester" to Row("cobblemon_dynamics:harvester", setOf("grass"), true, 0, "razorleaf"),
         "lumberjack" to Row("cobblemon_dynamics:lumberjack", setOf("bug"), false, 0, "aerialace"),
+        "freezer" to Row("cobblemon_dynamics:freezer", setOf("ice"), true, 0, "icebeam"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -450,6 +452,44 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("aerialace", "cut", "physical"), effect.animations)
         assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:aerialace_target"), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-FRZ-01 the Freezer's file names its handler and the Ice type, and takes auto claims but no Quick Work`() {
+        val freezer = BuiltInRoles.parse("freezer")
+        assertEquals("cobblemon_dynamics:freezer", freezer.handler.toString())
+        assertEquals(setOf("ice"), freezer.types)
+        assertTrue(freezer.autoAssign)
+        assertEquals(false, freezer.quickWork)
+        assertEquals(0, freezer.priority)
+        val key = JsonParser.parseString(File(BuiltInRoles.dir, "freezer.json").readText()).asJsonObject.get("quick_work")
+        assertTrue(
+            key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+            "freezer.json has quick_work $key",
+        )
+    }
+
+    @Test
+    fun `CD-FRZ-13 the Freezer's file holds 60 cells per minute and a reach of 5 blocks`() {
+        val params = BuiltInRoles.parse("freezer").params
+        assertEquals(60, params.get("cells_per_minute_at_level_100")?.asInt)
+        assertEquals(5.0, params.get("reach")?.asDouble)
+        assertEquals(FreezerParams(60, 5.0), FreezerParams.of(params))
+    }
+
+    /**
+     * ADR-0019, decision 9: Ice Beam. Its timeline sends `icebeam_actorpilot` from the user inside a `sequence` step, which
+     * `MoveTimeline` does not read, and its four target particles at the target. No particle file of the move plays a sound, so the
+     * role sends the beam and the frost alike (CD-FX-09).
+     */
+    @Test
+    fun `CD-FX-04 the Freezer's Ice Beam beams from the worker and frosts the water`() {
+        val effect = BuiltInRoles.parse("freezer").effect
+        val icebeam = MoveTimeline.read("icebeam")
+        assertEquals(icebeam.animations, effect.animations)
+        assertEquals(listOf("cobblemon:icebeam_actorpilot"), effect.actorParticles.map { it.toString() })
+        assertEquals(icebeam.targetParticles, effect.targetParticles.map { it.toString() })
+        assertEquals(4, effect.targetParticles.size)
     }
 
     @Test

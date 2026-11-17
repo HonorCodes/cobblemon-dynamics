@@ -1091,6 +1091,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         unclaim(t, slot, slot.entity)
         slot.worker.target = null
         slot.worker.spot = null
+        slot.worker.dropExpired(t.now)
         slot.role = null
         slot.memo = ClaimMemo()
         BrainBridge.clear(slot.entity)
@@ -1119,6 +1120,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         entity: PokemonEntity = slot.entity,
     ): WorkContext {
         val binding = slot.binding?.takeIf { it.target == target && it.roleId == role.definition.id }
+        val stalls = slot.worker.stalledUntil
+        val key = { pos: BlockPos -> TargetKey.block(t.dimension, pos, role.handler.claimLane) }
         return WorkContext(
             t.level,
             target,
@@ -1129,14 +1132,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             destination = binding?.destination,
             sourceFace = binding?.face,
             destinationFace = binding?.destinationFace,
-            // Only the Magnet reads it, and the Magnet is leash only, so no Quick Worker needs it.
+            // The Magnet and the Freezer read it. The Magnet is leash only and the Freezer takes no Quick Work, so no Quick Worker needs it.
             pasture = slot.worker.pasture?.let { BlockPos.of(it.pos) },
             memo = memo,
             spot = slot.worker.spot,
             spend = { ticks -> slot.worker.stamina.work(ticks.toLong(), slot.pokemon.level, t.settings) },
             mayChange = { pos -> mayChange(t, slot, pos) },
             mayBreak = { pos -> mayBreak(t, slot, pos) },
-            stalled = { ticks -> slot.worker.skipUntil[TargetKey.block(t.dimension, target, role.handler.claimLane)] = t.now + ticks },
+            stalled = { ticks -> stalls[key(target)] = t.now + ticks },
+            stalledAt = { pos, ticks -> stalls[key(pos)] = t.now + ticks },
+            isStalled = { pos -> slot.worker.isStalled(key(pos), t.now) },
         )
     }
 

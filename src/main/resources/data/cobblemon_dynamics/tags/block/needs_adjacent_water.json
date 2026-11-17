@@ -1,0 +1,10 @@
+{
+  "values": [
+    "minecraft:sugar_cane",
+    "#minecraft:coral_blocks",
+    "#minecraft:corals",
+    "#minecraft:wall_corals",
+    "minecraft:conduit",
+    { "id": "create:encased_fan", "required": false }
+  ]
+}

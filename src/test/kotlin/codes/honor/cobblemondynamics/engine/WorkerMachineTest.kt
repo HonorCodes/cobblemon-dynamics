@@ -65,6 +65,21 @@ class WorkerMachineTest {
         assertFalse(w.isSkipped(key, 600 + 6_000))
     }
 
+    /** R84: the engine drops a worker's expired skips and stalls when a claim ends, so neither map grows for the worker's whole life. */
+    @Test
+    fun `CD-ASG-14 CD-FRZ-11 a worker drops its expired skips and stalls and keeps the others`() {
+        val w = worker()
+        val keys = (1..4).map { TargetKey.block(dim, BlockPos(it, 0, 0)) }
+        w.skipUntil[keys[0]] = 100
+        w.skipUntil[keys[1]] = 300
+        w.stalledUntil[keys[2]] = 200
+        w.stalledUntil[keys[3]] = 201
+        w.dropExpired(200)
+        assertEquals(setOf(keys[1]), w.skipUntil.keys)
+        assertEquals(setOf(keys[3]), w.stalledUntil.keys)
+        assertTrue(w.isSkipped(keys[1], 200) && w.isStalled(keys[3], 200))
+    }
+
     @Test
     fun `CD-ASG-17 a leashed worker waits in Standby from 600 to 6,599 and travels at 6,600`() {
         val w = worker(leashed = true)

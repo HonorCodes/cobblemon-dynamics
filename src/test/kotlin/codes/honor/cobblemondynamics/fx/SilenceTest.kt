@@ -31,6 +31,18 @@ class SilenceTest {
         for (file in sources) assertFalse(CRY.containsMatchIn(file.readText()), "${file.name} names the cry animation")
     }
 
+    /** ADR-0019, decision 11: a freeze sets the ice with `Level.setBlock`, which plays nothing, so no water source makes a sound. */
+    @Test
+    fun `CD-FRZ-14 CD-FX-09 the water sources make no sound, post no break event and use no fake player`() {
+        val dir = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/handler/water")
+        val sources = dir.listFiles { f -> f.extension == "kt" }.orEmpty()
+        assertTrue(sources.size >= 4, "found only ${sources.size} water sources")
+        for (file in sources) {
+            val text = file.readText()
+            for (name in SOUND_CALLS + "BreakEvent" + "FakePlayer") assertFalse(name in text, "${file.name} names $name")
+        }
+    }
+
     /** ADR-0015: a pick sets the plant's state itself, and a harvest drops its loot with no break, so no farming source makes a sound. */
     @Test
     fun `CD-CRP-14 CD-FX-09 the farming sources make no sound`() {

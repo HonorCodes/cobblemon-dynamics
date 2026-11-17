@@ -111,12 +111,12 @@ class PerfTests {
         if (worker?.status == WorkerStatus.WORKING) return@mapNotNull null
         val target = worker?.target?.let { TestKit.relative(helper, it) }
         val spot = worker?.spot?.let { TestKit.relative(helper, it) }
-        val skips = worker?.skipUntil.orEmpty().map { (key, until) ->
+        fun until(map: Map<TargetKey, Long>?) = map.orEmpty().map { (key, until) ->
             val pos = (key as? TargetKey.Block)?.let { TestKit.relative(helper, BlockPos.of(it.pos)) }
             "$pos until $until"
         }
         "${worker?.status} since ${worker?.statusSince} at ${TestKit.relative(helper, entity.blockPosition())}, target $target, " +
-            "spot $spot, skips $skips"
+            "spot $spot, skips ${until(worker?.skipUntil)}, stalls ${until(worker?.stalledUntil)}"
     }.joinToString("; ") + "; unclaimed furnaces: " + FURNACES.filter { rel ->
         TestKit.engine(helper).claims.holderOf(TestKit.keyOf(helper, helper.absolutePos(rel))) == null
     } + "; now ${helper.level.gameTime}"

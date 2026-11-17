@@ -27,6 +27,32 @@ class AssignerTest {
         assertEquals(far.key, Assigner.pickForIdle(fire(), listOf(far, near)) { it != near.key }!!.first.key)
     }
 
+    /**
+     * R84: the scan asks a releasing role's demand nearest first and stops at the first target with demand, so an idle Freezer beside a
+     * lake does not run the full freeze test on every cell of it. The choice is the one of the nearest target with demand.
+     */
+    @Test
+    fun `CD-CRP-10 CD-FRZ-12 an idle worker asks for demand nearest first and stops at the first target with it`() {
+        var asked = 0
+        fun counted(x: Int, demand: Boolean) =
+            CandidateView(TargetKey.block(dim, BlockPos(x, 64, 0)), Vec3(x + 0.5, 64.5, 0.5), listOf(stoker), needsDemand = true) {
+                asked++
+                demand
+            }
+        val candidates = listOf(counted(9, true), counted(2, false), counted(5, true), counted(3, false), counted(7, true))
+        assertEquals(TargetKey.block(dim, BlockPos(5, 64, 0)), Assigner.pickForIdle(fire(), candidates) { true }!!.first.key)
+        assertEquals(3, asked, "the demand of the cells at 2, 3 and 5, and no other")
+        asked = 0
+        val current = TargetKey.block(dim, BlockPos(2, 64, 0))
+        assertEquals(
+            TargetKey.block(dim, BlockPos(5, 64, 0)),
+            Assigner.pickForStandbyMove(fire(), current, candidates) {
+                true
+            }!!.first.key,
+        )
+        assertEquals(2, asked, "a Standby move asks the cells at 3 and 5 only")
+    }
+
     @Test
     fun `CD-ASG-04 a Fairy type never takes a machine through an auto claim`() {
         assertNull(Assigner.pickForIdle(fire(fairy = true, types = setOf("fire", "fairy")), listOf(candidate(3))) { true })
