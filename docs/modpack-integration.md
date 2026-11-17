@@ -25,11 +25,16 @@ NeoForge checks these dependencies when the game loads:
 | Open Parties and Claims (`openpartiesandclaims`) | no | any |
 | MineColonies (`minecolonies`) | no | any |
 | Apothic Enchanting (`apothic_enchanting`) | no | any |
+| Each mod that a compat package of 1.2 names, from Immersive Engineering to Create: Connected | no | any |
+
+The mods of the last row are those of [Mods that the roles support](#mods-that-the-roles-support) with a role file or an
+adapter of their own. NeoForge checks no version of them. No supported mod needs a setup step: no config key, no data
+pack and no command. Install the mod, and its targets work.
 
 Without Create, the roles that need it turn off: the Wheel Driver, the Cranker, the Superheater, the Fan Catalyst and
-Tailwind. Each of their role files logs one line, and the other roles work as before. Without AE2, no role turns off. The
-mod uses no AE2 class: it reaches AE2 blocks through NeoForge's energy and item capabilities and the block tag
-`#c:budding_blocks`.
+Tailwind. Each of their role files logs one line, and the other roles work as before. Without AE2, the role file
+`cranker_ae2` does not load, and no role turns off. Only the compat package of the AE2 crank names AE2 classes. The mod
+reaches the other AE2 blocks through NeoForge's energy and item capabilities and the block tag `#c:budding_blocks`.
 
 ## Defaults on a shared server
 
@@ -156,7 +161,15 @@ classes, Cobblemon's classes, block state properties and these adapter tags, whi
 | `#cobblemon_dynamics:harvest/pick_to_age_0` | Drops the loot and sets the `age` property to 0. The plant stays. |
 | `#cobblemon_dynamics:harvest/pick_to_age_1` | Drops the loot and sets the `age` property to 1. The plant stays. |
 | `#cobblemon_dynamics:harvest/upper_half` | Takes the upper block of a two-block crop once the lower block is at its last age. |
+| `#cobblemon_dynamics:harvest/cave_vines` | Picks the berries of a block with a `berries` property that is no `CaveVines`, as of cave vines. New in 1.2, between `upper_half` and `break_and_replant`. |
 | `#cobblemon_dynamics:harvest/break_and_replant` | Breaks a block that is no `CropBlock` and replants it from the drops. |
+
+The data map `cobblemon_dynamics:harvest_loot` (blocks, new in 1.2) comes before every adapter tag. Each entry gives a
+block a loot table and its `age` after a pick, as `{"loot_table": "twilightforest:blocks/blackberry_bush_berries",
+"age_after": 2}`. Such a block is fully grown at its highest `age`. A pick drops that table's loot, rolled with the
+block's state, and sets `age`, with no block broken. The default file lists the 8 berry bushes and the 4 oreberries of the
+Twilight Forest, each entry with its own condition `neoforge:mod_loaded` on `twilightforest`. A data map has no
+`required` flag, so a pack's own entry for another mod needs such a condition too.
 
 A block in no adapter tag gets the adapter of its class. A Cobblemon berry tree gives its berries, cave vines lose their
 berries, an attached stem loses the fruit that it faces, and a `CropBlock` is broken and replanted. A Cultivator grows
@@ -188,6 +201,185 @@ The Harvester leaves Supplementaries' rope and stick tomatoes, which have no loo
 Cobblemon's terrain seeds and roots, Farmer's Delight's mushroom colonies and wild crops, Pam's gardens and saplings,
 Legendary Monuments' carrots, and the plants of My Nether's Delight and Ender's Delight. A pack can add any of them.
 
+Version 1.2 adds these families, at the versions of [ADR-0020](adr/0020-machines-and-crops-of-other-mods.md#crops-of-other-mods),
+and `#minecraft:saplings` for the Cultivator, so that a Ground-type grows the saplings that a Lumberjack plants.
+
+| Mod | Version | Crop families | Cultivator | Harvester |
+| --- | --- | --- | --- | --- |
+| Cobblemon: Mega Showdown | 1.3.3 | Max mushroom | grows | `harvest/pick_to_age_1` |
+| Ars Nouveau, Ars Elemental | 5.13.5, 0.7.10.4 | The pods of Ars Nouveau and the flashpine pod | grows | `harvest/break_and_replant` |
+| The Twilight Forest | 4.8.3345 | The 8 berry bushes | grows | `harvest_loot`, `age` 2 after |
+| The Twilight Forest | 4.8.3345 | The copper, iron, gold and essence oreberries | no bone meal | `harvest_loot`, `age` 2 after |
+| Oh The Biomes We've Gone | 2.6.3 | Apple, green apple, baobab, yucca and soul fruit | grows | `harvest/pick_to_age_0` |
+| Oh The Biomes We've Gone | 2.6.3 | White puffball | grows | `harvest/pick_to_age_1` |
+| Allthemodium, Deep Aether, Deeper and Darker | 3.2.1, 1.1.5.1, 1.4.1 | Ancient cave vines, golden vines, the body of glowing vines | grows | `harvest/cave_vines` |
+| Allthemodium, Ars Elemental, YUNG's Cave Biomes, Deeper and Darker | 3.2.1, 0.7.10.4, 3.1.1, 1.4.1 | The body of ancient cave vines, source vines, prickly peach cactus, the tip of glowing vines | grows | never: growth only |
+| Unusual End | 2.3.1b | Gloopilon bulb | grows | crop |
+| The Undergarden | 0.9.6 | Ditchbulb | grows | `harvest/pick_to_age_0` |
+| Actually Additions | 1.3.26 | Coffee | grows | crop |
+| Dynamic Trees | 1.7.2 | Its saplings and rooty soil | grows | none |
+
+The five growth-only look-alikes of cave vines stay out of the Harvester's tag, because their block loot drops no berry
+or drops the plant itself. The three of them whose class is `CaveVines` are in `#cobblemon_dynamics:harvest/never`. The
+Cultivator never works a block of `#cobblemon_dynamics:cultivator/never`, whose default holds `#mysticalagriculture:crops`:
+bone meal never grows them. The Harvester still harvests them.
+
+## Mods that the roles support
+
+Version 1.2 works the machines of these mods with the built-in role files, tags and data maps, and with no setup step
+(CD-OPT-01). A role file of a mod holds the condition `neoforge:mod_loaded` of that mod, so it loads only with the mod.
+Each entry of another mod in a built-in tag has `"required": false`, and each entry of the data map carries its own
+condition. A pack changes a default with its own data pack. The versions are those that the tests read.
+[ADR-0020](adr/0020-machines-and-crops-of-other-mods.md) holds each mechanism, number and benchmark, and the
+[player guide](player-guide.md#other-mods) tells players what each role does there.
+
+| Mod | Tested version | Role files (assignment) | Targets |
+| --- | --- | --- | --- |
+| Immersive Engineering | 12.4.2-194 | `stoker_immersiveengineering` (auto), `wheel_driver_immersiveengineering` (auto), `tailwind_immersiveengineering` (leash) | The alloy kiln, and the crude and improved blast furnaces from level 50. The watermill, while a Kinetic Dynamo takes its power. The windmill. |
+| Mekanism | 10.7.19.85 | `stoker_mekanism` (auto), `heater_mekanism` (auto) | The Fuelwood Heater, while a neighbour takes its heat. `#cobblemon_dynamics:heater_targets`: the Thermal Evaporation valve and the Thermoelectric Boiler valve. |
+| Mekanism Generators | 10.7.19.85 | `tailwind_mekanism` (leash) | The Wind Generator, by any of its blocks. |
+| Railcraft Reborn | 1.2.17 | `stoker_railcraft` (auto), `stoker_railcraft_boiler` (leash) | The blast furnace from level 50. Each block of a solid-fueled firebox, in a pool of one worker per block. |
+| PneumaticCraft: Repressurized | 8.2.24 | `stoker_pneumaticcraft` (auto), `heater_pneumaticcraft` (leash), `tailwind_pneumaticcraft` (leash) | The Air Compressor and the Advanced Air Compressor. A block that takes heat on a horizontal face. A block that holds air. |
+| Botany Pots, with Bookshelf 21.1.81 and Prickle 21.1.11 | 21.1.44 | `cultivator_botanypots` (auto), `harvester_botanypots` (auto) | Each pot with a crop. The Harvester takes a basic pot only, never a hopper pot. |
+| Iron Furnaces | 4.3.2 | `stoker_ironfurnaces` (auto) | Each furnace that runs as a furnace, at its own speed. |
+| Cooking for Blockheads, with Balm | 21.1.24 | `stoker_cookingforblockheads` (auto) | The Oven of each color. |
+| Forbidden & Arcanus, with Valhelsia Core | 2.6.1 | `stoker_forbidden_arcanus` (auto) | The Clibano, by any of its blocks. |
+| Cobblemon Incubator, with Cobbreeding 2.4.1 | 1.1.1 | `stoker_cobblemon_incubator` (auto) | The Egg Incubator, while its config turns Speed Upgrades on. |
+| Ars Nouveau | 5.13.5 | `stoker_ars_nouveau` (auto) | The Volcanic Sourcelink. |
+| Create Crafts & Additions | 1.7.2 | `superheater_createaddition` (auto) | The Liquid Blaze Burner under a heat user. |
+| Iron's Spells 'n Spellbooks, with Iron's Lib 2.3.0 | 3.16.3 | `brewer_irons_spellbooks` (auto) | The Alchemist Cauldron. |
+| Applied Energistics 2, with ExtendedAE 2.2.43 | 19.2.19 | `cranker_ae2` (auto) | The AE2 crank on a machine that a crank powers. |
+| Create: Connected | 1.3.3 | the Cranker's own file | The Crank Wheel and the Large Crank Wheel. |
+| Easy Magic, Enchanting Infuser, with Puzzles Lib | v21.1.4-1.21.1-NeoForge | the Muse's own file | Easy Magic's table, and both infusers, through `#cobblemon_dynamics:muse_targets`. |
+| Create: Enchantment Industry, with Apothic Enchanting 1.21.1-1.6.4 | 2.5.4b | the Muse's own file | The Infuser over its basin. |
+| experiencelib, with Applied Experienced 1.3.2 | 1.2.1 | none | The XP capability on the outputs of the Experience Collector. |
+| Dynamic Trees | 1.7.2 | the Lumberjack's own file | Its trees, through its own fell. |
+| Quark, Unusual End, GeOre | 4.1-488, 2.3.1b, 6.2.4 | the Crystal Tender's own file | Quark's corundum, Unusual End's budding citrine and GeOre's budding blocks, through the crystal tags. |
+| Farmer's Delight with Create: Central Kitchen, Create: Diesel Generators, Create: New Age | 1.3.4 with 2.6.2b, 1.21.1-1.3.15, 1.2.0+mc1.21.1 | the Superheater's own file | The cooking pot and the skillet, the distillation tank and the heat pipe above a burner, through `#cobblemon_dynamics:superheater/heat_users`. |
+| The Aether | 1.5.10 | none | Its Freezer stays out of the Stoker's targets, through `#cobblemon_dynamics:stoker/never`. |
+| Mystical Agriculture | 8.0.29 | none | Its crops stay out of the Cultivator's targets, through `#cobblemon_dynamics:cultivator/never`. |
+| CobbleFurnies, Handcrafted, Valhelsia Furniture | 1.2, 4.0.3, 1.1.1 | the files of Telekinesis and the Magnet | Their furniture containers, as plain containers. |
+| Cobblemon | 1.8.4 | `generator_healing_machine` (auto, no condition) | The Healing Machine. |
+
+The crop mods of 1.2 are in [Farming roles](#farming-roles). The ids that ADR-0020 marks "unverified" stay optional
+entries: a wrong id loads nothing and breaks nothing.
+
+### Tags and the data map of 1.2
+
+These tags and the data map are new in 1.2. Each lives under `data/cobblemon_dynamics/`.
+
+| Tag or data map | Default | What it does |
+| --- | --- | --- |
+| `#cobblemon_dynamics:lumberjack_targets` | `#minecraft:logs` | The logs that the Lumberjack fells. A sapling is a target too. |
+| `#cobblemon_dynamics:lumberjack/never` | Pam's fruit, apricorns and their logs and leaves, the magic log cores of the Twilight Forest, bee nests, beehives, crimson and warped stems, mangrove logs, Unusual End's chorus cane, Better Archeology's rotten log | The Lumberjack skips a whole tree that holds such a block or touches one. |
+| `#cobblemon_dynamics:lumberjack/never_saplings` | The mangrove propagule, apricorn saplings, the magic saplings of the Twilight Forest, the saplings of Pam's trees | The Work Leash refuses a Lumberjack bind on such a sapling. |
+| `#cobblemon_dynamics:lumberjack/needs_four` | `minecraft:dark_oak_sapling` | The replant plants such a sapling only as a 2 × 2. |
+| `#cobblemon_dynamics:needs_adjacent_water` | Sugar cane, coral blocks, corals, wall corals, the conduit, Create's encased fan | The Freezer keeps the water that such a block needs. |
+| `#cobblemon_dynamics:stoker/never` | The Aether's Freezer | The Stoker never works such a block. |
+| `#cobblemon_dynamics:cultivator/never` | `#mysticalagriculture:crops` | The Cultivator never works such a block. |
+| `#cobblemon_dynamics:superheater/heat_users` | Create's basin and fluid tank, Farmer's Delight's cooking pot and skillet, the distillation tank of Create: Diesel Generators, the heat pipe of Create: New Age | Such a block above a burner gives the Superheater work. |
+| `#cobblemon_dynamics:heater_targets` | The Thermal Evaporation valve and the Thermoelectric Boiler valve of Mekanism | The targets of the Heater on Mekanism. A fission or fusion reactor port, the Heat Generator and the Quantum Entangloporter stay out. |
+| `#cobblemon_dynamics:crystal_tender_targets` | `#c:budding_blocks`, the two crystal tags below, Quark's corundum blocks | The targets of the Crystal Tender. |
+| `#cobblemon_dynamics:crystal/self_growing` | Cobblemon's nine budding tumblestones | Work only while Cobblemon's own rule lets the block grow: a heat source within 1 block, and a next stage. |
+| `#cobblemon_dynamics:crystal/scheduled_tick` | Unusual End's budding citrine | Such a block gets its scheduled tick on 1 extra tick in 5, and only air counts as an open face. |
+| `#cobblemon_dynamics:crystal/buds` | Unusual End's citrine buds | Such a block counts as a bud of `#c:buds`. |
+| `#cobblemon_dynamics:muse_targets` | The enchanting table, Easy Magic's table, both infusers of Enchanting Infuser, CEI's Infuser | The targets of the Muse. |
+| `#cobblemon_dynamics:logistics/no_fallback` | The Ender Chest, the containers of Lootr, the pedestals of Legendary Monuments | Telekinesis and the Magnet never reach such a block as a plain container. The Ender Chest entry guards nothing, because its block entity is no `Container`. |
+| `#cobblemon_dynamics:harvest/cave_vines` | Allthemodium's ancient cave vines, Deep Aether's golden vines, the body of Deeper and Darker's glowing vines | See [Farming roles](#farming-roles). |
+| Data map `cobblemon_dynamics:harvest_loot` (blocks) | The 12 bushes of the Twilight Forest | See [Farming roles](#farming-roles). |
+
+**Plain containers.** Telekinesis and the Magnet reach a block entity that has no item capability and is a vanilla
+`Container` through NeoForge's `InvWrapper`, or `SidedInvWrapper` for a `WorldlyContainer`. Before each take, they ask
+the container's `canTakeItem`, as a hopper does, because neither wrapper asks it. So Cobblemon's TM Machine keeps its
+inputs, and Visual Workbench keeps its crafting grid. A pack keeps a container of its own out with the tag
+`logistics/no_fallback`.
+
+### Load lines of 1.2
+
+Each server log of 1.2 holds these lines beside the roles line, the mixins line and the farming lines:
+
+- **Skipped roles.** At each load of the role files, one line names each role file that its conditions skipped, with the
+  mods that it needs: `Roles not loaded, their mods are absent: 2 [cobblemon_dynamics:heater_mekanism (mekanism),
+  cobblemon_dynamics:stoker_ironfurnaces (ironfurnaces)]`. Such a file counts neither as loaded nor as disabled, so the
+  roles line keeps naming real problems only.
+- **Compat lines.** At each data load, one line for each loaded mod with a compat package names each of its adapters as
+  found or missing, with what is missing: `class` when its compat package did not register it, `block` when a block id
+  does not resolve, and `mixin` when a mixin did not apply. For example:
+  `Compat: immersiveengineering 12.4.2-194 [ie_furnace found, ie_watermill found, ie_windmill missing (mixin)]`. A mod
+  that tags and data maps alone support has no adapter, so it logs no compat line: the Aether, the Twilight Forest and the
+  crop mods. A missing adapter turns off only its own target.
+- **The XP fluid.** After each tag load, one line names the fluid of the Experience Collector's outputs, such as
+  `Experience Collector: pipes drain create_enchantment_industry:experience at 1 mB per XP`, or `Experience Collector: no
+  XP fluid, so pipes drain nothing`.
+
+| Mod | Adapters of its compat line |
+| --- | --- |
+| Immersive Engineering | `ie_furnace`, `ie_watermill`, `ie_windmill` |
+| Mekanism | `fuelwood_heater`, `mekanism_heat` |
+| Mekanism Generators | `wind_generator` |
+| Railcraft Reborn | `railcraft_fuel`, `railcraft_firebox` |
+| PneumaticCraft: Repressurized | `pnc_compressor`, `pnc_heat`, `pnc_air` |
+| Botany Pots | `pot_cultivator`, `pot_harvester` |
+| Iron Furnaces | `iron_furnace` |
+| Cooking for Blockheads | `cfb_oven` |
+| Forbidden & Arcanus | `clibano` |
+| Cobblemon Incubator | `egg_incubator` |
+| Ars Nouveau | `volcanic_sourcelink` |
+| Create Crafts & Additions | `liquid_burner` |
+| Create: Connected | `crank_wheel` |
+| Create: Enchantment Industry | `muse_infuser` |
+| Iron's Spells 'n Spellbooks | `alchemist_cauldron` |
+| Easy Magic | `muse_table` |
+| Enchanting Infuser | `muse_infusers` |
+| experiencelib | `collector_xp` |
+| Dynamic Trees | `lumberjack_fell` |
+| Apothic Enchanting | `muse_quanta` |
+| Applied Energistics 2 | `ae2_crank` |
+
+### `quick_work: false`
+
+Version 1.2 gives the role file key `quick_work` a second meaning. Before, `true` let a Work Leash role take Quick Work
+orders. Now `false` also keeps an auto-assign role out of Quick Work, as the Freezer's file does. A file without the key
+follows its `auto_assign` flag, so no other built-in role changes. A third-party role file that already sets `quick_work:
+false` on an auto-assign role loses Quick Work in 1.2.
+
+### The Experience Collector's outputs
+
+The back face and the bottom face of an Experience Collector are drain-only outputs for pipes. The other faces and a
+null side offer nothing. Pipes see the stored XP as one fluid, which the collector picks again after each tag load:
+
+1. Create: Enchantment Industry's `create_enchantment_industry:experience`, at 1 mB per XP, when the fluid registry holds
+   it.
+2. Otherwise the first fluid of `#c:experience`, at 20 mB per XP, the ratio that NeoForge documents. Sophisticated Core's
+   `sophisticatedcore:xp_still` is such a fluid.
+3. Otherwise no fluid. The faces then offer no fluid handler, and the screen's button still works.
+
+A drain takes whole points of XP only, so no part of a point is lost or made. A pipe cannot fill the collector. The XP
+machines of Ender IO, Industrial Foregoing, Cyclic and Just Dire Things take a `c:experience` fluid at 20 mB per XP from
+these outputs, so they work as pipe destinations. With CEI installed, the collector offers CEI's fluid, which is not in
+`c:experience`, so such a machine and a Sophisticated tank take none. With experiencelib installed, the two outputs also
+offer its XP capability, drain only, so an Applied Experienced import bus takes the XP into an ME network.
+
+### What works already
+
+These targets need no code of 1.2, because a role reaches them through a capability or a vanilla class:
+
+- **The Generator:** the controller and the Interface of Refined Storage 2.0.9, the motors of Create: New Age, the machines
+  of Mystical Agriculture 8.0.29, the Wireless Energy Heater of Iron Furnaces, the Oven of Cooking for Blockheads with a
+  Heating Unit, the Farmer of Actually Additions, the Heated Centrifuge of Productive Bees and the charge network of
+  Railcraft Reborn.
+- **The Pump:** the oxygen loaders of Ad Astra, the Hydroponic Bed of Industrial Foregoing, the boiler addon and the
+  Fertilizer of Oritech, the fluid port of Extreme Reactors, the Thermo Generator of Powah, the Water Separator of
+  Stellaris, the boilers of Railcraft Reborn and the Interface of Refined Storage.
+- **Telekinesis and the Magnet:** the Interface of Refined Storage.
+- **The Crystal Tender:** GeOre 6.2.4, the entro budding blocks of ExtendedAE and the imbued wood of Oh The Biomes We've
+  Gone.
+- **The farming roles:** the fertilized farmland of Farming for Blockheads, the crops of Mystical Agriculture for the
+  Harvester, and the canola, flax and rice of Actually Additions.
+- **The Superheater:** the Fluid Vessel of Create: Connected.
+- **The Stoker:** the Oven of Handcrafted, the Cinder Furnace of the Twilight Forest and the Altar of the Aether.
+- **The Experience Collector's outputs:** the XP machines of Ender IO, Industrial Foregoing, Cyclic and Just Dire Things.
+
 ## Other mods
 
 - **Cobbleworkers.** At each poll of a Work Mode pasture, the mod sets `cobbleworkers.resting` in the `persistentData` of
@@ -213,13 +405,23 @@ Legendary Monuments' carrots, and the plants of My Nether's Delight and Ender's 
 | With Create | `AirCurrent`, `BlazeBurnerBlockEntity`, `ItemUseOverrides`, `WaterWheelBlockEntity`, `WindmillBearingBlockEntity` |
 | With Cobblebase | `AmbientBehavior`, `BaseManager`, `NavigationHelper`, `PassiveXp` |
 | With Apothic Enchanting | `EnchantmentTableStats` |
+| With Easy Magic | `ModEnchantmentMenu` |
+| With Enchanting Infuser | `InfuserMenu` |
+| With Immersive Engineering | `WatermillBlockEntity`, `WindmillBlockEntity` |
+| With Mekanism Generators | `TileEntityWindGenerator` |
+| With PneumaticCraft: Repressurized | `AirCompressorBlockEntity` |
+| With Forbidden & Arcanus | `ClibanoMainBlockEntity` |
+| With Cobblemon Incubator | `EggIncubatorBlockEntity` |
+| With Create Crafts & Additions | `LiquidBlazeBurnerBlockEntity` |
+| With Iron's Spells 'n Spellbooks | `AlchemistCauldronTile` |
 | Client only | Cobblemon's `PastureWidget` and `PasturePokemonScrollList` |
 
-A config plugin skips the Create, Cobblebase and Apothic Enchanting mixins when their mod is absent. It also skips a
-mixin whose target class lacks a field or method that the mixin needs. A mixin that does not apply turns off only the
-part that it serves, with one warning: a role, the Work Leash on Create's hand crank, the worker push, a Cobblebase hook
-or a part of the pasture panel. So a renamed field in a later Create 6.0.x release turns a role off and does not crash
-the game.
+A config plugin skips the mixins of each optional mod when that mod is absent. It also skips a mixin whose target class
+lacks a field or a method that the mixin needs, with the method's full descriptor. A mixin that does not apply turns off
+only the part that it serves, with one warning: a role, a target of another mod, the Work Leash on Create's hand crank,
+the worker push, a Cobblebase hook or a part of the pasture panel. So a renamed field in a later release of a supported
+mod turns a target off and does not crash the game. The compressor mixin of PneumaticCraft only fills the flame gauge:
+without it, the Stoker still fuels the compressor.
 
 When mod loading completes, the log holds one INFO line that starts with `Mixins:`. It names each mixin as applied,
 skipped with its reason, applied with no injection, or not applied yet. On a client, the two client mixins read "not
@@ -235,8 +437,10 @@ All payloads use the namespace `cobblemon_dynamics`.
 | To the server | `work_mode_toggle`, `pasture_panel_open`, `pasture_panel_close`, `leash_overview_request` |
 
 The server checks each request against its own state: the sender's permission, distance, dimension and ownership, as
-the request needs them. Rate limits apply to each player. Quick Work adds no payload. When the payloads register, the log
-holds one INFO line that starts with `Payloads, version 3:` and names each payload by direction.
+the request needs them. Rate limits apply to each player. Quick Work adds no payload. The button of the Experience
+Collector sends vanilla's container button packet, which the server checks as for any menu, so 1.2 adds no payload
+either. When the payloads register, the log holds one INFO line that starts with `Payloads, version 3:` and names each
+payload by direction.
 
 ## Files and saved data
 
@@ -251,19 +455,28 @@ holds one INFO line that starts with `Payloads, version 3:` and names each paylo
   - the Work Leash item: the selected Cobblemon and a pending Telekinesis source
   - Create block entities: the drive direction of water wheels and hand cranks, and the fire mode of encased fans
   - the Charge Cell: its energy, which the item of a broken cell keeps
+  - the Experience Collector: its XP, which the item of a broken collector keeps in the data component
+    `cobblemon_dynamics:stored_experience`
+  - a data attachment on an Immersive Engineering watermill: the direction of its Wheel Driver, saved only when it is
+    reversed
 
   Section 4 of [ARCHITECTURE.md](../ARCHITECTURE.md) lists every entry. Claims, worker states and Quick Work orders are
-  never saved. Quick Work saves nothing except Work Stamina.
+  never saved. Quick Work saves nothing except Work Stamina. The Tailwind bonus of an IE windmill and of a Wind Generator,
+  a running fell of the Lumberjack and the spots where players died are never saved either.
 - **Data pack content.** The mod adds these:
-  - 16 role files under `data/cobblemon_dynamics/cobblemon_dynamics/roles/`
-  - recipes for the Work Leash, the four beds and the Charge Cell, and loot tables for the beds and the Charge Cell
+  - 44 role files under `data/cobblemon_dynamics/cobblemon_dynamics/roles/`. 22 of them hold the condition of an optional
+    mod, so a server without that mod skips them.
+  - recipes for the Work Leash, the four beds, the Charge Cell and the Experience Collector, and loot tables for the beds,
+    the Charge Cell and the Experience Collector
   - one Cobblemon behaviour, `data/cobblemon_dynamics/behaviours/pokemon/auto/work.json`, which adds the work tasks to the
     Brain of every Cobblemon
-  - the block tag `minecraft:mineable/pickaxe`, for the Charge Cell
+  - the block tags of the roles, the tag `minecraft:mineable/pickaxe` for the Charge Cell and the Experience Collector,
+    and the data map `cobblemon_dynamics:harvest_loot`
 
   A data pack can override any role file. `roles.disabled` in the server config turns a role off. Each load of the role
-  files logs one INFO line, such as `Roles: 16 loaded, 16 active, 0 disabled`, which names each disabled role with its
-  reason. A config change that changes the active roles logs a new line.
+  files logs one INFO line, such as `Roles: 23 loaded, 23 active, 0 disabled` on a server with Create and AE2 and no other
+  supported mod, which names each disabled role with its reason. A config change that changes the active roles logs a new
+  line.
 
 ## What is tested
 
@@ -276,6 +489,11 @@ holds one INFO line that starts with `Payloads, version 3:` and names each paylo
   only Cobblebase, only FTB Chunks, only Open Parties and Claims or only MineColonies, `/reload` and restarts. Its smoke
   server checks the three load lines. The three claim runs test Quick Work and the pastures against the real claim mods:
   each pasture check must give the answer of the claim mod's own check for each player, online and after a logout.
+- **Tested at the 1.2 gate.** The unit tests read each adapter's facts from the pinned jar of its mod. The test pack's
+  case `mods` starts one dedicated server with every supported mod that it can fetch from Modrinth or copy from
+  `TESTPACK_LOCAL_JARS`. Its compat lines must name every adapter as found, its roles line every role of another mod as
+  active, and its mixins line every compat mixin as applied. The GameTest run `runGameTestServerCompat` tests each
+  adapter that writes another mod's private state, with that mod on the server. CI runs neither.
 - **Not tested automatically:**
   - Play with two or more players. The approver ruled out multiplayer GameTests, so an audit checks the code instead,
     in [the multiplayer audit](testing/multiplayer-audit.md).
