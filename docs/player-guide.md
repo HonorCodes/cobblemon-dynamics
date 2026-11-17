@@ -619,8 +619,10 @@ The Stoker fuels an Air Compressor or an Advanced Air Compressor with no fuel it
 base burn rate: 1 burn tick per tick for the Air Compressor and 5 for the Advanced Air Compressor, which runs a
 compressor with no Speed Upgrade at its full rate. Speed Upgrades burn more than that, so they still take
 fuel from the fuel slot. The flame gauge stays full while only the Stoker's fuel burns. The Stoker works only
-while the compressor's pressure is below its danger pressure and its redstone setting lets it run. When the
-Stoker stops, the compressor goes back to its own fuel within 2 ticks.
+while its redstone setting lets the compressor run, and while the air of the compressor's next tick keeps the
+pressure below the lowest danger pressure of the compressor and the machines connected to it. Air spreads
+into connected machines with no tier check, so a tier 1 machine beside a tier 2 compressor stops the Stoker
+below 5 bar. When the Stoker stops, the compressor goes back to its own fuel within 2 ticks.
 
 ### Wheel Driver
 
@@ -1030,8 +1032,10 @@ ends within 20 ticks of the end of the work, at the generator's next update.
 
 A Flying-type blows ceil(50 × L ÷ 100) mL of air per tick into the machine, where L is its level: 1 mL at
 level 1, 25 mL at level 50 and 50 mL, an Advanced Air Compressor's output, at level 100. The worker never
-raises the pressure to the machine's danger pressure, which is 5 bar for a tier 1 machine and 20 bar for a
-tier 2 machine. When the next tick of air would reach it, the worker adds only the air that keeps the
+raises the pressure to the danger pressure, which is 5 bar for a tier 1 machine and 20 bar for a tier 2
+machine. Air spreads into the connected machines with no tier check, so the worker counts the lowest danger
+pressure of the machine and the machines connected to it: a tier 2 tube beside a tier 1 machine stays below
+5 bar. When the next tick of air would reach that pressure, the worker adds only the air that keeps the
 pressure below it, and then waits in Standby.
 
 **Role file parameter:** `air_per_tick_at_level_100` (50).

@@ -27,18 +27,74 @@ class PncCompressorRuleTest {
         assertEquals(4, PncCompressorRule.worked(CompressorBurn(3, 3), rate = 1).time)
     }
 
+    /** A compressor's air handler of [volume] mL that makes [perTick] mL per tick of burn. */
+    private fun air(stored: Int, volume: Int = 5_000, perTick: Float = 10f, buffer: Float = 0f) =
+        CompressorAir(stored, volume, perTick, buffer)
+
     @Test
     fun `CD-FUEL-08 a compressor at or above its danger pressure gets no fuel, and one below it does`() {
-        assertTrue(PncCompressorRule.hasDemand(pressure = 4.99f, dangerPressure = 5f, runs = true))
-        assertFalse(PncCompressorRule.hasDemand(pressure = 5f, dangerPressure = 5f, runs = true))
-        assertFalse(PncCompressorRule.hasDemand(pressure = 6.5f, dangerPressure = 5f, runs = true))
-        assertTrue(PncCompressorRule.hasDemand(pressure = 19.9f, dangerPressure = 20f, runs = true))
+        assertTrue(PncCompressorRule.hasDemand(air(stored = 24_000), dangerPressure = 5f, runs = true))
+        assertFalse(PncCompressorRule.hasDemand(air(stored = 25_000), dangerPressure = 5f, runs = true))
+        assertFalse(PncCompressorRule.hasDemand(air(stored = 32_500), dangerPressure = 5f, runs = true))
+        assertTrue(PncCompressorRule.hasDemand(air(stored = 99_000, perTick = 50f), dangerPressure = 20f, runs = true))
+        assertFalse(PncCompressorRule.hasDemand(air(stored = 0, volume = 0), dangerPressure = 5f, runs = true))
+    }
+
+    /**
+     * PneumaticCraft 8.2.24 (javap): a tick that burns adds `airPerTick` to the private `airBuffer`, then adds the whole mL of the
+     * buffer to the air. Burn that the worker gives in one tick makes at most ceil(airBuffer + airPerTick) mL in the next, so the worker
+     * stops while that air would take the pressure to the danger pressure.
+     */
+    @Test
+    fun `CD-FUEL-08 a compressor gets no fuel when the air of its next tick would reach its danger pressure`() {
+        // 4.99 bar is below 5 bar, but the next 10 mL make 5 bar.
+        assertFalse(PncCompressorRule.hasDemand(air(stored = 4_990, volume = 1_000), dangerPressure = 5f, runs = true))
+        assertTrue(PncCompressorRule.hasDemand(air(stored = 4_989, volume = 1_000), dangerPressure = 5f, runs = true))
+        // The buffer's fraction rounds up: 0.5 + 9.6 mL can add 11 mL.
+        assertFalse(PncCompressorRule.hasDemand(air(4_989, 1_000, perTick = 9.6f, buffer = 0.5f), dangerPressure = 5f, runs = true))
+        assertTrue(PncCompressorRule.hasDemand(air(4_988, 1_000, perTick = 9.6f, buffer = 0.5f), dangerPressure = 5f, runs = true))
+        // Without the mixin that reads the buffer, the bound of 1 mL takes its place.
+        assertFalse(PncCompressorRule.hasDemand(air(4_989, 1_000, buffer = PncCompressorRule.UNKNOWN_BUFFER), 5f, runs = true))
+        assertTrue(PncCompressorRule.hasDemand(air(4_988, 1_000, buffer = PncCompressorRule.UNKNOWN_BUFFER), 5f, runs = true))
+    }
+
+    /** A tier 1 machine of 5 bar beside an Advanced Air Compressor of 20 bar takes its air with no tier check. */
+    @Test
+    fun `CD-FUEL-08 the danger pressure is the lowest of the compressor and the machines connected to it`() {
+        val danger = PncAirMath.lowestDanger(20f, listOf(20f, 5f))
+        assertEquals(5f, danger)
+        assertEquals(20f, PncAirMath.lowestDanger(20f, emptyList()))
+        assertFalse(PncCompressorRule.hasDemand(air(stored = 4_960, volume = 1_000, perTick = 50f), danger, runs = true))
+        assertTrue(PncCompressorRule.hasDemand(air(stored = 4_949, volume = 1_000, perTick = 50f), danger, runs = true))
+        assertTrue(PncCompressorRule.hasDemand(air(stored = 4_960, volume = 1_000, perTick = 50f), dangerPressure = 20f, runs = true))
+    }
+
+    /** PneumaticCraft's tick and then the engine's, for 2,000 ticks: the pressure never reaches the danger pressure. */
+    @Test
+    fun `CD-FUEL-08 worked tick after tick, a compressor never reaches its danger pressure`() {
+        for (perTick in listOf(10f, 9.6f, 37.5f, 50f)) {
+            var stored = 0
+            var buffer = 0f
+            var burn = 0
+            repeat(2_000) { tick ->
+                if (burn >= 1) {
+                    burn--
+                    buffer += perTick
+                    val whole = buffer.toInt()
+                    stored += whole
+                    buffer -= whole
+                }
+                assertTrue(stored.toFloat() / 1_000f < 5f, "at $perTick mL per tick, tick $tick reached ${stored / 1_000f} bar")
+                if (PncCompressorRule.hasDemand(CompressorAir(stored, 1_000, perTick, buffer), 5f, runs = true)) burn++
+            }
+            assertTrue(stored > 4_900, "at $perTick mL per tick the compressor stopped at $stored mL")
+        }
     }
 
     /** The compressor's own redstone setting stops its fuel intake, so it stops the worker's fuel too. */
     @Test
     fun `CD-FUEL-08 a compressor that its redstone setting stops gets no fuel`() {
-        assertFalse(PncCompressorRule.hasDemand(pressure = 0f, dangerPressure = 5f, runs = false))
+        assertFalse(PncCompressorRule.hasDemand(air(stored = 0), dangerPressure = 5f, runs = false))
     }
 
     @Test

@@ -18,19 +18,20 @@ import net.neoforged.neoforge.capabilities.BlockCapabilityCache
 /**
  * The Heater on PneumaticCraft heat: a Fire-type warms a block entity through the heat exchanger of PneumaticCraft's API, as one lava
  * block beside it would (CD-HTR-06, CD-HTR-07). It asks a horizontal face only: the null side of some machines returns a dummy
- * exchanger (RES12), and the machines that take heat on a face, such as the Thermal Compressor, take it on the horizontal ones.
+ * exchanger (RES12), and the machines that take heat on a face, such as the Thermal Compressor, take it on the horizontal ones. It reads
+ * `PNCCapabilities` only in its methods, inside the engine's guard, so a later PneumaticCraft that renames a field turns off this handler
+ * alone.
  */
 object PncHeatHandler : TargetHandler {
     private val HORIZONTAL: List<Direction> = Direction.Plane.HORIZONTAL.toList()
-    private val HEAT = PNCCapabilities.HEAT_EXCHANGER_BLOCK
 
     override val id: ResourceLocation = id("pnc_heat")
 
     /** Leash only (CD-HTR-06): some machines need a cold side, which only the player knows. */
     override val scanKind: ScanKind = ScanKind.NONE
 
-    override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
-        blockEntity != null && HORIZONTAL.any { level.getCapability(HEAT, pos, state, blockEntity, it) != null }
+    override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean = blockEntity != null &&
+        HORIZONTAL.any { level.getCapability(PNCCapabilities.HEAT_EXCHANGER_BLOCK, pos, state, blockEntity, it) != null }
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean =
         HORIZONTAL.any { PncCompat.heatAt(level, canonical, it) != null }
@@ -55,7 +56,7 @@ object PncHeatHandler : TargetHandler {
         (ctx.memo.value as? Face)?.cache?.capability?.let { return it }
         for (side in NearestFaces.of(ctx.target, ctx.worker.position()).filter { it.axis.isHorizontal }) {
             val exchanger = PncCompat.heatAt(ctx.level, ctx.target, side) ?: continue
-            ctx.memo.value = Face(BlockCapabilityCache.create(HEAT, ctx.level, ctx.target, side))
+            ctx.memo.value = Face(BlockCapabilityCache.create(PNCCapabilities.HEAT_EXCHANGER_BLOCK, ctx.level, ctx.target, side))
             return exchanger
         }
         ctx.memo.value = null

@@ -11,6 +11,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 
@@ -45,6 +46,13 @@ object PncCompat {
     /** The air handler on [side] of [pos]. A position in an unloaded chunk has none. */
     fun airAt(level: ServerLevel, pos: BlockPos, side: Direction): IAirHandlerMachine? =
         if (level.isLoaded(pos)) level.getCapability(PNCCapabilities.AIR_HANDLER_MACHINE, pos, side) else null
+
+    /**
+     * CD-FUEL-08, CD-AIR-08: the lowest danger pressure of [handler] and of the air handlers connected to it, as PneumaticCraft lists
+     * them for [blockEntity]. Its air spreads into them with no tier check.
+     */
+    fun lowestDanger(handler: IAirHandlerMachine, blockEntity: BlockEntity): Float =
+        PncAirMath.lowestDanger(handler.dangerPressure, handler.getConnectedAirHandlers(blockEntity).map { it.airHandler.dangerPressure })
 
     private fun block(path: String): ResourceLocation = ResourceLocation.fromNamespaceAndPath(MOD, path)
 }

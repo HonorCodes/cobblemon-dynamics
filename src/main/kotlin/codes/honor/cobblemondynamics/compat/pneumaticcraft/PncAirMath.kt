@@ -17,6 +17,12 @@ data class PncAirParams(val airPerTickAt100: Double) {
 
 /** Tailwind's numbers on PneumaticCraft air. No PneumaticCraft class, so unit tests load them. */
 object PncAirMath {
+    /**
+     * CD-FUEL-08, CD-AIR-08: the lowest of a machine's own danger pressure and those of the air handlers connected to it. PneumaticCraft
+     * spreads air into connected handlers with no tier check, so a 20 bar tube beside a 5 bar machine must stop below 5 bar.
+     */
+    fun lowestDanger(own: Float, connected: List<Float>): Float = connected.fold(own) { lowest, next -> minOf(lowest, next) }
+
     /** CD-AIR-07: ceil(A × L ÷ 100) mL per tick, with L clamped to 1..100. */
     fun airPerTick(airAt100: Double, level: Int): Int = ceil(airAt100 * level.coerceIn(1, 100) / 100.0).toInt().coerceAtLeast(0)
 

@@ -37,6 +37,21 @@ class PncAirMathTest {
         }
     }
 
+    /** PneumaticCraft spreads air into the connected handlers with no tier check, so a 20 bar tube must stop below a tier 1 neighbour. */
+    @Test
+    fun `CD-AIR-08 the danger pressure is the lowest of the machine and the handlers connected to it`() {
+        assertEquals(5f, PncAirMath.lowestDanger(20f, listOf(5f, 30f)))
+        assertEquals(20f, PncAirMath.lowestDanger(20f, emptyList()))
+        val danger = PncAirMath.lowestDanger(20f, listOf(5f))
+        assertEquals(19, PncAirMath.allowed(air = 50, stored = 4_980, volume = 1_000, dangerPressure = danger))
+        assertEquals(50, PncAirMath.allowed(air = 50, stored = 4_980, volume = 1_000, dangerPressure = 20f))
+        var stored = 0
+        repeat(1_000) {
+            stored += PncAirMath.allowed(air = 50, stored = stored, volume = 1_000, dangerPressure = danger)
+            assertTrue(stored.toFloat() / 1_000f < 5f, "the tube reached ${stored / 1_000f} bar beside a 5 bar machine")
+        }
+    }
+
     @Test
     fun `CD-AIR-08 a machine in vacuum fills toward its danger pressure, and a volume of 0 gets no air`() {
         assertEquals(50, PncAirMath.allowed(air = 50, stored = -1_000, volume = 1_000, dangerPressure = 5f))

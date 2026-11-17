@@ -40,8 +40,16 @@ object PncCompressorHandler : TargetHandler {
         compressor.setChanged()
     }
 
-    private fun wantsFuel(compressor: AirCompressorBlockEntity): Boolean =
-        PncCompressorRule.hasDemand(compressor.pressure, compressor.dangerPressure, compressor.rsController.shouldRun())
+    /**
+     * CD-FUEL-08: the burn given now makes air in the compressor's next tick, so the check reads the air of that tick. Without the
+     * mixin, the private buffer takes its bound.
+     */
+    private fun wantsFuel(compressor: AirCompressorBlockEntity): Boolean {
+        val handler = compressor.getAirHandler(null) ?: return false
+        val buffer = (compressor as? CompressorGauge)?.dynamicsAirBuffer() ?: PncCompressorRule.UNKNOWN_BUFFER
+        val air = CompressorAir(handler.air, handler.volume, compressor.airPerTick, buffer)
+        return PncCompressorRule.hasDemand(air, PncCompat.lowestDanger(handler, compressor), compressor.rsController.shouldRun())
+    }
 
     private fun compressorAt(ctx: WorkContext): AirCompressorBlockEntity? =
         ctx.level.getBlockEntity(ctx.target) as? AirCompressorBlockEntity
