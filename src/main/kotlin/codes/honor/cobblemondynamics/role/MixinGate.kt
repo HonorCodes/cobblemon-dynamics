@@ -16,6 +16,9 @@ object MixinGate {
         id("ie_watermill") to MixinState.IE_WATERMILL,
         id("ie_windmill") to MixinState.IE_WINDMILL,
         id("wind_generator") to MixinState.WIND_GENERATOR,
+        // CD-OPT-09: the Stoker's handlers of other mods that work through a mixin of their own (CD-FUEL-10, CD-FUEL-11).
+        id("clibano") to MixinState.CLIBANO,
+        id("egg_incubator") to MixinState.EGG_INCUBATOR,
     )
 
     /** CD-MUS-07: with Apothic Enchanting, the Muse needs the stats hook, because that mod's table menu never runs the menu mixin. */

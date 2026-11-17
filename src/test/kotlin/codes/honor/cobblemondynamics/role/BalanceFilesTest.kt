@@ -1,5 +1,9 @@
 package codes.honor.cobblemondynamics.role
 
+import codes.honor.cobblemondynamics.compat.ars_nouveau.SourcelinkRule
+import codes.honor.cobblemondynamics.compat.cookingforblockheads.CfbOvenRule
+import codes.honor.cobblemondynamics.compat.forbidden_arcanus.ClibanoRule
+import codes.honor.cobblemondynamics.compat.ironfurnaces.IronFurnaceRule
 import codes.honor.cobblemondynamics.compat.mekanism.HeaterMath
 import codes.honor.cobblemondynamics.compat.mekanism.HeaterParams
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
@@ -139,6 +143,30 @@ class BalanceFilesTest {
             assertTrue(top <= 1_500, "${role.id} gives $top J per tick")
         }
         assertEquals(1_500, HeaterMath.heatPerTick(HeaterParams.of(BuiltInRoles.parse("heater_mekanism").params).heatPerTickAt100, 100))
+    }
+
+    /**
+     * ADR-0010 with ruling 3 of R80: a Stoker gives a machine of another mod free fuel only, at that machine's own speed. The furnaces,
+     * the oven and the Clibano hold 2 burn ticks, which runs a machine at its own speed and no faster, and the incubator runs at one Speed
+     * Upgrade at most. None of their files holds a rate that a pack could raise, and the Volcanic Sourcelink gets one coal per 1,600 ticks.
+     */
+    @Test
+    fun `CD-BAL-15 the Stokers of other mods give at most the free fuel of their rows`() {
+        val stokers = mapOf(
+            "stoker_ironfurnaces" to "cobblemon_dynamics:iron_furnace",
+            "stoker_cookingforblockheads" to "cobblemon_dynamics:cfb_oven",
+            "stoker_forbidden_arcanus" to "cobblemon_dynamics:clibano",
+            "stoker_cobblemon_incubator" to "cobblemon_dynamics:egg_incubator",
+            "stoker_ars_nouveau" to "cobblemon_dynamics:volcanic_sourcelink",
+        )
+        for ((name, handler) in stokers) assertEquals(handler, BuiltInRoles.parse(name).handler.toString(), name)
+        for (name in stokers.keys - "stoker_ars_nouveau") assertEquals(0, BuiltInRoles.parse(name).params.size(), "$name holds a rate")
+        assertEquals(2, IronFurnaceRule.HEAT_TICKS)
+        assertEquals(2, CfbOvenRule.HEAT_TICKS)
+        assertEquals(2, ClibanoRule.HEAT_TICKS)
+        val interval = SourcelinkRule.intervalOf(BuiltInRoles.parse("stoker_ars_nouveau").params)
+        assertTrue(interval >= 1_600, "the Volcanic Sourcelink gets one coal per $interval ticks")
+        assertEquals(1_600, interval)
     }
 
     private companion object {

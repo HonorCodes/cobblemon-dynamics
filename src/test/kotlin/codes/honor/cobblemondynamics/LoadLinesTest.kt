@@ -7,7 +7,9 @@ import codes.honor.cobblemondynamics.compat.CompatLines
 import codes.honor.cobblemondynamics.compat.OptionalMod
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import codes.honor.cobblemondynamics.role.FakeHandler
+import codes.honor.cobblemondynamics.role.RoleConditions
 import codes.honor.cobblemondynamics.role.RoleSet
+import com.google.gson.JsonParser
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -60,13 +62,15 @@ class LoadLinesTest {
 
     @Test
     fun `CD-CMP-10 the role line counts the built-in roles and names each disabled role with its reason`() {
+        // A server without the optional mods of ADR-0016 skips each role file that its conditions name (CD-OPT-04).
         val files = BuiltInRoles.dir.listFiles { file -> file.extension == "json" }.orEmpty()
+            .filterNot { JsonParser.parseString(it.readText()).asJsonObject.has(RoleConditions.KEY) }
         val roles = files.map { BuiltInRoles.parse(it) }.associateBy { it.id }
-        assertEquals(29, roles.size)
+        assertEquals(21, roles.size)
         val create = setOf("water_wheel", "hand_crank", "burner_heat", "fan_catalyst", "tailwind").map(::id).toSet()
         val set = RoleSet(roles, { handler -> if (handler in create) null else FakeHandler(handler) }, setOf(id("muse"))) { }
         val line = LoadLines.roles(roles.size, set.active.size, set.disabled)
-        assertTrue(line.startsWith("Roles: 29 loaded, 21 active, 8 disabled ["), line)
+        assertTrue(line.startsWith("Roles: 21 loaded, 13 active, 8 disabled ["), line)
         assertTrue("cobblemon_dynamics:muse (roles.disabled)" in line, line)
         assertTrue("cobblemon_dynamics:cranker (handler cobblemon_dynamics:hand_crank is not registered)" in line, line)
         for (role in roles.values.filter { it.handler in create }) {

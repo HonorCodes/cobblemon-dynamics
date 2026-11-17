@@ -60,6 +60,21 @@ class BuiltInRoleFilesTest {
         "tailwind_mekanism" to Row("cobblemon_dynamics:wind_generator", setOf("flying"), false, 0, "gust"),
         "stoker_railcraft" to Row("cobblemon_dynamics:railcraft_fuel", setOf("fire"), true, 0, "ember"),
         "stoker_railcraft_boiler" to Row("cobblemon_dynamics:railcraft_firebox", setOf("fire"), false, 0, "ember"),
+        // The Stoker on the furnaces of other mods (Task 15 of the 1.2 plan).
+        "stoker_ironfurnaces" to Row("cobblemon_dynamics:iron_furnace", setOf("fire"), true, 0, "ember"),
+        "stoker_cookingforblockheads" to Row("cobblemon_dynamics:cfb_oven", setOf("fire"), true, 0, "ember"),
+        "stoker_forbidden_arcanus" to Row("cobblemon_dynamics:clibano", setOf("fire"), true, 0, "ember"),
+        "stoker_cobblemon_incubator" to Row("cobblemon_dynamics:egg_incubator", setOf("fire"), true, 0, "ember"),
+        "stoker_ars_nouveau" to Row("cobblemon_dynamics:volcanic_sourcelink", setOf("fire"), true, 0, "ember"),
+    )
+
+    /** The role files of other mods that Tasks 15 to 17 of the 1.2 plan add, each with the role whose effect it plays. */
+    private val otherModRoles = mapOf(
+        "stoker_ironfurnaces" to "stoker",
+        "stoker_cookingforblockheads" to "stoker",
+        "stoker_forbidden_arcanus" to "stoker",
+        "stoker_cobblemon_incubator" to "stoker",
+        "stoker_ars_nouveau" to "stoker",
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -596,6 +611,23 @@ class BuiltInRoleFilesTest {
             f.nameWithoutExtension to row
         }
         assertEquals(roleTable, actual)
+    }
+
+    /** A Fire-type at a furnace of another mod is the same Stoker to the player: the same move, range and loop as `stoker.json`. */
+    @Test
+    fun `CD-FX-04 every role file of another mod plays its own role's effect, from that role's range`() {
+        for ((name, base) in otherModRoles) {
+            val role = BuiltInRoles.parse(name)
+            val own = BuiltInRoles.parse(base)
+            assertEquals(own.effect, role.effect, name)
+            assertEquals(own.range, role.range, name)
+            assertEquals(own.types, role.types, name)
+        }
+    }
+
+    @Test
+    fun `CD-FUEL-12 the Volcanic Sourcelink's file gives one coal per 1,600 ticks of Working`() {
+        assertEquals(1_600, BuiltInRoles.parse("stoker_ars_nouveau").params.get("interval_ticks")?.asInt)
     }
 
     /**

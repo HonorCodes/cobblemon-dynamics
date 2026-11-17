@@ -9,12 +9,17 @@ import codes.honor.cobblemondynamics.compat.CobblebaseHooks
 import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
 import codes.honor.cobblemondynamics.compat.CompatLines
 import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
+import codes.honor.cobblemondynamics.compat.ars_nouveau.ArsNouveauCompat
+import codes.honor.cobblemondynamics.compat.cobblemon_incubator.CobblemonIncubatorCompat
+import codes.honor.cobblemondynamics.compat.cookingforblockheads.CookingForBlockheadsCompat
 import codes.honor.cobblemondynamics.compat.dynamictrees.DynamicTreesCompat
 import codes.honor.cobblemondynamics.compat.easymagic.EasyMagicCompat
 import codes.honor.cobblemondynamics.compat.enchantinginfuser.EnchantingInfuserCompat
 import codes.honor.cobblemondynamics.compat.experiencelib.ExperienceLibCompat
+import codes.honor.cobblemondynamics.compat.forbidden_arcanus.ForbiddenArcanusCompat
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
 import codes.honor.cobblemondynamics.compat.immersiveengineering.IeCompat
+import codes.honor.cobblemondynamics.compat.ironfurnaces.IronFurnacesCompat
 import codes.honor.cobblemondynamics.compat.mekanism.MekanismCompat
 import codes.honor.cobblemondynamics.compat.mekanismgenerators.MekanismGeneratorsCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
@@ -133,6 +138,12 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         // Mekanism Generators needs Mekanism, whose classes its compat package also names.
         if (ModList.get().isLoaded("mekanismgenerators")) MekanismGeneratorsCompat.register(modBus)
         if (ModList.get().isLoaded("railcraft")) RailcraftCompat.register()
+        // CD-FUEL-07 to CD-FUEL-12: the Stoker on the furnaces of other mods, each handler only with its mod.
+        if (ModList.get().isLoaded("ironfurnaces")) IronFurnacesCompat.register()
+        if (ModList.get().isLoaded("cookingforblockheads")) CookingForBlockheadsCompat.register()
+        if (ModList.get().isLoaded("forbidden_arcanus")) ForbiddenArcanusCompat.register(modBus)
+        if (ModList.get().isLoaded("cobblemon_incubator")) CobblemonIncubatorCompat.register(modBus)
+        if (ModList.get().isLoaded("ars_nouveau")) ArsNouveauCompat.register()
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.

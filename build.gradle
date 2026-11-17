@@ -266,6 +266,10 @@ dependencies {
     compileOnly("maven.modrinth:forbidden-arcanus:${forbidden_arcanus_version}") { transitive = false }
     compileOnly("maven.modrinth:cobblemon-incubator:${cobblemon_incubator_version}") { transitive = false }
     compileOnly("maven.modrinth:ars-nouveau:${ars_nouveau_version}") { transitive = false }
+    // The superclasses and interfaces of the block entities that the Stoker's compat packages name, which Kotlin and javac must read.
+    compileOnly("maven.modrinth:balm:${balm_version}") { transitive = false }
+    compileOnly("maven.modrinth:valhelsia-core:${valhelsia_core_version}") { transitive = false }
+    compileOnly("maven.modrinth:geckolib:${geckolib_version}") { transitive = false }
     compileOnly("maven.modrinth:createaddition:${createaddition_version}") { transitive = false }
     compileOnly("maven.modrinth:create-enchantment-industry:${create_enchantment_industry_version}") { transitive = false }
     compileOnly("maven.modrinth:irons-spells-n-spellbooks:${irons_spellbooks_version}") { transitive = false }
