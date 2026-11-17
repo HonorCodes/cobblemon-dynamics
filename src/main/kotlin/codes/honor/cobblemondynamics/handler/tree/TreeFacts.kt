@@ -25,6 +25,8 @@ data class CellFacts(
     val neverSapling: Boolean = false,
     /** A cell of a chunk that is not loaded, which could hold more of the tree, or a log that keeps a leaf (CD-LUM-04). */
     val unloaded: Boolean = false,
+    /** `#dynamictrees:branches`: a branch of Dynamic Trees, which fells its own trees (CD-LUM-25). */
+    val dynamicBranch: Boolean = false,
 ) {
     companion object {
         val AIR = CellFacts(ResourceLocation.withDefaultNamespace("air"), air = true)

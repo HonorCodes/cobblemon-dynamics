@@ -15,6 +15,7 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.TicketType
 import net.minecraft.tags.BlockTags
+import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.decoration.GlowItemFrame
 import net.minecraft.world.entity.decoration.HangingEntity
 import net.minecraft.world.entity.decoration.ItemFrame
@@ -38,9 +39,19 @@ import java.util.concurrent.atomic.AtomicLong
  * The Lumberjack's target (ADR-0017): a tree that a Work Leash names, keyed by its trunk base cell. The worker fells the whole tree with
  * its own natural leaves and the blocks that hang on it, drops the loot beside the trunk, and replants a sapling of the drops. The
  * binding then waits on the sapling, as a bound Harvester waits on its crop. Each block goes with `Level.setBlock`, so the fell is silent
- * and no listener of a player's break hears it.
+ * and no listener of a player's break hears it. A tree of Dynamic Trees falls by that mod's own fell instead (CD-LUM-25).
  */
 object LumberjackHandler : TargetHandler {
+    /** CD-LUM-25: the fell of a mod whose trees fall by its own rules. Its compat package registers one while the mod is loaded. */
+    fun interface ModFell {
+        /** Fells the tree whose base log is [base] for [worker], or returns false when [base] holds no tree of the mod. */
+        fun fell(level: ServerLevel, base: BlockPos, worker: LivingEntity): Boolean
+    }
+
+    /** CD-LUM-25: Dynamic Trees' own fell, which `compat/dynamictrees/` registers while that mod is loaded. */
+    var dynamicTrees: ModFell? = null
+        internal set
+
     /** CD-LUM-27: a run ends within a few ticks, and a run that never ends gives its chunks back after this lifespan. */
     private const val TICKET_TICKS = 600
 
@@ -74,7 +85,8 @@ object LumberjackHandler : TargetHandler {
     /** CD-LUM-20: a player never leashes a worker to a tree that it will not fell. */
     override fun bindRefusal(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): String? {
         val params = LumberjackParams.of(role.params)
-        val refused = TreeRules.refusesBind(TreeFactsReader(level)::facts, canonical, params.maxLogs, params.maxLeaves)
+        val hook = dynamicTrees != null
+        val refused = TreeRules.refusesBind(TreeFactsReader(level)::facts, canonical, params.maxLogs, params.maxLeaves, hook)
         return TreeRules.CANNOT_FELL.takeIf { refused }
     }
 
@@ -109,6 +121,10 @@ object LumberjackHandler : TargetHandler {
             memo.clock.refuse(ctx.now, ctx.stalled)
             return
         }
+        if (fell.feller == Feller.DYNAMIC_TREES) {
+            if (!fellByDynamicTrees(ctx, fell.plan.base)) memo.clock.refuse(ctx.now, ctx.stalled)
+            return
+        }
         val run = FellRun(fell.plan, params.blocksPerTick, tickets(ctx.level))
         memo.run = run
         // CD-LUM-30: the item frames and paintings come off first, silently, and their items join the drops.
@@ -128,12 +144,14 @@ object LumberjackHandler : TargetHandler {
     /** The fell of the tree on [base], with its shell, or null when no tree within the role's limits stands there. GameTests read it. */
     fun plan(level: ServerLevel, base: BlockPos, params: LumberjackParams): FellPlan? = fell(level, base, params)?.plan
 
-    /** A fell, and the item frames and paintings that it takes (CD-LUM-30). */
-    private class Fell(val plan: FellPlan, val hanging: List<HangingEntity>)
+    /** A fell, the item frames and paintings that it takes (CD-LUM-30), and who fells it (CD-LUM-25). */
+    private class Fell(val plan: FellPlan, val hanging: List<HangingEntity>, val feller: Feller)
 
     private fun fell(level: ServerLevel, base: BlockPos, params: LumberjackParams): Fell? {
         val reader = TreeFactsReader(level)
-        val tree = TreeRules.treeOn(reader::facts, base, params.maxLogs, params.maxLeaves) ?: return null
+        val hook = dynamicTrees != null
+        val tree = TreeRules.treeOn(reader::facts, base, params.maxLogs, params.maxLeaves, hook) ?: return null
+        val feller = TreeRules.feller(reader.facts(base), hook) ?: return null
         // CD-LUM-29: a block of another mod whose check throws plans no fell of this tree, and never turns the role off.
         val failed: (Throwable) -> Unit = { e ->
             warnings.warn("shell:${e.javaClass.name}") { "The Lumberjack plans no fell at $base, because a block's check fails: $e" }
@@ -142,7 +160,27 @@ object LumberjackHandler : TargetHandler {
             ?: return null
         val hanging = hangingOn(level, tree.cells + shell)
         val cells = hanging.map { it.pos to BuiltInRegistries.ENTITY_TYPE.getKey(it.type) }
-        return Fell(FellPlan.of(tree, shell, cells) { reader.facts(it).blockId }, hanging)
+        return Fell(FellPlan.of(tree, shell, cells) { reader.facts(it).blockId }, hanging, feller)
+    }
+
+    /**
+     * CD-LUM-25: once every claim question allowed the fell, Dynamic Trees fells the tree for the worker by its own rules, which may play
+     * its own sounds (ADR-0017, decision 15). It drops the wood where the tree falls and owns the regrowth, so nothing pops or is
+     * replanted here. A fell that fails leaves the role on and waits as a refused fell waits (CD-LUM-29).
+     */
+    private fun fellByDynamicTrees(ctx: WorkContext, base: BlockPos): Boolean {
+        val hook = dynamicTrees ?: return false
+        val failed = { e: Throwable ->
+            warnings.warn("dynamictrees:${e.javaClass.name}") { "Dynamic Trees fails to fell the tree at $base for the Lumberjack: $e" }
+            false
+        }
+        return try {
+            hook.fell(ctx.level, base, ctx.worker)
+        } catch (e: Exception) {
+            failed(e)
+        } catch (e: LinkageError) {
+            failed(e)
+        }
     }
 
     /**
@@ -311,7 +349,7 @@ object LumberjackHandler : TargetHandler {
             val base = TreeFactsReader.stateOf(ctx.level, ctx.target)
             return wait.tree(ctx.now, baseIsLog = base != null && base.`is`(TreeFactsReader.TARGETS)) {
                 val params = LumberjackParams.of(ctx.role.params)
-                TreeRules.treeOn(TreeFactsReader(ctx.level)::facts, ctx.target, params.maxLogs, params.maxLeaves)
+                TreeRules.treeOn(TreeFactsReader(ctx.level)::facts, ctx.target, params.maxLogs, params.maxLeaves, dynamicTrees != null)
             }
         }
     }

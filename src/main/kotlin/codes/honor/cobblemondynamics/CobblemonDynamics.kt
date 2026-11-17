@@ -9,6 +9,7 @@ import codes.honor.cobblemondynamics.compat.CobblebaseHooks
 import codes.honor.cobblemondynamics.compat.CobbleworkersCompat
 import codes.honor.cobblemondynamics.compat.CompatLines
 import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
+import codes.honor.cobblemondynamics.compat.dynamictrees.DynamicTreesCompat
 import codes.honor.cobblemondynamics.compat.easymagic.EasyMagicCompat
 import codes.honor.cobblemondynamics.compat.enchantinginfuser.EnchantingInfuserCompat
 import codes.honor.cobblemondynamics.compat.experiencelib.ExperienceLibCompat
@@ -120,6 +121,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("enchantinginfuser")) EnchantingInfuserCompat.register(modBus)
         // CD-XPC-11: experiencelib's XP capability on the outputs of the Experience Collector.
         if (ModList.get().isLoaded("experiencelib")) ExperienceLibCompat.register(modBus)
+        // CD-LUM-25: Dynamic Trees fells its own trees for the Lumberjack.
+        if (ModList.get().isLoaded("dynamictrees")) DynamicTreesCompat.register()
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.
