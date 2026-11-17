@@ -4,12 +4,16 @@ import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.handler.vanilla.CauldronFill
+import codes.honor.cobblemondynamics.handler.vanilla.FarmlandMoisture
+import codes.honor.cobblemondynamics.handler.vanilla.TickClock
 import codes.honor.cobblemondynamics.id
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.FarmBlock
 import net.minecraft.world.level.block.LayeredCauldronBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
@@ -19,9 +23,10 @@ import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.fluids.capability.IFluidHandler
 
 /**
- * The Pump's target: a block whose NeoForge fluid capability takes water on one of its faces, and a vanilla cauldron (CD-PMP-01).
- * Tanks, boilers and basins of any mod go through the capability. A cauldron goes through [CauldronFill], never through NeoForge's
- * cauldron wrapper, which moves water only 1,000 mB at a time (CD-PMP-04).
+ * The Pump's target: a block whose NeoForge fluid capability takes water on one of its faces, a vanilla cauldron, and farmland
+ * (CD-PMP-01). Tanks, boilers and basins of any mod go through the capability. A cauldron goes through [CauldronFill], never through
+ * NeoForge's cauldron wrapper, which moves water only 1,000 mB at a time (CD-PMP-04). Farmland goes through [FarmlandMoisture], which
+ * keeps the farmland around it wet as a water source would (CD-MCH-09).
  */
 object FluidFillHandler : TargetHandler {
     override val id: ResourceLocation = id("fluid_fill")
@@ -31,25 +36,41 @@ object FluidFillHandler : TargetHandler {
 
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         cauldronOf(state) != null ||
+            isFarmland(state) ||
             Direction.entries.any { side ->
                 level.getCapability(Capabilities.FluidHandler.BLOCK, pos, state, blockEntity, side)
                     ?.let { FluidTick.acceptsWater(FluidPort.of(it)) } == true
             }
 
     /** A tank that is full, or holds another fluid, stays the target and has no demand (CD-PMP-05). */
-    override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = cauldronOf(level.getBlockState(canonical)) != null ||
-        Direction.entries.any { level.getCapability(Capabilities.FluidHandler.BLOCK, canonical, it) != null }
+    override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean =
+        level.getBlockState(canonical).let { cauldronOf(it) != null || isFarmland(it) } ||
+            Direction.entries.any { level.getCapability(Capabilities.FluidHandler.BLOCK, canonical, it) != null }
 
     override fun hasDemand(ctx: WorkContext): Boolean {
         val rate = mbPerTick(ctx)
-        cauldronOf(ctx.level.getBlockState(ctx.target))?.let { return rate > 0 && CauldronFill.hasDemand(it.contents, it.level) }
+        val state = ctx.level.getBlockState(ctx.target)
+        if (isFarmland(state)) return rate > 0 && FarmlandMoisture.hasDemand(ctx.target) { moistureAt(ctx.level, it) }
+        cauldronOf(state)?.let { return rate > 0 && CauldronFill.hasDemand(it.contents, it.level) }
         val port = port(ctx) ?: return false
         return FluidTick.hasDemand(port, rate)
     }
 
+    /** The farmland checks count from the tick that this stretch of work started. */
+    override fun onStart(ctx: WorkContext) {
+        if (!isFarmland(ctx.level.getBlockState(ctx.target))) return
+        val wetting = ctx.memo.value as? Wetting
+        if (wetting == null) ctx.memo.value = Wetting(ctx.now) else wetting.since = ctx.now
+    }
+
     override fun applyWork(ctx: WorkContext) {
         val rate = mbPerTick(ctx)
-        val cauldron = cauldronOf(ctx.level.getBlockState(ctx.target))
+        val state = ctx.level.getBlockState(ctx.target)
+        if (isFarmland(state)) {
+            wetFarmland(ctx, rate)
+            return
+        }
+        val cauldron = cauldronOf(state)
         if (cauldron != null) {
             fillCauldron(ctx, cauldron, rate)
             return
@@ -69,6 +90,33 @@ object FluidFillHandler : TargetHandler {
         state.`is`(Blocks.LAVA_CAULDRON) -> Cauldron(CauldronFill.Contents.LAVA, 0)
         state.`is`(Blocks.POWDER_SNOW_CAULDRON) -> Cauldron(CauldronFill.Contents.POWDER_SNOW, state.getValue(LayeredCauldronBlock.LEVEL))
         else -> null
+    }
+
+    /** Vanilla's farmland and each mod's farmland that extends it, by its moisture property. */
+    private fun isFarmland(state: BlockState): Boolean = state.block is FarmBlock && state.hasProperty(FarmBlock.MOISTURE)
+
+    /** The moisture of the farmland at [pos], or null for another block or a chunk that is not loaded, which no check loads. */
+    private fun moistureAt(level: ServerLevel, pos: BlockPos): Int? {
+        if (!level.isLoaded(pos)) return null
+        val state = level.getBlockState(pos)
+        return if (isFarmland(state)) state.getValue(FarmBlock.MOISTURE) else null
+    }
+
+    /** The tick that the claim's work on farmland started. */
+    private class Wetting(var since: Long)
+
+    /**
+     * CD-MCH-09: a check on the first tick of work and every 20 ticks after it. Each block goes to moisture 7 with flag 2, as vanilla's
+     * random tick of farmland near water sets it, so it posts no game event.
+     */
+    private fun wetFarmland(ctx: WorkContext, rate: Int) {
+        if (rate <= 0) return
+        val wetting = ctx.memo.value as? Wetting ?: Wetting(ctx.now).also { ctx.memo.value = it }
+        if (!TickClock.every(FarmlandMoisture.CHECK_TICKS, wetting.since, ctx.now)) return
+        FarmlandMoisture.check(ctx.target, { moistureAt(ctx.level, it) }, ctx.mayChange) { pos ->
+            val farmland = ctx.level.getBlockState(pos)
+            ctx.level.setBlock(pos, farmland.setValue(FarmBlock.MOISTURE, FarmlandMoisture.WET), Block.UPDATE_CLIENTS)
+        }
     }
 
     /** The mB that the claim has delivered toward the cauldron's next level. */

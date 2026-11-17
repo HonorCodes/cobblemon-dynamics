@@ -2,17 +2,22 @@ package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.Container
 import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.ChestBlockEntity
+import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
@@ -35,6 +40,12 @@ class MagnetTests {
         TestKit.workMode(pasture, true)
         TestKit.standBeside(owner, pasture)
         return Scene(owner, pasture, TestKit.tether(helper, pasture, owner, spec))
+    }
+
+    /** How many of [item] the vanilla `Container` at [rel] holds, read with no item capability, or -1 where no container is. */
+    private fun countInContainer(helper: GameTestHelper, rel: BlockPos, item: Item): Int {
+        val container = helper.level.getBlockEntity(helper.absolutePos(rel)) as? Container ?: return -1
+        return (0 until container.containerSize).sumOf { slot -> container.getItem(slot).let { if (it.`is`(item)) it.count else 0 } }
     }
 
     /** An item entity of [stack] at the bottom center of [rel], with no motion and no pickup delay. */
@@ -108,6 +119,30 @@ class MagnetTests {
             val stored = TestKit.countIn(helper, chestRel, Items.COBBLESTONE)
             helper.assertTrue(stored == 64, "CD-MAG-06: the chest gained ${stored - 54} cobblestone, not 10")
             helper.assertTrue(stack.isAlive && stack.item.count == 54, "CD-MAG-06: the ground stack holds ${stack.item.count}")
+            helper.succeed()
+        }
+    }
+
+    /**
+     * Cobblemon's Gilded Chest registers no item capability, so a Lv100 Magnemite reaches it through the fallback to its vanilla
+     * `Container`, as a hopper does, and collects a dropped item into it (CD-MCH-10).
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 200)
+    fun cdMch10MagnetCollectsIntoAGildedChest(helper: GameTestHelper) {
+        val scene = scene(helper, "magnemite level=100")
+        helper.setBlock(chestRel, CobblemonBlocks.GILDED_CHEST)
+        val pos = helper.absolutePos(chestRel)
+        val faces = listOf<Direction?>(null) + Direction.entries
+        helper.assertTrue(
+            faces.none { helper.level.getCapability(Capabilities.ItemHandler.BLOCK, pos, it) != null },
+            "the Gilded Chest has an item capability, so the bind does not test the fallback",
+        )
+        val bound = TestKit.bind(helper, scene.owner, scene.worker, chestRel)
+        helper.assertTrue(bound != null, "CD-MCH-10: the bind to a Gilded Chest was refused: ${TestKit.messages(scene.owner)}")
+        val item = drop(helper, BlockPos(13, 2, 11), ItemStack(Items.DIRT, 3))
+        helper.runAfterDelay(120) {
+            val dirt = countInContainer(helper, chestRel, Items.DIRT)
+            helper.assertTrue(!item.isAlive && dirt == 3, "CD-MCH-10: the Gilded Chest holds $dirt dirt")
             helper.succeed()
         }
     }
