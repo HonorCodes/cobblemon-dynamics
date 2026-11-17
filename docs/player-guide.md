@@ -1026,7 +1026,8 @@ The Heater gives ceil(1,500 × L ÷ 100) J of heat per tick, where L is its leve
 nearest to it. A level 100 Heater gives 1,500 J/t, less than a full evaporation plant can use. It works only
 while the structure is formed and colder than 3,000 K, above which a plant runs no faster.
 
-**Role file parameter:** `heat_per_tick_at_level_100` (1,500).
+**Role file parameter:** `heat_per_tick_at_level_100` (1,500), from 0 to 1,870, the heat that a full
+evaporation plant uses.
 
 ## Configuration
 

@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.compat.mekanism
 
 import codes.honor.cobblemondynamics.role.BuiltInRoles
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -24,6 +25,18 @@ class HeaterMathTest {
         assertEquals(1_500.0, HeaterParams.of(JsonObject()).heatPerTickAt100)
         val broken = JsonObject().apply { addProperty("heat_per_tick_at_level_100", "hot") }
         assertEquals(1_500.0, HeaterParams.of(broken).heatPerTickAt100)
+    }
+
+    /** M6: the heat stays below what a full plant can use, about 1,870 J/t (BM9), whatever a pack writes. Negative heat would cool. */
+    @Test
+    fun `CD-HTR-04 a role file's heat stays between 0 and 1,870, the heat that a full plant uses`() {
+        fun heat(value: String) = HeaterParams.of(JsonParser.parseString("""{ "heat_per_tick_at_level_100": $value }""").asJsonObject)
+        assertEquals(1_870.0, HeaterMath.FULL_PLANT_HEAT)
+        assertEquals(1_870.0, heat("10000").heatPerTickAt100)
+        assertEquals(1_870, HeaterMath.heatPerTick(heat("10000").heatPerTickAt100, 100))
+        assertEquals(0.0, heat("-50").heatPerTickAt100)
+        assertEquals(0, HeaterMath.heatPerTick(heat("-50").heatPerTickAt100, 100))
+        assertEquals(1_700.0, heat("1700").heatPerTickAt100)
     }
 
     @Test
