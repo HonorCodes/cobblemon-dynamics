@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:soul_collector",
+  "types": ["ghost"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {
+    "orb_units_per_second_at_level_100": 10,
+    "player_distance": 8
+  },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["nightshade", "electric", "special"],
+    "actor_particles": ["cobblemon:nightshade_actorpulse1", "cobblemon:nightshade_actor", "cobblemon:nightshade_actorpulse2"],
+    "target_particles": ["cobblemon:nightshade_target"]
+  }
+}

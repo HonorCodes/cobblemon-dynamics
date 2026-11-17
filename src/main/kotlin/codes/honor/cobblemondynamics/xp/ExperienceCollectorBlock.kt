@@ -56,7 +56,7 @@ class ExperienceCollectorBlock(properties: BlockBehaviour.Properties) : BaseEnti
 
     override fun rotate(state: BlockState, rotation: Rotation): BlockState = state.setValue(FACING, rotation.rotate(state.getValue(FACING)))
 
-    override fun mirror(state: BlockState, mirror: Mirror): BlockState = state.rotate(mirror.getRotation(state.getValue(FACING)))
+    override fun mirror(state: BlockState, mirror: Mirror): BlockState = state.setValue(FACING, mirror.mirror(state.getValue(FACING)))
 
     /**
      * CD-XPC-15: the screen opens only here, on the block's own use path, so a claim mod that cancels the right-click keeps the player
