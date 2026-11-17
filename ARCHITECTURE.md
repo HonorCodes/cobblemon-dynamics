@@ -346,7 +346,13 @@ Cobblemon ticks each Cobblemon's Brain in `customServerAiStep`. Our part of that
    switches the Brain to the `cobblemon_dynamics:work` activity. Core tasks run in every activity, so a
    work order also wins over Cobblemon's night sleep.
 2. In the work activity, one task sets `WALK_TARGET` to the work spot. Cobblemon's core
-   `follow_walk_target` then moves the Cobblemon.
+   `follow_walk_target` then moves the Cobblemon. That walk ends as soon as the Cobblemon stands in the
+   spot's cell, so a worker in that cell has arrived. A worker 1 to 2 blocks wide can stop there, short
+   of the corner where its path ends (CD-ASG-11). Cobblemon starts each path in the cell at the lowest
+   corner of the Cobblemon's box. When a worker is pressed against a block that fills only part of its
+   cell, such as the pasture block, that cell can be inside the block, and the worker never moves. When
+   the navigation of a Traveling worker narrower than a block reports it stuck, the engine moves the
+   worker to the middle of the cell that holds its center, if its body fits there.
 3. Our own look task sets `LOOK_TARGET` to the target's center and turns the Cobblemon toward it.
    Cobblemon's `look_at_target` runs only in the idle activity, which the work activity replaces.
 4. At the work spot, a hold task keeps `PATH_COOLDOWN` set. Cobblemon's wander task needs both
