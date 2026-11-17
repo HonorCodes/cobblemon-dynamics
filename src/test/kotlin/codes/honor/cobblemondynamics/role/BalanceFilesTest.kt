@@ -9,6 +9,7 @@ import codes.honor.cobblemondynamics.handler.tree.FellClock
 import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
 import codes.honor.cobblemondynamics.handler.water.FreezePace
 import codes.honor.cobblemondynamics.handler.water.FreezerParams
+import codes.honor.cobblemondynamics.handler.xp.SoulCollectorParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -97,6 +98,19 @@ class BalanceFilesTest {
             assertTrue(top <= 4.0, "${role.id} fells $top logs per second of Working")
         }
         assertEquals(5, LumberjackParams.of(BuiltInRoles.parse("lumberjack").params).ticksPerLogAt100)
+    }
+
+    /** A player takes one orb unit per 2 ticks (BM7), so a Soul Collector at level 100 takes as a player does, and never more. */
+    @Test
+    fun `CD-BAL-11 the default Soul Collector takes at most 10 orb units per second`() {
+        val collectors = withHandler("cobblemon_dynamics:soul_collector")
+        assertTrue(collectors.isNotEmpty(), "no built-in role file uses the Soul Collector handler")
+        for (role in collectors) {
+            val params = SoulCollectorParams.of(role.params)
+            val top = (1..100).maxOf(params::unitsPerBatch)
+            assertTrue(top <= 10, "${role.id} takes $top orb units per second")
+        }
+        assertEquals(10, SoulCollectorParams.of(BuiltInRoles.parse("soul_collector").params).unitsPerBatch(100))
     }
 
     /** A cold biome tries about 75 columns per minute in each chunk (BM8). The level is clamped to 1 to 100, as for the Cultivator. */

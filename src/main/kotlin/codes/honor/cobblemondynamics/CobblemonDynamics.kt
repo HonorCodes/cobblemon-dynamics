@@ -11,6 +11,7 @@ import codes.honor.cobblemondynamics.compat.CompatLines
 import codes.honor.cobblemondynamics.compat.apothic.ApothicCompat
 import codes.honor.cobblemondynamics.compat.easymagic.EasyMagicCompat
 import codes.honor.cobblemondynamics.compat.enchantinginfuser.EnchantingInfuserCompat
+import codes.honor.cobblemondynamics.compat.experiencelib.ExperienceLibCompat
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
 import codes.honor.cobblemondynamics.compat.opac.OpacCompat
@@ -37,6 +38,8 @@ import codes.honor.cobblemondynamics.handler.vanilla.EnchantingHandler
 import codes.honor.cobblemondynamics.handler.vanilla.EnchantingMenus
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
 import codes.honor.cobblemondynamics.handler.water.FreezerHandler
+import codes.honor.cobblemondynamics.handler.xp.PlayerDeaths
+import codes.honor.cobblemondynamics.handler.xp.SoulCollectorHandler
 import codes.honor.cobblemondynamics.leash.LeashComponents
 import codes.honor.cobblemondynamics.leash.LeashInteractions
 import codes.honor.cobblemondynamics.leash.LeashResets
@@ -45,8 +48,10 @@ import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
 import codes.honor.cobblemondynamics.registry.DynamicsEntities
 import codes.honor.cobblemondynamics.registry.DynamicsItems
+import codes.honor.cobblemondynamics.registry.DynamicsMenus
 import codes.honor.cobblemondynamics.registry.DynamicsTabs
 import codes.honor.cobblemondynamics.role.RoleRegistry
+import codes.honor.cobblemondynamics.xp.XpFluids
 import com.mojang.logging.LogUtils
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.ModContainer
@@ -76,6 +81,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         DynamicsItems.register(modBus)
         DynamicsBlocks.register(modBus)
         DynamicsTabs.REGISTER.register(modBus)
+        DynamicsMenus.REGISTER.register(modBus)
         DynamicsPayloads.register(modBus)
         if (FMLEnvironment.dist.isClient) DynamicsClient.register(modBus)
         // Cobblemon reads TaskConfig.types when it loads the behaviour files, which happens after common setup.
@@ -97,6 +103,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(TelekinesisHandler)
         HandlerRegistry.register(FreezerHandler)
         HandlerRegistry.register(MagnetHandler)
+        HandlerRegistry.register(SoulCollectorHandler)
         HandlerRegistry.register(CultivatorHandler)
         HandlerRegistry.register(HarvesterHandler)
         HandlerRegistry.register(LumberjackHandler)
@@ -111,6 +118,8 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         // CD-FIX-05, CD-FIX-06: the Muse's hooks in the menus of Easy Magic and Enchanting Infuser, also before the role files load.
         if (ModList.get().isLoaded("easymagic")) EasyMagicCompat.register(modBus)
         if (ModList.get().isLoaded("enchantinginfuser")) EnchantingInfuserCompat.register(modBus)
+        // CD-XPC-11: experiencelib's XP capability on the outputs of the Experience Collector.
+        if (ModList.get().isLoaded("experiencelib")) ExperienceLibCompat.register(modBus)
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.
@@ -122,12 +131,16 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { FarmingLines.onTagsUpdated(it) }
         // CD-OPT-11: the compat line of each loaded optional mod, once its compat package registered its adapters and the tags are bound.
         NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { CompatLines.onTagsUpdated(it) }
+        // CD-XPC-08: the fluid of the Experience Collector's outputs, chosen again after each tag load.
+        NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { XpFluids.onTagsUpdated(it) }
         EngineEvents.register()
         WorkerPush.warnIfMissing()
         LeashInteractions.register()
         LeashResets.register()
         QuickWork.register()
         EnchantingMenus.register()
+        // CD-SOU-12: the spots where players died, whose orbs the Soul Collector leaves for 6,000 ticks.
+        PlayerDeaths.register()
         DynamicsCommands.register()
     }
 

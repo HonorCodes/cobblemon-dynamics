@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.claim
 
+import codes.honor.cobblemondynamics.config.EngineSettings
+import codes.honor.cobblemondynamics.handler.xp.SoulCollectorHandler
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
@@ -170,6 +172,21 @@ class ClaimRegistryTest {
         assertEquals(2, sharing.releaseAll { it.pasture == pastureA }.size)
         assertEquals(listOf(b), sharing.sharedOn(chest).map { it.worker })
         assertNull(sharing.claimOf(a))
+    }
+
+    /** The engine asks for a shared claim when the role's handler shares its targets, with the configured cap (CD-CFG-19). */
+    @Test
+    fun `CD-SOU-03 five Soul Collector claims on one collector are granted, and a sixth is refused with the default cap`() {
+        val collector = TargetKey.block(overworld, BlockPos(2, 64, 2))
+        val claims = ClaimRegistry({ EngineSettings.DEFAULT.maxWorkersPerContainer }) { reservations[it] }
+        val shared = SoulCollectorHandler.sharesTargets
+        val workers = List(6) { UUID.randomUUID() }
+        for ((i, worker) in workers.take(5).withIndex()) {
+            val result = claims.tryClaim(worker, collector, ClaimKind.WORK, pastureA, 0, shared)
+            assertInstanceOf(ClaimResult.Granted::class.java, result, "Soul Collector claim ${i + 1} of 5")
+        }
+        assertEquals(ClaimResult.Full, claims.tryClaim(workers.last(), collector, ClaimKind.WORK, pastureB, 0, shared))
+        assertEquals(5, claims.sharedOn(collector).size)
     }
 
     private val c = UUID.randomUUID()

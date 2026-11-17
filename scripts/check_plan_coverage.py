@@ -75,14 +75,14 @@ V11_PARTS = (
 PLANS["1.2"] = ("2026-11-15-v1.2-new-roles-and-compat.md",)
 V12_AREAS = {"OPT", "FIX", "LUM", "XPC", "SOU", "FRZ", "HTR", "FUEL", "AIR", "KIN", "FRM", "MCH"}
 # Rows outside the 1.2 areas that are 1.2 work as a whole: the balance checks of the new roles and targets, the capacity key of
-# the Experience Collector and the gate of 1.2.0.
+# the Experience Collector, the creative break of the Charge Cell (R86) and the gate of 1.2.0.
 V12_ROWS = (
     "CD-BAL-10", "CD-BAL-11", "CD-BAL-12", "CD-BAL-13", "CD-BAL-14", "CD-BAL-15", "CD-BAL-16", "CD-BAL-17",
-    "CD-CFG-20", "CD-REL-17",
+    "CD-CFG-20", "CD-GEN-13", "CD-REL-17",
 )
 # Earlier rows whose last part is 1.2 work: the split-row table of docs/plans/2026-11-15-v1.2-new-roles-and-compat.md.
 V12_PARTS = (
-    "CD-REL-04", "CD-REL-05", "CD-REL-08", "CD-REL-09", "CD-CMP-08", "CD-CMP-10", "CD-UI-16",
+    "CD-REL-04", "CD-REL-05", "CD-REL-08", "CD-REL-09", "CD-CMP-08", "CD-CMP-10", "CD-UI-16", "CD-GEN-11",
     "CD-ART-01", "CD-ART-04", "CD-ART-10", "CD-ART-12", "CD-CRP-01", "CD-CRP-02", "CD-CRP-03", "CD-CRP-05", "CD-CRP-19",
     "CD-CRY-01", "CD-CRY-03", "CD-CRY-05", "CD-STK-01", "CD-BRN-03", "CD-MUS-01", "CD-PMP-01", "CD-TLK-01", "CD-MAG-01",
     "CD-CRK-01", "CD-CFG-01", "CD-CFG-07", "CD-QWK-03", "CD-FX-09", "CD-LND-12", "CD-LSH-08", "CD-ASG-12", "CD-ASG-19",

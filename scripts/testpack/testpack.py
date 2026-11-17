@@ -66,7 +66,7 @@ SERVER_CONFIG_KEYS = (
     "quickWork.leashRange",
     "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1", "stamina.healerRecoveryMinutesAtLevel100",
     "stamina.flushIntervalTicks", "beds.speedFactors", "heal.cost", "heal.lowStaminaThreshold", "roles.disabled",
-    "compat.cobbleworkers", "compat.cobblebase",
+    "compat.cobbleworkers", "compat.cobblebase", "experienceCollector.capacity",
 )
 # CD-WHL-07, CD-CRK-08: Create's water wheel and hand crank carry our drive behaviour, which saves the turn direction with
 # the block entity under this key. Both blocks sit in the force-loaded chunk 0, 0, in the air above the flat floor.
@@ -585,12 +585,12 @@ LOAD_LINES = (
               "4 to the server [cobblemon_dynamics:work_mode_toggle, cobblemon_dynamics:pasture_panel_open, "
               "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request]"),
     # CD-CMP-10: every role file loads and is active.
-    re.escape("Roles: 20 loaded, 20 active, 0 disabled []"),
+    re.escape("Roles: 21 loaded, 21 active, 0 disabled []"),
 )
 # CD-CMP-10: without Create and AE2, the 7 roles of Create's handlers are disabled, each with its reason.
 CREATE_ROLES = ("cranker", "fan_catalyst_fire", "fan_catalyst_ghost", "fan_catalyst_water", "superheater", "tailwind",
                 "wheel_driver")
-ROLES_WITHOUT_CREATE = (re.escape("Roles: 20 loaded, 13 active, 7 disabled [")
+ROLES_WITHOUT_CREATE = (re.escape("Roles: 21 loaded, 14 active, 7 disabled [")
                         + ", ".join(re.escape(f"cobblemon_dynamics:{role} (handler ") + r"[a-z_:]+ is not registered\)"
                                     for role in CREATE_ROLES)
                         + re.escape("]"))

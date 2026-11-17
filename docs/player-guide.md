@@ -21,7 +21,7 @@ of Minecraft, NeoForge, Cobblemon and the optional mods.
 Each Cobblemon then walks to a block that one of its roles fits, and works it.
 
 In creative mode, the **Cobblemon Dynamics** tab of the creative inventory holds every item of the mod: the Work
-Leash, the four beds and the [Charge Cell](#charge-cell).
+Leash, the four beds, the [Charge Cell](#charge-cell) and the [Experience Collector](#experience-collector).
 
 ## Work Mode
 
@@ -441,11 +441,42 @@ The Charge Cell is a block that stores Forge Energy (FE). It holds up to 50,000 
 - A comparator reads how full the cell is: 0 when the cell is empty, 1 to 14 while it holds some FE, and 15 when it is
   full.
 - When you break a cell, its item keeps the FE. The tooltip of the item shows it, for example "12,345 / 50,000 FE". The
-  cell that you place from the item holds that FE again.
+  cell that you place from the item holds that FE again. An explosion drops the cell with its FE too, and so does a
+  break in creative mode while the cell holds FE.
 
 | Item | Recipe |
 | --- | --- |
 | Charge Cell | Shaped: a Thunder Stone (`cobblemon:thunder_stone`) in the center, redstone dust above and below it, and 6 copper ingots in the side columns. |
+
+## Experience Collector
+
+The Experience Collector is a block that stores experience (XP). It holds up to 100,000 XP, enough to take a
+player from level 0 to level 166. The server config key `experienceCollector.capacity` sets the limit. A
+[Soul Collector](#soul-collector) fills it with the XP orbs of its pasture's work area.
+
+- When you place the collector, its front turns toward you, as the front of a furnace does. Its back and its
+  bottom face away from you.
+- A comparator reads how full the collector is: 0 when it is empty, 1 to 14 while it holds some XP, and 15 when
+  it is full.
+- When you break the collector, its item keeps the XP. The tooltip of the item shows it, for example "12,345 /
+  100,000 XP". The collector that you place from the item holds that XP again. An explosion drops the collector with
+  its XP too, and so does a break in creative mode while the collector holds XP.
+- A collector that holds more XP than a lowered limit keeps its XP. It takes no more XP until it holds less.
+- Right-click the collector to open its screen. The screen shows the stored XP in points, and the level that a
+  player at level 0 would reach with it. Press **Collect experience** to take all the stored XP. Anyone who can
+  open the collector can collect, as anyone who can open a chest can take its items. A land claim mod that keeps
+  you out of a chest keeps you out of the collector too.
+- The back and the bottom of the collector are outputs for pipes. Pipes drain the XP as a fluid, and they cannot
+  fill the collector. With Create: Enchantment Industry installed, the fluid is its liquid experience at 1 mB per
+  XP. Otherwise it is the first XP fluid of the tag `c:experience` at 20 mB per XP, for example the XP of
+  Sophisticated Core. A pipe takes whole points of XP only. With no XP fluid installed, the outputs offer no fluid,
+  and the button still works.
+- With experiencelib installed, the back and the bottom also offer its XP capability, so an Applied Experienced
+  import bus takes the XP into an ME network.
+
+| Item | Recipe |
+| --- | --- |
+| Experience Collector | Shaped: iron ingots in the 4 corners, glass in the top middle and on both sides of the middle row, a block of lapis lazuli in the centre, and a hopper in the bottom middle. |
 
 ## Farming
 
@@ -522,10 +553,11 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Fan Catalyst Ghost](#fan-catalyst-ghost) | `cobblemon_dynamics:fan_catalyst_ghost` | Ghost | Encased fan that faces sideways | Work Leash | Create |
 | [Tailwind](#tailwind) | `cobblemon_dynamics:tailwind` | Flying | Windmill bearing | Work Leash | Create |
 | [Lumberjack](#lumberjack) | `cobblemon_dynamics:lumberjack` | Bug | A tree, a sapling | Work Leash | |
+| [Soul Collector](#soul-collector) | `cobblemon_dynamics:soul_collector` | Ghost | Experience Collector | Work Leash | |
 
 Level changes the output of the Generator, the Pump, the Muse, Telekinesis, the Magnet, Tailwind, the
-Cultivator, the Lumberjack and the Freezer. The Superheater superheats only from level 50. Every other role
-works the same at every level.
+Cultivator, the Lumberjack, the Freezer and the Soul Collector. The Superheater superheats only from
+level 50. Every other role works the same at every level.
 
 ### Stoker
 
@@ -884,6 +916,26 @@ refusal stops the whole fell, and the worker leaves that tree alone for 6,000 ti
 **Role file parameters:** `ticks_per_log_at_level_1` (20), `ticks_per_log_at_level_100` (5), `max_logs`
 (256), `max_leaves` (1,024) and `blocks_per_tick` (128).
 
+### Soul Collector
+
+**Types:** Ghost. **Level:** the pace grows with level. **Move:** Night Shade. **Assignment:** Work Leash only.
+
+**Target:** an [Experience Collector](#experience-collector).
+
+A Ghost-type collects XP orbs into an Experience Collector. Select the Cobblemon with the Work Leash, then
+right-click the collector. The worker stands at the collector and takes the orbs of the whole work area of its
+pasture, nearest first: ceil(10 × L ÷ 100) orb units every second, where L is its level. That is 1 at level 1, 5
+at level 50 and 10 at level 100, so a level 100 worker takes orbs as fast as a player picks them up. It leaves
+every orb within 8 blocks of a player who is not a spectator, so it never takes your XP or the repairs of your
+Mending gear. For 5 minutes after a player dies, it also leaves every orb within 8 blocks of the spot of the death,
+so the XP that the player dropped waits for them. It moves only the XP of the orbs, and takes none that the
+collector has no room for. A worker waits in Standby while no orb lies in range or the collector is full.
+
+Up to 5 Soul Collectors can share one Experience Collector. Each Cobblemon needs its own free work spot beside
+the collector.
+
+**Role file parameters:** `orb_units_per_second_at_level_100` (10) and `player_distance` (8).
+
 ## Configuration
 
 A key such as `workArea.horizontalRadius` is the key `horizontalRadius` in the section `[workArea]` of the
@@ -906,7 +958,7 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `engine.effectBroadcastRadius` | 64 | 16 to 128 | Blocks around a worker within which players receive its work effects. |
 | `workMode.toggleCooldownTicks` | 10 | 0 to 200 | Ticks after a player's accepted Work Mode change during which the server ignores that player's next change. |
 | `leash.pendingSelectionTicks` | 600 | 100 to 6,000 | Ticks that the Work Leash keeps a pending source before it clears it. A [Telekinesis](#telekinesis) binding has a pending source between its source click and its destination click. |
-| `logistics.maxWorkersPerContainer` | 5 | 1 to 16 | Most Cobblemon of the [Magnet](#magnet) and [Telekinesis](#telekinesis) roles that use one container at once, together. A double chest or a Create item vault is one container. A Telekinesis destination counts only when you bind. A lower value clears no binding: a Cobblemon above the new limit keeps its binding, and it waits for a free place before it starts again. |
+| `logistics.maxWorkersPerContainer` | 5 | 1 to 16 | Most Cobblemon of the [Magnet](#magnet) and [Telekinesis](#telekinesis) roles that use one container at once, together, and most [Soul Collectors](#soul-collector) at one Experience Collector. A double chest or a Create item vault is one container. A Telekinesis destination counts only when you bind. A lower value clears no binding: a Cobblemon above the new limit keeps its binding, and it waits for a free place before it starts again. |
 | `quickWork.enabled` | `true` | `true`, `false` | Turns [Quick Work](#quick-work) on or off. With `false`, a send-out never starts Quick Work. |
 | `quickWork.targetRange` | 16 | 2 to 24 | Blocks that your view reaches to find the block for Quick Work. Never more than `quickWork.leashRange`. |
 | `quickWork.leashRange` | 16 | 2 to 24 | Blocks between your eyes and the block at which Quick Work stops. |
@@ -920,6 +972,7 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `roles.disabled` | `[]` | role ids | Roles to turn off, for example `["cobblemon_dynamics:stoker"]`. The [Roles](#roles) table lists the ids. |
 | `compat.cobbleworkers` | `true` | `true`, `false` | With Cobbleworkers installed, mark the workers of Work Mode pastures as resting for Cobbleworkers. |
 | `compat.cobblebase` | `true` | `true`, `false` | With Cobblebase installed, stop its pasture behavior in Work Mode pastures. |
+| `experienceCollector.capacity` | 100,000 | 1,000 to 1,000,000 | Most XP that one [Experience Collector](#experience-collector) holds. A collector that holds more after you lower the value keeps its XP, and takes no more until it holds less. |
 
 ### Client config
 

@@ -31,6 +31,7 @@ object ServerConfig {
     private val quickWorkTargetRange: ModConfigSpec.IntValue
     private val quickWorkLeashRange: ModConfigSpec.IntValue
     private val maxWorkersPerContainer: ModConfigSpec.IntValue
+    private val experienceCollectorCapacity: ModConfigSpec.IntValue
 
     val SPEC: ModConfigSpec
 
@@ -204,6 +205,15 @@ object ServerConfig {
             .define("cobblebase", d.compatCobblebase)
         b.pop()
 
+        b.comment("The Experience Collector block.").push("experienceCollector")
+        experienceCollectorCapacity = b.int(
+            "capacity",
+            d.experienceCollectorCapacity,
+            ConfigRanges.COLLECTOR_CAPACITY,
+            "Most XP that one Experience Collector holds. A collector that holds more after a lower value keeps its XP and takes no more.",
+        )
+        b.pop()
+
         SPEC = b.build()
     }
 
@@ -233,6 +243,7 @@ object ServerConfig {
         quickWorkTargetRange = quickWorkTargetRange.get(),
         quickWorkLeashRange = quickWorkLeashRange.get(),
         maxWorkersPerContainer = maxWorkersPerContainer.get(),
+        experienceCollectorCapacity = experienceCollectorCapacity.get(),
     )
 
     fun hasKey(path: String): Boolean = SPEC.spec.contains(path)

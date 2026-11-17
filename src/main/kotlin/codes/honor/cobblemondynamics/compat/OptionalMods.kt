@@ -39,7 +39,8 @@ object OptionalMods {
         OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/")),
         OptionalMod("easymagic", listOf("fuzs/easymagic/"), listOf("muse_table")),
         OptionalMod("enchantinginfuser", listOf("fuzs/enchantinginfuser/"), listOf("muse_infusers")),
-        OptionalMod("experiencelib", listOf("es/degrassi/experiencelib/")),
+        // CD-XPC-11: the XP capability on the outputs of the Experience Collector.
+        OptionalMod("experiencelib", listOf("es/degrassi/experiencelib/"), listOf("collector_xp")),
         OptionalMod("dynamictrees", listOf("com/dtteam/dynamictrees/")),
         OptionalMod("apothic_enchanting", listOf("dev/shadowsoffire/"), compat = "apothic"),
         // CD-CRY-05: only compat/ae2/ may name AE2.

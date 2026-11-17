@@ -26,8 +26,9 @@ object DynamicsTabs {
         },
     )
 
-    /** Every item of the mod, in the tab's order: the Work Leash, the beds by tier and the Charge Cell. */
+    /** Every item of the mod, in the tab's order: the Work Leash, the beds by tier, the Charge Cell and the Experience Collector. */
     fun items(): List<Item> = listOf(DynamicsItems.WORK_LEASH.get()) +
         BedTier.entries.map { DynamicsBlocks.BED_ITEMS.getValue(it).get() } +
-        DynamicsBlocks.CHARGE_CELL_ITEM.get()
+        DynamicsBlocks.CHARGE_CELL_ITEM.get() +
+        DynamicsBlocks.EXPERIENCE_COLLECTOR_ITEM.get()
 }

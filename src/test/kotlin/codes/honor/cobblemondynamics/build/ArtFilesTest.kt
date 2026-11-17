@@ -38,14 +38,14 @@ class ArtFilesTest {
     }
 
     /**
-     * Each block that the mod adds, the four beds and the Charge Cell, ships a block model, the textures of the mod that the model
-     * names, and an item model whose parent is that block model, so that the item shows the placed block and is no flat sprite
-     * (CD-ART-01).
+     * Each block that the mod adds, the four beds, the Charge Cell and the Experience Collector, ships a block model, the textures of
+     * the mod that the model names, and an item model whose parent is that block model, so that the item shows the placed block and
+     * is no flat sprite (CD-ART-01).
      */
     @Test
     fun `CD-ART-01 each block ships a block model, its textures and an item model that renders the block model`() {
         val blocks = File(assets, "blockstates").listFiles { f -> f.extension == "json" }.orEmpty().map { it.nameWithoutExtension }
-        assertTrue(blocks.containsAll(BLOCKS), "the blockstates are $blocks, not the four beds and the Charge Cell")
+        assertTrue(blocks.containsAll(BLOCKS), "the blockstates are $blocks, not the four beds, the Charge Cell and the collector")
         for (id in blocks) {
             val textures = json("models/block/$id.json").getAsJsonObject("textures")?.entrySet().orEmpty().map { it.value.asString }
             assertTrue(textures.isNotEmpty(), "the block model of $id names no texture")
@@ -96,7 +96,7 @@ class ArtFilesTest {
         val TEXT_EXTENSIONS = setOf("json", "mcmeta", "pixels", "md", "txt")
 
         /** The blocks of CD-ART-01. */
-        val BLOCKS = listOf("hay_bed", "wool_bed", "plush_bed", "starlit_bed", "charge_cell")
+        val BLOCKS = listOf("hay_bed", "wool_bed", "plush_bed", "starlit_bed", "charge_cell", "experience_collector")
 
         /** The vanilla parents of an item model that draws its texture as a flat sprite. */
         val FLAT_SPRITES = setOf("minecraft:item/generated", "item/generated", "minecraft:item/handheld", "item/handheld")

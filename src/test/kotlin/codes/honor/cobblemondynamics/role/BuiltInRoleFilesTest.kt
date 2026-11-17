@@ -9,6 +9,7 @@ import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
 import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
 import codes.honor.cobblemondynamics.handler.water.FreezerParams
+import codes.honor.cobblemondynamics.handler.xp.SoulCollectorParams
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import net.minecraft.world.phys.Vec3
@@ -50,6 +51,7 @@ class BuiltInRoleFilesTest {
         "harvester" to Row("cobblemon_dynamics:harvester", setOf("grass"), true, 0, "razorleaf"),
         "lumberjack" to Row("cobblemon_dynamics:lumberjack", setOf("bug"), false, 0, "aerialace"),
         "freezer" to Row("cobblemon_dynamics:freezer", setOf("ice"), true, 0, "icebeam"),
+        "soul_collector" to Row("cobblemon_dynamics:soul_collector", setOf("ghost"), false, 0, "nightshade"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -490,6 +492,36 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("cobblemon:icebeam_actorpilot"), effect.actorParticles.map { it.toString() })
         assertEquals(icebeam.targetParticles, effect.targetParticles.map { it.toString() })
         assertEquals(4, effect.targetParticles.size)
+    }
+
+    @Test
+    fun `CD-SOU-01 the Soul Collector role file is a Ghost role of the Work Leash only, with no Quick Work`() {
+        val role = BuiltInRoles.parse("soul_collector")
+        assertEquals("cobblemon_dynamics:soul_collector", role.handler.toString())
+        assertEquals(setOf("ghost"), role.types)
+        assertEquals(0, role.priority)
+        val key = autoAssignKey("soul_collector")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign is $key")
+        val json = JsonParser.parseString(File(BuiltInRoles.dir, "soul_collector.json").readText()).asJsonObject
+        assertFalse(json.has("quick_work"), "soul_collector.json names quick_work")
+    }
+
+    @Test
+    fun `CD-SOU-10 the Soul Collector's file holds 10 orb units per second at level 100 and a player distance of 8`() {
+        val role = BuiltInRoles.parse("soul_collector")
+        assertEquals(10, role.params.get("orb_units_per_second_at_level_100").asInt)
+        assertEquals(8.0, role.params.get("player_distance").asDouble)
+        assertEquals(SoulCollectorParams(10, 8.0), SoulCollectorParams.of(role.params))
+    }
+
+    /** Cobblemon's `nightshade` timeline sends its pulses from the user and its hit to the target. None of them plays a sound. */
+    @Test
+    fun `CD-FX-04 the Soul Collector's Night Shade splits its particles as Cobblemon's nightshade timeline does`() {
+        val nightShade = MoveTimeline.read("nightshade")
+        val effect = BuiltInRoles.parse("soul_collector").effect
+        assertEquals(nightShade.userParticles, effect.actorParticles.map { it.toString() })
+        assertEquals(nightShade.targetParticles, effect.targetParticles.map { it.toString() })
+        assertEquals(nightShade.animations, effect.animations)
     }
 
     @Test

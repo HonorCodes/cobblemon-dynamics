@@ -297,6 +297,8 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.tomlj:tomlj:2.2.0'
     testImplementation 'org.yaml:snakeyaml:2.7'
+    // CD-XPC-11: ExperienceLibHandlerTest calls the collector's handler through experiencelib's interface.
+    testImplementation("maven.modrinth:experiencelib:${experiencelib_version}") { transitive = false }
 }
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {

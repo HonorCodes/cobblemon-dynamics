@@ -19,4 +19,7 @@ object ConfigRanges {
     val HEAL_COST = 0.01..1.0
     val LOW_STAMINA_THRESHOLD = 0.0..1.0
     val HEAD_BAR_RANGE = 4..64
+
+    /** CD-CFG-20: 1,000,000 XP at 20 mB per XP stays inside the `int` of a fluid stack. */
+    val COLLECTOR_CAPACITY = 1_000..1_000_000
 }

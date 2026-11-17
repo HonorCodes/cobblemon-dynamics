@@ -6,6 +6,8 @@ import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
@@ -38,6 +40,22 @@ class ChargeCellBlock(properties: BlockBehaviour.Properties) : BaseEntityBlock(p
 
     override fun getAnalogOutputSignal(state: BlockState, level: Level, pos: BlockPos): Int =
         (level.getBlockEntity(pos) as? ChargeCellBlockEntity)?.signal ?: 0
+
+    /**
+     * CD-GEN-13: a break in creative mode drops no loot, so a cell that holds FE drops its item here, with the FE, as a shulker box that
+     * holds items does. An empty cell drops nothing in creative mode.
+     */
+    override fun playerWillDestroy(level: Level, pos: BlockPos, state: BlockState, player: Player): BlockState {
+        val stored = (level.getBlockEntity(pos) as? ChargeCellBlockEntity)?.stored ?: 0
+        if (!level.isClientSide && player.isCreative && stored > 0) {
+            val stack = ItemStack(this)
+            stack.set(DynamicsBlocks.STORED_ENERGY.get(), stored)
+            val drop = ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, stack)
+            drop.setDefaultPickUpDelay()
+            level.addFreshEntity(drop)
+        }
+        return super.playerWillDestroy(level, pos, state, player)
+    }
 
     /** CD-GEN-11: the FE that the item carries, also for a new cell, which carries none. */
     override fun appendHoverText(stack: ItemStack, context: Item.TooltipContext, tooltip: MutableList<Component>, flag: TooltipFlag) {

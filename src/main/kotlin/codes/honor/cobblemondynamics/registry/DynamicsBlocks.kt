@@ -7,11 +7,15 @@ import codes.honor.cobblemondynamics.bed.BedTier
 import codes.honor.cobblemondynamics.cell.ChargeCellBlock
 import codes.honor.cobblemondynamics.cell.ChargeCellBlockEntity
 import codes.honor.cobblemondynamics.cell.ChargeCellRules
+import codes.honor.cobblemondynamics.xp.ExperienceCollectorBlock
+import codes.honor.cobblemondynamics.xp.ExperienceCollectorBlockEntity
+import codes.honor.cobblemondynamics.xp.XpFluids
 import com.mojang.serialization.Codec
 import net.minecraft.core.Direction
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.util.ExtraCodecs
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -23,13 +27,17 @@ import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.ICapabilityProvider
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.neoforged.neoforge.energy.IEnergyStorage
+import net.neoforged.neoforge.fluids.capability.IFluidHandler
 import net.neoforged.neoforge.registries.DeferredBlock
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredItem
 import net.neoforged.neoforge.registries.DeferredRegister
 import java.util.function.Supplier
 
-/** The mod's blocks, their items and their block entity types: the beds (CD-BED-01) and the Charge Cell (CD-GEN-08). */
+/**
+ * The mod's blocks, their items and their block entity types: the beds (CD-BED-01), the Charge Cell (CD-GEN-08) and the Experience
+ * Collector (CD-XPC-01).
+ */
 object DynamicsBlocks {
     val BLOCKS: DeferredRegister.Blocks = DeferredRegister.createBlocks(MOD_ID)
     val ITEMS: DeferredRegister.Items = DeferredRegister.createItems(MOD_ID)
@@ -60,6 +68,27 @@ object DynamicsBlocks {
             it.persistent(Codec.intRange(0, ChargeCellRules.CAPACITY)).networkSynchronized(ByteBufCodecs.VAR_INT)
         }
 
+    /** CD-XPC-01: the Experience Collector, its item and its block entity type. */
+    val EXPERIENCE_COLLECTOR: DeferredBlock<ExperienceCollectorBlock> =
+        BLOCKS.registerBlock("experience_collector", ::ExperienceCollectorBlock, collectorProperties())
+
+    val EXPERIENCE_COLLECTOR_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(EXPERIENCE_COLLECTOR)
+
+    val EXPERIENCE_COLLECTOR_TYPE: DeferredHolder<BlockEntityType<*>, BlockEntityType<ExperienceCollectorBlockEntity>> =
+        BLOCK_ENTITIES.register(
+            "experience_collector",
+            Supplier { BlockEntityType.Builder.of(::ExperienceCollectorBlockEntity, EXPERIENCE_COLLECTOR.get()).build(null) },
+        )
+
+    /**
+     * CD-XPC-13: the XP that an Experience Collector item carries. Saved and synced, so the client's tooltip shows it. It takes any
+     * count from 0, because a collector above a lowered capacity keeps its XP (CD-XPC-03).
+     */
+    val STORED_EXPERIENCE: DeferredHolder<DataComponentType<*>, DataComponentType<Int>> =
+        COMPONENTS.registerComponentType("stored_experience") {
+            it.persistent(ExtraCodecs.NON_NEGATIVE_INT).networkSynchronized(ByteBufCodecs.VAR_INT)
+        }
+
     fun register(modBus: IEventBus) {
         BLOCKS.register(modBus)
         ITEMS.register(modBus)
@@ -72,6 +101,14 @@ object DynamicsBlocks {
                 CHARGE_CELL_TYPE.get(),
                 ICapabilityProvider<ChargeCellBlockEntity, Direction?, IEnergyStorage> { cell, _ -> cell.storage },
             )
+            // CD-XPC-07, CD-XPC-08: the back and the bottom of a collector, while a fluid of the last tag load carries the XP.
+            event.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                EXPERIENCE_COLLECTOR_TYPE.get(),
+                ICapabilityProvider<ExperienceCollectorBlockEntity, Direction?, IFluidHandler> { collector, side ->
+                    collector.fluidTank.takeIf { XpFluids.current != null && collector.isOutput(side) }
+                },
+            )
         }
     }
 
@@ -82,6 +119,12 @@ object DynamicsBlocks {
     private fun chargeCellProperties(): BlockBehaviour.Properties = BlockBehaviour.Properties.of()
         .mapColor(MapColor.COLOR_ORANGE)
         .sound(SoundType.COPPER)
+        .strength(3.0f, 6.0f)
+
+    /** As hard as an iron machine. It drops itself whatever breaks it, so a break never loses XP (CD-XPC-13). */
+    private fun collectorProperties(): BlockBehaviour.Properties = BlockBehaviour.Properties.of()
+        .mapColor(MapColor.METAL)
+        .sound(SoundType.METAL)
         .strength(3.0f, 6.0f)
 
     /** Like a vanilla bed: soft, quick to break, not solid to light, and a piston breaks it. */

@@ -77,6 +77,13 @@ class ConfigTest {
     }
 
     @Test
+    fun `CD-CFG-20 the Experience Collector's capacity accepts 1,000 to 1,000,000 and defaults to 100,000`() {
+        assertEquals(100_000, EngineSettings.DEFAULT.experienceCollectorCapacity)
+        for (n in listOf(1_000, 100_000, 1_000_000)) assertTrue(ServerConfig.isValid(COLLECTOR_CAPACITY, n), "$n is refused")
+        for (n in listOf(999, 1_000_001)) assertFalse(ServerConfig.isValid(COLLECTOR_CAPACITY, n), "$n is accepted")
+    }
+
+    @Test
     fun `CD-QWK-35 CD-LND-15 the server config holds the keys of CD-CFG-01 and no claim key`() =
         assertEquals(CFG_01_KEYS.toSet(), keys(ServerConfig.SPEC.spec).toSet())
 
@@ -88,6 +95,7 @@ class ConfigTest {
 
     private companion object {
         const val WORKERS_PER_CONTAINER = "logistics.maxWorkersPerContainer"
+        const val COLLECTOR_CAPACITY = "experienceCollector.capacity"
 
         /** The keys of the spec's Config section, in the order that the config file writes them. The test pack looks for the same keys. */
         val CFG_01_KEYS = listOf(
@@ -97,7 +105,7 @@ class ConfigTest {
             "leash.pendingSelectionTicks", WORKERS_PER_CONTAINER, "quickWork.enabled", "quickWork.targetRange", "quickWork.leashRange",
             "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1", "stamina.healerRecoveryMinutesAtLevel100",
             "stamina.flushIntervalTicks", "beds.speedFactors", "heal.cost", "heal.lowStaminaThreshold", "roles.disabled",
-            "compat.cobbleworkers", "compat.cobblebase",
+            "compat.cobbleworkers", "compat.cobblebase", COLLECTOR_CAPACITY,
         )
     }
 }

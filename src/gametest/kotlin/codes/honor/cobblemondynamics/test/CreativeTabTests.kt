@@ -30,8 +30,8 @@ class CreativeTabTests {
 
     /**
      * CD-UI-16: the tab `cobblemon_dynamics:main` is titled "Cobblemon Dynamics", shows the Work Leash as its icon, and lists every
-     * item that the mod registers, in this order: the Work Leash, the four beds by tier and the Charge Cell. The vanilla tabs that
-     * listed the items before list none of them now.
+     * item that the mod registers, in this order: the Work Leash, the four beds by tier, the Charge Cell and the Experience Collector
+     * (CD-XPC-01). The vanilla tabs that listed the items before list none of them now.
      */
     @GameTest(template = "floor_9x5x9")
     fun cdUi16CreativeTabListsEveryItemOfTheMod(helper: GameTestHelper) {
@@ -41,7 +41,8 @@ class CreativeTabTests {
         helper.assertTrue(tab.displayName.string == "Cobblemon Dynamics", "CD-UI-16: the tab is titled '${tab.displayName.string}'")
         helper.assertTrue(tab.iconItem.`is`(DynamicsItems.WORK_LEASH.get()), "CD-UI-16: the tab's icon is ${tab.iconItem}")
         val listed = idsOf(tab)
-        val expected = listOf("work_leash", "hay_bed", "wool_bed", "plush_bed", "starlit_bed", "charge_cell").map(::id)
+        val expected = listOf("work_leash", "hay_bed", "wool_bed", "plush_bed", "starlit_bed", "charge_cell", "experience_collector")
+            .map(::id)
         helper.assertTrue(listed == expected, "CD-UI-16: the tab lists $listed")
         val registered = BuiltInRegistries.ITEM.keySet().filter { it.namespace == MOD_ID }.toSet()
         helper.assertTrue(registered == listed.toSet(), "CD-UI-16: the mod registers $registered, and the tab lists $listed")

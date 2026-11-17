@@ -18,6 +18,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.TooltipFlag
 import net.minecraft.world.item.crafting.CraftingInput
 import net.minecraft.world.item.crafting.RecipeType
+import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.ComparatorBlockEntity
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
@@ -182,6 +183,22 @@ class ChargeCellTests {
         helper.succeed()
     }
 
+    /**
+     * CD-GEN-11: an explosion of radius 3 with drop decay, as a creeper's, breaks a full cell, four times, and each drops one item with
+     * its 50,000 FE. The loot condition `minecraft:survives_explosion` that the table had kept a drop 1 time in 3 (R86).
+     */
+    @GameTest(template = "floor_9x5x9")
+    fun cdGen11AnExplodedCellDropsItselfWithItsFe(helper: GameTestHelper) {
+        for (rel in listOf(BlockPos(2, 2, 2), BlockPos(6, 2, 2), BlockPos(2, 2, 6), BlockPos(6, 2, 6))) {
+            cellAt(helper, rel, fe = 50_000)
+            val drops = Explosions.creeperAt(helper, rel)
+            helper.assertBlockNotPresent(DynamicsBlocks.CHARGE_CELL.get(), rel)
+            val fe = drops.filter { it.`is`(DynamicsBlocks.CHARGE_CELL_ITEM.get()) }.map { it.get(DynamicsBlocks.STORED_ENERGY.get()) }
+            helper.assertTrue(fe == listOf(50_000), "CD-GEN-11: the exploded cell at $rel dropped $drops")
+        }
+        helper.succeed()
+    }
+
     /** CD-GEN-12: the recipe of the Recipes table makes one cell, and the same grid without the Thunder Stone makes nothing. */
     @GameTest(template = "floor_9x5x9")
     fun cdGen12CellCraftsFromCopperRedstoneAndAThunderStone(helper: GameTestHelper) {
@@ -201,6 +218,37 @@ class ChargeCellTests {
         helper.assertTrue(made.`is`(DynamicsBlocks.CHARGE_CELL_ITEM.get()) && made.count == 1, "CD-GEN-12: the grid makes $made")
         val without = craft(grid.map { if (it == stone) Items.AIR else it })
         helper.assertTrue(without.isEmpty, "CD-GEN-12: the grid without the Thunder Stone makes $without")
+        helper.succeed()
+    }
+
+    /**
+     * CD-GEN-13: a player in creative mode breaks a full cell and gets its item with the 50,000 FE, as from a shulker box that holds
+     * items, and breaks an empty cell and gets nothing (R86).
+     */
+    @GameTest(template = "floor_9x5x9")
+    fun cdGen13ACreativeBreakDropsACellThatHoldsFe(helper: GameTestHelper) {
+        val full = BlockPos(2, 2, 4)
+        val empty = BlockPos(6, 2, 4)
+        cellAt(helper, full, fe = 50_000)
+        cellAt(helper, empty)
+        val player = TestKit.owner(helper)
+        player.setGameMode(GameType.CREATIVE)
+        helper.assertTrue(player.isCreative, "the player is not in creative mode")
+
+        fun breakAt(rel: BlockPos): List<ItemStack> {
+            val pos = helper.absolutePos(rel)
+            helper.assertTrue(player.gameMode.destroyBlock(pos), "the player could not break the cell at $rel")
+            helper.assertBlockNotPresent(DynamicsBlocks.CHARGE_CELL.get(), rel)
+            val drops = helper.level.getEntitiesOfClass(ItemEntity::class.java, AABB(pos).inflate(2.0))
+            val stacks = drops.map { it.item.copy() }
+            for (drop in drops) drop.discard()
+            return stacks
+        }
+        val fromFull = breakAt(full)
+        val fe = fromFull.filter { it.`is`(DynamicsBlocks.CHARGE_CELL_ITEM.get()) }.map { it.get(DynamicsBlocks.STORED_ENERGY.get()) }
+        helper.assertTrue(fromFull.size == 1 && fe == listOf(50_000), "CD-GEN-13: the creative break of 50,000 FE dropped $fromFull")
+        val fromEmpty = breakAt(empty)
+        helper.assertTrue(fromEmpty.isEmpty(), "CD-GEN-13: the creative break of an empty cell dropped $fromEmpty")
         helper.succeed()
     }
 }
