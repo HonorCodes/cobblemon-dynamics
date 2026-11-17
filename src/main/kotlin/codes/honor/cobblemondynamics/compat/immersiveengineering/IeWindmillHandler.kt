@@ -52,8 +52,16 @@ object IeWindmillHandler : TargetHandler {
         }
     }
 
+    override fun onStop(ctx: WorkContext) = removeBonus(ctx)
+
+    /**
+     * Every end of the claim ends the bonus too, also after a handler that threw, which skips [onStop]. IE asks for the turn speed only
+     * while the windmill turns and has a dynamo, so the hook alone would leave a lapsed bonus on a still windmill (CD-AIR-05).
+     */
+    override fun onUnclaim(ctx: WorkContext) = removeBonus(ctx)
+
     /** The bonus ends at once, and its removal reaches the clients. In a chunk that is gone, the windmill and its bonus are gone too. */
-    override fun onStop(ctx: WorkContext) {
+    private fun removeBonus(ctx: WorkContext) {
         if (!ctx.level.isLoaded(ctx.target)) return
         val windmill = windmillAt(ctx) ?: return
         if (windmill.hasData(IeAttachments.WINDMILL_BONUS.get())) windmill.removeData(IeAttachments.WINDMILL_BONUS.get())

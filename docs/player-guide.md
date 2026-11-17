@@ -629,8 +629,10 @@ Leash](#flip-a-water-wheel-or-a-hand-crank).
 **Needs:** Immersive Engineering. **Assignment:** Auto.
 
 The Wheel Driver turns a watermill that has no water, with the torque of an optimized overshot wheel, so a
-Kinetic Dynamo on the wheel gives power. It works only while no real water turns the wheel. To reverse the
-wheel, flip it with the Work Leash as a Create wheel. The wheel keeps its direction through restarts.
+Kinetic Dynamo on the wheel gives power. It works only while no real water turns the wheel, and only while a
+Kinetic Dynamo takes the wheel's power: beside the wheel on its axle, or past at most 2 more wheels of the row,
+which Immersive Engineering adds together. To reverse the wheel, flip it with the Work Leash as a Create wheel.
+The wheel keeps its direction through restarts.
 
 **Role file parameter:** `virtual_torque` (29), at most the torque of an optimized overshot wheel.
 
