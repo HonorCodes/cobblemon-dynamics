@@ -13,6 +13,7 @@ import com.google.gson.JsonParser
 import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -425,7 +426,7 @@ class BuiltInRoleFilesTest {
         assertEquals("cobblemon_dynamics:lumberjack", role.handler.toString())
         assertEquals(setOf("bug"), role.types)
         assertEquals(0, role.priority)
-        assertFalse(role.quickWork)
+        assertNull(role.quickWork, "lumberjack.json sets no quick_work")
     }
 
     @Test
