@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "mekanism" }],
+  "handler": "cobblemon_dynamics:mekanism_heat",
+  "types": ["fire"],
+  "auto_assign": true,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "heat_per_tick_at_level_100": 1500 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["ember", "fire", "spray", "special"],
+    "actor_particles": ["cobblemon:ember_actor"],
+    "target_particles": ["cobblemon:ember_target"]
+  }
+}

@@ -15,6 +15,7 @@ object MixinGate {
         id("tailwind") to MixinState.WINDMILL_BEARING,
         id("ie_watermill") to MixinState.IE_WATERMILL,
         id("ie_windmill") to MixinState.IE_WINDMILL,
+        id("wind_generator") to MixinState.WIND_GENERATOR,
     )
 
     /** CD-MUS-07: with Apothic Enchanting, the Muse needs the stats hook, because that mod's table menu never runs the menu mixin. */

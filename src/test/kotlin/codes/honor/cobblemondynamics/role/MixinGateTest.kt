@@ -117,6 +117,16 @@ class MixinGateTest {
         assertTrue(MixinState.IE_WINDMILL in warnings.single(), warnings.toString())
     }
 
+    @Test
+    fun `CD-AIR-02 a missing Wind Generator mixin disables Tailwind on Mekanism with one warning`() {
+        val wind = role("tailwind_mekanism", setOf("flying"), autoAssign = false, handler = "cobblemon_dynamics:wind_generator")
+        assertEquals(MixinState.WIND_GENERATOR, MixinGate.REQUIRED[wind.handler])
+        val warnings = mutableListOf<String>()
+        val gated = MixinGate.apply(set(wind, stoker), applied = { it != MixinState.WIND_GENERATOR }, warn = warnings::add)
+        assertEquals(listOf(stoker.id), gated.active.map { it.definition.id })
+        assertTrue(MixinState.WIND_GENERATOR in warnings.single(), warnings.toString())
+    }
+
     /** Easy Magic's table and an infuser stand for the targets of the Muse's shared handler, which Task 2 adds. */
     @Test
     fun `CD-OPT-09 a target mixin that did not apply turns off that target only, with one warning`() {

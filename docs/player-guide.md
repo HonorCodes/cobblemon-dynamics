@@ -581,6 +581,14 @@ back when it has.
 
 **Role file parameter:** `blast_furnace_min_level` (50).
 
+#### Stoker Mekanism
+
+**Needs:** Mekanism. **Assignment:** Auto.
+
+The Stoker keeps a Fuelwood Heater burning without fuel, at the heater's own 400 J/t of heat. It works only
+while a block beside the heater takes Mekanism heat, such as a thermodynamic conductor, because the heat goes
+nowhere otherwise. The heater never takes fuel from its fuel slot while the Stoker works.
+
 ### Wheel Driver
 
 **Types:** Water. **Level:** any. **Move:** Water Gun, aimed at the wheel's axle. **Needs:** Create.
@@ -917,6 +925,16 @@ it to w + (1 − w) × L ÷ 100, so at level 100 the windmill turns as in a thun
 worker waits in Standby. The worker stands in front of the windmill or behind it, never where the sails turn.
 The windmill turns faster on screen too.
 
+#### Tailwind Mekanism
+
+**Needs:** Mekanism Generators. **Assignment:** Work Leash only.
+
+A Flying-type adds wind to a Wind Generator. Bind it to any block of the generator. A generator makes more
+power the higher it stands, and a worker of level L closes L % of the gap to the generator's maximum, so a
+level 100 worker makes the maximum of Mekanism's config, 480 J/t by default, at any height. A generator that
+cannot see the sky, or that has a fluid above it, makes nothing, and its worker waits in Standby. The bonus
+ends within 20 ticks of the end of the work, at the generator's next update.
+
 ### Lumberjack
 
 **Types:** Bug. **Level:** the pace grows with level. **Move:** Aerial Ace. **Assignment:** Work Leash only.
@@ -967,6 +985,25 @@ Up to 5 Soul Collectors can share one Experience Collector. Each Cobblemon needs
 the collector.
 
 **Role file parameters:** `orb_units_per_second_at_level_100` (10) and `player_distance` (8).
+
+### Heater
+
+**Types:** Fire. **Level:** the heat grows with level. **Move:** Ember. **Assignment:** Auto.
+
+A Fire-type warms the heat blocks of other mods.
+
+#### Heater Mekanism
+
+**Needs:** Mekanism.
+
+**Target:** the valve of a Thermal Evaporation Plant or of a Thermoelectric Boiler. A Heater never warms a
+reactor port, a Heat Generator or a Quantum Entangloporter.
+
+The Heater gives ceil(1,500 × L ÷ 100) J of heat per tick, where L is its level, through the valve's face
+nearest to it. A level 100 Heater gives 1,500 J/t, less than a full evaporation plant can use. It works only
+while the structure is formed and colder than 3,000 K, above which a plant runs no faster.
+
+**Role file parameter:** `heat_per_tick_at_level_100` (1,500).
 
 ## Configuration
 
