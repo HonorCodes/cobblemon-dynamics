@@ -41,6 +41,20 @@ class XpFluidTankTest {
         assertEquals(0, none.drain(1_000, execute = true))
     }
 
+    /**
+     * The drop of a broken collector already carries its XP, so a pipe that kept the old tank gets nothing more, also when another
+     * collector stands there now.
+     */
+    @Test
+    fun `CD-XPC-09 the tank of a collector that is gone holds and gives nothing`() {
+        val store = CollectorStore(100) { 100_000 }
+        val tank = XpTank(store, live = { false }) { XpFluid("xp", 20) }
+        assertNull(tank.fluid())
+        assertEquals(0, tank.amount())
+        assertEquals(0, tank.drain(1_000, execute = true))
+        assertEquals(100, store.stored)
+    }
+
     @Test
     fun `CD-XPC-10 the tank takes no fluid, the XP fluid or water`() {
         val tank = tank(100)

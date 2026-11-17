@@ -23,8 +23,8 @@ class ExperienceCollectorBlockEntity(pos: BlockPos, state: BlockState) :
     /** Up to `experienceCollector.capacity` of the server config at each change (CD-CFG-20). */
     val store = CollectorStore { WorkEngineSettings.current.experienceCollectorCapacity }
 
-    /** CD-XPC-07: the one tank behind both outputs, of the fluid of the last tag load (CD-XPC-08). */
-    val fluidTank: IFluidHandler = XpFluidTank(XpTank(store) { XpFluids.current }, ::setChanged)
+    /** CD-XPC-07: the one tank behind both outputs, of the fluid of the last tag load (CD-XPC-08). It gives nothing once gone. */
+    val fluidTank: IFluidHandler = XpFluidTank(XpTank(store, { !isRemoved }) { XpFluids.current }, ::setChanged)
 
     /** CD-XPC-12. */
     val signal: Int get() = store.comparator()
@@ -37,9 +37,6 @@ class ExperienceCollectorBlockEntity(pos: BlockPos, state: BlockState) :
 
     /** Adds up to [xp] and returns what the collector took. A change marks the block entity changed, which also tells comparators. */
     fun insert(xp: Int): Int = store.insert(xp).also { if (it > 0) setChanged() }
-
-    /** Removes up to [xp], or only counts it when [simulate] is true, and returns what the collector gave. */
-    fun extract(xp: Int, simulate: Boolean): Int = store.extract(xp, simulate).also { if (!simulate && it > 0) setChanged() }
 
     /** A turned collector has its outputs on other faces, so its neighbours look up its capabilities again. */
     @Deprecated("Deprecated in Java")

@@ -16,6 +16,16 @@ class CollectorMenuTest {
         assertEquals(listOf(1_234), given, "a press of an empty collector gave XP")
     }
 
+    /** A menu that stayed open while its collector was broken and placed again in the same tick gives the old XP to no one. */
+    @Test
+    fun `CD-XPC-05 a press at a collector that is gone gives nothing`() {
+        val store = CollectorStore(1_234) { 100_000 }
+        val given = mutableListOf<Int>()
+        assertEquals(0, CollectorSlots.press(CollectorSlots.COLLECT_BUTTON, store, live = false) { given += it })
+        assertTrue(given.isEmpty())
+        assertEquals(1_234, store.stored)
+    }
+
     @Test
     fun `CD-XPC-05 another button id gives nothing`() {
         val store = CollectorStore(50) { 100_000 }

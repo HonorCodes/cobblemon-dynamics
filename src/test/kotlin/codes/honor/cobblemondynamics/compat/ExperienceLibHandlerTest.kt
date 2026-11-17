@@ -32,6 +32,16 @@ class ExperienceLibHandlerTest {
     }
 
     @Test
+    fun `CD-XPC-11 the handler of a collector that is gone holds and gives nothing`() {
+        val store = CollectorStore(500) { 100_000 }
+        val handler = CollectorExperienceHandler(store, live = { false }) {}
+        assertEquals(0L, handler.getExperience())
+        assertEquals(0L, handler.extractExperience(0, 200, false))
+        assertFalse(handler.canExtract(0))
+        assertEquals(500, store.stored)
+    }
+
+    @Test
     fun `CD-XPC-11 the handler refuses every insert and gives no more than it holds`() {
         val store = CollectorStore(300) { 100_000 }
         val handler = CollectorExperienceHandler(store) {}

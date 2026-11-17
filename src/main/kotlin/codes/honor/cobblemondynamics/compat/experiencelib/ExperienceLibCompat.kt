@@ -24,7 +24,11 @@ object ExperienceLibCompat {
                 ExperienceLibCapabilities.EXPERIENCE.block(),
                 DynamicsBlocks.EXPERIENCE_COLLECTOR_TYPE.get(),
                 ICapabilityProvider<ExperienceCollectorBlockEntity, Direction?, IExperienceHandler> { collector, side ->
-                    if (collector.isOutput(side)) CollectorExperienceHandler(collector.store, collector::setChanged) else null
+                    if (collector.isOutput(side)) {
+                        CollectorExperienceHandler(collector.store, { !collector.isRemoved }, collector::setChanged)
+                    } else {
+                        null
+                    }
                 },
             )
         }
