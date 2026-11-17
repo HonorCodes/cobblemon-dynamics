@@ -39,16 +39,32 @@ class FarmingTagFilesTest {
 
     private fun own(path: String): List<Entry> = entries(File(dir, "$path.json").readText())
 
-    /** The values of [tag]: the mod's own files, Cobblemon's from its jar, and `#minecraft:crops` as RES8 read it. */
+    /**
+     * The values of [tag]: the mod's own files, Cobblemon's from its jar, `#minecraft:crops` as RES8 read it, and `#minecraft:saplings`
+     * of Minecraft 1.21.1 with the saplings that the Cobblemon jar adds to it.
+     */
     private fun values(tag: String): List<Entry> {
         val namespace = tag.substringBefore(':')
         val path = tag.substringAfter(':')
         return when {
             namespace == "cobblemon_dynamics" -> own(path)
+
             namespace == "cobblemon" -> entries(Files.readString(CobblemonJar.root.resolve("data/cobblemon/tags/block/$path.json")))
+
             tag == "minecraft:crops" -> MINECRAFT_CROPS.map { Entry(it, required = true) }
+
+            tag == "minecraft:saplings" -> MINECRAFT_SAPLINGS.map { Entry(it, required = true) } +
+                entries(Files.readString(CobblemonJar.root.resolve("data/minecraft/tags/block/saplings.json")))
+
             else -> error("no tag file for #$tag")
         }
+    }
+
+    @Test
+    fun `CD-LUM-23 CD-CRP-01 the Cultivator's tag holds the saplings`() {
+        assertTrue("#minecraft:saplings" in own("cultivator_targets").map { it.id }, "the Cultivator's tag lacks #minecraft:saplings")
+        val grown = resolve("cobblemon_dynamics:cultivator_targets")
+        for (sapling in MINECRAFT_SAPLINGS) assertTrue(sapling in grown, "the Cultivator's tag lacks $sapling")
     }
 
     /** Every block id of [tag], through its nested tags. */
@@ -118,6 +134,13 @@ class FarmingTagFilesTest {
     }
 
     private companion object {
+        /** The members of `#minecraft:saplings` in Minecraft 1.21.1, from the data of its client jar. */
+        val MINECRAFT_SAPLINGS = listOf(
+            "minecraft:oak_sapling", "minecraft:spruce_sapling", "minecraft:birch_sapling", "minecraft:jungle_sapling",
+            "minecraft:acacia_sapling", "minecraft:dark_oak_sapling", "minecraft:azalea", "minecraft:flowering_azalea",
+            "minecraft:mangrove_propagule", "minecraft:cherry_sapling",
+        )
+
         /** The members of `#minecraft:crops` that RES8 read: vanilla's, and those of COHO 2.5.0's crop mods, with one Pam's crop of 97. */
         val MINECRAFT_CROPS = setOf(
             "minecraft:wheat", "minecraft:carrots", "minecraft:potatoes", "minecraft:beetroots", "minecraft:melon_stem",
