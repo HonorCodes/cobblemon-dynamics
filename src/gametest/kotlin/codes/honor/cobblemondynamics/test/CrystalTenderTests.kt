@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.id
+import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
@@ -13,6 +14,7 @@ import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.block.AmethystClusterBlock
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.DirectionalBlock
 import net.neoforged.neoforge.common.Tags
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -138,6 +140,37 @@ class CrystalTenderTests {
                     if (helper.tick - since >= 40) helper.succeed()
                 }
             }
+        }
+    }
+
+    /**
+     * CD-MCH-03: a budding tumblestone grows into its next stage by itself, on a random tick with a chance of 1 in 5, while a block of
+     * `#cobblemon:tumblestone_heat_source` sits in the cube around it (Cobblemon 1.8.4's `TumblestoneBlock`). The Tender's extra tick
+     * every 10 ticks grows a small one beside a magma block in about 50 ticks of work, and 300 extra ticks all miss with a chance of
+     * about 1 in 10^29.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 3_600)
+    fun cdMch03GeodudeGrowsATumblestoneBesideMagma(helper: GameTestHelper) {
+        val scene = pasture(helper)
+        // Facing up, the tumblestone stands on the stone floor, which holds it.
+        val small = CobblemonBlocks.SMALL_BUDDING_TUMBLESTONE.defaultBlockState().setValue(DirectionalBlock.FACING, Direction.UP)
+        helper.setBlock(raisedRel, small)
+        helper.setBlock(raisedRel.east(), Blocks.MAGMA_BLOCK)
+        val geodude = TestKit.tether(helper, scene.second, scene.first, "geodude level=20")
+        var workingSince = -1L
+        helper.onEachTick {
+            if (workingSince < 0) {
+                if (!isWorkingOn(helper, geodude, raisedRel)) return@onEachTick
+                val role = TestKit.engine(helper).roleOf(geodude.pokemon.uuid)?.definition?.id
+                helper.assertTrue(role == id("crystal_tender"), "the Geodude works the tumblestone as $role")
+                workingSince = helper.tick
+                return@onEachTick
+            }
+            if (helper.getBlockState(raisedRel).`is`(CobblemonBlocks.MEDIUM_BUDDING_TUMBLESTONE)) {
+                helper.succeed()
+                return@onEachTick
+            }
+            helper.assertTrue(helper.tick - workingSince <= 3_000, "CD-MCH-03: the tumblestone did not grow in 3,000 ticks of work")
         }
     }
 }

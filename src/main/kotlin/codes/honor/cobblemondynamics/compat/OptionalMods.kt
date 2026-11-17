@@ -57,5 +57,8 @@ object OptionalMods {
         OptionalMod("mysticalagriculture", listOf("com/blakebr0/mysticalagriculture/"), compat = null),
         OptionalMod("createdieselgenerators", listOf("com/jesz/createdieselgenerators/"), compat = null),
         OptionalMod("create_new_age", listOf("org/antarcticgardens/cna/"), compat = null),
+        // The mods of the Crystal Tender that its tags alone reach (CD-MCH-02).
+        OptionalMod("quark", listOf("org/violetmoon/quark/"), compat = null),
+        OptionalMod("unusualend", listOf("net/sweety/unusualend/"), compat = null),
     )
 }

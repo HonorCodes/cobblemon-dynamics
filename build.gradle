@@ -356,7 +356,8 @@ def optionalModPackages = [
         'io/redspace/ironsspellbooks/', 'fuzs/easymagic/', 'fuzs/enchantinginfuser/', 'es/degrassi/experiencelib/',
         'com/dtteam/dynamictrees/', 'dev/shadowsoffire/', 'appeng/', 'vectorwing/', 'com/aetherteam/', 'io/github/razordevs/',
         'net/potionstudios/', 'quek/undergarden/', 'twilightforest/', 'com/blakebr0/mysticalagriculture/',
-        'com/jesz/createdieselgenerators/', 'org/antarcticgardens/cna/', 'com/hlysine/create_connected/'
+        'com/jesz/createdieselgenerators/', 'org/antarcticgardens/cna/', 'com/hlysine/create_connected/',
+        'org/violetmoon/quark/', 'net/sweety/unusualend/'
 ]
 
 // CD-PLAT-04, CD-REL-07: every class is Java 21 bytecode, no Cobblemon asset ships, no test class ships.

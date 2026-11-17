@@ -1,0 +1,44 @@
+{
+  "replace": false,
+  "values": [
+    "#c:budding_blocks",
+    "#cobblemon_dynamics:crystal/self_growing",
+    "#cobblemon_dynamics:crystal/scheduled_tick",
+    {
+      "id": "quark:red_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:orange_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:yellow_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:green_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:blue_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:indigo_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:violet_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:white_corundum",
+      "required": false
+    },
+    {
+      "id": "quark:black_corundum",
+      "required": false
+    }
+  ]
+}
