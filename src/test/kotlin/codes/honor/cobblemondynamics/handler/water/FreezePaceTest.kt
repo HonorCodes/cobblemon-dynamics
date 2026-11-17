@@ -32,6 +32,20 @@ class FreezePaceTest {
         assertEquals(FreezerParams(12, 3.5), params("""{ "cells_per_minute_at_level_100": 12, "reach": 3.5 }"""))
     }
 
+    /** R84: a pace of 0 or less freezes nothing, so the role has no demand, and a fractional pace counts as its ceiling. */
+    @Test
+    fun `CD-FRZ-04 a pace of 0 or less freezes nothing, and a fractional pace counts as its ceiling`() {
+        assertFalse(params("""{ "cells_per_minute_at_level_100": 0 }""").freezes)
+        assertFalse(params("""{ "cells_per_minute_at_level_100": -5 }""").freezes)
+        assertTrue(params("{}").freezes)
+        assertEquals(Int.MAX_VALUE, FreezePace.intervalTicks(100, 0), "no freeze ever comes")
+        assertEquals(Int.MAX_VALUE, FreezePace.intervalTicks(100, -5))
+        assertEquals(1, params("""{ "cells_per_minute_at_level_100": 0.5 }""").cellsPerMinuteAt100)
+        assertEquals(60, params("""{ "cells_per_minute_at_level_100": 59.2 }""").cellsPerMinuteAt100)
+        assertTrue(params("""{ "cells_per_minute_at_level_100": 0.5 }""").freezes)
+        assertEquals(1_200, FreezePace.intervalTicks(100, 1), "1 cell per minute at level 100")
+    }
+
     /** The search box of a freeze grows with the cube of the reach, so a role file cannot make it larger than the cap. */
     @Test
     fun `CD-FRZ-13 the reach stays between 0 and 16 blocks`() {

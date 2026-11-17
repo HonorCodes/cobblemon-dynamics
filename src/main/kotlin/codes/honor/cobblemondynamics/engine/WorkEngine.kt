@@ -1091,6 +1091,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         unclaim(t, slot, slot.entity)
         slot.worker.target = null
         slot.worker.spot = null
+        slot.worker.dropExpired(t.now)
         slot.role = null
         slot.memo = ClaimMemo()
         BrainBridge.clear(slot.entity)

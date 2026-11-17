@@ -61,4 +61,10 @@ class Worker(val pokemonId: UUID, var pasture: PastureKey?) {
     fun isSkipped(key: TargetKey, now: Long): Boolean = now < (skipUntil[key] ?: Long.MIN_VALUE) || isStalled(key, now)
 
     fun isStalled(key: TargetKey, now: Long): Boolean = now < (stalledUntil[key] ?: Long.MIN_VALUE)
+
+    /** Drops the skips and stalls that end by [now], so that neither map grows for the worker's whole life. The engine calls it at each claim's end. */
+    fun dropExpired(now: Long) {
+        skipUntil.values.removeIf { it <= now }
+        stalledUntil.values.removeIf { it <= now }
+    }
 }

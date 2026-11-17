@@ -14,7 +14,7 @@ import java.util.UUID
 
 /** The Freezer's rules over plain facts (ADR-0019). */
 class FreezeRulesTest {
-    /** A still source of a pond under air, in the work area, in the dark, far from farmland and with nobody in it. */
+    /** A still source of a pond under air, in the work area, in the dark, far from farmland and blocks that need it, with nobody in it. */
     private val pond = WaterFacts(
         cell = WaterCell.SOURCE,
         above = WaterCell.AIR,
@@ -23,9 +23,65 @@ class FreezeRulesTest {
         blockLight = 0,
         inWorkArea = true,
         occupied = false,
+        neededByBlock = false,
     )
 
     private val cell = BlockPos(10, 64, 10)
+
+    @Test
+    fun `CD-FRZ-15 a block of the tag beside the source, on a block beside it, or under it keeps the source as water`() {
+        fun needed(at: BlockPos): Boolean = FreezeRules.neededByBlock(cell) { it == at }
+        for (side in listOf(cell.north(), cell.south(), cell.east(), cell.west())) {
+            assertTrue(needed(side), "a coral block or a conduit at $side")
+            assertTrue(needed(side.above()), "sugar cane on the bank at ${side.above()}")
+        }
+        assertTrue(needed(cell.below()), "a conduit or a fan under the source")
+        assertFalse(needed(cell.north().east()), "a diagonal block")
+        assertFalse(needed(cell.east(2)), "a block two away")
+        assertFalse(needed(cell.east().below()), "a block under a neighbour, which the ruling leaves out")
+        assertFalse(FreezeRules.freezable(pond.copy(neededByBlock = true)))
+    }
+
+    @Test
+    fun `CD-FRZ-15 the test of the blocks that need the water reads 9 cells once`() {
+        val asked = ArrayList<BlockPos>()
+        FreezeRules.neededByBlock(cell) {
+            asked += it.immutable()
+            false
+        }
+        assertEquals(9, asked.toSet().size)
+        assertEquals(9, asked.size)
+    }
+
+    @Test
+    fun `CD-FRZ-16 the occupant box reaches down the water column, at most 3 blocks, and stops at the first cell that is not water`() {
+        fun box(waterBelow: Int) = FreezeRules.occupantBox(cell) { it.y < cell.y && it.y >= cell.y - waterBelow }
+        assertEquals(cell.y + 1.0, box(0).maxY)
+        assertEquals(cell.y.toDouble(), box(0).minY, "a source on the floor")
+        assertEquals(cell.y - 1.0, box(1).minY, "one cell of water under the source")
+        assertEquals(cell.y - 3.0, box(3).minY)
+        assertEquals(cell.y - 3.0, box(40).minY, "a deep lake")
+        val gap = FreezeRules.occupantBox(cell) { it.y == cell.y - 1 || it.y == cell.y - 3 }
+        assertEquals(cell.y - 1.0, gap.minY, "the box stops at the first cell under the source that is not water")
+        assertEquals(1.0, box(40).xsize)
+        assertEquals(1.0, box(40).zsize)
+        assertFalse(FreezeRules.freezable(pond.copy(occupied = true)))
+    }
+
+    /** R84: a Working tick reads the cheap facts. The farmland box, the blocks that need the water and the occupants wait for a freeze tick. */
+    @Test
+    fun `CD-FRZ-03 CD-FRZ-12 a Working tick checks the match, the light, the flow and the work area only`() {
+        assertTrue(FreezeRules.stillFreezable(pond.copy(hydratesFarmland = true, neededByBlock = true, occupied = true)))
+        for (cheap in listOf(
+            pond.copy(above = WaterCell.OTHER),
+            pond.copy(blockLight = 10),
+            pond.copy(feedsFlow = true),
+            pond.copy(inWorkArea = false),
+        )) {
+            assertFalse(FreezeRules.stillFreezable(cheap), "$cheap")
+            assertFalse(FreezeRules.freezable(cheap), "$cheap")
+        }
+    }
 
     @Test
     fun `CD-FRZ-03 only a water source under air matches, and no other water does`() {
@@ -82,7 +138,7 @@ class FreezeRulesTest {
     fun `CD-FRZ-06 the farmland test reads the 9 by 9 by 2 box once`() {
         val asked = ArrayList<BlockPos>()
         FreezeRules.hydratesFarmland(cell) {
-            asked += it
+            asked += it.immutable()
             false
         }
         assertEquals(162, asked.size)

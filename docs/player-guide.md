@@ -689,13 +689,17 @@ The Freezer leaves these sources as water:
 - The top of a bubble column, so an elevator keeps working.
 - A source beside or above flowing water, so a stream, an item channel or a waterfall keeps its source.
 - Water at a block light of 10 or more, where vanilla freezes no water and the ice would melt again.
-- A source with a player or another living entity in it.
+- Water that sugar cane, a coral, a coral block, a conduit or an encased fan of Create needs: such a block beside the
+  source, on a block beside it, or under it. The tag `#cobblemon_dynamics:needs_adjacent_water` holds these blocks.
+- A source with a player, a Cobblemon, a boat or another entity in it, or in the water up to 3 blocks under it. A
+  dropped item or an XP orb does not count.
 
 The worker asks each land claim mod about each source, in the tick that it freezes that source. A refusal leaves
 the source as water, and the worker leaves it alone for 6,000 ticks. The Freezer never melts ice. Vanilla melts
 it where the light is bright enough. To get the water back, break the ice or light it.
 
-**Role file parameters:** `cells_per_minute_at_level_100` (60) and `reach` (5.0).
+**Role file parameters:** `cells_per_minute_at_level_100` (60) and `reach` (5.0). A pace of 0 or less turns the Freezer
+off, and a fraction counts as a whole cell.
 
 ### Pump
 
