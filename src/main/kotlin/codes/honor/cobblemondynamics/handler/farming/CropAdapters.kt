@@ -4,7 +4,8 @@ package codes.honor.cobblemondynamics.handler.farming
 object CropAdapters {
     /**
      * CD-CRP-03, CD-HRV-03: the first harvest adapter that claims the block, or null for none (CD-CRP-04). An entry of the loot data
-     * map comes before every adapter tag (CD-FRM-03), and an entry that cannot pick leaves the block with no adapter.
+     * map comes before every adapter tag (CD-FRM-03), and an entry that cannot pick leaves the block with no adapter. The adapter tags
+     * count in the order of [HarvestKind], so the cave-vines tag comes after `harvest/upper_half` (CD-FRM-02).
      */
     fun harvestKind(f: CropFacts): HarvestKind? = when {
         f.apricorn -> null

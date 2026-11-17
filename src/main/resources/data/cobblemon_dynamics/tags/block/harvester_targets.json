@@ -259,6 +259,130 @@
     {
       "id": "pamhc2trees:pampinenut",
       "required": false
+    },
+    {
+      "id": "mega_showdown:max_mushroom",
+      "required": false
+    },
+    {
+      "id": "ars_nouveau:bastion_pod",
+      "required": false
+    },
+    {
+      "id": "ars_nouveau:bombegranate_pod",
+      "required": false
+    },
+    {
+      "id": "ars_nouveau:frostaya_pod",
+      "required": false
+    },
+    {
+      "id": "ars_nouveau:mendosteen_pod",
+      "required": false
+    },
+    {
+      "id": "ars_elemental:flashpine_pod",
+      "required": false
+    },
+    {
+      "id": "twilightforest:blackberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:blueberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:raspberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:skyberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:maloberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:blightberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:stingberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:duskberry_bush",
+      "required": false
+    },
+    {
+      "id": "twilightforest:copper_oreberry",
+      "required": false
+    },
+    {
+      "id": "twilightforest:iron_oreberry",
+      "required": false
+    },
+    {
+      "id": "twilightforest:gold_oreberry",
+      "required": false
+    },
+    {
+      "id": "twilightforest:essence_oreberry",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:apple_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:green_apple_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:baobab_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:yucca_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:soul_fruit",
+      "required": false
+    },
+    {
+      "id": "biomeswevegone:white_puffball",
+      "required": false
+    },
+    {
+      "id": "allthemodium:ancient_cavevines",
+      "required": false
+    },
+    {
+      "id": "deep_aether:golden_vines",
+      "required": false
+    },
+    {
+      "id": "deep_aether:golden_vines_plant",
+      "required": false
+    },
+    {
+      "id": "deeperdarker:glowing_vines_plant",
+      "required": false
+    },
+    {
+      "id": "unusualend:gloopilon_bulb",
+      "required": false
+    },
+    {
+      "id": "undergarden:ditchbulb_plant",
+      "required": false
+    },
+    {
+      "id": "actuallyadditions:coffee",
+      "required": false
     }
   ]
 }

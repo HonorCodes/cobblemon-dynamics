@@ -110,8 +110,8 @@ fails when the log says that a tag of the farming lines did not load: `minecraft
 lines:
 
 ```text
-Farming: cultivator 270 blocks [growth 270], no adapter []
-Farming: harvester 275 blocks [berry_tree 70, break_and_replant 3, cave_vines 2, crop 121, gourd 5, never 10, pick_to_age_0 53, pick_to_age_1 9, upper_half 2], no adapter []
+Farming: cultivator 283 blocks [growth 283], no adapter []
+Farming: harvester 288 blocks [berry_tree 70, break_and_replant 7, cave_vines 2, cave_vines_tag 2, crop 121, gourd 5, never 10, pick_to_age_0 59, pick_to_age_1 10, upper_half 2], no adapter []
 ```
 
 The expected counts come from the tag files and the block classes of the pinned jars. The target tags
