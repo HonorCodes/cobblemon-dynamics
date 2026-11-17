@@ -7,11 +7,13 @@ import codes.honor.cobblemondynamics.handler.create.TailwindParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
+import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import net.minecraft.world.phys.Vec3
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -45,6 +47,7 @@ class BuiltInRoleFilesTest {
         "tailwind" to Row("cobblemon_dynamics:tailwind", setOf("flying"), false, 0, "gust"),
         "cultivator" to Row("cobblemon_dynamics:cultivator", setOf("ground"), true, 0, "mudsport"),
         "harvester" to Row("cobblemon_dynamics:harvester", setOf("grass"), true, 0, "razorleaf"),
+        "lumberjack" to Row("cobblemon_dynamics:lumberjack", setOf("bug"), false, 0, "aerialace"),
     )
 
     private val fanCatalysts = listOf("fan_catalyst_fire", "fan_catalyst_water", "fan_catalyst_ghost")
@@ -408,6 +411,45 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("razorleaf", "physical", "special"), effect.animations)
         assertEquals(listOf("cobblemon:razorleaf_actor"), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:razorleaf_target"), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-LUM-01 the Lumberjack file names its handler, the Bug type, auto_assign false, no quick_work and priority 0`() {
+        val json = JsonParser.parseString(File(BuiltInRoles.dir, "lumberjack.json").readText()).asJsonObject
+        val key = autoAssignKey("lumberjack")
+        assertTrue(
+            key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean,
+            "lumberjack.json has auto_assign $key",
+        )
+        assertFalse(json.has("quick_work"), "lumberjack.json names quick_work")
+        val role = BuiltInRoles.parse("lumberjack")
+        assertEquals("cobblemon_dynamics:lumberjack", role.handler.toString())
+        assertEquals(setOf("bug"), role.types)
+        assertEquals(0, role.priority)
+        assertNull(role.quickWork, "lumberjack.json sets no quick_work")
+    }
+
+    @Test
+    fun `CD-LUM-26 the Lumberjack file holds 20 and 5 ticks per log, 256 logs, 1,024 leaves and 128 blocks per tick`() {
+        val params = BuiltInRoles.parse("lumberjack").params
+        assertEquals(20, params.get("ticks_per_log_at_level_1")?.asInt)
+        assertEquals(5, params.get("ticks_per_log_at_level_100")?.asInt)
+        assertEquals(256, params.get("max_logs")?.asInt)
+        assertEquals(1_024, params.get("max_leaves")?.asInt)
+        assertEquals(128, params.get("blocks_per_tick")?.asInt)
+        assertEquals(LumberjackParams(20, 5, 256, 1_024, 128), LumberjackParams.of(params))
+    }
+
+    /**
+     * Cobblemon 1.8.4's `aerialace` timeline sends only `aerialace_target` as a particle, and plays its sounds from its own MoLang
+     * calls, which the mod never runs. No particle file of the move plays a sound (CD-FX-09).
+     */
+    @Test
+    fun `CD-LUM-01 the Lumberjack plays Aerial Ace with its target particle only`() {
+        val effect = BuiltInRoles.parse("lumberjack").effect
+        assertEquals(listOf("aerialace", "cut", "physical"), effect.animations)
+        assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:aerialace_target"), effect.targetParticles.map { it.toString() })
     }
 
     @Test

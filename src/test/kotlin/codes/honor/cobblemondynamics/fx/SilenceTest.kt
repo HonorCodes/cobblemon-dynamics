@@ -43,6 +43,21 @@ class SilenceTest {
         }
     }
 
+    /**
+     * ADR-0017, decision 12: a fell removes each block with `Level.setBlock` and drops its loot itself, so no tree source makes a sound or
+     * posts the break event that TreeChop and the claim mods hear.
+     */
+    @Test
+    fun `CD-LUM-21 CD-FX-09 the tree sources make no sound and post no break event`() {
+        val dir = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/handler/tree")
+        val sources = dir.listFiles { f -> f.extension == "kt" }.orEmpty()
+        assertTrue(sources.size >= 10, "found only ${sources.size} tree sources")
+        for (file in sources) {
+            val text = file.readText()
+            for (name in SOUND_CALLS + "BreakEvent") assertFalse(name in text, "${file.name} names $name")
+        }
+    }
+
     private companion object {
         val CRY = Regex("\"cry\"", RegexOption.IGNORE_CASE)
 

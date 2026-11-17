@@ -157,6 +157,9 @@ object LeashInteractions {
             types = types,
             places = places,
             maxWorkers = WorkEngineSettings.current.maxWorkersPerContainer,
+            targetRefusal = best?.takeIf { pending == null }?.let { role ->
+                guarded<String?>(role.handler, null) { role.handler.bindRefusal(level, canonical, role.definition) }
+            },
         )
         val outcome = BindRules.evaluate(
             input,
@@ -165,7 +168,7 @@ object LeashInteractions {
             sameGroup = RoleRegistry::sameGroup,
         )
         when (outcome) {
-            is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other?.pokemon)
+            is BindRules.Outcome.Refuse -> refuse(player, stack, outcome, other?.pokemon, pokemon)
 
             is BindRules.Outcome.AwaitDestination -> {
                 val name = pokemon?.getDisplayName() ?: return
@@ -235,7 +238,18 @@ object LeashInteractions {
     }
 
     /** CD-LSH-05: the refusal names a Pokémon of the player by its display name, and another player's Pokémon by its species only. */
-    private fun refuse(player: ServerPlayer, stack: ItemStack, refusal: BindRules.Outcome.Refuse, other: Pokemon?) {
+    private fun refuse(
+        player: ServerPlayer,
+        stack: ItemStack,
+        refusal: BindRules.Outcome.Refuse,
+        other: Pokemon?,
+        selected: Pokemon? = null,
+    ) {
+        // CD-LUM-20: the selected Pokémon is the player's own, so the refusal names it by its display name.
+        if (refusal.namesWorker) {
+            Feedback.actionBar(player, Component.translatable(refusal.messageKey, selected?.getDisplayName() ?: ""))
+            return
+        }
         val message = when (refusal.messageKey) {
             BindRules.ALREADY_ASSIGNED -> Component.translatable(refusal.messageKey, other?.getDisplayName() ?: refusal.arg)
             BindRules.ALREADY_ASSIGNED_OTHER -> Component.translatable(refusal.messageKey, other?.species?.translatedName ?: refusal.arg)

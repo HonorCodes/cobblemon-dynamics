@@ -1,0 +1,38 @@
+{
+  "replace": false,
+  "values": [
+    "#cobblemon_dynamics:harvest/pick_to_age_0",
+    "#cobblemon:apricorns",
+    "#cobblemon:apricorn_logs",
+    "cobblemon:apricorn_leaves",
+    {
+      "id": "twilightforest:time_log_core",
+      "required": false
+    },
+    {
+      "id": "twilightforest:transformation_log_core",
+      "required": false
+    },
+    {
+      "id": "twilightforest:mining_log_core",
+      "required": false
+    },
+    {
+      "id": "twilightforest:sorting_log_core",
+      "required": false
+    },
+    "minecraft:bee_nest",
+    "minecraft:beehive",
+    "#minecraft:crimson_stems",
+    "#minecraft:warped_stems",
+    "#minecraft:mangrove_logs",
+    {
+      "id": "unusualend:chorus_cane_block",
+      "required": false
+    },
+    {
+      "id": "betterarcheology:rotten_log",
+      "required": false
+    }
+  ]
+}
