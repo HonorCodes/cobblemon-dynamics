@@ -16,9 +16,10 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
 /**
- * The Muse's target: a block of `#cobblemon_dynamics:muse_targets`, the vanilla enchanting table, Easy Magic's table and both infusers
- * of Enchanting Infuser (CD-MUS-01, CD-FIX-05, CD-FIX-06). A Working Muse adds its bookshelves through [MuseBonus], which the
- * station's mixin reads when its menu computes its offers or its power, so the handler has no work of its own on each tick.
+ * The Muse's target: a block of `#cobblemon_dynamics:muse_targets`, the vanilla enchanting table, Easy Magic's table, both infusers
+ * of Enchanting Infuser and CEI's Infuser (CD-MUS-01, CD-FIX-05, CD-FIX-06, CD-MCH-06). A Working Muse adds its bookshelves or Quanta
+ * through [MuseBonus], which the station's mixin or the stats hook reads when it computes its offers, its power or its stats, so the
+ * handler has no work of its own on each tick.
  */
 object EnchantingHandler : TargetHandler {
     override val id: ResourceLocation = id("enchanting")
@@ -42,8 +43,11 @@ object EnchantingHandler : TargetHandler {
         return RoleRegistry.targetOn(station.toString()) && MuseBonus.takesStation(station, MuseBonus.withApothicEnchanting)
     }
 
-    /** CD-MUS-05: only while a player has this table's menu open. */
-    override fun hasDemand(ctx: WorkContext): Boolean = EnchantingMenus.isOpenAt(ctx.level, ctx.target)
+    /** CD-MUS-05: only while a player has this table's menu open. A station of [MuseStations] has its own demand (CD-MCH-06). */
+    override fun hasDemand(ctx: WorkContext): Boolean {
+        val station = MuseStations.of(BuiltInRegistries.BLOCK.getKey(ctx.level.getBlockState(ctx.target).block))
+        return station?.hasDemand?.invoke(ctx.level, ctx.target) ?: EnchantingMenus.isOpenAt(ctx.level, ctx.target)
+    }
 
     /** The open menus show the Muse's offers at once, also when the player put the item in before the Muse began. */
     override fun onStart(ctx: WorkContext) = EnchantingMenus.refresh(ctx.level, ctx.target)

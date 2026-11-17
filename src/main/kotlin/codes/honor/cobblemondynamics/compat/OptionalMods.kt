@@ -26,9 +26,9 @@ object OptionalMods {
         OptionalMod("mekanism", listOf("mekanism/"), listOf("fuelwood_heater", "mekanism_heat")),
         OptionalMod("mekanismgenerators", listOf("mekanism/generators/"), listOf("wind_generator")),
         OptionalMod("railcraft", listOf("mods/railcraft/"), listOf("railcraft_fuel", "railcraft_firebox")),
-        OptionalMod("pneumaticcraft", listOf("me/desht/pneumaticcraft/")),
+        OptionalMod("pneumaticcraft", listOf("me/desht/pneumaticcraft/"), listOf("pnc_compressor", "pnc_heat", "pnc_air")),
         // The classes of Botany Pots extend those of its library Bookshelf, which only Botany Pots' compat package may name.
-        OptionalMod("botanypots", listOf("net/darkhax/botanypots/", "net/darkhax/bookshelf/")),
+        OptionalMod("botanypots", listOf("net/darkhax/botanypots/", "net/darkhax/bookshelf/"), listOf("pot_cultivator", "pot_harvester")),
         OptionalMod("ironfurnaces", listOf("ironfurnaces/"), listOf("iron_furnace")),
         OptionalMod("cookingforblockheads", listOf("net/blay09/mods/cookingforblockheads/"), listOf("cfb_oven")),
         OptionalMod("forbidden_arcanus", listOf("com/stal111/forbidden_arcanus/"), listOf("clibano")),
@@ -37,8 +37,8 @@ object OptionalMods {
         OptionalMod("createaddition", listOf("com/mrh0/createaddition/"), listOf("liquid_burner")),
         // Its hook finds the crank wheels' block entity type by id, so no source names its classes (CD-KIN-05).
         OptionalMod("create_connected", listOf("com/hlysine/create_connected/"), listOf("crank_wheel")),
-        OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/")),
-        OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/")),
+        OptionalMod("create_enchantment_industry", listOf("plus/dragons/createenchantmentindustry/"), listOf("muse_infuser")),
+        OptionalMod("irons_spellbooks", listOf("io/redspace/ironsspellbooks/"), listOf("alchemist_cauldron")),
         OptionalMod("easymagic", listOf("fuzs/easymagic/"), listOf("muse_table")),
         OptionalMod("enchantinginfuser", listOf("fuzs/enchantinginfuser/"), listOf("muse_infusers")),
         // CD-XPC-11: the XP capability on the outputs of the Experience Collector.

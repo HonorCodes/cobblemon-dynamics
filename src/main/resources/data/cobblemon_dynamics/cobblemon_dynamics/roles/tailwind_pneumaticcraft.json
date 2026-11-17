@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "pneumaticcraft" }],
+  "handler": "cobblemon_dynamics:pnc_air",
+  "types": ["flying"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "air_per_tick_at_level_100": 50 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["gust", "flying", "special"],
+    "actor_particles": ["cobblemon:gust_actor"],
+    "target_particles": ["cobblemon:gust_target", "cobblemon:gust_targethit"]
+  }
+}

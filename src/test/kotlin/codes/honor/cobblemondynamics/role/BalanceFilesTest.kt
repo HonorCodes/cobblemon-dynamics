@@ -6,7 +6,11 @@ import codes.honor.cobblemondynamics.compat.forbidden_arcanus.ClibanoRule
 import codes.honor.cobblemondynamics.compat.ironfurnaces.IronFurnaceRule
 import codes.honor.cobblemondynamics.compat.mekanism.HeaterMath
 import codes.honor.cobblemondynamics.compat.mekanism.HeaterParams
+import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncHeatMath
+import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncHeaterParams
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
+import codes.honor.cobblemondynamics.handler.cobblemon.HealingCharge
+import codes.honor.cobblemondynamics.handler.cobblemon.HealingParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.GrowthPace
 import codes.honor.cobblemondynamics.handler.farming.HarvestClock
@@ -145,6 +149,26 @@ class BalanceFilesTest {
         assertEquals(1_500, HeaterMath.heatPerTick(HeaterParams.of(BuiltInRoles.parse("heater_mekanism").params).heatPerTickAt100, 100))
     }
 
+    /** One lava block at 1,300 K with resistance 100 warms a machine at T by (1,300 − T) ÷ 100 per tick (BM10). */
+    @Test
+    fun `CD-BAL-13 one PneumaticCraft Heater gives at most the heat of one lava block`() {
+        val heaters = withHandler("cobblemon_dynamics:pnc_heat")
+        assertTrue(heaters.isNotEmpty(), "no built-in role file uses the PneumaticCraft heat handler")
+        for (role in heaters) {
+            val params = PncHeaterParams.of(role.params)
+            for (temperature in 0..2_000 step 25) {
+                val lava = maxOf(0.0, (1_300.0 - temperature) / 100.0)
+                val top = (1..100).maxOf { level -> PncHeatMath.heatPerTick(params, temperature.toDouble(), level) }
+                assertTrue(top <= lava + 1e-9, "${role.id} gives $top heat per tick at $temperature K, one lava block $lava")
+            }
+        }
+        assertEquals(
+            10.0,
+            PncHeatMath.heatPerTick(PncHeaterParams.of(BuiltInRoles.parse("heater_pneumaticcraft").params), 300.0, 100),
+            1e-9,
+        )
+    }
+
     /**
      * ADR-0010 with ruling 3 of R80: a Stoker gives a machine of another mod free fuel only, at that machine's own speed. The furnaces,
      * the oven and the Clibano hold 2 burn ticks, which runs a machine at its own speed and no faster, and the incubator runs at one Speed
@@ -167,6 +191,20 @@ class BalanceFilesTest {
         val interval = SourcelinkRule.intervalOf(BuiltInRoles.parse("stoker_ars_nouveau").params)
         assertTrue(interval >= 1_600, "the Volcanic Sourcelink gets one coal per $interval ticks")
         assertEquals(1_600, interval)
+    }
+
+    /** Cobblemon recharges `maxHealerCharge` in `secondsToChargeHealingMachine`: 6 charges in 900 s on COHO (BM13). */
+    @Test
+    fun `CD-BAL-16 one Generator recharges a Healing Machine at most 4 times as fast as the machine itself`() {
+        val generators = withHandler("cobblemon_dynamics:healing_charge")
+        assertTrue(generators.isNotEmpty(), "no built-in role file uses the Healing Machine handler")
+        val own = HealingCharge.ownPerTick(maxCharge = 6f, secondsToCharge = 900.0)
+        for (role in generators) {
+            val multiplier = HealingParams.of(role.params).multiplierAt100
+            val top = (1..100).maxOf { level -> HealingCharge.workerPerTick(multiplier, level, own) }
+            assertTrue(top <= 4 * own + 1e-12, "${role.id} recharges ${top / own} times the machine's own rate")
+        }
+        assertEquals(4.0, HealingParams.of(BuiltInRoles.parse("generator_healing_machine").params).multiplierAt100)
     }
 
     private companion object {

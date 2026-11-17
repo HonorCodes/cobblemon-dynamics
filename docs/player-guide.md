@@ -611,6 +611,19 @@ the boiler burns its own fuel. The workers also wait while less than half of the
 because Railcraft blows up a hot boiler that gets water into an empty tank. When the workers stop, the boiler
 burns its own fuel again within one fuel step: 16 ticks at low pressure and 8 at high pressure.
 
+#### Stoker PneumaticCraft
+
+**Needs:** PneumaticCraft: Repressurized. **Assignment:** Auto.
+
+The Stoker fuels an Air Compressor or an Advanced Air Compressor with no fuel item. It gives the compressor's
+base burn rate: 1 burn tick per tick for the Air Compressor and 5 for the Advanced Air Compressor, which runs a
+compressor with no Speed Upgrade at its full rate. Speed Upgrades burn more than that, so they still take
+fuel from the fuel slot. The flame gauge stays full while only the Stoker's fuel burns. The Stoker works only
+while its redstone setting lets the compressor run, and while the air of the compressor's next tick keeps the
+pressure below the lowest danger pressure of the compressor and the machines connected to it. Air spreads
+into connected machines with no tier check, so a tier 1 machine beside a tier 2 compressor stops the Stoker
+below 5 bar. When the Stoker stops, the compressor goes back to its own fuel within 2 ticks.
+
 ### Wheel Driver
 
 **Types:** Water. **Level:** any. **Move:** Water Gun, aimed at the wheel's axle. **Needs:** Create.
@@ -700,6 +713,21 @@ full target, it waits in Standby. An AE2 Energy Acceptor converts the FE at AE2'
 **Role file parameters:** `base_fe_per_tick` (10), `max_fe_per_tick` (5000), `rare_multiplier` (2.0) and
 `rare_labels` (`legendary`, `mythical`).
 
+#### Generator Healing Machine
+
+**Role id:** `cobblemon_dynamics:generator_healing_machine`. **Assignment:** Auto.
+
+**Target:** a Cobblemon Healing Machine.
+
+The Generator recharges the Healing Machine at 4 × L ÷ 100 times the machine's own rate, where L is its level, on
+top of the machine's own recharge. With Cobblemon's default config, a machine recharges its 6 charges in 900
+seconds by itself. A level 100 Generator adds 4 times that, so the machine refills 5 times as fast, in 180
+seconds. The Generator works only while the machine holds less than its maximum charge and recharges by itself,
+so not while a player heals at it. It leaves the last step of a charge to the machine, which then shows its full
+charge.
+
+**Role file parameter:** `recharge_multiplier_at_level_100` (4).
+
 ### Crystal Tender
 
 **Types:** Rock. **Level:** any. **Move:** Rock Throw.
@@ -734,6 +762,17 @@ Fire and Poison type, works a stand as a Brew Stoker.
 The Brewer makes each brew finish in 200 ticks (10 seconds), not 400 ticks. It works only while a brew runs.
 It never changes the stand's fuel, so the stand needs its own blaze powder.
 
+#### Brewer Iron's Spells 'n Spellbooks
+
+**Needs:** Iron's Spells 'n Spellbooks. **Assignment:** Auto.
+
+**Target:** an Alchemist Cauldron.
+
+The Brewer makes each item in the cauldron cook twice as fast: 51 ticks, not 101. It works only while an item
+cooks. The cauldron itself finishes each item, as it does with no worker.
+
+**Role file parameter:** `extra_steps_per_tick` (1).
+
 ### Cultivator
 
 **Types:** Ground. **Level:** the pace grows with level. **Move:** Mud Sport.
@@ -746,6 +785,17 @@ level: 1 at level 1, 15 at level 50 and 30 at level 100. Green sparkles show eac
 Cultivator stops when the crop is fully grown.
 
 **Role file parameters:** `uses_per_minute_at_level_100` (30) and `stamina_ticks_per_use` (100).
+
+#### Cultivator Botany Pots
+
+**Needs:** Botany Pots. **Assignment:** Auto.
+
+**Target:** any Botany Pots pot with a crop, of any pot type except a waxed pot.
+
+The Cultivator gives the pot the growth of one bone meal on each use, as a player's bone meal does: a random 400
+to 600 ticks, never past 20 ticks before the crop is grown, and then a cooldown of 20 ticks. Its pace and its Work
+Stamina cost are those of the Cultivator on a crop. The pot shows green sparkles with no sound. A pot takes one
+Cultivator and one Harvester at the same time.
 
 ### Harvester
 
@@ -760,6 +810,17 @@ crop item, leaves the harvest. A bush or a vine keeps its plant, and only its fr
 no sound.
 
 **Role file parameter:** `harvest_ticks` (20).
+
+#### Harvester Botany Pots
+
+**Needs:** Botany Pots. **Assignment:** Auto.
+
+**Target:** a basic Botany Pots pot whose crop is grown. A hopper pot harvests itself, so a Harvester never takes
+one.
+
+The Harvester harvests the pot 20 ticks after it starts work, as a player's click does: the crop's harvest drops
+out of the side of the pot that faces the worker, and the crop starts to grow again. The seed and the soil stay in
+the pot. The harvest makes no sound.
 
 ### Freezer
 
@@ -832,6 +893,12 @@ A level 100 Muse takes a table without Quanta shelves from 15% to 60% Quanta. Th
 | 50 | 8 | 23 |
 | 75 | 12 | 34 |
 | 100 | 15 | 45 |
+
+With Create: Enchantment Industry and Apothic Enchanting installed, a Muse with a Work Leash binding also
+works CEI's Infuser while the Infuser stands over its basin. It adds its Quanta to the stats that the Infuser
+reads from the bookshelves around the block below it. The Infuser reads them only while it is idle, every
+10 seconds, and an infusion keeps the stats that it started with. More Quanta can take a recipe out of its
+range, so bind a Muse only to an Infuser whose recipes want them.
 
 Fairy-types heal by default, so the Muse needs a binding or a Quick Work order. A Muse follows the worker
 rule of Work Stamina and heals no ally.
@@ -963,6 +1030,22 @@ level 100 worker makes the maximum of Mekanism's config, 480 J/t by default, at 
 cannot see the sky, or that has a fluid above it, makes nothing, and its worker waits in Standby. The bonus
 ends within 20 ticks of the end of the work, at the generator's next update.
 
+#### Tailwind PneumaticCraft
+
+**Needs:** PneumaticCraft: Repressurized. **Assignment:** Work Leash only.
+
+**Target:** any PneumaticCraft machine that holds air, such as a pressure tube or a Pressure Chamber valve.
+
+A Flying-type blows ceil(50 × L ÷ 100) mL of air per tick into the machine, where L is its level: 1 mL at
+level 1, 25 mL at level 50 and 50 mL, an Advanced Air Compressor's output, at level 100. The worker never
+raises the pressure to the danger pressure, which is 5 bar for a tier 1 machine and 20 bar for a tier 2
+machine. Air spreads into the connected machines with no tier check, so the worker counts the lowest danger
+pressure of the machine and the machines connected to it: a tier 2 tube beside a tier 1 machine stays below
+5 bar. When the next tick of air would reach that pressure, the worker adds only the air that keeps the
+pressure below it, and then waits in Standby.
+
+**Role file parameter:** `air_per_tick_at_level_100` (50).
+
 ### Lumberjack
 
 **Types:** Bug. **Level:** the pace grows with level. **Move:** Aerial Ace. **Assignment:** Work Leash only.
@@ -1016,13 +1099,13 @@ the collector.
 
 ### Heater
 
-**Types:** Fire. **Level:** the heat grows with level. **Move:** Ember. **Assignment:** Auto.
+**Types:** Fire. **Level:** the heat grows with level. **Move:** Ember.
 
 A Fire-type warms the heat blocks of other mods.
 
 #### Heater Mekanism
 
-**Needs:** Mekanism.
+**Needs:** Mekanism. **Assignment:** Auto.
 
 **Target:** the valve of a Thermal Evaporation Plant or of a Thermoelectric Boiler. A Heater never warms a
 reactor port, a Heat Generator or a Quantum Entangloporter.
@@ -1033,6 +1116,20 @@ while the structure is formed and colder than 3,000 K, above which a plant runs 
 
 **Role file parameter:** `heat_per_tick_at_level_100` (1,500), from 0 to 1,870, the heat that a full
 evaporation plant uses.
+
+#### Heater PneumaticCraft
+
+**Needs:** PneumaticCraft: Repressurized. **Assignment:** Work Leash only, because some PneumaticCraft machines
+need a cold side.
+
+**Target:** any block that takes PneumaticCraft heat on a side, such as an Advanced Air Compressor or a
+Thermal Compressor.
+
+The Heater gives the heat of one lava block, scaled by its level: max(0, (1,300 − T) ÷ 100) × L ÷ 100 heat per
+tick, where T is the machine's temperature in kelvin and L the Heater's level. It warms the side of the machine
+nearest to it. A machine at 1,300 K or hotter gets no heat, and the Heater waits in Standby beside it.
+
+**Role file parameters:** `source_temperature` (1,300) and `thermal_resistance` (100).
 
 ## Configuration
 

@@ -21,6 +21,8 @@ object MixinGate {
         id("egg_incubator") to MixinState.EGG_INCUBATOR,
         // CD-MCH-01: the Superheater on the Liquid Blaze Burner of Create Crafts & Additions.
         id("liquid_burner") to MixinState.LIQUID_BLAZE_BURNER,
+        // CD-OPT-09: the Brewer's cauldron handler works through a mixin of its own (CD-MCH-07).
+        id("alchemist_cauldron") to MixinState.ALCHEMIST_CAULDRON,
     )
 
     /** CD-MUS-07: with Apothic Enchanting, the Muse needs the stats hook, because that mod's table menu never runs the menu mixin. */

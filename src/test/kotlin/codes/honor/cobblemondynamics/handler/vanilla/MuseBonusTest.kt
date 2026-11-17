@@ -48,7 +48,7 @@ class MuseBonusTest {
     }
 
     @Test
-    fun `CD-MUS-01 CD-FIX-05 CD-FIX-06 the Muse's tag holds the vanilla table, and Easy Magic's table and both infusers as optional`() {
+    fun `CD-MUS-01 CD-FIX-05 CD-FIX-06 CD-MCH-06 the Muse's tag holds the vanilla table, and the stations of other mods as optional`() {
         val file = File(System.getProperty("cd.projectDir"), "src/main/resources/data/cobblemon_dynamics/tags/block/muse_targets.json")
         val values = JsonParser.parseString(file.readText()).asJsonObject.getAsJsonArray("values")
         val entries = values.associate { value ->
@@ -64,8 +64,18 @@ class MuseBonusTest {
             "easymagic:enchanting_table" to false,
             "enchantinginfuser:enchanting_infuser" to false,
             "enchantinginfuser:advanced_enchanting_infuser" to false,
+            "create_enchantment_industry:infuser" to false,
         )
         assertEquals(expected, entries)
+    }
+
+    /** CEI's Infuser reads only the stats of Apothic Enchanting, which takes the Muse's Quanta, and it exists only with that mod. */
+    @Test
+    fun `CD-MCH-06 the Muse takes CEI's Infuser only with Apothic Enchanting, and adds Quanta there`() {
+        val infuser = ResourceLocation.parse("create_enchantment_industry:infuser")
+        assertTrue(MuseBonus.takesStation(infuser, apothicEnchanting = true))
+        assertFalse(MuseBonus.takesStation(infuser, apothicEnchanting = false), "the Muse works an Infuser without its stats")
+        assertEquals(MuseBonus.Bonus(0, 45f), MuseBonus.bonus(100, params, apothicEnchanting = true))
     }
 
     @Test

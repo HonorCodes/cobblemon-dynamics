@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "pneumaticcraft" }],
+  "handler": "cobblemon_dynamics:pnc_heat",
+  "types": ["fire"],
+  "auto_assign": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "source_temperature": 1300, "thermal_resistance": 100 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["ember", "fire", "spray", "special"],
+    "actor_particles": ["cobblemon:ember_actor"],
+    "target_particles": ["cobblemon:ember_target"]
+  }
+}

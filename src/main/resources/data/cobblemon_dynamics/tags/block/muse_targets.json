@@ -13,6 +13,10 @@
     {
       "id": "enchantinginfuser:advanced_enchanting_infuser",
       "required": false
+    },
+    {
+      "id": "create_enchantment_industry:infuser",
+      "required": false
     }
   ]
 }

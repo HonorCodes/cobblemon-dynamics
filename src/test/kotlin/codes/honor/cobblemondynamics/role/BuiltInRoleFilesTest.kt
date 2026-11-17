@@ -61,6 +61,13 @@ class BuiltInRoleFilesTest {
         "tailwind_mekanism" to Row("cobblemon_dynamics:wind_generator", setOf("flying"), false, 0, "gust"),
         "stoker_railcraft" to Row("cobblemon_dynamics:railcraft_fuel", setOf("fire"), true, 0, "ember"),
         "stoker_railcraft_boiler" to Row("cobblemon_dynamics:railcraft_firebox", setOf("fire"), false, 0, "ember"),
+        "stoker_pneumaticcraft" to Row("cobblemon_dynamics:pnc_compressor", setOf("fire"), true, 0, "ember"),
+        "heater_pneumaticcraft" to Row("cobblemon_dynamics:pnc_heat", setOf("fire"), false, 0, "ember"),
+        "tailwind_pneumaticcraft" to Row("cobblemon_dynamics:pnc_air", setOf("flying"), false, 0, "gust"),
+        "cultivator_botanypots" to Row("cobblemon_dynamics:pot_cultivator", setOf("ground"), true, 0, "mudsport"),
+        "harvester_botanypots" to Row("cobblemon_dynamics:pot_harvester", setOf("grass"), true, 0, "razorleaf"),
+        "generator_healing_machine" to Row("cobblemon_dynamics:healing_charge", setOf("electric"), true, 0, "thundershock"),
+        "brewer_irons_spellbooks" to Row("cobblemon_dynamics:alchemist_cauldron", setOf("poison"), true, 0, "poisongas"),
         // The Stoker on the furnaces of other mods (Task 15 of the 1.2 plan).
         "stoker_ironfurnaces" to Row("cobblemon_dynamics:iron_furnace", setOf("fire"), true, 0, "ember"),
         "stoker_cookingforblockheads" to Row("cobblemon_dynamics:cfb_oven", setOf("fire"), true, 0, "ember"),
@@ -686,5 +693,90 @@ class BuiltInRoleFilesTest {
                 assertEquals(listOf(mod.modId), RoleConditions.mods(json), "${file.name}: the mod_loaded conditions of a ${mod.modId} role")
             }
         }
+    }
+
+    /** A role file of another mod plays its base role's move, as the base file writes it. */
+    private fun assertEffectOf(name: String, base: String) =
+        assertEquals(BuiltInRoles.parse(base).effect, BuiltInRoles.parse(name).effect, "$name plays the effect of $base")
+
+    @Test
+    fun `CD-FUEL-08 the Stoker of PneumaticCraft is an auto-assign Fire role that needs PneumaticCraft`() {
+        val file = File(BuiltInRoles.dir, "stoker_pneumaticcraft.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:pnc_compressor", role.handler.toString())
+        assertEquals(setOf("fire"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(listOf("pneumaticcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("stoker_pneumaticcraft", "stoker")
+    }
+
+    /** Some PneumaticCraft machines need a cold side, so only the player picks the machine (R80). */
+    @Test
+    fun `CD-HTR-06 the Heater of PneumaticCraft is a leash-only Fire role that needs PneumaticCraft`() {
+        val file = File(BuiltInRoles.dir, "heater_pneumaticcraft.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:pnc_heat", role.handler.toString())
+        assertEquals(setOf("fire"), role.types)
+        val key = autoAssignKey("heater_pneumaticcraft")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
+        assertEquals(1_300, role.params.get("source_temperature")?.asInt)
+        assertEquals(100, role.params.get("thermal_resistance")?.asInt)
+        assertEquals(listOf("pneumaticcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("heater_pneumaticcraft", "stoker")
+    }
+
+    @Test
+    fun `CD-AIR-07 Tailwind on PneumaticCraft air is a leash-only Flying role that needs PneumaticCraft`() {
+        val file = File(BuiltInRoles.dir, "tailwind_pneumaticcraft.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:pnc_air", role.handler.toString())
+        assertEquals(setOf("flying"), role.types)
+        val key = autoAssignKey("tailwind_pneumaticcraft")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
+        assertEquals(50, role.params.get("air_per_tick_at_level_100")?.asInt)
+        assertEquals(listOf("pneumaticcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("tailwind_pneumaticcraft", "tailwind")
+    }
+
+    /** A pot takes the farming roles' own numbers and moves (ADR-0020). */
+    @Test
+    fun `CD-FRM-04 CD-FRM-05 the pot roles are the auto-assign farming roles, and they need Botany Pots`() {
+        for ((name, base) in listOf("cultivator_botanypots" to "cultivator", "harvester_botanypots" to "harvester")) {
+            val file = File(BuiltInRoles.dir, "$name.json")
+            val role = BuiltInRoles.parse(file)
+            val own = BuiltInRoles.parse(base)
+            assertEquals(own.types, role.types, name)
+            assertTrue(role.autoAssign, name)
+            assertEquals(own.params, role.params, name)
+            assertEquals(listOf("botanypots"), RoleConditions.mods(JsonParser.parseString(file.readText())), name)
+            assertEffectOf(name, base)
+        }
+        assertEquals(CultivatorParams(30, 100), CultivatorParams.of(BuiltInRoles.parse("cultivator_botanypots").params))
+        assertEquals(20, HarvestClock.ticksOf(BuiltInRoles.parse("harvester_botanypots").params))
+    }
+
+    /** Cobblemon is required, so the Healing Machine's role file has no condition and loads on every server. */
+    @Test
+    fun `CD-MCH-08 the Generator of the Healing Machine is an auto-assign Electric role with no condition`() {
+        val file = File(BuiltInRoles.dir, "generator_healing_machine.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:healing_charge", role.handler.toString())
+        assertEquals(setOf("electric"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(4, role.params.get("recharge_multiplier_at_level_100")?.asInt)
+        assertFalse(JsonParser.parseString(file.readText()).asJsonObject.has(RoleConditions.KEY))
+        assertEffectOf("generator_healing_machine", "generator")
+    }
+
+    @Test
+    fun `CD-MCH-07 the Brewer of the Alchemist Cauldron is an auto-assign Poison role that needs Iron's Spells 'n Spellbooks`() {
+        val file = File(BuiltInRoles.dir, "brewer_irons_spellbooks.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:alchemist_cauldron", role.handler.toString())
+        assertEquals(setOf("poison"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(1, role.params.get("extra_steps_per_tick")?.asInt)
+        assertEquals(listOf("irons_spellbooks"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("brewer_irons_spellbooks", "brewer")
     }
 }
