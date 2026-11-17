@@ -1,6 +1,6 @@
 # Cobblemon Dynamics architecture
 
-Status: intended design for version 1.0, approved 2026-11-09. No code exists yet.
+Status: approved for version 1.0 on 2026-11-09, and kept in step with the code through version 1.2.
 
 The [spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md) holds the testable requirements. This
 document explains how the parts fit together. The [ADRs](docs/adr/) record why each major choice
@@ -13,14 +13,20 @@ spec sheet disagree, the spec sheet wins.
 Cobblemon Dynamics lets pastured Cobblemon work on blocks around a player's base. A Water-type turns
 a Create water wheel. An Electric-type pushes Forge Energy (FE) into a machine. A Fire-type keeps a
 furnace lit. Version 1.0 has 15 roles across 13 types, a Work Stamina cycle with four bed tiers, and
-Fairy-type healers. [docs/roles.md](docs/roles.md) lists every role.
+Fairy-type healers. Version 1.1 adds the two farming roles. Version 1.2 adds the Lumberjack, the Soul Collector
+with the Experience Collector block, the Freezer and the Heater, and lets the existing roles work the machines
+and crops of the mods of [ADR-0016](docs/adr/0016-zero-setup-optional-mod-compatibility.md). [docs/roles.md](docs/roles.md)
+lists every role.
 
 Constraints:
 
 - **Platform.** Minecraft 1.21.1, NeoForge only, Java 21 ([ADR-0002](docs/adr/0002-neoforge-1.21.1-only.md)).
 - **Required mods.** Cobblemon `[1.8.4,1.9)`, KotlinForForge `[5.10,)` and NeoForge `[21.1.219,)`.
 - **Optional mods.** Create `[6.0.10,6.1)` and Applied Energistics 2 `[19.2,20)`. A role that needs
-  one of these mods loads only when that mod is present.
+  one of these mods loads only when that mod is present. Each other mod that a compat package names is an
+  optional dependency with any version. Only its compat package and its mixin package name its classes, a role
+  file of that mod loads only with it, and it needs no setup step
+  ([ADR-0016](docs/adr/0016-zero-setup-optional-mod-compatibility.md)).
 - **Both sides.** The mod must be on the client and on the server. It registers items, blocks, an
   entity type, payloads and screen additions.
 - **Work sites.** A Cobblemon Pasture Block becomes a work site only while its Work Mode is on
@@ -30,7 +36,10 @@ Constraints:
 - **Exclusivity.** One Cobblemon acts on a given machine, bed or ally at a time, across all pastures
   ([ADR-0005](docs/adr/0005-global-claim-registry.md)). The logistics roles, the Magnet and Telekinesis, share their
   containers: up to `logistics.maxWorkersPerContainer` of their workers (default 5) hold shared claims on one container,
-  and shared claims and exclusive claims never block each other (Amendment 1 of ADR-0005). Wild Cobblemon never work.
+  and shared claims and exclusive claims never block each other (Amendment 1 of ADR-0005). The Soul Collector shares
+  its Experience Collector in the same way. A farming role claims in its own lane, so a crop or a pot takes one
+  Cultivator and one Harvester, and a sapling one Cultivator and one Lumberjack (Amendments 2 and 3). Wild Cobblemon
+  never work.
 - **Balance.** No single Cobblemon solves an engineering problem that the player is meant to manage.
   Top-tier engineering always does better ([ADR-0010](docs/adr/0010-balance-rule.md)).
 - **Isolation.** Cobblemon has no pasture API and fires no pasture events. One package (`pasture`)
@@ -52,19 +61,27 @@ Mixin supports only Java mixin classes.
 ```text
 src/main/kotlin/codes/honor/cobblemondynamics/
   CobblemonDynamics.kt   mod entry point, registration, event wiring
-  registry/              deferred registers: blocks, items, block entities, the Charge Cell's
-                         data component, the creative tab, the entity type, attachments
+  registry/              deferred registers: blocks, items, block entities, the data components of the
+                         Charge Cell and the Experience Collector, the collector's menu type, the
+                         creative tab, the entity type, attachments
   config/                server and client config specs
   pasture/               pasture adapter, Work Mode attachment, Work Mode pasture index
   engine/                scheduler, worker state machine, scanner, assigner
   claim/                 claim registry, claim keys, leash binding index
-  role/                  role model, role JSON codec, role registry (reload listener)
+  role/                  role model, role JSON codec, role registry (reload listener), role file
+                         conditions, the mixin gate of each role and target
   handler/               TargetHandler interface, handler registry
-    vanilla/             furnace family, brewing stand, enchanting table, budding blocks, cauldron
-    capability/          FE push, fluid fill (NeoForge capabilities)
-    item/                Telekinesis transfer, Magnet pickup (NeoForge item capability)
+    vanilla/             furnace family, brewing stand, enchanting table, budding blocks, cauldron,
+                         farmland moisture
+    capability/          FE push, fluid fill (NeoForge capabilities, and farmland for the Pump)
+    item/                Telekinesis transfer, Magnet pickup (NeoForge item capability, plain containers)
     farming/             Cultivator and Harvester, crop facts and adapters, harvest plans (ADR-0015)
+    cobblemon/           Healing Machine charge
+    tree/                Lumberjack: tree search, canopy, shell, fell plan and run, replant (ADR-0017)
+    water/               Freezer: freeze rules and pace (ADR-0019)
+    xp/                  Soul Collector: orb rules, death spots (ADR-0018)
     create/              water wheels, Blaze Burner, hand crank, encased fan, windmill bearing
+  xp/                    Experience Collector block, block entity, store, menu, XP fluids (ADR-0018)
   ai/                    Brain bridge: activity, memory type, Cobblemon task types
   fx/                    effect player, effect definitions, work focus entity
   stamina/               Work Stamina math, store, display mirror
@@ -73,11 +90,18 @@ src/main/kotlin/codes/honor/cobblemondynamics/
   heal/                  healer target selection, heal transaction
   leash/                 Work Leash item, interaction handlers, pending selections
   net/                   payload definitions and handlers
-  compat/                Cobbleworkers and Cobblebase shims, LandClaims.kt (the land claim gate)
+  compat/                Cobbleworkers and Cobblebase shims, LandClaims.kt (the land claim gate),
+                         OptionalMods.kt and CompatLines.kt (the supported mods and their compat lines)
     apothic/             ApothicCompat (loads the stats class of Apothic Enchanting at common setup)
     ftbchunks/           FTB Chunks checks, FtbInteractRule (its right-click rule by UUID)
     opac/                Open Parties and Claims checks
     minecolonies/        MineColonies checks, ColonyRightClick (a colony's right-click rule)
+    <modid>/             one package per supported mod of 1.2, named by its mod id: immersiveengineering,
+                         mekanism, mekanismgenerators, railcraft, pneumaticcraft, botanypots, ironfurnaces,
+                         cookingforblockheads, forbidden_arcanus, cobblemon_incubator, ars_nouveau,
+                         createaddition, create_connected, create_enchantment_industry, irons_spellbooks,
+                         easymagic, enchantinginfuser, experiencelib, dynamictrees and ae2. Each holds a
+                         register function, its handlers or hooks, and its pure rules (ADR-0020)
   command/               /cobblemondynamics operator commands
   client/                payload handlers, pasture panel hooks, head bars, client state cache
 src/main/java/codes/honor/cobblemondynamics/
@@ -95,13 +119,18 @@ src/main/java/codes/honor/cobblemondynamics/mixin/
   compat/cobblebase/     AmbientBehaviorMixin, NavigationHelperMixin, BaseManagerMixin, PassiveXpMixin
                          (@Pseudo hooks in Cobblebase's helpers)
   compat/apothic/        EnchantmentTableStatsMixin (the Muse's Quanta in Apothic Enchanting's table stats)
+  compat/<modid>/        the mixins of 1.2, one package per mod: the IE watermill and windmill, the Wind
+                         Generator, the Air Compressor's gauge, the Clibano, the Egg Incubator, the Liquid
+                         Blaze Burner, the Alchemist Cauldron, Easy Magic's menu and the infuser's menu
 src/main/resources/
   META-INF/neoforge.mods.toml
   META-INF/accesstransformer.cfg
   cobblemon_dynamics.mixins.json
   data/cobblemon_dynamics/cobblemon_dynamics/roles/*.json   built-in roles
   data/cobblemon_dynamics/behaviours/pokemon/auto/*.json    Brain behaviour
-  data/cobblemon_dynamics/recipe/*.json                     Work Leash, bed and Charge Cell recipes
+  data/cobblemon_dynamics/recipe/*.json                     Work Leash, bed, Charge Cell and collector recipes
+  data/cobblemon_dynamics/tags/block/                       target, never and adapter tags of the roles
+  data/cobblemon_dynamics/data_maps/block/harvest_loot.json the loot data map of the farming roles
   assets/cobblemon_dynamics/                                models, textures, sprites, lang
 src/test/kotlin/         JUnit 5 unit tests, no game runtime
 src/gametest/kotlin/     NeoForge GameTests, loaded only by the gameTestServer run
@@ -124,9 +153,10 @@ files live under `assets/cobblemon_dynamics/`.
 | Pasture adapter | `pasture` | Reads tethered Cobblemon, the pasture's `ownerId` and the player-to-pasture link. Stores Work Mode as a NeoForge data attachment on Cobblemon's pasture block entity. Keeps an index of Work Mode pastures per level. Polls each loaded Work Mode pasture every 20 ticks, because Cobblemon fires no pasture events. | Cobblemon internals, work engine |
 | Work engine | `engine` | Owns the authoritative state of every worker. Schedules scans, runs assignment, runs each worker's state machine, applies work through handlers and drains or restores Work Stamina. Also runs each Quick Work order, which has one sent-out party Cobblemon and no scan. Runs on the server thread only. | All server components |
 | Claim registry | `claim` | Holds work claims, bed claims and heal claims: one exclusive claim per key, up to the cap of shared claims of logistics roles per key, and at most one active claim per worker, across all pastures and dimensions. Keys are a dimension plus a canonical block position, with the claim lane of a farming role, or an entity UUID. A crop holds one claim in each farming lane, so a Cultivator and a Harvester share it (ADR-0015). Holds the leash bindings as reservations, at most one per worker, and their persistent index. Only a binding of an exclusive role reserves its target. | Work engine, leash, heal, beds |
-| Role registry | `role` | Loads role JSON from data packs on server start and on `/reload`. Rejects invalid files with one log error per file. Matches a worker to roles by its types. Orders roles on one target by `priority`. | Work engine, handler registry |
-| Handler registry | `handler` | Maps a handler id to a `TargetHandler`. Create handlers register only when Create is loaded. | Role registry, work engine |
-| Target handlers | `handler.*` | One per machine family. Each one finds targets, canonicalizes them, checks demand, applies work and cleans up on release. The farming handlers read each crop through the first crop adapter that claims it: pure rules over the facts of the block (its classes, adapter tags and `age`), which a thin reader fills from the level. A harvest computes its loot and its cell changes as a pure plan, then applies it with `Level.setBlock` and `Block.popResourceFromFace`, with no sound. An auto-assigned farming worker releases its claim when its crop has no demand, so it goes crop to crop. | Vanilla blocks, NeoForge capabilities, Create |
+| Role registry | `role` | Loads role JSON from data packs on server start and on `/reload`. Skips a file whose `neoforge:conditions` fail before it parses it, and logs one line that names the skipped files with their mods (CD-OPT-02, CD-OPT-04). Rejects invalid files with one log error per file. Turns off a role, or one target of a shared handler, whose mixin did not apply (`MixinGate`, CD-OPT-09). Matches a worker to roles by its types. Orders roles on one target by `priority`. | Work engine, handler registry |
+| Handler registry | `handler` | Maps a handler id to a `TargetHandler`. Create handlers register only when Create is loaded, and the handlers of a compat package only when its mod is loaded. | Role registry, work engine |
+| Target handlers | `handler.*` | One per machine family. Each one finds targets, canonicalizes them, checks demand, applies work and cleans up on release. The farming handlers read each crop through the first crop adapter that claims it: pure rules over the facts of the block (its classes, adapter tags and `age`), which a thin reader fills from the level. A harvest computes its loot and its cell changes as a pure plan, then applies it with `Level.setBlock` and `Block.popResourceFromFace`, with no sound. An auto-assigned farming worker releases its claim when its crop has no demand, so it goes crop to crop. The handlers of 1.2 keep the same split. The Lumberjack (`handler/tree`) searches a tree, its natural canopy and the shell of attached blocks as pure rules, plans the fell, and removes it over a few ticks with silent block updates. The Freezer (`handler/water`) claims one water cell and freezes the cells around its worker. The Soul Collector (`handler/xp`) moves orb XP into an Experience Collector. Each adapter of another mod keeps its mapping of the mod's machine as pure rules in its compat package. | Vanilla blocks, NeoForge capabilities, Create, the supported mods |
+| Experience Collector | `xp` | Registers the Experience Collector block, its block entity, its item with the data component `cobblemon_dynamics:stored_experience` and its menu. Stores up to `experienceCollector.capacity` XP. Gives all of it to a player through vanilla's container button packet. Exposes a drain-only fluid handler on its back and bottom faces, with the XP fluid that it picks after each tag load, and experiencelib's XP capability through `compat/experiencelib`. | Soul Collector, pipes, Applied Experienced |
 | Brain bridge | `ai` | Registers the `cobblemon_dynamics:work` activity, the `cobblemon_dynamics:work_order` memory and the task types. Ships the auto behaviour JSON. Moves, faces, holds, poses and approaches as the work order says. | Cobblemon Brain system |
 | Effects | `fx` | Sends Cobblemon animation and particle packets on each effect loop. Spawns and removes work focus entities. Runs the Floral Healing timeline when Cobblemon has it. Sends no sound: work is silent. | Cobblemon network, clients |
 | Work Stamina | `stamina` | Computes capacity, drain and recovery. Stores the value in the Cobblemon's `persistentData`. Mirrors a display value to a synced entity attachment. | Work engine, Cobblemon data |
@@ -135,7 +165,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Heal | `heal` | Picks the next ally for each healer and applies the heal as one transaction. | Claim registry, stamina |
 | Work Leash | `leash` | Handles the two-click binding, the three-click Telekinesis binding, the pending selection, the clear gesture and the flip gesture. Sends action-bar feedback. | Claim registry, handlers |
 | Network | `net` | Defines our payloads and validates every client payload on the server. | Client, engine |
-| Compat | `compat` | Sets and clears the Cobbleworkers rest flag. Gates the Cobblebase mixins. Holds the land claim gate, `LandClaims`, which asks each loaded claim mod one of two questions: may the online owner of a Quick Work order right-click a block, or may the placer of a Work Mode pasture use it, by UUID. A check that throws refuses, with one warning per asker, claim mod and cause. Only `compat/ftbchunks/`, `compat/opac/` and `compat/minecolonies/` name a class of a claim mod, and each loads only behind `ModList.isLoaded`. | Cobbleworkers data, Cobblebase, FTB Chunks, Open Parties and Claims, MineColonies |
+| Compat | `compat` | Sets and clears the Cobbleworkers rest flag. Gates the Cobblebase mixins. Holds the land claim gate, `LandClaims`, which asks each loaded claim mod one of two questions: may the online owner of a Quick Work order right-click a block, or may the placer of a Work Mode pasture use it, by UUID. A check that throws refuses, with one warning per asker, claim mod and cause. Only `compat/ftbchunks/`, `compat/opac/` and `compat/minecolonies/` name a class of a claim mod, and each loads only behind `ModList.isLoaded`. The same rule holds for each supported mod of 1.2: only `compat/<modid>/` and `mixin/compat/<modid>/` name its classes, and `CobblemonDynamics` calls its `register` only behind `ModList.isLoaded`. No object initializer or top-level property there reads another mod's class, because it would run in the mod's constructor, outside the engine's guard. Each `register` names its adapters to `CompatLines`, which logs one compat line per loaded mod with a compat package after each data load (CD-OPT-11). | Cobbleworkers data, Cobblebase, FTB Chunks, Open Parties and Claims, MineColonies, the supported mods |
 | Commands | `command` | `/cobblemondynamics claims`, `/cobblemondynamics stamina` and `/cobblemondynamics unbind` for operators. `unbind <pos>` clears the bindings on a block through the leash resets, for a binding whose binder does not come back. | Claim registry, stamina, leash |
 | Client | `client` | Adds the Work Mode button to the pasture panel. Draws panel stamina bars and head bars. Outlines bound targets while the player holds the Work Leash. Answers the fan and windmill checks that Create runs on the client. | Cobblemon client GUI, payloads, Create client |
 
@@ -150,7 +180,7 @@ files live under `assets/cobblemon_dynamics/`.
 | Work claims, bed claims, heal claims | `ClaimRegistry` in server memory. | Not saved. Scans rebuild them after a restart, so no claim goes stale. | No |
 | Waiting chat messages | `Feedback`'s queue in server memory: the message of each binding that clears while its binder is offline, up to the 10 newest per player. | Not saved. A server stop drops them. | As chat, at the player's next login. |
 | Leash selection and pending source | Data components on the Work Leash stack: `cobblemon_dynamics:leash_selection` (the selected Cobblemon's UUID and name) and `cobblemon_dynamics:pending_source` (for Telekinesis, the source's dimension and position, its clicked face and the click tick). The server binds only from its own copy of the stack. A pending source counts only in the level of its click, because in another level its position names a block that the player never clicked. A client in creative mode can write the stack, so the destination click checks the pending source before it reads the source block. A source outside the work area is refused with "Outside its pasture's work area", and a source in a chunk that is not loaded counts as absent. So the click never loads a chunk. | Saved with the stack. The pending source expires after 600 ticks (30 s), on a right-click on air, or on the first tick or click in another level. A click also removes a pending source that it finds outside the work area or in a chunk that is not loaded. | Yes, as item data |
-| Worker runtime state | `WorkerState` in the work engine, keyed by Cobblemon UUID: state, Tired flag, claim, work spot, timers, per-target skip list. | Not saved. | Through the stamina view below. |
+| Worker runtime state | `WorkerState` in the work engine, keyed by Cobblemon UUID: state, Tired flag, claim, work spot, timers, and two maps of targets with an end tick: the skips of the engine and the stalls of the handlers (section 5). | Not saved. | Through the stamina view below. |
 | Work Stamina | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `stamina`: `percent` (0.0 to 1.0), `tired` (boolean), `last_game_time` (long, overworld game time). | Saved with the Cobblemon. The engine flushes it on each state change, every 600 ticks, on entity unload and on server stop. | Entity attachment `cobblemon_dynamics:stamina_view` (`percent` as 0 to 100, `state` as an enum ordinal), synced with NeoForge attachment sync. |
 | Fan worker mark | Entity attachment `cobblemon_dynamics:fan_worker`: the position of the fan that this Cobblemon holds a work claim on, or none. | Not saved. The Fan Catalyst handler sets it when its worker claims a fan and removes it when the claim ends, so it lasts through Traveling, Standby and Working. | NeoForge attachment sync, so the client exempts the worker from the fan push. |
 | Cobbleworkers flag ownership | `Pokemon.persistentData`, compound `cobblemon_dynamics`, entry `set_cw_rest`. It marks a `cobbleworkers.resting` flag that this mod set. | Saved with the Cobblemon. | No |
@@ -158,6 +188,11 @@ files live under `assets/cobblemon_dynamics/`.
 | Fan state | A Create `BlockEntityBehaviour` on the encased fan block entity. Fields: `fireMode` (`blasting` or `smoking`, default `blasting`), `catalyst` (the active catalyst kind, or none). | `fireMode` is saved in the Create block entity NBT. `catalyst` is not saved. | Create's block entity packets carry both, so the client builds the same air current. |
 | Tailwind bonus | A Create `BlockEntityBehaviour` on the windmill bearing block entity. Field: `bonusSails` (int, default 0). | Not saved. The handler sets it while Tailwind works. | Create's block entity packets carry it, so the client spins at the same rate. |
 | Charge Cell FE | The Charge Cell block entity, field `energy` (0 to 50,000). The item of a broken cell holds it as the data component `cobblemon_dynamics:stored_energy`. | Saved in the block entity NBT, and with the item stack. | The item component syncs as item data. The block entity sends nothing. |
+| Experience Collector XP | The Experience Collector block entity, an `int` from 0 to `experienceCollector.capacity`. The item of a broken collector holds it as the data component `cobblemon_dynamics:stored_experience`. | Saved in the block entity NBT, and with the item stack. | The open menu syncs it in two data slots of 16 bits each. The item component syncs as item data. |
+| IE watermill drive | Data attachment `cobblemon_dynamics:ie_watermill_drive` on the master block entity of an Immersive Engineering watermill: the direction of its Wheel Driver. | Saved only while it differs from the default direction. | No. The handler calls IE's `setShouldUpdate()` at each start, stop and flip. |
+| IE windmill bonus, Wind Generator grant | Data attachments `cobblemon_dynamics:ie_windmill_bonus` (the level of the windmill's Tailwind worker) and `cobblemon_dynamics:wind_grant` (the grant of a Wind Generator's Tailwind worker). | Never saved. Every end of the worker's claim ends them. | The windmill bonus syncs to the clients near the windmill, so it turns at the same speed there. The grant stays on the server. |
+| Lumberjack fells | Each running fell of the Lumberjack handler: its plan, its progress and its region tickets. | Not saved. A fell that has started completes in a few ticks. | No |
+| Death spots | `PlayerDeaths` in server memory: where and when each player died in the last 6,000 ticks, at most 256 spots. The Soul Collector leaves the orbs near them. | Not saved. | No |
 | Work focus entity | Entity type `cobblemon_dynamics:work_focus`, one per Working claim on a block target, at the target's center. It is invisible and has no collision. | Never saved to disk. | Vanilla entity tracking. |
 | Brain work order | Memory `cobblemon_dynamics:work_order` in the Cobblemon's Brain. | Not saved. The engine rewrites it every tick, because Cobblemon rebuilds the Brain when it swaps the Cobblemon instance. | No |
 | Quick Work order | `QuickRuntime` in the work engine, keyed by the Cobblemon's UUID: the owner's UUID, the aimed block, the target's name, one worker slot and a work area around the target. | Not saved. The order ends for good, and its end leaves no slot, claim or order. A server stop drops it. | Through the stamina view of its worker. |
@@ -241,7 +276,20 @@ Transition rules:
   follow-owner task takes over, and no Quick Work code runs for that Cobblemon.
 - **Auto claims.** On each scan, every Idle worker takes the nearest unclaimed target of an
   auto-assign role it can do. A Fairy-type never takes a machine through an auto claim, so with no
-  binding it acts as a healer. The Pump, the Muse and the four Phase 2 roles are leash-only.
+  binding it acts as a healer. The Pump, the Muse and the four Phase 2 roles are leash-only, and so are
+  the Lumberjack and the Soul Collector of 1.2.
+- **Nearest-first demand.** The assigner sorts an Idle worker's candidates nearest first, ties to the lowest
+  key, and asks their demand in that order until one has it (R84). A Standby move does the same. The choice
+  is the one that a test of every candidate would give, but a costly demand test, such as the Freezer's, runs
+  on few cells.
+- **Skips and stalls.** A worker keeps two maps of targets that it leaves alone until a tick. The engine's
+  skips come from a travel timeout or a target with no reachable spot (CD-ASG-14). A handler's stalls come
+  from its own demand: a Cultivator whose 20 uses changed nothing (CD-CUL-09), a refused claim question, or the
+  Crystal Tender's 200 unchanged ticks. A handler sets a stall through `WorkContext.stalled` for its target and
+  `stalledAt` for a cell beside it, and reads it with `isStalled`. The worker skips both kinds as targets. An
+  area job, such as the Freezer's, works no stalled cell, but it still works a skipped cell, at which it needs
+  no spot. The engine drops the expired entries of both maps at each claim's end, and the perf diagnostic
+  prints both maps (R84).
 - **Work spots.** A claim needs a work spot: a cell in the work area within the role's range of the
   target center, with line of sight to it and room for the worker's body, and not taken by another
   worker. A spot never stands on the target. A spot beside the target at its base height comes first:
@@ -353,8 +401,10 @@ Cobblemon ticks each Cobblemon's Brain in `customServerAiStep`. Our part of that
    `WALK_TARGET` and `PATH_COOLDOWN` to be absent, so wandering stays paused. Cobblemon's `move_to_owner`
    also waits while `PATH_COOLDOWN` is set. So the end of a Quick Work order erases it, and the Cobblemon
    follows its owner from the next tick (CD-QWK-15). A leashed farming worker whose crop's cell is empty
-   has no claim and so no work order (CD-CLM-08). Each pasture poll sets `PATH_COOLDOWN` on it for 40
-   ticks, so it waits at its spot for the replant (CD-CRP-09).
+   has no claim and so no work order (CD-CLM-08). Each pasture poll calls `BrainBridge.pauseWander`, which
+   sets `PATH_COOLDOWN` on it for 40 ticks, so it waits at its spot for the replant (CD-CRP-09). The engine
+   does so for each binding whose handler's `stillValid` is false while its `bindingHolds` is true. A bound
+   Lumberjack needs no pause: its claim stays on the sapling, and it waits there in Standby.
 5. On a bed, a task snaps the Cobblemon to the bed center every tick, and a worker that rests in place to
    where it stood. It then sets `enablePoseTypeRecalculation=false` and `POSE_TYPE=SLEEP`. It never sets
    the battle SLEEP status, because that status persists. It marks the pose in the entity's NeoForge
@@ -761,6 +811,50 @@ with the gate. A check asks about the canonical block of a target, as a right-cl
   cauldron at level 1 or 2. The Pump raises a cauldron one level per 333 mB delivered by setting the
   block state, as vanilla's `receiveStalactiteDrip` does. A cauldron has demand while it is empty or a
   water cauldron below level 3.
+- **Silent block changes (1.2).** The Lumberjack, the Freezer and the farming roles change blocks with
+  `Level.setBlock`, and call `spawnAfterBreak` where a block breaks. They never call `Level.destroyBlock` or a
+  block's use method, and post no level event, no sound and no break event. The Lumberjack removes the shell of attached blocks first, with
+  `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE`, so no attached block pops with vanilla's sound. `SilenceTest` scans the
+  source of these handlers.
+- **Region tickets (1.2).** A running fell of the Lumberjack holds a region ticket of its own ticket type,
+  `cobblemon_dynamics_fell`, on each chunk of its plan, through `ServerChunkCache.addRegionTicket` (R82). No chunk
+  of the plan unloads before the fell ends, also where the tree rises above the work area. The fell gives each
+  ticket back once, after the drops and the replant (CD-LUM-27).
+- **XP orbs (1.2).** An access transformer line makes `ExperienceOrb.count` public, so the Soul Collector moves
+  `value` × `count` XP with none lost or made (ADR-0018). It reads the players near its work area with one
+  entity query per batch.
+- **The Experience Collector's button (1.2).** The screen sends vanilla's container button packet, which
+  `ServerGamePacketListenerImpl.handleContainerButtonClick` checks for the open menu, a spectator and
+  `stillValid` before it calls `clickMenuButton`. So 1.2 adds no payload.
+
+### The mods of 1.2
+
+[ADR-0020](docs/adr/0020-machines-and-crops-of-other-mods.md) lists each target of another mod with its
+mechanism, its value and its benchmark, and the [integration page](docs/modpack-integration.md#mods-that-the-roles-support)
+lists the tested versions. The mechanisms that every adapter shares:
+
+- **Role file conditions.** A role file of a mod holds `"neoforge:conditions": [{"type": "neoforge:mod_loaded",
+  "modid": "<modid>"}]`. `RoleRegistry` tests it with NeoForge's conditional ops before it parses the file
+  (CD-OPT-02). NeoForge 21.1.265 applies no condition at the top of a tag or a data map file, so each tag entry
+  of another mod has `"required": false`, and each data map entry carries its own condition (CD-OPT-12).
+- **Mixin gate.** A mixin of a mod lives in `mixin/compat/<modid>/`. `MixinPlugin` maps that package to the mod
+  id, skips it without the mod, and skips a mixin whose target lacks a shadowed member or a method of an
+  injector's full descriptor. `MixinGate` turns off only the role or the target that the mixin serves. An
+  accessor-only mixin never counts as applied, so a target that the gate needs sits behind a mixin that
+  injects, which also opens the mod's private fields through an interface on the mixin.
+- **Code inside another mod's tick.** A mixin that runs in another mod's tick runs outside the engine's guard.
+  It reads that mod only through its shadows, which the plugin checks first, or inside `try/catch
+  (LinkageError)`, leaves the client side at once, and returns early when no worker's grant holds (R88).
+- **Grants.** A worker's effect on a machine that ticks on its own lives in a grant with an end tick, such as
+  `WorkGrants` of the Liquid Blaze Burner, the Clibano and the Egg Incubator. A grant holds through the tick
+  after the one that made it, and the handler renews it on each tick of work. So a grant whose release was
+  missed, through a handler error or a server stop, still lapses within 2 ticks.
+- **Fail safe.** A handler of a mod runs behind the engine's guard, which catches `Exception` and
+  `LinkageError`, so a renamed member turns that handler's roles off with one warning and never stops the game
+  (CD-OPT-10). A call into another mod's block that can throw, such as `canSurvive` or `getDrops`, sits in its
+  own `try`, so it fails one target and not the handler.
+- **Compat lines.** Each `register` names its adapters to `CompatLines` with the block ids and the mixins that
+  each needs. A mod that tags and data maps alone support has no compat package and no compat line.
 
 ## 9. Configuration
 
@@ -793,6 +887,7 @@ The CFG rows in the spec sheet are normative.
 | `roles.disabled` | `[]` | role ids |
 | `compat.cobbleworkers` | `true` | boolean |
 | `compat.cobblebase` | `true` | boolean |
+| `experienceCollector.capacity` | 100,000 | 1,000 to 1,000,000 |
 
 Client config `config/cobblemon_dynamics-client.toml`:
 
@@ -805,8 +900,11 @@ Role-specific numbers live in the role JSON, not in the server config
 ([ADR-0006](docs/adr/0006-data-driven-roles.md)). They are the FE base, maximum, rarity multiplier and
 rarity labels, the Pump rate, the Muse formula, the Telekinesis and Magnet rates, the Telekinesis
 destination range (default 32 blocks from the pasture block on each axis), the Tailwind formula,
-the Superheater's level gate, effect ids and ranges. No hard cap applies beyond the configured values.
-Server owners tune engine-wide balance in the config. Pack makers tune each role in a data pack.
+the Superheater's level gate, effect ids and ranges. Every number of 1.2 lives in its role file too, such as
+the Lumberjack's pace and caps, the Freezer's pace and reach, the Soul Collector's pace and player distance,
+and the value of each target of another mod. `experienceCollector.capacity` is the one key that 1.2 adds to
+the server config (CD-CFG-20). No hard cap applies beyond the configured values. Server owners tune
+engine-wide balance in the config. Pack makers tune each role in a data pack.
 
 Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.json`:
 
@@ -836,7 +934,13 @@ Example role file `data/cobblemon_dynamics/cobblemon_dynamics/roles/generator.js
 
 The optional key `quick_work` (default `false`) lets a role whose `auto_assign` is false take Quick Work orders, if its
 handler names one target. Such an order starts with no demand and has no Standby end, and a Fairy-type gets an order only for
-such a role (CD-QWK-36, Amendment 2 of [ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md)). Only `muse.json` sets it.
+such a role (CD-QWK-36, Amendment 2 of [ADR-0013](docs/adr/0013-quick-work-for-party-pokemon.md)). `muse.json` sets it.
+Since 1.2, `quick_work: false` also keeps a role whose `auto_assign` is true out of Quick Work, as `freezer.json`
+does. A file without the key follows its `auto_assign` flag ([ADR-0019](docs/adr/0019-freezer-area-job.md)).
+
+A role file of another mod also holds the condition `neoforge:mod_loaded` of that mod, as
+`stoker_ironfurnaces.json` does. A server without the mod skips the file before it parses it, so the file counts
+neither as loaded nor as disabled ([ADR-0016](docs/adr/0016-zero-setup-optional-mod-compatibility.md)).
 
 Work is silent. The role loader skips a file whose effect names a `sound` or the animation `cry`, which plays
 the Cobblemon's cry, and the effect player passes over an animation whose file plays a sound. The effect
@@ -872,11 +976,20 @@ Other role parameters, as fragments of their role files:
   `neoforge.mods.toml`. NeoForge ships Mixin and MixinExtras (0.5.5 in NeoForge 21.1.265), which
   provides `@ModifyExpressionValue` and `@Local`. MixinExtras injects `@ModifyExpressionValue` late,
   after the config plugin's `postApply`, so a mixin whose role `MixinGate` checks uses Mixin's own
-  injectors. `MixinPlugin` skips the Create, Cobblebase and Apothic Enchanting mixins
-  when those mods are absent. It also skips a mixin whose target class lacks a field or method that
-  the mixin shadows, because Mixin fails the required config at load on such a shadow. Each
+  injectors. `MixinPlugin` skips the mixins of Create, Cobblebase, Apothic Enchanting and each
+  supported mod of 1.2 when that mod is absent. It also skips a mixin whose target class lacks a field
+  or method that the mixin shadows, because Mixin fails the required config at load on such a shadow,
+  and a mixin whose `@Inject` names a method that the target lacks with that full descriptor. Each
+  injector names its method with its full descriptor, which `MixinSelectorsTest` checks for every kind
+  of injector, because a selector with no descriptor matches any method of its name. Each
   integration mixin sets a static flag when it applies, and a role whose flag stays unset disables
   itself with one log warning.
+- **Compile-only mods (1.2).** Each mod that a compat package names is a compile-only dependency with
+  `transitive = false` at the pin of the [1.2 plan](docs/plans/2026-11-15-v1.2-new-roles-and-compat.md#mod-pins),
+  from Modrinth's maven, with the libraries whose classes its block entities extend (Balm, Valhelsia
+  Core and GeckoLib). `gradle.properties` holds the versions. `verifyJar` refuses a jar that holds a
+  class of any of their packages, and the unit tests cannot see these mods, so each adapter keeps its
+  arithmetic in plain Kotlin that the tests load.
 - **Access transformers.** `META-INF/accesstransformer.cfg`, with `validateAccessTransformers = true`.
 
 | Dependency | Coordinates | Repository | Scope |
@@ -954,6 +1067,8 @@ Rules:
 | 2, private | M8 | Final art and the operator's review |
 | Gate 2 | | Every v2 MUST row passes, and the operator tests again. |
 | 3, public | M9 | Land claims for Work Mode pastures, MineColonies, the release of 1.0.0, and addition to the operator's pack |
+| 1.1 | M10 | The Cultivator, the Harvester and the crops of other mods ([1.1 plan](docs/plans/2026-11-12-v1.1-farming.md)) |
+| 1.2 | M11 | The Lumberjack, the Experience Collector and the Soul Collector, the Freezer, the Heater, the machines and crops of other mods, and seven fixes ([1.2 plan](docs/plans/2026-11-15-v1.2-new-roles-and-compat.md)) |
 
 ## 13. Test architecture
 
@@ -1003,6 +1118,12 @@ Rules:
   the dependency ranges, the compatibility cases (Cobbleworkers, Cobblebase and each claim mod), the three load lines,
   a real `/reload` and a real restart. Its servers have no player, so the checks that need a pastured worker stay in the
   GameTests.
+- **The mods of 1.2.** The test approach of the [1.2 plan](docs/plans/2026-11-15-v1.2-new-roles-and-compat.md#test-approach)
+  has five layers. Unit tests check each adapter's pure rules over facts that the build read once from the mod's pinned
+  jar with `javap`, and data tests check the role files, tags and data maps. The main GameTest run holds vanilla, Create
+  and AE2 only. The test pack's case `mods` starts one server with every supported mod that it can fetch or copy, and
+  reads the compat lines, the roles line and the mixins line. `runGameTestServerCompat`, outside CI, holds one GameTest
+  for each adapter that writes another mod's private state.
 - **Manual checklist.** `docs/testing/manual-checklist.md` (written in milestone M5) covers what tests
   cannot see: animations, the pasture panel button and bars, head bars, sleep visuals, leash messages,
   fan particles on the client, and coexistence with Cobbleworkers and Cobblebase. The spec sheet's
