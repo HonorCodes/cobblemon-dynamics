@@ -27,6 +27,7 @@ import codes.honor.cobblemondynamics.compat.mekanism.MekanismCompat
 import codes.honor.cobblemondynamics.compat.mekanismgenerators.MekanismGeneratorsCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
 import codes.honor.cobblemondynamics.compat.opac.OpacCompat
+import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncCompat
 import codes.honor.cobblemondynamics.compat.railcraft.RailcraftCompat
 import codes.honor.cobblemondynamics.config.ClientConfig
 import codes.honor.cobblemondynamics.config.ServerConfig
@@ -151,6 +152,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("create_connected")) CreateConnectedCompat.register()
         if (ModList.get().isLoaded("ae2")) Ae2Compat.register()
         if (ModList.get().isLoaded("createaddition")) CreateAdditionCompat.register(modBus)
+        if (ModList.get().isLoaded("pneumaticcraft")) PncCompat.register(modBus)
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.

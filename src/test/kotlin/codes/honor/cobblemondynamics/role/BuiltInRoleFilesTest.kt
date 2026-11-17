@@ -61,6 +61,9 @@ class BuiltInRoleFilesTest {
         "tailwind_mekanism" to Row("cobblemon_dynamics:wind_generator", setOf("flying"), false, 0, "gust"),
         "stoker_railcraft" to Row("cobblemon_dynamics:railcraft_fuel", setOf("fire"), true, 0, "ember"),
         "stoker_railcraft_boiler" to Row("cobblemon_dynamics:railcraft_firebox", setOf("fire"), false, 0, "ember"),
+        "stoker_pneumaticcraft" to Row("cobblemon_dynamics:pnc_compressor", setOf("fire"), true, 0, "ember"),
+        "heater_pneumaticcraft" to Row("cobblemon_dynamics:pnc_heat", setOf("fire"), false, 0, "ember"),
+        "tailwind_pneumaticcraft" to Row("cobblemon_dynamics:pnc_air", setOf("flying"), false, 0, "gust"),
         // The Stoker on the furnaces of other mods (Task 15 of the 1.2 plan).
         "stoker_ironfurnaces" to Row("cobblemon_dynamics:iron_furnace", setOf("fire"), true, 0, "ember"),
         "stoker_cookingforblockheads" to Row("cobblemon_dynamics:cfb_oven", setOf("fire"), true, 0, "ember"),
@@ -686,5 +689,48 @@ class BuiltInRoleFilesTest {
                 assertEquals(listOf(mod.modId), RoleConditions.mods(json), "${file.name}: the mod_loaded conditions of a ${mod.modId} role")
             }
         }
+    }
+
+    /** A role file of another mod plays its base role's move, as the base file writes it. */
+    private fun assertEffectOf(name: String, base: String) =
+        assertEquals(BuiltInRoles.parse(base).effect, BuiltInRoles.parse(name).effect, "$name plays the effect of $base")
+
+    @Test
+    fun `CD-FUEL-08 the Stoker of PneumaticCraft is an auto-assign Fire role that needs PneumaticCraft`() {
+        val file = File(BuiltInRoles.dir, "stoker_pneumaticcraft.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:pnc_compressor", role.handler.toString())
+        assertEquals(setOf("fire"), role.types)
+        assertTrue(role.autoAssign)
+        assertEquals(listOf("pneumaticcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("stoker_pneumaticcraft", "stoker")
+    }
+
+    /** Some PneumaticCraft machines need a cold side, so only the player picks the machine (R80). */
+    @Test
+    fun `CD-HTR-06 the Heater of PneumaticCraft is a leash-only Fire role that needs PneumaticCraft`() {
+        val file = File(BuiltInRoles.dir, "heater_pneumaticcraft.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:pnc_heat", role.handler.toString())
+        assertEquals(setOf("fire"), role.types)
+        val key = autoAssignKey("heater_pneumaticcraft")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
+        assertEquals(1_300, role.params.get("source_temperature")?.asInt)
+        assertEquals(100, role.params.get("thermal_resistance")?.asInt)
+        assertEquals(listOf("pneumaticcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("heater_pneumaticcraft", "stoker")
+    }
+
+    @Test
+    fun `CD-AIR-07 Tailwind on PneumaticCraft air is a leash-only Flying role that needs PneumaticCraft`() {
+        val file = File(BuiltInRoles.dir, "tailwind_pneumaticcraft.json")
+        val role = BuiltInRoles.parse(file)
+        assertEquals("cobblemon_dynamics:pnc_air", role.handler.toString())
+        assertEquals(setOf("flying"), role.types)
+        val key = autoAssignKey("tailwind_pneumaticcraft")
+        assertTrue(key != null && key.isJsonPrimitive && key.asJsonPrimitive.isBoolean && !key.asBoolean, "auto_assign $key")
+        assertEquals(50, role.params.get("air_per_tick_at_level_100")?.asInt)
+        assertEquals(listOf("pneumaticcraft"), RoleConditions.mods(JsonParser.parseString(file.readText())))
+        assertEffectOf("tailwind_pneumaticcraft", "tailwind")
     }
 }

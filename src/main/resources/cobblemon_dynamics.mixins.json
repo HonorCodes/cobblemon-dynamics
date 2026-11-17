@@ -18,6 +18,7 @@
     "compat.immersiveengineering.WatermillBlockEntityMixin",
     "compat.immersiveengineering.WindmillBlockEntityMixin",
     "compat.mekanismgenerators.WindGeneratorMixin",
+    "compat.pneumaticcraft.AirCompressorMixin",
     "create.AirCurrentMixin",
     "create.BlazeBurnerBlockEntityMixin",
     "create.ItemUseOverridesMixin",

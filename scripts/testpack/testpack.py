@@ -572,11 +572,11 @@ COBBLEBASE_MIXINS = ("AmbientBehaviorMixin", "BaseManagerMixin", "NavigationHelp
 LOAD_LINES = (
     # CD-CMP-08: the 3 vanilla and the 5 Create mixins applied, and the stats mixin of Apothic Enchanting, the 4 Cobblebase
     # mixins, the menu mixins of Easy Magic and Enchanting Infuser, the mill mixins of Immersive Engineering, the Wind
-    # Generator mixin of Mekanism Generators, the Stoker's mixins of the Egg Incubator and the Clibano and the Superheater's
-    # mixin of the Liquid Blaze Burner skipped because their mods are absent.
+    # Generator mixin of Mekanism Generators, the Stoker's mixins of the Egg Incubator and the Clibano, the Superheater's
+    # mixin of the Liquid Blaze Burner and the compressor mixin of PneumaticCraft skipped because their mods are absent.
     re.escape("Mixins: 8 applied [create.AirCurrentMixin, create.BlazeBurnerBlockEntityMixin, create.ItemUseOverridesMixin, "
               "create.WaterWheelBlockEntityMixin, create.WindmillBearingBlockEntityMixin, vanilla.EnchantmentMenuAccess, "
-              "vanilla.EnchantmentMenuMixin, vanilla.WorkerPushMixin], 13 skipped ["
+              "vanilla.EnchantmentMenuMixin, vanilla.WorkerPushMixin], 14 skipped ["
               "compat.apothic.EnchantmentTableStatsMixin (apothic_enchanting absent), ")
     + re.escape(", ".join(f"compat.cobblebase.{name} (cobblebase absent)" for name in COBBLEBASE_MIXINS))
     + re.escape(", compat.cobblemon_incubator.EggIncubatorMixin (cobblemon_incubator absent), "
@@ -586,7 +586,8 @@ LOAD_LINES = (
                 "compat.forbidden_arcanus.ClibanoMixin (forbidden_arcanus absent), "
                 "compat.immersiveengineering.WatermillBlockEntityMixin (immersiveengineering absent), "
                 "compat.immersiveengineering.WindmillBlockEntityMixin (immersiveengineering absent), "
-                "compat.mekanismgenerators.WindGeneratorMixin (mekanismgenerators absent)")
+                "compat.mekanismgenerators.WindGeneratorMixin (mekanismgenerators absent), "
+                "compat.pneumaticcraft.AirCompressorMixin (pneumaticcraft absent)")
     + re.escape("], 0 applied with no injection [], 0 not applied yet []"),
     # CD-CMP-09: the payload version and the six payloads by direction.
     re.escape("Payloads, version 3: 2 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview], "

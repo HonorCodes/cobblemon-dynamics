@@ -6,6 +6,8 @@ import codes.honor.cobblemondynamics.compat.forbidden_arcanus.ClibanoRule
 import codes.honor.cobblemondynamics.compat.ironfurnaces.IronFurnaceRule
 import codes.honor.cobblemondynamics.compat.mekanism.HeaterMath
 import codes.honor.cobblemondynamics.compat.mekanism.HeaterParams
+import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncHeatMath
+import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncHeaterParams
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.GrowthPace
@@ -143,6 +145,26 @@ class BalanceFilesTest {
             assertTrue(top <= 1_500, "${role.id} gives $top J per tick")
         }
         assertEquals(1_500, HeaterMath.heatPerTick(HeaterParams.of(BuiltInRoles.parse("heater_mekanism").params).heatPerTickAt100, 100))
+    }
+
+    /** One lava block at 1,300 K with resistance 100 warms a machine at T by (1,300 − T) ÷ 100 per tick (BM10). */
+    @Test
+    fun `CD-BAL-13 one PneumaticCraft Heater gives at most the heat of one lava block`() {
+        val heaters = withHandler("cobblemon_dynamics:pnc_heat")
+        assertTrue(heaters.isNotEmpty(), "no built-in role file uses the PneumaticCraft heat handler")
+        for (role in heaters) {
+            val params = PncHeaterParams.of(role.params)
+            for (temperature in 0..2_000 step 25) {
+                val lava = maxOf(0.0, (1_300.0 - temperature) / 100.0)
+                val top = (1..100).maxOf { level -> PncHeatMath.heatPerTick(params, temperature.toDouble(), level) }
+                assertTrue(top <= lava + 1e-9, "${role.id} gives $top heat per tick at $temperature K, one lava block $lava")
+            }
+        }
+        assertEquals(
+            10.0,
+            PncHeatMath.heatPerTick(PncHeaterParams.of(BuiltInRoles.parse("heater_pneumaticcraft").params), 300.0, 100),
+            1e-9,
+        )
     }
 
     /**

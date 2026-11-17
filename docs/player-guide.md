@@ -611,6 +611,17 @@ the boiler burns its own fuel. The workers also wait while less than half of the
 because Railcraft blows up a hot boiler that gets water into an empty tank. When the workers stop, the boiler
 burns its own fuel again within one fuel step: 16 ticks at low pressure and 8 at high pressure.
 
+#### Stoker PneumaticCraft
+
+**Needs:** PneumaticCraft: Repressurized. **Assignment:** Auto.
+
+The Stoker fuels an Air Compressor or an Advanced Air Compressor with no fuel item. It gives the compressor's
+base burn rate: 1 burn tick per tick for the Air Compressor and 5 for the Advanced Air Compressor, which runs a
+compressor with no Speed Upgrade at its full rate. Speed Upgrades burn more than that, so they still take
+fuel from the fuel slot. The flame gauge stays full while only the Stoker's fuel burns. The Stoker works only
+while the compressor's pressure is below its danger pressure and its redstone setting lets it run. When the
+Stoker stops, the compressor goes back to its own fuel within 2 ticks.
+
 ### Wheel Driver
 
 **Types:** Water. **Level:** any. **Move:** Water Gun, aimed at the wheel's axle. **Needs:** Create.
@@ -963,6 +974,20 @@ level 100 worker makes the maximum of Mekanism's config, 480 J/t by default, at 
 cannot see the sky, or that has a fluid above it, makes nothing, and its worker waits in Standby. The bonus
 ends within 20 ticks of the end of the work, at the generator's next update.
 
+#### Tailwind PneumaticCraft
+
+**Needs:** PneumaticCraft: Repressurized. **Assignment:** Work Leash only.
+
+**Target:** any PneumaticCraft machine that holds air, such as a pressure tube or a Pressure Chamber valve.
+
+A Flying-type blows ceil(50 × L ÷ 100) mL of air per tick into the machine, where L is its level: 1 mL at
+level 1, 25 mL at level 50 and 50 mL, an Advanced Air Compressor's output, at level 100. The worker never
+raises the pressure to the machine's danger pressure, which is 5 bar for a tier 1 machine and 20 bar for a
+tier 2 machine. When the next tick of air would reach it, the worker adds only the air that keeps the
+pressure below it, and then waits in Standby.
+
+**Role file parameter:** `air_per_tick_at_level_100` (50).
+
 ### Lumberjack
 
 **Types:** Bug. **Level:** the pace grows with level. **Move:** Aerial Ace. **Assignment:** Work Leash only.
@@ -1016,13 +1041,13 @@ the collector.
 
 ### Heater
 
-**Types:** Fire. **Level:** the heat grows with level. **Move:** Ember. **Assignment:** Auto.
+**Types:** Fire. **Level:** the heat grows with level. **Move:** Ember.
 
 A Fire-type warms the heat blocks of other mods.
 
 #### Heater Mekanism
 
-**Needs:** Mekanism.
+**Needs:** Mekanism. **Assignment:** Auto.
 
 **Target:** the valve of a Thermal Evaporation Plant or of a Thermoelectric Boiler. A Heater never warms a
 reactor port, a Heat Generator or a Quantum Entangloporter.
@@ -1033,6 +1058,20 @@ while the structure is formed and colder than 3,000 K, above which a plant runs 
 
 **Role file parameter:** `heat_per_tick_at_level_100` (1,500), from 0 to 1,870, the heat that a full
 evaporation plant uses.
+
+#### Heater PneumaticCraft
+
+**Needs:** PneumaticCraft: Repressurized. **Assignment:** Work Leash only, because some PneumaticCraft machines
+need a cold side.
+
+**Target:** any block that takes PneumaticCraft heat on a side, such as an Advanced Air Compressor or a
+Thermal Compressor.
+
+The Heater gives the heat of one lava block, scaled by its level: max(0, (1,300 − T) ÷ 100) × L ÷ 100 heat per
+tick, where T is the machine's temperature in kelvin and L the Heater's level. It warms the side of the machine
+nearest to it. A machine at 1,300 K or hotter gets no heat, and the Heater waits in Standby beside it.
+
+**Role file parameters:** `source_temperature` (1,300) and `thermal_resistance` (100).
 
 ## Configuration
 
