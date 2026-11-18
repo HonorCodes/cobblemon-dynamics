@@ -19,6 +19,9 @@ class WorkerSlot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pok
     var focus: WorkFocusEntity? = null
     var binding: Binding? = null
 
+    /** Whether the worker's travel has stalled, which Cobblemon's navigation does not report in flight. */
+    val stall: TravelStall = TravelStall()
+
     /** How the worker recovers, from its types and its binding at each poll (CD-HEAL-13). */
     var rule: RecoveryRule = RecoveryRule.WORKER
 

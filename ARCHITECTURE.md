@@ -399,8 +399,15 @@ Cobblemon ticks each Cobblemon's Brain in `customServerAiStep`. Our part of that
    of the corner where its path ends (CD-ASG-11). Cobblemon starts each path in the cell at the lowest
    corner of the Cobblemon's box. When a worker is pressed against a block that fills only part of its
    cell, such as the pasture block, that cell can be inside the block, and the worker never moves. When
-   the navigation of a Traveling worker narrower than a block reports it stuck, the engine moves the
-   worker to the middle of the cell that holds its center, if its body fits there.
+   a Traveling worker narrower than a block is stuck, the engine moves it to the middle of the cell that
+   holds its center, if its body fits there. If it does not fit, the engine moves it to that middle on
+   top of the block in the cell, if its body fits there. The screen of the pasture block's top half sits
+   1/16 back from its frame, in a recess 0.5 high. A worker under 0.5 high that flies at the screen can
+   push into that recess. There the frame stops it from rising and the screen stops it from going on,
+   and the middle of its cell is inside the screen. A worker is stuck when its navigation reports it
+   stuck, or when it stays within 0.25 blocks of one point for 100 ticks. Cobblemon's navigation never
+   reports a stuck worker in flight or in water, because Cobblemon sets the mob's speed to 0 there, and
+   vanilla's check scales with that speed.
 3. Our own look task sets `LOOK_TARGET` to the target's center and turns the Cobblemon toward it.
    Cobblemon's `look_at_target` runs only in the idle activity, which the work activity replaces.
 4. At the work spot, a hold task keeps `PATH_COOLDOWN` set. Cobblemon's wander task needs both
