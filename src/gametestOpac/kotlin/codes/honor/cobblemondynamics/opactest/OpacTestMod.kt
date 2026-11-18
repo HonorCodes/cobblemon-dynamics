@@ -11,5 +11,6 @@ const val OPAC_TEST_MOD_ID = "cobblemon_dynamics_opactest"
 class OpacTestMod(@Suppress("UNUSED_PARAMETER") modBus: IEventBus) {
     init {
         TestWorld.register()
+        TestProfileCache.register()
     }
 }

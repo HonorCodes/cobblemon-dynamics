@@ -41,7 +41,7 @@ class OpacClaimTests {
     /** Furnace A, the four players, A's party with B, and C's party, which A's party allies. A claims the chunk of furnace A. */
     private fun scene(helper: GameTestHelper): Scene {
         val furnace = ClaimScenes.furnaceA(helper)
-        val (a, b, c, d) = listOf("a", "b", "c", "d").map { ClaimScenes.owner(helper, it) }
+        val (a, b, c, d) = listOf("a", "b", "c", "d").map { OpacFixture.owner(helper, it) }
         val party = OpacFixture.party(a.player, members = listOf(b.player))
         val allied = OpacFixture.party(c.player, members = emptyList())
         party.addAllyParty(allied.id)
@@ -96,8 +96,8 @@ class OpacClaimTests {
     @GameTest(template = "floor_23x10x23", timeoutTicks = 600, batch = "opac_lnd10")
     fun cdLnd10PasturePlacerGetsNoPacket(helper: GameTestHelper) {
         val furnace = ClaimScenes.furnaceA(helper)
-        val x = ClaimScenes.owner(helper, "x")
-        val p = ClaimScenes.owner(helper, "p", rel = BlockPos(14, 2, 5))
+        val x = OpacFixture.owner(helper, "x")
+        val p = OpacFixture.owner(helper, "p", rel = BlockPos(14, 2, 5))
         TestKit.afterTest(helper) { OpacFixture.unclaim(helper.level, furnace) }
         OpacFixture.claim(x.player, helper.level, furnace)
         helper.assertFalse(LandClaims.ownerMayUse(p.player.uuid, helper.level, furnace), "the pasture check allows P furnace A")
