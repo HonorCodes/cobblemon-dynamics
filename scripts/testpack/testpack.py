@@ -983,16 +983,37 @@ def compat_line_problems(server: Server, installed: dict[str, str]) -> list[str]
     return problems
 
 
+# CD-FRM-08: beside every crop mod of the table of ADR-0020, a farming line names a block without an adapter only for a mod of
+# the default #cobblemon_dynamics:cultivator/never, whose crops the Cultivator never grows (CD-FIX-04).
+NEVER_GROWN = {"cultivator": ("mysticalagriculture",), "harvester": ()}
+
+
+def farming_line_problems(server: Server) -> list[str]:
+    """CD-FRM-08: one farming line for each role, and no block without an adapter outside the mods of NEVER_GROWN."""
+    problems = []
+    for role, never_grown in NEVER_GROWN.items():
+        pattern = farming_line(role)
+        if (problem := once(server, pattern)) is not None:
+            problems.append(problem)
+            continue
+        unadapted = re.search(pattern, server.find_log(pattern)).group(3)
+        stray = [block for block in unadapted.split(", ") if block and block.split(":", 1)[0] not in never_grown]
+        if stray:
+            problems.append(f"the {role} line names blocks with no adapter: {', '.join(stray)}")
+    return problems
+
+
 def scenario_mods(server: Server) -> None:
     """CD-OPT-15: beside every mod of the table of ADR-0016 and the default config (CD-OPT-01), each compat line names every adapter
     as found (CD-OPT-11), the roles line names every role file of the jar as active (CD-CMP-10), no role file is skipped (CD-OPT-04),
-    and the mixins line names every mixin as applied, except Cobblebase's (CD-CMP-08)."""
+    the mixins line names every mixin as applied, except Cobblebase's (CD-CMP-08), and each crop family has an adapter (CD-FRM-08)."""
     server.wait_log(DONE, MODS_BOOT_TIMEOUT)
     problems = []
     if server.find_log(OUR_MOD_LOADING) is None:
         problems.append(f"no {OUR_MOD_LOADING!r} line")
     installed = installed_mods(server.folder)
     problems += compat_line_problems(server, installed)
+    problems += farming_line_problems(server)
     role_files, mixins = jar_roles_and_mixins(server.folder)
     expected = (
         (f"Roles: {role_files} loaded, {role_files} active, 0 disabled []", ROLES_LINE),
@@ -1006,7 +1027,7 @@ def scenario_mods(server: Server) -> None:
     if problems:
         raise TestpackError("; ".join(problems))
     say(f"CD-OPT-15: {len(installed)} mods loaded; {len([m for m in COMPAT_ADAPTERS if m in installed])} compat lines with every "
-        f"adapter found; {role_files} roles active; every mixin applied but Cobblebase's")
+        f"adapter found; {role_files} roles active; every mixin applied but Cobblebase's; every crop family with an adapter")
 
 
 def scenarios() -> dict[str, Callable[[Server], None]]:

@@ -28,7 +28,7 @@ Run each command from the repository root, for example `py scripts/testpack/test
 | `deps` | Runs the dependency-range cases below, among them the roles line without Create (CD-CMP-10). Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `DEPS PASS` or `DEPS FAIL`. |
 | `compat` | Runs the compatibility cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `COMPAT PASS` or `COMPAT FAIL`. |
 | `crops` | Starts a server with the pinned mods, the built jar, the crop mods of COHO 2.5.0 and their libraries. Checks the two farming lines of CD-CRP-05, and that the Cultivator's line counts the saplings of `#minecraft:saplings` (CD-LUM-23, CD-CRP-01). See [Crop mods case](#crop-mods-case). Prints `CROPS PASS` or `CROPS FAIL: <reason>`. |
-| `mods` | Starts one server with the pinned mods, the built jar and every mod of the table of ADR-0016 that Modrinth or `TESTPACK_LOCAL_JARS` holds, with their libraries. Checks the compat lines, the roles lines and the mixins line (see [Mods case](#mods-case)). Prints `MODS PASS` or `MODS FAIL: <reason>`. |
+| `mods` | Starts one server with the default config, the pinned mods, the built jar and every mod of the table of ADR-0016 that Modrinth or `TESTPACK_LOCAL_JARS` holds, with their libraries (CD-OPT-01, CD-OPT-15). Checks the compat lines (CD-OPT-11), among them the hook of Create: Connected's crank wheels (CD-KIN-05), the roles lines, the mixins line and the farming lines (CD-FRM-08). See [Mods case](#mods-case). Prints `MODS PASS` or `MODS FAIL: <reason>`. |
 | `client` | Fills `run/testpack/client/mods/` with the pinned mods and the built jar, for a manual play-test in a clean NeoForge 21.1.265 launcher instance. |
 
 The exit code is 0 for a pass and 1 for a failure.
@@ -157,6 +157,9 @@ The case passes when these checks pass:
   line of the skipped role files reads `Roles not loaded, their mods are absent: 0 []` (CD-OPT-04).
 - The mixins line names each mixin of the jar's config as applied, except the 4 Cobblebase mixins, which skip because
   Cobblebase is no mod of the table (CD-CMP-08).
+- Each farming line names no block without an adapter, so each crop family of the mods has one (CD-FRM-08). The
+  exception is the crops of Mystical Agriculture in the Cultivator's line, which the default
+  `#cobblemon_dynamics:cultivator/never` keeps from the Cultivator (CD-FIX-04).
 - The log has no error that names our mod, no mixin failure, no tag that failed to load, and no loot table of the data
   map `harvest_loot` that did not load (CD-FRM-03).
 
