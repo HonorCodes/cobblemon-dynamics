@@ -47,6 +47,7 @@ import com.cobblemon.mod.common.battles.BattleRegistry
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.core.SectionPos
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.chat.Component
@@ -909,7 +910,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             return
         }
         val center = guarded(role.handler, null) { role.handler.targetCenter(target) }
-        if (worker.status == WorkerStatus.TRAVELING && entity.navigation.isStuck) unstick(entity)
+        if (worker.status == WorkerStatus.TRAVELING) {
+            // The watch takes every Traveling tick, because the navigation reports no stuck worker in flight or in water.
+            val stalled = slot.stall.stalled(t.now, entity.x, entity.y, entity.z)
+            if (stalled || entity.navigation.isStuck) unstick(entity)
+        }
         BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), center, hold = isArrived(entity, spot)))
         if (!BrainBridge.holdsOrder(entity)) {
             val species = slot.pokemon.species.resourceIdentifier
@@ -1204,12 +1209,25 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         /** Where navigation stops [entity] for [spot], by the rule of [Arrival]. */
         fun isArrived(entity: Entity, spot: BlockPos): Boolean = Arrival.isAt(entity.x, entity.y, entity.z, entity.bbWidth.toDouble(), spot)
 
-        /** A stuck traveler narrower than a block goes to the middle of its cell, when its body fits there ([Unstick]). */
+        /**
+         * A stuck traveler narrower than a block goes to the middle of its cell when its body fits there, or else to that middle on top
+         * of the block in the cell, such as the pasture block's top half, when its body fits there ([Unstick]).
+         */
         private fun unstick(entity: PokemonEntity) {
             val (x, z) = Unstick.middle(entity.x, entity.z, entity.bbWidth.toDouble()) ?: return
-            val there = entity.boundingBox.move(x - entity.x, 0.0, z - entity.z)
-            if (entity.level().noCollision(entity, there)) entity.teleportTo(x, entity.y, z)
+            if (fits(entity, x, entity.y, z)) {
+                entity.teleportTo(x, entity.y, z)
+                return
+            }
+            val level = entity.level()
+            val cell = BlockPos.containing(x, entity.y, z)
+            val top = level.getBlockState(cell).getCollisionShape(level, cell).max(Direction.Axis.Y)
+            val y = Unstick.onTop(entity.y, cell.y, top) ?: return
+            if (fits(entity, x, y, z)) entity.teleportTo(x, y, z)
         }
+
+        private fun fits(entity: PokemonEntity, x: Double, y: Double, z: Double): Boolean =
+            entity.level().noCollision(entity, entity.boundingBox.move(x - entity.x, y - entity.y, z - entity.z))
 
         /** Primary first, which [RoleSelection.best] reads between the roles of one handler. */
         private fun typesOf(pokemon: Pokemon): Set<String> = pokemon.types.mapTo(LinkedHashSet()) { it.showdownId }
