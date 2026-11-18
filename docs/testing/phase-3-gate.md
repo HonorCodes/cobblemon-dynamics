@@ -59,6 +59,13 @@ These checks of Task 8, Step 4 did not run on the release commit. They wait for 
 
 ## Open items
 
-- The play-test note of `1.0.0-beta.3` (Task 8, Step 1) is not in the [Phase 2 report](phase-2-gate.md) yet.
-  CD-REL-14 needs the note, dated before the `v1.0.0` tag.
+- The play-test note of `1.0.0-beta.3` (Task 8, Step 1) was not recorded in the [Phase 2 report](phase-2-gate.md)
+  before the `v1.0.0` tag. The approver closed CD-REL-14 on 2026-11-17 by R93. See the play-test note below.
 - The plan records decisions 12 (Modrinth) and 17 (a play-test of the `1.0.0` candidate) as pending the approver.
+
+## Play-test note
+
+- Date: 2026-11-17, the date of the approver's ruling R93 below.
+- The approver, 2026-11-17: "1.1 was tested and it works". The 1.1.0 build holds every role of 1.0.0.
+- R93: the approver answered "yes" when asked whether that note may close the missing play-test note of
+  `1.0.0-beta.3`. No play-test note was recorded before the `v1.0.0` tag.
