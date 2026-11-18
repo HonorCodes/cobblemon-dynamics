@@ -73,6 +73,14 @@ class PlayerGuideTest {
         }
     }
 
+    @Test
+    fun `CD-OPT-16 the guide has the sections of the new roles, and Other mods names each mod of ADR-0016`() {
+        assertSections(listOf("Lumberjack", "Experience Collector", "Soul Collector", "Freezer", "Heater", "Other mods"))
+        val other = section("Other mods")
+        val missing = SupportedMods.read(root).map { it.name }.filterNot { other.contains(it, ignoreCase = true) }
+        assertTrue(missing.isEmpty(), "CD-OPT-16: the section Other mods of the guide does not name $missing")
+    }
+
     /** The lines of the guide's section [name], from its heading to the next heading of the same or a higher level. */
     private fun section(name: String): String {
         val lines = guide.readLines()

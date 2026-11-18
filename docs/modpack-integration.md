@@ -259,6 +259,10 @@ condition. A pack changes a default with its own data pack. The versions are tho
 | The Aether | 1.5.10 | none | Its Freezer stays out of the Stoker's targets, through `#cobblemon_dynamics:stoker/never`. |
 | Mystical Agriculture | 8.0.29 | none | Its crops stay out of the Cultivator's targets, through `#cobblemon_dynamics:cultivator/never`. |
 | CobbleFurnies, Handcrafted, Valhelsia Furniture | 1.2, 4.0.3, 1.1.1 | the files of Telekinesis and the Magnet | Their furniture containers, as plain containers. |
+| Ars Elemental, The Twilight Forest, Oh The Biomes We've Gone, The Undergarden, Cobblemon: Mega Showdown, YUNG's Cave Biomes, Deep Aether, Allthemodium, Deeper and Darker, Actually Additions | 0.7.10.4, 4.8.3345, 2.6.3, 0.9.6, 1.3.3, 3.1.1, 1.1.5.1, 3.2.1, 1.4.1, 1.3.26 | the files of the Cultivator and the Harvester | Their crops. [Farming roles](#farming-roles) lists them, with their tags and the data map. |
+| Sophisticated Core | 1.5.33.2470 | none | Its XP fluid `sophisticatedcore:xp_still`, a fluid of `#c:experience`, on the outputs of the Experience Collector while CEI is absent. |
+| Better Archeology | 1.3.9 | none | Its rotten log keeps the Lumberjack off a tree, through `#cobblemon_dynamics:lumberjack/never`. |
+| Just Dire Things | 1.5.7 (unverified) | none | Its XP machines take the `c:experience` fluid of the outputs of the Experience Collector. |
 | Cobblemon | 1.8.4 | `generator_healing_machine` (auto, no condition) | The Healing Machine. |
 
 The crop mods of 1.2 are in [Farming roles](#farming-roles). The ids that ADR-0020 marks "unverified" stay optional

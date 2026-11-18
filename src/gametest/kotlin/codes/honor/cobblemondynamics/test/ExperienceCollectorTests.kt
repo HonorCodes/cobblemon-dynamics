@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
 import codes.honor.cobblemondynamics.xp.CollectorMenu
 import codes.honor.cobblemondynamics.xp.CollectorSlots
+import codes.honor.cobblemondynamics.xp.ExperienceCollectorBlock
 import codes.honor.cobblemondynamics.xp.ExperienceCollectorBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -12,6 +13,7 @@ import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.GameType
@@ -57,6 +59,40 @@ class ExperienceCollectorTests {
         helper.assertTrue(collector.store.stored == 0, "CD-XPC-05: the store keeps ${collector.store.stored} XP")
         press(near)
         helper.assertTrue(near.totalExperience == 1_234, "CD-XPC-05: a second press gave ${near.totalExperience - 1_234} XP")
+        helper.succeed()
+    }
+
+    /** CD-XPC-02: a player who faces north places a collector from its item, and the collector's front faces south, toward the player. */
+    @GameTest(template = "floor_9x5x9")
+    fun cdXpc02APlacedCollectorFacesThePlayer(helper: GameTestHelper) {
+        val player = TestKit.owner(helper)
+        player.yRot = 180f
+        helper.assertTrue(player.direction == Direction.NORTH, "the player faces ${player.direction}, not north")
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(DynamicsBlocks.EXPERIENCE_COLLECTOR_ITEM.get()))
+        val rel = BlockPos(4, 2, 4)
+        TestKit.clickBlock(helper, player, rel.below())
+        helper.assertBlockPresent(DynamicsBlocks.EXPERIENCE_COLLECTOR.get(), rel)
+        val front = helper.getBlockState(rel).getValue(ExperienceCollectorBlock.FACING)
+        helper.assertTrue(front == Direction.SOUTH, "CD-XPC-02: the collector of a player who faces north faces $front")
+        helper.succeed()
+    }
+
+    /**
+     * CD-XPC-15: a right-click on a collector opens its menu. Then [ProtectedBlocks]' listener cancels every right-click on the collector,
+     * as a protection mod does, and the next right-click opens no menu.
+     */
+    @GameTest(template = "floor_9x5x9")
+    fun cdXpc15ACancelledRightClickOpensNoMenu(helper: GameTestHelper) {
+        val rel = BlockPos(4, 2, 4)
+        helper.setBlock(rel, DynamicsBlocks.EXPERIENCE_COLLECTOR.get())
+        val player = TestKit.menuCountingOwner(helper)
+        TestKit.clickBlock(helper, player, rel, Direction.EAST)
+        helper.assertTrue(player.menusOpened == 1, "a right-click opened ${player.menusOpened} menus")
+        val pos = helper.absolutePos(rel)
+        ProtectedBlocks.cancelled += pos
+        TestKit.afterTest(helper) { ProtectedBlocks.cancelled -= pos }
+        TestKit.clickBlock(helper, player, rel, Direction.EAST)
+        helper.assertTrue(player.menusOpened == 1, "CD-XPC-15: a cancelled right-click opened a menu")
         helper.succeed()
     }
 
