@@ -5,15 +5,19 @@ The Phase 1 gate (the default) holds every row outside the TLK, MAG, FAN, TLW, Q
 PHASE_2_ROWS, which are Phase 2 work in a Phase 1 area: the Quick Work keys CD-CFG-16 to CD-CFG-18, the INFO lines at load
 CD-CMP-08 to CD-CMP-10, and the shared containers CD-CLM-10, CD-CLM-11, CD-LSH-28, CD-LSH-29 and CD-CFG-19. The Phase 2 gate holds every row, because CD-REL-14 needs every MUST
 and MUST NOT row of the sheet to pass on one commit. The 1.1 gate holds every row too: the rows of 1.1 (the CUL, HRV and CRP
-areas, CD-BAL-08, CD-BAL-09 and CD-REL-16), and every earlier row, which CD-REL-16 needs to still pass. The script reads the spec sheet, the JUnit XML reports of
-`./gradlew build`, the GameTest sources with the log of each GameTest run, the deferred lists of the gate's plans, the
-manual checklist, the test pack's README and the output of each test pack command. The Phase 2 gate also reads the output
-of `py scripts/art.py check` and the play-test note of the Phase 1 report. The script rewrites only the generated blocks
-of the gate's report, docs/testing/phase-N-gate.md, and keeps the text around them.
+areas, CD-BAL-08, CD-BAL-09 and CD-REL-16), and every earlier row, which CD-REL-16 needs to still pass. The 1.2 gate holds
+every row as well: the rows of 1.2, and every earlier row, which CD-REL-17 needs to still pass beside the test pack's case
+mods. The script reads the spec sheet, the JUnit XML reports of `./gradlew build`, the GameTest sources with the log of each
+GameTest run, the deferred lists of the gate's plans, the manual checklist, the test pack's README and the output of each
+test pack command. The 1.2 gate also reads the list of the GameTests that the 1.2 plan deferred by the approver's test
+rulings. The Phase 2 and 1.2 gates read the output of `py scripts/art.py check`, and each gate after Phase 1 reads the
+play-test notes of the reports of earlier gates. The script rewrites only the generated blocks of the gate's report,
+docs/testing/phase-N-gate.md or docs/testing/vN-gate.md, and keeps the text around them.
 
 Usage: py scripts/gate_report.py [--phase 1] --gradle-log FILE --testpack-log FILE [--testpack-log FILE ...] [--allow-dirty]
        py scripts/gate_report.py --phase 2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
        py scripts/gate_report.py --phase 1.1 --gradle-log FILE --testpack-log FILE [...] [--allow-dirty]
+       py scripts/gate_report.py --phase 1.2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
        py scripts/gate_report.py --self-check
 Exit code 0 when every automated row has a passing test, 1 when a row has not or an input disagrees with another, and 2
 when an input is missing or unreadable.
@@ -42,6 +46,9 @@ M8_PLAN = ROOT / "docs/plans/2026-11-10-phase-2-m8-art-gate.md"
 PHASE_1_REPORT = ROOT / "docs/testing/phase-1-gate.md"
 PHASE_2_REPORT = ROOT / "docs/testing/phase-2-gate.md"
 PHASE_3_REPORT = ROOT / "docs/testing/phase-3-gate.md"
+V11_REPORT = ROOT / "docs/testing/v1.1-gate.md"
+V12_REPORT = ROOT / "docs/testing/v1.2-gate.md"
+V12_PLAN = ROOT / "docs/plans/2026-11-15-v1.2-new-roles-and-compat.md"
 # The task of each plan whose end-of-phase pass wrote the tests of its deferred list.
 DEFERRED_TASKS = {M5_PLAN: "M5 Task 9", M8_PLAN: "M8 Task 7"}
 CHECKLIST = ROOT / "docs/testing/manual-checklist.md"
@@ -65,7 +72,10 @@ PHASE_2_ROWS = {
 LEVELS = ("MUST", "MUST NOT")
 PASS = "pass"
 FINISHED = "finished"
-PACK_ORDER = ["smoke", "deps", "compat", "reload", "restart"]
+PACK_ORDER = ["smoke", "deps", "compat", "reload", "restart", "crops", "mods"]
+# The mark of a row whose GameTest a plan deferred by the approver's test rulings, and the header of the plan's list of them.
+DEFERRED_GAMETEST = "GameTest deferred"
+RULED_LIST = "\nGameTests deferred by the rulings ("
 
 
 class Run(NamedTuple):
@@ -80,7 +90,8 @@ class Run(NamedTuple):
 
 
 # The gameTestServer runs of build.gradle. CI runs the first three. The three claim runs run outside CI, in each pull
-# request that touches the claims code and at each gate.
+# request that touches the claims code and at each gate. The compat run loads the real jars of the mods whose private state
+# an adapter writes (the test approach of the 1.2 plan), and runs outside CI, at the gate.
 RUNS = (
     Run("full", "GameTests, full mod set", "runGameTestServer", ROOT / "run/gametest/logs/latest.log",
         ("src/gametest/kotlin", "src/gametest/kotlin-shared"), "cobblemon_dynamics"),
@@ -96,6 +107,9 @@ RUNS = (
     Run("minecolonies", "GameTests with MineColonies", "runGameTestServerMineColonies",
         ROOT / "run/gametest-minecolonies/logs/latest.log",
         ("src/gametestMineColonies/kotlin", "src/gametest/kotlin-claims", "src/gametest/kotlin-shared"), "cobblemon_dynamics"),
+    Run("compat", "GameTests with the mods of the private-state adapters", "runGameTestServerCompat",
+        ROOT / "run/gametest-compat/logs/latest.log", ("src/gametestCompat/kotlin", "src/gametest/kotlin-shared"),
+        "cobblemon_dynamics"),
 )
 
 
@@ -110,7 +124,9 @@ class Phase(NamedTuple):
     holds takes a row id and its area. later maps each row whose last part comes after this gate to that milestone.
     record is the row that this report and its play-test note complete. earlier maps each row that an earlier gate
     completed to that gate's report. art_review maps each row that completes with the approver's art review to the case
-    of `py scripts/art.py check` that reads the review record for the row.
+    of `py scripts/art.py check` that reads the review record for the row. ruled_plans are the plans whose list of the
+    GameTests deferred by the approver's test rulings the gate reads. record_pack names the test pack commands whose result
+    the record needs. client is false when a ruling leaves the play-test client out of the gate.
     """
 
     number: str
@@ -121,6 +137,9 @@ class Phase(NamedTuple):
     record: str
     earlier: dict[str, pathlib.Path]
     art_review: dict[str, str]
+    ruled_plans: tuple[pathlib.Path, ...] = ()
+    record_pack: tuple[str, ...] = ()
+    client: bool = True
 
     @property
     def checks_art(self) -> bool:
@@ -144,10 +163,20 @@ PHASES = {
     # CD-REL-16: every row of 1.1 passes on the release commit, and every earlier row still passes there. The v1.1.0 tag and
     # its jar (the 1.1 parts of CD-REL-04 and CD-REL-05) and the next pack release (CD-REL-15) come after the gate, by Task 8
     # of the 1.1 plan. The art review rows completed at the Phase 2 gate, and CD-REL-14 at the Phase 3 gate.
-    "1.1": Phase("1.1", ROOT / "docs/testing/v1.1-gate.md", lambda row, area: True, (M5_PLAN, M8_PLAN),
+    "1.1": Phase("1.1", V11_REPORT, lambda row, area: True, (M5_PLAN, M8_PLAN),
                  {"CD-REL-04": "the v1.1.0 tag", "CD-REL-05": "the v1.1.0 tag", "CD-REL-15": "the next pack release"},
                  "CD-REL-16", {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT} | dict.fromkeys(ART_REVIEW, PHASE_2_REPORT),
                  {}),
+    # CD-REL-17: every row of 1.2 passes on the release commit, every earlier row still passes there, and the test pack's
+    # case mods passes. The v1.2.0 tag and its jar (the 1.2 parts of CD-REL-04 and CD-REL-05) and the next pack release
+    # (CD-REL-15) come after the gate, by Task 24 of the 1.2 plan. The art review rows complete again with the approver's
+    # verdict on the art of the Experience Collector (Task 22), so the art checks run and no earlier report completes them.
+    # The 1.2 plan lists the GameTests that the approver's test rulings deferred. By the approver's ruling of 2026-11-17,
+    # the COHO players play-test 1.2 in place of the play-test client.
+    "1.2": Phase("1.2", V12_REPORT, lambda row, area: True, (M5_PLAN, M8_PLAN),
+                 {"CD-REL-04": "the v1.2.0 tag", "CD-REL-05": "the v1.2.0 tag", "CD-REL-15": "the next pack release"},
+                 "CD-REL-17", {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT},
+                 ART_REVIEW, ruled_plans=(V12_PLAN,), record_pack=("mods",), client=False),
 }
 
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|")
@@ -166,7 +195,9 @@ FUN = re.compile(r"\bfun\s+(?:<[^>]*>\s*)?(?:[\w<>?]+\.)?(\w+)\s*\(")
 TEST_ANNOTATION = re.compile(r"^\s*@GameTest(?:\(|\s*$)")
 HOLDER = re.compile(r"^@GameTestHolder\(([^)]*)\)", re.MULTILINE)
 CLASS = re.compile(r"^(?:[a-z]+ )*class (\w+)", re.MULTILINE)
-CONSTANT = re.compile(r'\bconst val (\w+)\s*=\s*"([^"]*)"')
+# A top-level string constant, as a @GameTestHolder names one. A constant of an object can have the same name
+# (CreateConnectedCompat.MOD_ID is "create_connected"), so the parser reads only top-level constants.
+CONSTANT = re.compile(r'^(?:(?:public|internal)\s+)?const val (\w+)\s*=\s*"([^"]*)"', re.MULTILINE)
 MESSAGE = re.compile(r'"((?:CD-[A-Z]+-\d{2}(?:, | and )?)+):')
 CALL = re.compile(r"\b(\w+)\(")
 # GameTestServer and LogTestReporter lines in the log of a run.
@@ -278,6 +309,7 @@ class Gate:
     whole_sheet: bool = False
     art_log: pathlib.Path | None = None
     art_verdict: tuple[str, str] = ("not run", "")
+    ruled_groups: list[tuple[str, list[str]]] = dataclasses.field(default_factory=list)
     evaluated: dict[str, tuple[str, list, list[Check]]] = dataclasses.field(default_factory=dict)
 
 
@@ -545,27 +577,35 @@ def read_testpack_shape() -> tuple[set[str], dict[str, str]]:
     return commands, cases
 
 
+def parse_testpack_output(text: str, source: str, commands: set[str],
+                          stale: bool) -> tuple[str, dict[Ref, tuple[str, str]]]:
+    """The command of a test pack output, with the verdict of the command and the result of each case. The last verdict
+    line counts, such as SMOKE PASS or MODS FAIL: <reason>. source names the output in the details."""
+    verdicts = list(VERDICT.finditer(text))
+    if not verdicts or verdicts[-1].group(1).lower() not in commands:
+        raise InputError(f"{source} holds no verdict line of a test pack command, such as SMOKE PASS")
+    verdict = verdicts[-1]
+    command = verdict.group(1).lower()
+    results: dict[Ref, tuple[str, str]] = {}
+    if stale:
+        results[Ref("testpack", command)] = ("stale", f"{source} is older than the commit")
+    else:
+        results[Ref("testpack", command)] = (PASS if verdict.group(2) == "PASS" else "fail", verdict.group(3).strip()[:200])
+    for case in CASE_LINE.finditer(text):
+        status = "stale" if stale else {"PASS": PASS, "FAIL": "fail", "SKIPPED": "skipped"}[case.group(2)]
+        results[Ref("testpack", command, case.group(1))] = (status, case.group(3).strip()[:200])
+    return command, results
+
+
 def read_testpack_logs(paths: list[pathlib.Path], commands: set[str],
                        commit_time: float) -> tuple[dict[Ref, tuple[str, str]], dict[str, pathlib.Path]]:
     """The verdict of each command and the result of each case, from the saved output of test pack commands."""
     results: dict[Ref, tuple[str, str]] = {}
     sources: dict[str, pathlib.Path] = {}
     for path in paths:
-        text = read(path)
-        verdicts = list(VERDICT.finditer(text))
-        if not verdicts or verdicts[-1].group(1).lower() not in commands:
-            raise InputError(f"{rel(path)} holds no verdict line of a test pack command, such as SMOKE PASS")
-        verdict = verdicts[-1]
-        command = verdict.group(1).lower()
-        stale = path.stat().st_mtime < commit_time
+        command, found = parse_testpack_output(read(path), rel(path), commands, path.stat().st_mtime < commit_time)
         sources[command] = path
-        if stale:
-            results[Ref("testpack", command)] = ("stale", f"{rel(path)} is older than the commit")
-        else:
-            results[Ref("testpack", command)] = (PASS if verdict.group(2) == "PASS" else "fail", verdict.group(3).strip())
-        for case in CASE_LINE.finditer(text):
-            status = "stale" if stale else {"PASS": PASS, "FAIL": "fail", "SKIPPED": "skipped"}[case.group(2)]
-            results[Ref("testpack", command, case.group(1))] = (status, case.group(3).strip()[:200])
+        results.update(found)
     return results, sources
 
 
@@ -650,7 +690,7 @@ def checklist_refs(checks: list[Check], commands: set[str], cases: dict[str, str
     return refs, problems
 
 
-# The deferred lists of M5 Task 9 and M8 Task 7
+# The deferred lists of M5 Task 9 and M8 Task 7, and the list of the GameTests that the 1.2 plan deferred by the rulings
 
 
 def class_refs(refs: list[Ref], row: str, rows: list[str], cites) -> list[Ref]:
@@ -658,10 +698,12 @@ def class_refs(refs: list[Ref], row: str, rows: list[str], cites) -> list[Ref]:
     return [ref for ref in refs if row in cites(ref)] or [ref for ref in refs if cites(ref) & set(rows)] or refs
 
 
-def deferred_items(text: str, plan: pathlib.Path) -> list[list[str]]:
-    """The lines of a plan's deferred list: [group, ""] for each group line, then [group, text] for each of its rows."""
-    start = text.find("\nDeferred rows (")
-    end = text.find("\nThe same pass checked", start)
+def deferred_items(text: str, plan: pathlib.Path, header: str = "\nDeferred rows (",
+                   ending: str = "\nThe same pass checked") -> list[list[str]]:
+    """The lines of a plan's deferred list, from its header to its ending: [group, ""] for each group line, then
+    [group, text] for each of its rows."""
+    start = text.find(header)
+    end = text.find(ending, start)
     if start < 0 or end < 0:
         raise InputError(f"no deferred list in {rel(plan)}")
     items: list[list[str]] = []
@@ -679,6 +721,14 @@ def read_deferred(phase: Phase, tests: dict[Ref, GameTest], unit_cites: dict[Ref
                   commands: set[str]) -> tuple[dict[str, set[Ref]], list[tuple[str, list[str]]], list[str]]:
     """The deferred refs of the lists of every plan of the gate, in the order of the plans (see deferred_refs)."""
     items = [item for plan in phase.deferred_plans for item in deferred_items(read(plan), plan)]
+    return deferred_refs(items, tests, unit_cites, commands)
+
+
+def read_ruled(phase: Phase, tests: dict[Ref, GameTest], unit_cites: dict[Ref, set[str]],
+               commands: set[str]) -> tuple[dict[str, set[Ref]], list[tuple[str, list[str]]], list[str]]:
+    """The refs of the lists of the GameTests that the gate's plans deferred by the approver's test rulings (see
+    deferred_refs). Each list runs from its header to the next heading of its plan."""
+    items = [item for plan in phase.ruled_plans for item in deferred_items(read(plan), plan, RULED_LIST, "\n#")]
     return deferred_refs(items, tests, unit_cites, commands)
 
 
@@ -811,8 +861,10 @@ def client_summary() -> str:
 # Rows
 
 
-def evaluate(row: SpecRow, refs: set[Ref], checks: list[Check], results: dict[Ref, tuple[str, str]], phase: Phase):
-    """The result of a row, and each of its tests that did not pass with its status and detail."""
+def evaluate(row: SpecRow, refs: set[Ref], checks: list[Check], results: dict[Ref, tuple[str, str]], phase: Phase,
+             ruled: bool = False):
+    """The result of a row, and each of its tests that did not pass with its status and detail. ruled is true for a row
+    whose GameTest a plan deferred by the approver's test rulings: the row rests on its other tests, if it has any."""
     scripted = any("scripted" in check.marks for check in checks)
     special = row.id in phase.later or row.id == phase.record or row.id in phase.earlier
     required = not special and bool(row.parts & AUTOMATED_PARTS or ("Demo" in row.parts and scripted))
@@ -825,9 +877,10 @@ def evaluate(row: SpecRow, refs: set[Ref], checks: list[Check], results: dict[Re
     missing = [(ref, result) for ref, result in missing if result[0] != PASS and not (reviewing and ref == review)]
     if missing:
         return "fail", missing
-    if required and not refs:
+    if required and not refs and not ruled:
         return "no test", []
     parts = [PASS] if refs and not reviewing else []
+    parts += [DEFERRED_GAMETEST] if ruled else []
     parts += ["art review"] if reviewing else []
     parts += ["play-test"] if play_test else []
     parts += [f"open ({phase.later[row.id]})"] if row.id in phase.later else []
@@ -871,10 +924,14 @@ def collect(args: argparse.Namespace, phase: Phase) -> Gate:
             row_refs[row].add(test.ref)
     pack_refs, check_problems = checklist_refs(checks, commands, cases)
     listed, deferred_groups, deferred_problems = read_deferred(phase, tests, unit_cites, commands)
-    problems += check_problems + deferred_problems
-    for extra in (gradle_refs, read_readme_refs(commands, cases), pack_refs, listed):
+    ruled, ruled_groups, ruled_problems = read_ruled(phase, tests, unit_cites, commands)
+    problems += check_problems + deferred_problems + ruled_problems
+    problems += [f"{phase.record} needs the test pack command {command}, which testpack.py lacks"
+                 for command in phase.record_pack if command not in commands]
+    for extra in (gradle_refs, read_readme_refs(commands, cases), pack_refs, listed, ruled):
         for row, refs in extra.items():
             row_refs[row] |= refs
+    row_refs[phase.record] |= {Ref("testpack", command) for command in phase.record_pack}
     art_log, art_verdict = None, ("not run", "")
     if phase.checks_art:
         art = art_cases(read(ART_SCRIPT))
@@ -897,10 +954,12 @@ def collect(args: argparse.Namespace, phase: Phase) -> Gate:
     gate = Gate(phase, git("rev-parse", "HEAD").strip(), git("rev-parse", "--short=7", "HEAD").strip(),
                 git("show", "-s", "--format=%cs", "HEAD").strip(), git("show", "-s", "--format=%s", "HEAD").strip(),
                 rows, checks, unit_cites, tests, run_logs, results, pack_logs, tasks, outcomes, build_result, row_refs,
-                deferred_groups, problems, sheet.whole, art_log, art_verdict)
+                deferred_groups, problems, sheet.whole, art_log, art_verdict, ruled_groups)
+    ruled_rows = {row for _, group_rows in ruled_groups for row in group_rows}
     for row in rows.values():
         row_checks = [check for check in checks if check.row == row.id]
-        gate.evaluated[row.id] = (*evaluate(row, row_refs[row.id], row_checks, results, phase), row_checks)
+        gate.evaluated[row.id] = (*evaluate(row, row_refs[row.id], row_checks, results, phase, row.id in ruled_rows),
+                                  row_checks)
     return gate
 
 
@@ -935,9 +994,13 @@ def totals(gate: Gate) -> str:
     review = [row for row, (result, _, _) in gate.evaluated.items() if "art review" in result]
     later = [row for row, (result, _, _) in gate.evaluated.items() if "open" in result]
     waiting = f"{len(review)} rows wait for the approver's art review{listing(review)}. " if gate.phase.checks_art else ""
+    deferred = [row for row, (result, _, _) in gate.evaluated.items() if DEFERRED_GAMETEST in result]
+    bare = [row for row in deferred if not gate.evaluated[row][0].startswith(PASS)]
+    ruled = (f"{len(deferred)} rows have a GameTest that the approver's test rulings deferred{listing(deferred)}, and "
+             f"{len(bare)} of them have no other test{listing(bare)}. ") if gate.phase.ruled_plans else ""
     return (f"The spec sheet has {len(results)} {scope(gate)}`MUST` and `MUST NOT` rows. {len(passing)} of the "
             f"{len(automated)} rows with automated tests pass. {len(play_test)} rows have a play-test part, and "
-            f"{len(only)} of them have no automated test. {waiting}{len(later)} rows stay open after Phase "
+            f"{len(only)} of them have no automated test. {waiting}{ruled}{len(later)} rows stay open after Phase "
             f"{gate.phase.number}{listing(later)}. {len(failing_rows(gate))} automated rows have no passing test.")
 
 
@@ -984,7 +1047,8 @@ def render_summary(gate: Gate) -> str:
         out.append(f"| Test pack | `py scripts/testpack/testpack.py {command}` | {line} |")
     if gate.phase.checks_art:
         out.append(f"| Art checks | `{ART_COMMAND}` | {art_summary(gate)} |")
-    out.append(f"| Play-test client | `py scripts/testpack/testpack.py client` | {client_summary()} |")
+    if gate.phase.client:
+        out.append(f"| Play-test client | `py scripts/testpack/testpack.py client` | {client_summary()} |")
     out.append("")
     perf_log = read(RUNS[2].log) if RUNS[2].log.is_file() else ""
     perf = PERF.search(perf_log)
@@ -1041,6 +1105,16 @@ def ref_name(ref: Ref) -> str:
     return f"Gradle task {ref.group}"
 
 
+def group_lines(gate: Gate, groups: list[tuple[str, list[str]]]) -> list[str]:
+    """A line for each group of a deferred list, with the result of each of its rows."""
+    lines = []
+    for group, rows in groups:
+        listed = "; ".join(f"{row} {gate.evaluated[row][0] if row in gate.evaluated else f'is not a {scope(gate)}MUST row'}"
+                           for row in rows)
+        lines.append(f"- {group}: {listed}.")
+    return lines
+
+
 def render_rows(gate: Gate) -> str:
     phase = gate.phase
     tasks = [DEFERRED_TASKS[plan] for plan in phase.deferred_plans]
@@ -1049,6 +1123,8 @@ def render_rows(gate: Gate) -> str:
         f"name, KDoc or assertion messages cite the row, or which the deferred list of {' or '.join(tasks)} names for "
         "the row. Test pack names a command of `scripts/testpack/testpack.py`, with the cases that the test pack's README "
         "or the manual checklist gives for the row. Gradle names a check task of `./gradlew build`. ")
+    if phase.ruled_plans:
+        legend_tests += "The list of the GameTests deferred by the rulings can name a test for a row too. "
     if phase.checks_art:
         legend_tests += f"Art check names a case of `{ART_COMMAND}`. "
     if phase.earlier:
@@ -1061,6 +1137,9 @@ def render_rows(gate: Gate) -> str:
     if phase.checks_art:
         legend_result += ("`art review` means that the art check of the row fails until the approver approves every "
                           "asset in the review record, `docs/testing/art-review.md`. ")
+    if phase.ruled_plans:
+        legend_result += (f"`{DEFERRED_GAMETEST}` means that the plan deferred the GameTest of the row by the approver's "
+                          "test rulings: the row rests on its other tests, and on the play-test where it has none. ")
     legend_result += "The section \"Rows without a passing test\" lists each row with `fail` or `no test`."
     out = ["## Rows", "",
            (f"The table has one line for each {scope(gate)}`MUST` and `MUST NOT` row of the spec sheet, in the order of "
@@ -1080,10 +1159,14 @@ def render_rows(gate: Gate) -> str:
     out += ["", "### Deferred rows", "",
             (f"{passes} The table above names the tests of each row. This list gives the result of each row, by the "
              "task that deferred it:"), ""]
-    for group, rows in gate.deferred_groups:
-        listed = "; ".join(f"{row} {gate.evaluated[row][0] if row in gate.evaluated else f'is not a {scope(gate)}MUST row'}"
-                           for row in rows)
-        out.append(f"- {group}: {listed}.")
+    out += group_lines(gate, gate.deferred_groups)
+    if phase.ruled_plans:
+        plans = " and ".join(f"`{rel(plan)}`" for plan in phase.ruled_plans)
+        out += ["", "### GameTests deferred by the rulings", "",
+                (f"{plans} deferred the GameTest of each row below by the approver's test rulings, which the section \"The "
+                 "rulings\" quotes. The table above names the tests that hold each row instead. This list gives the result "
+                 "of each row, by the task that deferred its GameTest:"), ""]
+        out += group_lines(gate, gate.ruled_groups)
     cited = {ref for refs in gate.row_refs.values() for ref in refs}
     uncited = sorted(ref for ref, test in gate.tests.items() if not test.rows and ref not in cited)
     out += ["", "### Tests that cite no row", ""]
@@ -1157,6 +1240,8 @@ def self_check() -> int:
     helpers = {f.name: f for f in functions if not f.test}
     assert message_rows(functions[1], helpers, set()) == {"CD-MUS-01", "CD-WHL-07", "CD-CRK-08"}
     assert CITE.findall(functions[1].doc) == ["CD-MUS-03"]
+    holder = 'object CreateConnectedCompat {\n    const val MOD_ID = "create_connected"\n}\nconst val MOD_ID = "cobblemon_dynamics"\n'
+    assert CONSTANT.findall(holder) == [("MOD_ID", "cobblemon_dynamics")], CONSTANT.findall(holder)
     log = parse_run_log(
         "[t] [Server thread/ERROR] [LogTestReporter/]: cdmus03eightshelves failed at 1, -59, 2! Assertion\n"
         "[t] [Server thread/INFO] [GameTestServer/]: ========= 3 GAME TESTS COMPLETE IN 1.0 s ======\n"
@@ -1171,6 +1256,12 @@ def self_check() -> int:
     first, second = PHASES["1"], PHASES["2"]
     assert PHASES["1.1"].holds("CD-HRV-16", "HRV") and PHASES["1.1"].holds("CD-QWK-21", "QWK"), "the 1.1 gate holds every row"
     assert PHASES["1.1"].record == "CD-REL-16" and not PHASES["1.1"].checks_art
+    v12 = PHASES["1.2"]
+    assert v12.holds("CD-XPC-02", "XPC") and v12.holds("CD-HRV-16", "HRV"), "the 1.2 gate holds every row"
+    assert v12.record == "CD-REL-17" and v12.checks_art and v12.record_pack == ("mods",) and not v12.client
+    assert v12.later == {"CD-REL-04": "the v1.2.0 tag", "CD-REL-05": "the v1.2.0 tag", "CD-REL-15": "the next pack release"}
+    assert v12.earlier == {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT}, v12.earlier
+    assert v12.deferred_plans == (M5_PLAN, M8_PLAN) and v12.ruled_plans == (V12_PLAN,) and v12.art_review == ART_REVIEW
     demo = SpecRow("CD-UI-01", frozenset({"Demo"}))
     assert evaluate(demo, set(), checks[1:], {}, first) == ("play-test", [])
     unit = Ref("unit", "UiTest", "CD-UI-01 a button")
@@ -1203,6 +1294,15 @@ def self_check() -> int:
     assert unknown == ["the deferred list names QuickWorkTests.cdQwk21BattleEndsTheOrder, which no test has"], unknown
     assert input_error(lambda: deferred_items("a plan with no deferred list", M8_PLAN))
 
+    # The list of the GameTests that the 1.2 plan deferred by the rulings (read_ruled), up to the next heading.
+    ruling = ("a\nGameTests deferred by the rulings (x).\n\n- Task 6:\n  - CD-XPC-02.\n"
+              "  - CD-XPC-13: `CollectorFilesTest`.\n\n### Task 25\n\n- Task 9:\n  - CD-FRZ-15.\n")
+    loot = Ref("unit", "CollectorFilesTest", "CD-XPC-13 the loot table has no condition")
+    listed, groups, unknown = deferred_refs(deferred_items(ruling, V12_PLAN, RULED_LIST, "\n#"), {},
+                                            {loot: {"CD-XPC-13"}}, set())
+    assert groups == [("Task 6", ["CD-XPC-02", "CD-XPC-13"])] and listed["CD-XPC-13"] == {loot} and not unknown, groups
+    assert input_error(lambda: deferred_items("a plan with no such list", V12_PLAN, RULED_LIST, "\n#"))
+
     # The output of the art checks (--art-log): a result for each case, a stale output, and an output with no verdict.
     art = art_cases('        "cd-art-05": check_logo(),\n        cases["cd-art-10"] = check_record(args.record)\n')
     assert art == {"cd-art-05", "cd-art-10"}, art
@@ -1215,6 +1315,15 @@ def self_check() -> int:
     found, verdict = parse_art_log(output, art, "art.txt", stale=True)
     assert {status for status, _ in found.values()} == {"stale"} and verdict[0] == "stale", (found, verdict)
     assert input_error(lambda: parse_art_log("CASE cd-art-05: PASS\n", art, "art.txt", stale=False))
+
+    # The output of a test pack command (--testpack-log), such as the case mods that CD-REL-17 needs.
+    command, found = parse_testpack_output("CD-OPT-15: 61 mods loaded\nMODS PASS\n", "mods.txt", {"mods"}, stale=False)
+    assert (command, found) == ("mods", {Ref("testpack", "mods"): (PASS, "")}), found
+    _, found = parse_testpack_output("MODS FAIL: no adapter in the compat line of mekanism\n", "mods.txt", {"mods"}, False)
+    assert found == {Ref("testpack", "mods"): ("fail", "no adapter in the compat line of mekanism")}, found
+    _, found = parse_testpack_output("CASE neoforge-floor: PASS\nDEPS PASS\n", "deps.txt", {"deps"}, stale=True)
+    assert {status for status, _ in found.values()} == {"stale"} and len(found) == 2, found
+    assert input_error(lambda: parse_testpack_output("MODS PASS\n", "mods.txt", {"smoke"}, stale=False))
 
     # The marks of the Phase 2 gate (evaluate): the art review rows, the earlier gate and the record.
     record = Ref("art", "cd-art-10")
@@ -1241,6 +1350,20 @@ def self_check() -> int:
     assert note_date("# R\n\n## Play-test note\n\n- Date: 2026-11-10\n") == "2026-11-10"
     assert note_date("# R\n\n## Play-test note\n\n- Date: pending\n\n## Art review\n\n- Date: 2026-11-12\n") == ""
 
+    # The marks of the 1.2 gate (evaluate): a GameTest deferred by the rulings, and the record that needs the case mods.
+    deferred = SpecRow("CD-XPC-02", frozenset({"GameTest"}))
+    assert evaluate(deferred, set(), [], {}, v12, ruled=True) == (DEFERRED_GAMETEST, [])
+    assert evaluate(deferred, set(), [], {}, v12) == ("no test", [])
+    tank = Ref("unit", "XpFluidTankTest", "CD-XPC-07 the tank offers 20 mB for each XP")
+    tested = SpecRow("CD-XPC-07", frozenset({"GameTest"}))
+    assert evaluate(tested, {tank}, [], {tank: (PASS, "")}, v12, ruled=True) == ("pass, GameTest deferred", [])
+    assert evaluate(tested, {tank}, [], {tank: ("fail", "")}, v12, ruled=True)[0] == "fail"
+    mods = Ref("testpack", "mods")
+    release = SpecRow("CD-REL-17", frozenset({"Inspect"}))
+    assert evaluate(release, {mods}, [], {mods: (PASS, "")}, v12) == ("pass, play-test", [])
+    assert evaluate(release, {mods}, [], {mods: ("fail", "a compat line lacks an adapter")}, v12)[0] == "fail"
+    assert evaluate(release, {mods}, [], {}, v12)[0] == "fail", "the record fails while the case mods has no result"
+
     # The run summary's art line, and the totals that name the phase (art_summary, totals).
     rows = {"CD-ART-10": ("art review", [], []), "CD-REL-04": ("open (M9)", [], []),
             "CD-UI-01": ("pass, play-test", [], [])}
@@ -1258,11 +1381,19 @@ def self_check() -> int:
         "The spec sheet has 1 Phase 1 `MUST` and `MUST NOT` rows. 0 of the 0 rows with automated tests pass. 0 rows "
         "have a play-test part, and 0 of them have no automated test. 1 rows stay open after Phase 1 (CD-REL-04). 0 "
         "automated rows have no passing test."), totals(gate)
+    gate = sample_gate(v12, {"CD-XPC-02": (DEFERRED_GAMETEST, [], []), "CD-XPC-07": ("pass, GameTest deferred", [], []),
+                             "CD-REL-04": ("open (the v1.2.0 tag)", [], [])}, {}, whole=True)
+    assert totals(gate) == (
+        "The spec sheet has 3 `MUST` and `MUST NOT` rows. 1 of the 1 rows with automated tests pass. 0 rows have a "
+        "play-test part, and 0 of them have no automated test. 0 rows wait for the approver's art review. 2 rows have a "
+        "GameTest that the approver's test rulings deferred (CD-XPC-02, CD-XPC-07), and 1 of them have no other test "
+        "(CD-XPC-02). 1 rows stay open after Phase 1.2 (CD-REL-04). 0 automated rows have no passing test."), totals(gate)
 
     # The options (main).
     args = arguments().parse_args(["--phase", "2", "--art-log", "art.txt"])
     assert (args.phase, args.art_log) == ("2", pathlib.Path("art.txt")) and arguments().parse_args([]).phase == "1", args
     assert arguments().parse_args(["--phase", "1.1"]).phase == "1.1"
+    assert arguments().parse_args(["--phase", "1.2", "--art-log", "art.txt"]).phase == "1.2"
     print("self-check passed")
     return 0
 
@@ -1290,13 +1421,13 @@ def sample_gate(phase: Phase, evaluated: dict[str, tuple[str, list, list[Check]]
 def arguments() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--phase", choices=sorted(PHASES), default="1",
-                        help="the gate whose report the script writes: 1, 2 or 1.1 (default 1)")
+                        help="the gate whose report the script writes: 1, 2, 1.1 or 1.2 (default 1)")
     parser.add_argument("--gradle-log", action="append", default=[], type=pathlib.Path,
                         help="the console output of ./gradlew build and the GameTest runs, with --console=plain")
     parser.add_argument("--testpack-log", action="append", default=[], type=pathlib.Path,
-                        help="the output of one test pack command, such as smoke; give one for each command")
+                        help="the output of one test pack command, such as smoke or mods; give one for each command")
     parser.add_argument("--art-log", type=pathlib.Path,
-                        help=f"the output of {ART_COMMAND}, for the Phase 2 gate")
+                        help=f"the output of {ART_COMMAND}, for the Phase 2 and 1.2 gates")
     parser.add_argument("--allow-dirty", action="store_true",
                         help="write the report although tracked files differ from the commit")
     parser.add_argument("--self-check", action="store_true", help="check the parsers on built-in samples")
@@ -1309,7 +1440,8 @@ def main() -> int:
     if args.self_check:
         return self_check()
     if args.art_log is not None and not PHASES[args.phase].checks_art:
-        parser.error("--art-log belongs to the gate that runs the art checks: add --phase 2")
+        art_gates = " or ".join(f"--phase {number}" for number, phase in PHASES.items() if phase.checks_art)
+        parser.error(f"--art-log belongs to a gate that runs the art checks: add {art_gates}")
     try:
         return write_report(args)
     except InputError as error:
