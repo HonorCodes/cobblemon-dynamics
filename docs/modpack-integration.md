@@ -283,7 +283,7 @@ These tags and the data map are new in 1.2. Each lives under `data/cobblemon_dyn
 | `#cobblemon_dynamics:crystal/self_growing` | Cobblemon's nine budding tumblestones | Work only while Cobblemon's own rule lets the block grow: a heat source within 1 block, and a next stage. |
 | `#cobblemon_dynamics:crystal/scheduled_tick` | Unusual End's budding citrine | Such a block gets its scheduled tick on 1 extra tick in 5, and only air counts as an open face. |
 | `#cobblemon_dynamics:crystal/buds` | Unusual End's citrine buds | Such a block counts as a bud of `#c:buds`. |
-| `#cobblemon_dynamics:muse_targets` | The enchanting table, Easy Magic's table, both infusers of Enchanting Infuser, CEI's Infuser | The targets of the Muse. |
+| `#cobblemon_dynamics:muse_targets` | The enchanting table, both infusers of Enchanting Infuser, CEI's Infuser | The targets of the Muse. Easy Magic copies the tags of the enchanting table onto its own table at each tag load, so Easy Magic's table is a target too. Do not add Easy Magic's table to this tag: Easy Magic stops the data load when its table already has a tag. |
 | `#cobblemon_dynamics:logistics/no_fallback` | The Ender Chest, the containers of Lootr, the pedestals of Legendary Monuments | Telekinesis and the Magnet never reach such a block as a plain container. The Ender Chest entry guards nothing, because its block entity is no `Container`. |
 | `#cobblemon_dynamics:harvest/cave_vines` | Allthemodium's ancient cave vines, Deep Aether's golden vines, the body of Deeper and Darker's glowing vines | See [Farming roles](#farming-roles). |
 | Data map `cobblemon_dynamics:harvest_loot` (blocks) | The 12 bushes of the Twilight Forest | See [Farming roles](#farming-roles). |
