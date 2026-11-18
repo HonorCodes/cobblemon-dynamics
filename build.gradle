@@ -59,6 +59,14 @@ sourceSets {
         kotlin.srcDir 'src/gametest/kotlin-claims'
         resources.srcDir 'src/gametest/resources-shared'
     }
+    // The compat run of the 1.2 test approach: the adapters that write another mod's private state, on that mod's real jar. CI does
+    // not run it.
+    gametestCompat {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+        kotlin.srcDir 'src/gametest/kotlin-shared'
+        resources.srcDir 'src/gametest/resources-shared'
+    }
 }
 
 configurations {
@@ -77,6 +85,15 @@ configurations {
     gametestOpacRuntimeOnly.extendsFrom runtimeOnly
     gametestMineColoniesImplementation.extendsFrom implementation
     gametestMineColoniesRuntimeOnly.extendsFrom runtimeOnly
+    // The compat tests read the machines of the optional mods through their compile-only jars, and run on the jars below.
+    gametestCompatImplementation.extendsFrom implementation
+    gametestCompatCompileOnly.extendsFrom compileOnly
+    gametestCompatRuntimeOnly.extendsFrom runtimeOnly
+}
+
+// COHO pack 2.7.0 moves Kotlin for Forge to 5.13.0, so the compat run loads that version.
+configurations.named('gametestCompatRuntimeClasspath') {
+    resolutionStrategy.force "thedarkcolour:kotlinforforge-neoforge:${compat_kff_version}"
 }
 
 repositories {
@@ -143,6 +160,7 @@ neoForge {
     addModdingDependenciesTo sourceSets.gametestFtbChunks
     addModdingDependenciesTo sourceSets.gametestOpac
     addModdingDependenciesTo sourceSets.gametestMineColonies
+    addModdingDependenciesTo sourceSets.gametestCompat
 
     mods {
         "${mod_id}" {
@@ -162,6 +180,9 @@ neoForge {
         }
         cobblemon_dynamics_mctest {
             sourceSet sourceSets.gametestMineColonies
+        }
+        cobblemon_dynamics_compattest {
+            sourceSet sourceSets.gametestCompat
         }
     }
 
@@ -220,6 +241,14 @@ neoForge {
             sourceSet = sourceSets.gametestMineColonies
             gameDirectory = project.file('run/gametest-minecolonies')
             loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_mctest]
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+        // The compat run: the mods of the adapters that write another mod's private state, with Create for the Liquid Blaze Burner.
+        gameTestServerCompat {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametestCompat
+            gameDirectory = project.file('run/gametest-compat')
+            loadedMods = [mods."${mod_id}", mods.cobblemon_dynamics_compattest]
             systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
         }
         configureEach {
@@ -296,6 +325,31 @@ dependencies {
     gametestMineColoniesImplementation("com.ldtteam:structurize:${structurize_version}") { transitive = false }
     gametestMineColoniesImplementation("com.ldtteam:blockui:${blockui_version}") { transitive = false }
     gametestMineColoniesRuntimeOnly("com.ldtteam:domum-ornamentum:${domum_ornamentum_version}:main") { transitive = false }
+    // The compat run loads each mod whose private state an adapter writes, at the 1.2 pin, which is COHO pack 2.7.0's version where
+    // the pack has the mod, with the libraries that the mod requires. Never a CI artifact or a log upload.
+    gametestCompatRuntimeOnly("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
+    gametestCompatRuntimeOnly "net.createmod.ponder:ponder-neoforge:${ponder_version}"
+    gametestCompatRuntimeOnly "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
+    gametestCompatRuntimeOnly "com.tterrag.registrate:Registrate:${registrate_version}"
+    gametestCompatRuntimeOnly("maven.modrinth:immersiveengineering:${immersiveengineering_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:mekanism:${mekanism_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:mekanism-generators:${mekanism_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:pneumaticcraft-repressurized:${pneumaticcraft_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:forbidden-arcanus:${forbidden_arcanus_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:valhelsia-core:${valhelsia_core_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:cobblemon-incubator:${cobblemon_incubator_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:cobbreeding:${compat_cobbreeding_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:architectury-api:${compat_architectury_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:createaddition:${createaddition_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:irons-spells-n-spellbooks:${irons_spellbooks_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:irons-lib:${compat_irons_lib_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:geckolib:${geckolib_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:curios:${compat_curios_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:playeranimator:${compat_playeranimator_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:easy-magic:${easymagic_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:enchanting-infuser:${enchantinginfuser_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:puzzles-lib:${compat_puzzleslib_version}") { transitive = false }
+    gametestCompatRuntimeOnly("maven.modrinth:dynamictrees:${dynamictrees_version}") { transitive = false }
 
     testImplementation platform('org.junit:junit-bom:6.1.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
