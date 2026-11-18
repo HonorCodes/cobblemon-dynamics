@@ -13,16 +13,16 @@ and crops of many other mods, such as Immersive Engineering, Mekanism and Botany
 
 ## Status
 
-**Version 1.1.0 is the latest release.** Download it from the
-[GitHub releases](https://github.com/HonorCodes/cobblemon-dynamics/releases) or CurseForge. Version 1.1 adds two
-farming roles, the Cultivator and the Harvester (see [Farming](#farming)). The design is in the
-[spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md). The release plans are the
-[1.0.0 plan](docs/plans/2026-11-11-phase-3-release.md) and the [1.1 plan](docs/plans/2026-11-12-v1.1-farming.md).
+**Version 1.2.0 is the latest release.** Download it from the
+[GitHub releases](https://github.com/HonorCodes/cobblemon-dynamics/releases) or CurseForge. Version 1.2 adds four
+roles: the [Lumberjack](#lumberjack), the Soul Collector with its [Experience Collector](#experience-collector), the
+[Freezer](#freezer) and the Heater. The existing roles also work the machines and crops of many other mods, with no
+setup (see [Compatibility](#compatibility)). Version 1.1 added two farming roles, the Cultivator and the Harvester (see
+[Farming](#farming)).
 
-**Version 1.2 is built on `main` and goes to its release gate next.** It adds four roles: the Lumberjack, the Soul
-Collector with its [Experience Collector](#experience-collector), the [Freezer](#freezer) and the Heater. The existing
-roles also work the machines and crops of many other mods, with no setup (see [Compatibility](#compatibility)). The plan is
-the [1.2 plan](docs/plans/2026-11-15-v1.2-new-roles-and-compat.md).
+The design is in the [spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md). The release plans are the
+[1.0.0 plan](docs/plans/2026-11-11-phase-3-release.md), the [1.1 plan](docs/plans/2026-11-12-v1.1-farming.md) and the
+[1.2 plan](docs/plans/2026-11-15-v1.2-new-roles-and-compat.md).
 
 Version 1.0 shipped in three phases:
 
