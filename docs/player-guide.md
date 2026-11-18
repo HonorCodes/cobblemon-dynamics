@@ -712,7 +712,7 @@ Kinetic Dynamo takes the wheel's power: beside the wheel on its axle, or past at
 which Immersive Engineering adds together. To reverse the wheel, flip it with the Work Leash as a Create wheel.
 The wheel keeps its direction through restarts.
 
-**Role file parameter:** `virtual_torque` (29), at most the torque of an optimized overshot wheel.
+**Role file parameter:** `virtual_torque` (29.5), at most the torque of an optimized overshot wheel.
 
 ### Cranker
 
@@ -1433,3 +1433,5 @@ NeoForge's capabilities.
   A Cultivator on rooty soil can stop after 20 uses that change nothing at the soil while the tree above still
   grows, and it then leaves the soil for 5 minutes.
 - **The AE2 crank.** A Cranker charges the machine of an AE2 crank, but the crank does not turn on screen.
+- **Easy Magic's power setting.** A Muse raises the power of Easy Magic's table to at most 15, the default of Easy
+  Magic's `maxEnchantingPower` setting, so on a server that raises that setting a Muse gives less than its full share.

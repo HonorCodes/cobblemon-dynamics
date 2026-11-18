@@ -23,6 +23,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from collections.abc import Callable
 from typing import NamedTuple, Self
 
@@ -35,7 +36,8 @@ PINS = json.loads(PINS_FILE.read_text(encoding="utf-8"))
 UA = {"User-Agent": "testpack-script/1.0"}
 MODRINTH = "https://api.modrinth.com/v2"
 NEOFORGE_MAVEN = "https://maven.neoforged.net/releases/net/neoforged/neoforge"
-# A pin with "source": "local" names a jar that no download site serves. The script copies it once from this folder.
+# A pin with "source": "local" names a jar that no download site serves byte for byte. The script copies it once from the first
+# folder of this variable that holds it. The variable holds one folder, or several separated by os.pathsep (";" on Windows).
 LOCAL_JARS = "TESTPACK_LOCAL_JARS"
 MOD_ID = "cobblemon_dynamics"
 ARGS_FILE = "win_args.txt" if os.name == "nt" else "unix_args.txt"
@@ -154,19 +156,19 @@ def pin_name(pin: dict) -> str:
 
 
 def copy_local(pin: dict) -> pathlib.Path:
-    """Copy a local pin from the folder in TESTPACK_LOCAL_JARS into the cache, unless the cache already has it.
+    """Copy a local pin from a folder of TESTPACK_LOCAL_JARS into the cache, unless the cache already has it.
 
-    The script only reads that folder. A copy with another SHA-512 is an error, as a download is.
+    The script only reads those folders. A copy with another SHA-512 is an error, as a download is.
     """
     dest = CACHE / pin["filename"]
     if dest.is_file() and sha512_of(dest) == pin["sha512"]:
         return dest
-    folder = os.environ.get(LOCAL_JARS, "")
-    if not folder:
+    folders = [folder for folder in os.environ.get(LOCAL_JARS, "").split(os.pathsep) if folder]
+    if not folders:
         raise TestpackError(f"{pin['filename']} has no download URL. Set {LOCAL_JARS} to a folder that holds it.")
-    source = pathlib.Path(folder, pin["filename"])
-    if not source.is_file():
-        raise TestpackError(f"{pin['filename']} is not in {folder}, the folder of {LOCAL_JARS}")
+    source = next((path for folder in folders if (path := pathlib.Path(folder, pin["filename"])).is_file()), None)
+    if source is None:
+        raise TestpackError(f"{pin['filename']} is not in {os.pathsep.join(folders)}, the folders of {LOCAL_JARS}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(dest.name + ".part")
     shutil.copyfile(source, part)
@@ -239,7 +241,8 @@ def resolve_neoforge(pin: dict) -> str:
 def resolve() -> None:
     """Fill the file name, URL and SHA-512 of every pin in mods.json and write the file back.
 
-    The crops pins stay as written: each one is the exact jar of COHO 2.5.0 that crops_expected was counted from.
+    The crops pins stay as written: each one is the exact jar of COHO 2.5.0 that crops_expected was counted from. So do the
+    optional pins of the case mods: each one is the exact file of COHO pack 2.7.0, or of the 1.2 plan for a mod outside the pack.
     """
     versions: dict[str, list[dict]] = {}
     for pin in [PINS["neoforge"], *PINS["mods"].values(), *PINS["demo_versions"].values(), *PINS["compat"].values()]:
@@ -746,14 +749,16 @@ def scenario_restart(server: Server) -> None:
 
 # CD-CRP-05: beside the crop mods of COHO 2.5.0 (the "crops" pins), a data load logs one line for each farming role:
 # "Farming: <role> <total> blocks [<adapter> <count>, ...], no adapter [<block id>, ...]".
-CROPS_BOOT_TIMEOUT = 600  # the crop mods and their libraries add 24 jars to the pinned set
+CROPS_BOOT_TIMEOUT = 600  # the crop mods and their libraries add 25 jars to the pinned set
 # Vanilla's TagLoader logs these when a tag file does not parse, or when a required entry of a tag is missing. The tags are
 # those that the farming lines read.
 TAG_LOAD_FAILED = (r"Couldn't (read tag list|load tag) "
-                   r"(minecraft:crops|cobblemon:(berries|mints|apricorns)|cobblemon_dynamics:\S+) ")
+                   r"(minecraft:(crops|saplings)|cobblemon:(berries|mints|apricorns)|cobblemon_dynamics:\S+) ")
 # The blocks of the two target tags in the crops case, by family, from the table "The crop families of COHO 2.5.0" of
 # ADR-0015 and the tag files of the pinned jars. Each row gives the blocks, their number, and the adapter of the Cultivator
 # and of the Harvester, or None when that role's target tag does not hold them. The rows sum to crops_expected in mods.json.
+# The Cultivator's tag also holds #minecraft:saplings (CD-LUM-23), whose rows close the table: Minecraft's 10 saplings and those
+# that the saplings tag files of the case's jars add, each a BonemealableBlock that the growth adapter reads.
 CROP_FAMILIES = (
     # Minecraft 1.21.1: its #minecraft:crops, then the explicit entries of our target tags
     ("minecraft: wheat, carrots, potatoes, beetroots", 4, "growth", "crop"),
@@ -811,6 +816,18 @@ CROP_FAMILIES = (
     # Pam's HarvestCraft 2 Crops and Trees 1.0.9
     ("pamhc2crops: the pam<crop>crop blocks of its #minecraft:crops", 97, "growth", "crop"),
     ("pamhc2trees: the 47 hanging fruits and 3 log fruits, pam<fruit>", 50, "growth", "pick_to_age_0"),
+    # #minecraft:saplings, the Cultivator's only (Task 3 of the 1.2 plan)
+    ("minecraft: the 6 wood saplings, cherry_sapling, mangrove_propagule, azalea, flowering_azalea", 10, "growth", None),
+    ("cobblemon: the 7 apricorn saplings, saccharine_sapling", 8, "growth", None),
+    ("aether: skyroot_sapling, golden_oak_sapling", 2, "growth", None),
+    ("deep_aether: the roseroot, blue roseroot, yagroot, cruderoot, conberry and sunroot saplings", 6, "growth", None),
+    ("expandeddelight: cinnamon_sapling", 1, "growth", None),
+    ("biomeswevegone: the <wood>_sapling blocks of its #minecraft:saplings", 44, "growth", None),
+    ("undergarden: smogstem_sapling, wigglewood_sapling, grongle_sapling", 3, "growth", None),
+    ("ars_nouveau: the blue, green, purple and red archwood saplings", 4, "growth", None),
+    ("occultism: otherworld_sapling, otherworld_sapling_natural", 2, "growth", None),
+    ("regions_unexplored: the 34 <wood>_sapling blocks and saguaro_cactus_flower of its #minecraft:saplings", 35, "growth", None),
+    ("pamhc2trees: the 50 <fruit>_sapling blocks", 50, "growth", None),
 )
 
 
@@ -836,7 +853,8 @@ def adapter_counts(listed: str) -> dict[str, int]:
 
 def scenario_crops(server: Server) -> None:
     """CD-CRP-05: beside the crop mods of COHO 2.5.0, each farming line names no block without an adapter, and each adapter
-    counts the blocks that crops_expected in mods.json gives it."""
+    counts the blocks that crops_expected in mods.json gives it. The Cultivator's growth count holds the saplings of
+    #minecraft:saplings (CD-LUM-23, CD-CRP-01)."""
     expected = PINS["crops_expected"]
     if (families := crop_family_counts()) != expected:
         raise TestpackError(f"CROP_FAMILIES of testpack.py sums to {families}, but mods.json expects {expected}")
@@ -863,18 +881,171 @@ def scenario_crops(server: Server) -> None:
     say(f"CD-CRP-05: both farming lines name no block without an adapter and count {expected}")
 
 
+# CD-OPT-15: beside the pinned set, the case mods installs every mod of the table of ADR-0016 that Modrinth or the folders of
+# TESTPACK_LOCAL_JARS hold, with their libraries: the "optional" pins of mods.json. Each is the file of COHO pack 2.7.0 where the
+# pack has the mod, and the 1.2 plan's pin otherwise. Its kotlinforforge pin replaces the pinned 5.10.0 with the pack's 5.13.0.
+MODS_BOOT_TIMEOUT = 900
+# CD-OPT-11 (R92): the adapters of each mod of compat/OptionalMods.kt that has a compat package, which logs one compat line for each
+# of these mods that is loaded. A mod that tags and data maps alone support logs no line. TestpackModsCaseTest keeps the two in step.
+COMPAT_ADAPTERS = {
+    "immersiveengineering": ("ie_furnace", "ie_watermill", "ie_windmill"),
+    "mekanism": ("fuelwood_heater", "mekanism_heat"),
+    "mekanismgenerators": ("wind_generator",),
+    "railcraft": ("railcraft_fuel", "railcraft_firebox"),
+    "pneumaticcraft": ("pnc_compressor", "pnc_heat", "pnc_air"),
+    "botanypots": ("pot_cultivator", "pot_harvester"),
+    "ironfurnaces": ("iron_furnace",),
+    "cookingforblockheads": ("cfb_oven",),
+    "forbidden_arcanus": ("clibano",),
+    "cobblemon_incubator": ("egg_incubator",),
+    "ars_nouveau": ("volcanic_sourcelink",),
+    "createaddition": ("liquid_burner",),
+    "create_connected": ("crank_wheel",),
+    "create_enchantment_industry": ("muse_infuser",),
+    "irons_spellbooks": ("alchemist_cauldron",),
+    "easymagic": ("muse_table",),
+    "enchantinginfuser": ("muse_infusers",),
+    "experiencelib": ("collector_xp",),
+    "dynamictrees": ("lumberjack_fell",),
+    "apothic_enchanting": ("muse_quanta",),
+    "ae2": ("ae2_crank",),
+}
+COMPAT_LINE = r"Compat: (\S+) (\S+) \[([^\]]*)\]"
+ROLES_LINE = r"Roles: \d+ loaded, \d+ active, \d+ disabled \["
+MIXINS_LINE = r"Mixins: \d+ applied \["
+# CD-OPT-04: the role files that their conditions skipped. Beside every supported mod, none is.
+SKIPPED_ROLES_LINE = r"Roles not loaded, their mods are absent: "
+NO_SKIPPED_ROLES_LINE = "Roles not loaded, their mods are absent: 0 []"
+# The mixins of Cobblebase, which is no mod of the table of ADR-0016, so the case does not install it.
+COBBLEBASE_PACKAGE = "compat.cobblebase."
+OUR_ERROR = r"/(ERROR|FATAL)\].*(cobblemon_dynamics|codes\.honor\.cobblemondynamics)"
+# CD-FRM-03: a harvest_loot entry that names a loot table that did not load ends the harvester's farming line with this list.
+UNKNOWN_LOOT_TABLE = r"Farming: harvester .*, unknown loot table \["
+
+
+def installed_mods(folder: pathlib.Path) -> dict[str, str]:
+    """The mod id and version of every mod in the profile's mods folder, from each jar's neoforge.mods.toml."""
+    import tomllib  # a module new in Python 3.11, imported here for the import order of CI's ruff (see CLAUDE.md)
+
+    mods = {}
+    for jar in sorted((folder / "mods").glob("*.jar")):
+        with zipfile.ZipFile(jar) as zf:
+            if "META-INF/neoforge.mods.toml" not in zf.namelist():
+                continue
+            toml = tomllib.loads(zf.read("META-INF/neoforge.mods.toml").decode("utf-8"))
+        for mod in toml.get("mods", []):
+            mods[mod["modId"]] = str(mod.get("version", ""))
+    return mods
+
+
+def jar_roles_and_mixins(folder: pathlib.Path) -> tuple[int, list[str]]:
+    """The number of role files in the profile's copy of the built jar, and the mixins of its config for both sides."""
+    jar = next((folder / "mods").glob(f"{MOD_ID}-*.jar"))
+    with zipfile.ZipFile(jar) as zf:
+        roles = [n for n in zf.namelist() if re.fullmatch(rf"data/{MOD_ID}/{MOD_ID}/roles/[^/]+\.json", n)]
+        mixins = json.loads(zf.read(f"{MOD_ID}.mixins.json"))["mixins"]
+    return len(roles), mixins
+
+
+def expected_mixins_line(mixins: list[str]) -> str:
+    """CD-CMP-08: every mixin of the common config applied, except Cobblebase's, which skip because the case leaves it out."""
+    applied = sorted(name for name in mixins if not name.startswith(COBBLEBASE_PACKAGE))
+    skipped = sorted(f"{name} (cobblebase absent)" for name in mixins if name.startswith(COBBLEBASE_PACKAGE))
+    return (f"Mixins: {len(applied)} applied [{', '.join(applied)}], {len(skipped)} skipped [{', '.join(skipped)}], "
+            "0 applied with no injection [], 0 not applied yet []")
+
+
+def exact_line_problem(server: Server, expected: str, actual: str) -> str | None:
+    """None when exactly one line of the log ends with the message expected, else the problem with the first line that matches
+    the pattern actual, which finds the line that the message should have been."""
+    count = server.count_log(re.escape(expected) + "$")
+    if count == 1:
+        return None
+    line = server.find_log(actual)
+    return f"{count} lines end with the expected {expected[:40]}..., not 1; the log has: {line.split(']: ', 1)[-1] if line else 'none'}"
+
+
+def compat_line_problems(server: Server, installed: dict[str, str]) -> list[str]:
+    """CD-OPT-11: one compat line for each installed mod of COMPAT_ADAPTERS, with each of its adapters found."""
+    lines: dict[str, list[re.Match]] = {}
+    for line in server.lines:
+        if match := re.search(COMPAT_LINE, line):
+            lines.setdefault(match.group(1), []).append(match)
+    problems = [f"a compat line for {mod}, which is no mod of COMPAT_ADAPTERS" for mod in lines if mod not in COMPAT_ADAPTERS]
+    for mod, adapters in COMPAT_ADAPTERS.items():
+        found = lines.get(mod, [])
+        if mod not in installed:
+            problems.append(f"the case installs no {mod}")
+        elif len(found) != 1:
+            problems.append(f"{len(found)} compat lines for {mod}, not 1")
+        elif (listed := found[0].group(3)) != ", ".join(f"{adapter} found" for adapter in sorted(adapters)):
+            problems.append(f"Compat: {mod} {found[0].group(2)} [{listed}]")
+    return problems
+
+
+# CD-FRM-08: beside every crop mod of the table of ADR-0020, a farming line names a block without an adapter only for a mod of
+# the default #cobblemon_dynamics:cultivator/never, whose crops the Cultivator never grows (CD-FIX-04).
+NEVER_GROWN = {"cultivator": ("mysticalagriculture",), "harvester": ()}
+
+
+def farming_line_problems(server: Server) -> list[str]:
+    """CD-FRM-08: one farming line for each role, and no block without an adapter outside the mods of NEVER_GROWN."""
+    problems = []
+    for role, never_grown in NEVER_GROWN.items():
+        pattern = farming_line(role)
+        if (problem := once(server, pattern)) is not None:
+            problems.append(problem)
+            continue
+        unadapted = re.search(pattern, server.find_log(pattern)).group(3)
+        stray = [block for block in unadapted.split(", ") if block and block.split(":", 1)[0] not in never_grown]
+        if stray:
+            problems.append(f"the {role} line names blocks with no adapter: {', '.join(stray)}")
+    return problems
+
+
+def scenario_mods(server: Server) -> None:
+    """CD-OPT-15: beside every mod of the table of ADR-0016 and the default config (CD-OPT-01), each compat line names every adapter
+    as found (CD-OPT-11), the roles line names every role file of the jar as active (CD-CMP-10), no role file is skipped (CD-OPT-04),
+    the mixins line names every mixin as applied, except Cobblebase's (CD-CMP-08), and each crop family has an adapter (CD-FRM-08)."""
+    server.wait_log(DONE, MODS_BOOT_TIMEOUT)
+    problems = []
+    if server.find_log(OUR_MOD_LOADING) is None:
+        problems.append(f"no {OUR_MOD_LOADING!r} line")
+    installed = installed_mods(server.folder)
+    problems += compat_line_problems(server, installed)
+    problems += farming_line_problems(server)
+    role_files, mixins = jar_roles_and_mixins(server.folder)
+    expected = (
+        (f"Roles: {role_files} loaded, {role_files} active, 0 disabled []", ROLES_LINE),
+        (NO_SKIPPED_ROLES_LINE, SKIPPED_ROLES_LINE),
+        (expected_mixins_line(mixins), MIXINS_LINE),
+    )
+    problems += [problem for line, actual in expected if (problem := exact_line_problem(server, line, actual)) is not None]
+    for pattern in (OUR_ERROR, MIXIN_FAILURE, UNKNOWN_LOOT_TABLE, TAG_LOAD_FAILED):
+        if (line := server.find_log(pattern)) is not None:
+            problems.append(line.strip())
+    if problems:
+        raise TestpackError("; ".join(problems))
+    say(f"CD-OPT-15: {len(installed)} mods loaded; {len([m for m in COMPAT_ADAPTERS if m in installed])} compat lines with every "
+        f"adapter found; {role_files} roles active; every mixin applied but Cobblebase's; every crop family with an adapter")
+
+
 def scenarios() -> dict[str, Callable[[Server], None]]:
     return {name.removeprefix("scenario_"): fn for name, fn in globals().items() if name.startswith("scenario_")}
 
 
-# A scenario named here also installs the pins of the mods.json section of its name, beside the pinned set.
-SCENARIO_SECTIONS = ("crops",)
+# A scenario named here also installs the pins of the mods.json section that it names, beside the pinned set. A pin of that
+# section whose key is a key of the pinned set replaces that pin.
+SCENARIO_SECTIONS = {"crops": "crops", "mods": "optional"}
+# The heap of a scenario whose server needs more than the default of start(). The machine's rule caps a test server at 4 GB.
+SCENARIO_HEAP = {"mods": "-Xmx4G"}
 
 
 def run_scenario(name: str) -> None:
-    folder = install(name, PINS[name] if name in SCENARIO_SECTIONS else None)
+    section = SCENARIO_SECTIONS.get(name)
+    folder = install(name, PINS[section] if section else None)
     with Server(folder) as server:
-        server.start()
+        server.start([SCENARIO_HEAP[name]] if name in SCENARIO_HEAP else None)
         scenarios()[name](server)
         code = server.stop()
     if code != 0:

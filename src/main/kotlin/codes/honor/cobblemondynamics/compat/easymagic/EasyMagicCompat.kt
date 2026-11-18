@@ -11,6 +11,9 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 /**
  * Easy Magic's table, `easymagic:enchanting_table`, counts its power in its own menu, so the Muse adds its bookshelves through the
  * hook in `mixin/compat/easymagic` (CD-FIX-05). The mod calls [register] only while Easy Magic is loaded.
+ *
+ * Easy Magic copies each tag of the vanilla table onto its own table when tags load, and stops the data load when its table already
+ * has a tag. So `#cobblemon_dynamics:muse_targets` names only the vanilla table, and the copy gives Easy Magic's table the tag.
  */
 object EasyMagicCompat {
     private const val MENU = "fuzs.easymagic.world.inventory.ModEnchantmentMenu"

@@ -24,10 +24,11 @@ enum class RowCell {
  */
 object IeWatermillRule {
     /**
-     * CD-BAL-14: IE's top for one wheel, the torque of an optimized overshot wheel, which no role file passes. About 29 by the FTB
-     * wiki for an older IE (RES10): the compat run of Task 23 measures it on 12.4.2-194.
+     * CD-BAL-14: IE's top for one wheel, the torque of an optimized overshot wheel, which no role file passes, in the units of
+     * `getIFScaledTorque()`. The compat run measured it on IE 12.4.2-194 with real water: a raw torque of 23.60, scaled 29.50, which a
+     * Kinetic Dynamo turns into 29 FE/t.
      */
-    const val OPTIMIZED_OVERSHOT_TORQUE = 29.0
+    const val OPTIMIZED_OVERSHOT_TORQUE = 29.5
 
     /** IE's `handleUpdate` sums a wheel beside the dynamo and the next 2 wheels away from it. */
     private const val ROW = 3
