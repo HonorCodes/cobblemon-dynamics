@@ -27,7 +27,7 @@ Run each command from the repository root, for example `py scripts/testpack/test
 | `restart` | Starts the same server and checks that `config/cobblemon_dynamics-server.toml` holds every key of the CD-CFG-01 list in `ConfigTest` (CD-CFG-01). It force-loads chunk 0, 0, places a Create water wheel and a hand crank, and sets the turn direction that they save (`cd_direction`) to -1 with `data merge block`. Then it stops and starts the server: both blocks must still read -1 (CD-WHL-07, CD-CRK-08), `cobblemondynamics claims` must report none (CD-CLM-07), and the new log must have no error of ours. Prints `RESTART PASS` or `RESTART FAIL: <reason>`. |
 | `deps` | Runs the dependency-range cases below, among them the roles line without Create (CD-CMP-10). Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `DEPS PASS` or `DEPS FAIL`. |
 | `compat` | Runs the compatibility cases below. Prints one `CASE <name>: PASS\|FAIL\|SKIPPED <detail>` line per case, then `COMPAT PASS` or `COMPAT FAIL`. |
-| `crops` | Starts a server with the pinned mods, the built jar, the crop mods of COHO 2.5.0 and their libraries. Checks the two farming lines of CD-CRP-05 (see [Crop mods case](#crop-mods-case)). Prints `CROPS PASS` or `CROPS FAIL: <reason>`. |
+| `crops` | Starts a server with the pinned mods, the built jar, the crop mods of COHO 2.5.0 and their libraries. Checks the two farming lines of CD-CRP-05, and that the Cultivator's line counts the saplings of `#minecraft:saplings` (CD-LUM-23, CD-CRP-01). See [Crop mods case](#crop-mods-case). Prints `CROPS PASS` or `CROPS FAIL: <reason>`. |
 | `mods` | Starts one server with the pinned mods, the built jar and every mod of the table of ADR-0016 that Modrinth or `TESTPACK_LOCAL_JARS` holds, with their libraries. Checks the compat lines, the roles lines and the mixins line (see [Mods case](#mods-case)). Prints `MODS PASS` or `MODS FAIL: <reason>`. |
 | `client` | Fills `run/testpack/client/mods/` with the pinned mods and the built jar, for a manual play-test in a clean NeoForge 21.1.265 launcher instance. |
 
@@ -73,7 +73,7 @@ Class names are under `codes.honor.cobblemondynamics.`. The three claim packages
 ## Crop mods case
 
 `crops` checks the farming load lines of CD-CRP-05 with real crop mods. The command was written for the
-1.1 gate and has not run yet.
+1.1 gate and first ran on 2026-11-17.
 
 The server gets the pinned set and the `crops` pins of `mods.json`: the crop mods of COHO 2.5.0 and the
 libraries that they need. Each pin is a jar of the frozen COHO cache of 2026-11-02. `resolve` leaves
@@ -86,7 +86,7 @@ these pins as written.
 | Miner's Delight 1.4.5 | Farmer's Delight, Lodestone 1.8.2 |
 | Supplementaries 4.0.2 | Moonlight 3.8.3 |
 | Oh The Biomes We've Gone 2.6.3 | Corgilib 5.0.0.10, Oh The Trees You'll Grow 5.3.6, TerraBlender 4.1.0.8, GeckoLib 4.9.3 |
-| The Aether 1.5.10 | None |
+| The Aether 1.5.10 | owo-lib 0.12.15.6-beta.1, which the Accessories 1.1.0-beta.48 that The Aether bundles requires |
 | Deep Aether 1.1.5.1 | The Aether |
 | The Undergarden 0.9.6 | None |
 | Ars Nouveau 5.13.5 | Curios 9.5.1, GeckoLib |
@@ -99,6 +99,10 @@ these pins as written.
 Modrinth does not serve four of these jars: The Aether, the two Pam's HarvestCraft 2 mods and
 TerraBlender. Their pins have `"source": "local"` and no URL.
 
+The `owo` pin is the NeoForge file of owo-lib 0.12.15.6-beta.1, Modrinth version `wbdHEItB`, which has the
+SHA-1 of the frozen cache's jar. Its license is MIT, in its Modrinth project and in its `neoforge.mods.toml`,
+read on 2026-11-17 before the pin entered `mods.json`.
+
 Set `TESTPACK_LOCAL_JARS` to a folder that holds these four jars, such as `E:/rch/jars/2026-11-02/`. Do
 not use the mods folder of a COHO instance. The script only reads that folder. It copies each jar into
 `run/testpack/cache/` and checks its SHA-512. After the first copy, the variable is not necessary. If the
@@ -107,11 +111,11 @@ variable is not set or a jar is not in the folder, the command fails with that r
 The case passes when each farming line names no block in its `no adapter` list, and the count of each
 adapter equals `crops_expected` in `mods.json`. It fails when a line is missing or appears twice. It also
 fails when the log says that a tag of the farming lines did not load: `minecraft:crops`,
-`cobblemon:berries`, `cobblemon:mints`, `cobblemon:apricorns` or a tag of ours. The case expects these
-lines:
+`minecraft:saplings`, `cobblemon:berries`, `cobblemon:mints`, `cobblemon:apricorns` or a tag of ours. The
+case expects these lines:
 
 ```text
-Farming: cultivator 283 blocks [growth 283], no adapter []
+Farming: cultivator 448 blocks [growth 448], no adapter []
 Farming: harvester 288 blocks [berry_tree 70, break_and_replant 7, cave_vines 2, cave_vines_tag 2, crop 121, gourd 5, never 10, pick_to_age_0 59, pick_to_age_1 10, upper_half 2], no adapter []
 ```
 
@@ -121,6 +125,11 @@ explicit entries of our tags. A blockstate file in its jar shows that each block
 the first adapter in the order of CD-CRP-03, with the class from the table of crop families in ADR-0015.
 `CROP_FAMILIES` in `testpack.py` gives the count and the two adapters of each family. The case fails when
 its sums differ from `crops_expected`.
+
+The Cultivator's tag also holds `#minecraft:saplings` (CD-LUM-23). In the case, that tag holds 165 blocks:
+Minecraft's 10 saplings, Cobblemon's 8 and 147 of 9 crop mods, from the saplings tag files of the jars. A
+sapling is a `BonemealableBlock`, so the growth adapter reads it. The last rows of `CROP_FAMILIES` count
+the saplings of each mod. The Harvester's tag holds no sapling.
 
 ## Mods case
 

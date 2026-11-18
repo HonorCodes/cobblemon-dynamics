@@ -749,14 +749,16 @@ def scenario_restart(server: Server) -> None:
 
 # CD-CRP-05: beside the crop mods of COHO 2.5.0 (the "crops" pins), a data load logs one line for each farming role:
 # "Farming: <role> <total> blocks [<adapter> <count>, ...], no adapter [<block id>, ...]".
-CROPS_BOOT_TIMEOUT = 600  # the crop mods and their libraries add 24 jars to the pinned set
+CROPS_BOOT_TIMEOUT = 600  # the crop mods and their libraries add 25 jars to the pinned set
 # Vanilla's TagLoader logs these when a tag file does not parse, or when a required entry of a tag is missing. The tags are
 # those that the farming lines read.
 TAG_LOAD_FAILED = (r"Couldn't (read tag list|load tag) "
-                   r"(minecraft:crops|cobblemon:(berries|mints|apricorns)|cobblemon_dynamics:\S+) ")
+                   r"(minecraft:(crops|saplings)|cobblemon:(berries|mints|apricorns)|cobblemon_dynamics:\S+) ")
 # The blocks of the two target tags in the crops case, by family, from the table "The crop families of COHO 2.5.0" of
 # ADR-0015 and the tag files of the pinned jars. Each row gives the blocks, their number, and the adapter of the Cultivator
 # and of the Harvester, or None when that role's target tag does not hold them. The rows sum to crops_expected in mods.json.
+# The Cultivator's tag also holds #minecraft:saplings (CD-LUM-23), whose rows close the table: Minecraft's 10 saplings and those
+# that the saplings tag files of the case's jars add, each a BonemealableBlock that the growth adapter reads.
 CROP_FAMILIES = (
     # Minecraft 1.21.1: its #minecraft:crops, then the explicit entries of our target tags
     ("minecraft: wheat, carrots, potatoes, beetroots", 4, "growth", "crop"),
@@ -814,6 +816,18 @@ CROP_FAMILIES = (
     # Pam's HarvestCraft 2 Crops and Trees 1.0.9
     ("pamhc2crops: the pam<crop>crop blocks of its #minecraft:crops", 97, "growth", "crop"),
     ("pamhc2trees: the 47 hanging fruits and 3 log fruits, pam<fruit>", 50, "growth", "pick_to_age_0"),
+    # #minecraft:saplings, the Cultivator's only (Task 3 of the 1.2 plan)
+    ("minecraft: the 6 wood saplings, cherry_sapling, mangrove_propagule, azalea, flowering_azalea", 10, "growth", None),
+    ("cobblemon: the 7 apricorn saplings, saccharine_sapling", 8, "growth", None),
+    ("aether: skyroot_sapling, golden_oak_sapling", 2, "growth", None),
+    ("deep_aether: the roseroot, blue roseroot, yagroot, cruderoot, conberry and sunroot saplings", 6, "growth", None),
+    ("expandeddelight: cinnamon_sapling", 1, "growth", None),
+    ("biomeswevegone: the <wood>_sapling blocks of its #minecraft:saplings", 44, "growth", None),
+    ("undergarden: smogstem_sapling, wigglewood_sapling, grongle_sapling", 3, "growth", None),
+    ("ars_nouveau: the blue, green, purple and red archwood saplings", 4, "growth", None),
+    ("occultism: otherworld_sapling, otherworld_sapling_natural", 2, "growth", None),
+    ("regions_unexplored: the 34 <wood>_sapling blocks and saguaro_cactus_flower of its #minecraft:saplings", 35, "growth", None),
+    ("pamhc2trees: the 50 <fruit>_sapling blocks", 50, "growth", None),
 )
 
 
@@ -839,7 +853,8 @@ def adapter_counts(listed: str) -> dict[str, int]:
 
 def scenario_crops(server: Server) -> None:
     """CD-CRP-05: beside the crop mods of COHO 2.5.0, each farming line names no block without an adapter, and each adapter
-    counts the blocks that crops_expected in mods.json gives it."""
+    counts the blocks that crops_expected in mods.json gives it. The Cultivator's growth count holds the saplings of
+    #minecraft:saplings (CD-LUM-23, CD-CRP-01)."""
     expected = PINS["crops_expected"]
     if (families := crop_family_counts()) != expected:
         raise TestpackError(f"CROP_FAMILIES of testpack.py sums to {families}, but mods.json expects {expected}")

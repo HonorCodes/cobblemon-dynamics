@@ -368,11 +368,19 @@
       "filename": "lithostitched-1.8.1-neoforge-21.1.jar",
       "url": "https://cdn.modrinth.com/data/XaDC71GB/versions/cZu4cHY3/lithostitched-1.8.1-neoforge-21.1.jar",
       "sha512": "6c02b8b269269d5aa84cb03bf824a1b5d52838e806c2fec8727eb4049925592dac9bb65c996858751fbb722f22ac59c4be09860e1f01e8f7b97c95be3faf7a57"
+    },
+    "owo": {
+      "project": "owo-lib",
+      "version": "0.12.15.6-beta.1",
+      "version_number": "0.12.15.6-beta.1+1.21",
+      "filename": "owo-lib-neoforge-0.12.15.6-beta.1+1.21.jar",
+      "url": "https://cdn.modrinth.com/data/ccKDOlHs/versions/wbdHEItB/owo-lib-neoforge-0.12.15.6-beta.1%2B1.21.jar",
+      "sha512": "fc843ef350c4af6748d9fd6ecd3c28f96262cf46d46a8329029f49ea4f9eb87238113a8a415e8bba2c4f346c718bf450194f6f5823dfbf1ae7312529a81c3e5c"
     }
   },
   "crops_expected": {
     "cultivator": {
-      "growth": 283
+      "growth": 448
     },
     "harvester": {
       "berry_tree": 70,
