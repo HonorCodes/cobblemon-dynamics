@@ -11,25 +11,25 @@ SHA-256. The release workflow runs it for every public tag (CD-ART-12).
 | Asset | Source | SHA-256 | Verdict | Date | Note |
 | --- | --- | --- | --- | --- | --- |
 | models/block/charge_cell | `art/models/block/charge_cell.json` | `0cf5c2f9bf8f19d44511326af8aa044f44f51fd8f6f4e870d3da6e58d1f2ef1c` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
-| models/block/experience_collector | `art/models/block/experience_collector.json` | `e240f495903697313e1ae5db2198fc0e4504b1d177d9f18c25b88350eebfefdc` | pending |  |  |
+| models/block/experience_collector | `art/models/block/experience_collector.json` | `e240f495903697313e1ae5db2198fc0e4504b1d177d9f18c25b88350eebfefdc` | approved | 2026-11-17 | The approver: "approved". |
 | models/block/hay_bed | `art/models/block/hay_bed.json` | `c92e7e1623ecb89889ebe853eccd097ef5a5c320044f32b9c0cef3d28292cca7` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/block/plush_bed | `art/models/block/plush_bed.json` | `6f347adc712a41bdb0bf0d5adf2173600ced775a7b5fbe135c1e32a286def3d3` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/block/starlit_bed | `art/models/block/starlit_bed.json` | `ff3e5f2d9477e7e3c9d9c7576c1606198aaa99380b8516a448d061a20187858b` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/block/template_bed | `art/models/block/template_bed.json` | `12025460cd818f2d48a627bef5941d95f09960da074a35c8de62f2bf5496d0d8` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/block/wool_bed | `art/models/block/wool_bed.json` | `2c50ee61e269db763862f899588407e720923ddc70a8c3accd94b5e882e1a1b3` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/item/charge_cell | `art/models/item/charge_cell.json` | `fd19145273d585195b415aca9b8d6cebc372f8fd13f1aff7df1c48919c3dcb07` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
-| models/item/experience_collector | `art/models/item/experience_collector.json` | `b842dfb74991e71ad8110359127e47ed69d5ebc4a844035a2a39416227bb83db` | pending |  |  |
+| models/item/experience_collector | `art/models/item/experience_collector.json` | `b842dfb74991e71ad8110359127e47ed69d5ebc4a844035a2a39416227bb83db` | approved | 2026-11-17 | The approver: "approved". |
 | models/item/hay_bed | `art/models/item/hay_bed.json` | `a6a8137189f190b83c9c9e12d01924bc4e482793816e2b3e5d83a479533b2fe3` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/item/plush_bed | `art/models/item/plush_bed.json` | `aec5771fc8d2072c975debd127585cc9f39a15ae89e3e83cbfd7869965424aea` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/item/starlit_bed | `art/models/item/starlit_bed.json` | `06e0affd2ae27a2edc133e38bb3e823fb6905b6c0f1c410f4c5b57416042b6ea` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/item/wool_bed | `art/models/item/wool_bed.json` | `ed527bbd630fd466ac4877dcc3f9bfc032edbd664d161b8024a345892c51e0e2` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | models/item/work_leash | `art/models/item/work_leash.json` | `e6cee18aba44ec6ad03bdcc3f71f4a6aa8f0a8afb00444662630796f9ad02882` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/block/charge_cell | `art/textures/block/charge_cell.pixels` | `fb7fa463a06a7c9c266c8c5845e2a2bb15fbce606bfd4fef6c38f68ed38cfcba` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
-| textures/block/experience_collector_back | `art/textures/block/experience_collector_back.pixels` | `5a1cd84e84d960acdfefa4f362efcd475fe71692a1af7f569d7e9ce1c62e0c17` | pending |  |  |
-| textures/block/experience_collector_bottom | `art/textures/block/experience_collector_bottom.pixels` | `ef585f3ae8346811a08ec55a9f1e017002b4280d9cf22a142080428c813dcf03` | pending |  |  |
-| textures/block/experience_collector_front | `art/textures/block/experience_collector_front.pixels` | `f617f812af7fd2953a9c3234a0837933d9d923eee67fa559cbffa4854e5ee19d` | pending |  |  |
-| textures/block/experience_collector_side | `art/textures/block/experience_collector_side.pixels` | `2d857647aa56b0b0e4a507f963ef0ca3ecf625fcb169b390dc848460f9529943` | pending |  |  |
-| textures/block/experience_collector_top | `art/textures/block/experience_collector_top.pixels` | `3114bd7670b4c90c153c3923653d2d75026852b028b498d2df912ddd7c7898d2` | pending |  |  |
+| textures/block/experience_collector_back | `art/textures/block/experience_collector_back.pixels` | `5a1cd84e84d960acdfefa4f362efcd475fe71692a1af7f569d7e9ce1c62e0c17` | approved | 2026-11-17 | The approver: "approved". |
+| textures/block/experience_collector_bottom | `art/textures/block/experience_collector_bottom.pixels` | `ef585f3ae8346811a08ec55a9f1e017002b4280d9cf22a142080428c813dcf03` | approved | 2026-11-17 | The approver: "approved". |
+| textures/block/experience_collector_front | `art/textures/block/experience_collector_front.pixels` | `f617f812af7fd2953a9c3234a0837933d9d923eee67fa559cbffa4854e5ee19d` | approved | 2026-11-17 | The approver: "approved". |
+| textures/block/experience_collector_side | `art/textures/block/experience_collector_side.pixels` | `2d857647aa56b0b0e4a507f963ef0ca3ecf625fcb169b390dc848460f9529943` | approved | 2026-11-17 | The approver: "approved". |
+| textures/block/experience_collector_top | `art/textures/block/experience_collector_top.pixels` | `3114bd7670b4c90c153c3923653d2d75026852b028b498d2df912ddd7c7898d2` | approved | 2026-11-17 | The approver: "approved". |
 | textures/block/hay_bed_side | `art/textures/block/hay_bed_side.pixels` | `4b90893b01cad3fca4c14b0916a8f849f030a2cd0bc437a08bde56d9c2984146` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/block/hay_bed_top | `art/textures/block/hay_bed_top.pixels` | `8cba0614b227ddd3e83e3b52e8105459fc7bdfb83e5d684815bd4047552c8aac` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/block/plush_bed_side | `art/textures/block/plush_bed_side.pixels` | `40078539c10ba82affa51b69d5899eac86da9c3e6931cebdbdc0bca3d0140770` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
@@ -38,7 +38,7 @@ SHA-256. The release workflow runs it for every public tag (CD-ART-12).
 | textures/block/starlit_bed_top | `art/textures/block/starlit_bed_top.pixels` | `3e0cd93986e6fd2eaa5b2d1058b34baf1938fbb21d1d4365616a8ddee66c164c` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/block/wool_bed_side | `art/textures/block/wool_bed_side.pixels` | `5ef0b30959f87269234640e609d203cf684593cb3e411a7f6c570adf32b6d979` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/block/wool_bed_top | `art/textures/block/wool_bed_top.pixels` | `343ef73b00fc8425dccae229b61057306445cbcbab40d100b6b8ead986f69967` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
-| textures/gui/experience_collector | `art/textures/gui/experience_collector.pixels` | `7dbd5cb37b1ea2e877cf3f8a9ef805f43237c4d6b7cef65aec6477c82540ebbf` | pending |  |  |
+| textures/gui/experience_collector | `art/textures/gui/experience_collector.pixels` | `7dbd5cb37b1ea2e877cf3f8a9ef805f43237c4d6b7cef65aec6477c82540ebbf` | approved | 2026-11-17 | The approver: "approved". |
 | textures/gui/sprites/work_mode/disabled | `art/textures/gui/sprites/work_mode/disabled.pixels` | `4e4b21cef35ebf1c6091d7db5abdee631d0c4627f20c6a2a25bd114d43a09c2f` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/gui/sprites/work_mode/disabled.mcmeta | `art/textures/gui/sprites/work_mode/disabled.pixels.mcmeta` | `d143fef018955c0412cfcdee4ff6666a90c9f7192263c781e0368d858edf3f19` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
 | textures/gui/sprites/work_mode/hover | `art/textures/gui/sprites/work_mode/hover.pixels` | `ee695638c95f309c393562c293267d1a8f20c15dcbc90168bc5a7be5ab9e470e` | approved | 2026-11-11 | The approver: "all approved on the spritesheet". |
