@@ -182,6 +182,7 @@ class FtbChunksClaimTests {
     /** A's, B's or C's send-out at furnace A in the default mode starts an order within 100 ticks (CD-QWK-27). */
     private fun getsAnOrder(helper: GameTestHelper, pick: (Scene) -> TestKit.PlainOwner) {
         val owner = pick(scene(helper)).player
+        helper.assertTrue(owner.javaClass == ServerPlayer::class.java, "CD-QWK-31: the owner is a ${owner.javaClass.simpleName}")
         val charmander = TestKit.partyPokemon(owner, "charmander level=10")
         ClaimScenes.sendOutAt(helper, owner, charmander)
         val start = helper.tick
