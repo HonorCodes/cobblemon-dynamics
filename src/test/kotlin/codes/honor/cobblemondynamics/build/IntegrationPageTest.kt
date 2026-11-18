@@ -40,4 +40,44 @@ class IntegrationPageTest {
         val missing = (names + versions).filterNot { it in text }
         assertTrue(missing.isEmpty(), "the section Farming roles lacks $missing")
     }
+
+    @Test
+    fun `CD-OPT-17 the section Mods that the roles support names each mod and version of ADR-0016, and each tag and data map of 1-2`() {
+        val root = File(System.getProperty("cd.projectDir"))
+        val data = File(root, "src/main/resources/data/cobblemon_dynamics")
+        val absent = TAGS_OF_1_2.filterNot { File(data, "tags/block/$it.json").isFile } +
+            DATA_MAPS_OF_1_2.filterNot { File(data, "data_maps/block/$it.json").isFile }
+        assertTrue(absent.isEmpty(), "CD-OPT-17: the mod has no tag or data map $absent")
+        val text = section("Mods that the roles support")
+        val names = SupportedMods.read(root).flatMap { listOf(it.name, it.version) } +
+            TAGS_OF_1_2.map { "#cobblemon_dynamics:$it" } +
+            DATA_MAPS_OF_1_2.map { "cobblemon_dynamics:$it" }
+        val missing = names.filterNot { it in text }
+        assertTrue(missing.isEmpty(), "CD-OPT-17: the section Mods that the roles support lacks $missing")
+    }
+
+    private companion object {
+        /** The block tags that 1.2 adds, which the table "Tags and the data map of 1.2" of the section lists. */
+        val TAGS_OF_1_2 = listOf(
+            "lumberjack_targets",
+            "lumberjack/never",
+            "lumberjack/never_saplings",
+            "lumberjack/needs_four",
+            "needs_adjacent_water",
+            "stoker/never",
+            "cultivator/never",
+            "superheater/heat_users",
+            "heater_targets",
+            "crystal_tender_targets",
+            "crystal/self_growing",
+            "crystal/scheduled_tick",
+            "crystal/buds",
+            "muse_targets",
+            "logistics/no_fallback",
+            "harvest/cave_vines",
+        )
+
+        /** The block data map that 1.2 adds. */
+        val DATA_MAPS_OF_1_2 = listOf("harvest_loot")
+    }
 }

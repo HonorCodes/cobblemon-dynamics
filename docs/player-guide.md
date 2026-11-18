@@ -1404,7 +1404,7 @@ NeoForge's capabilities.
 | Ars Nouveau | [Stoker](#stoker): the Volcanic Sourcelink. [Cultivator](#cultivator) and [Harvester](#harvester): the pods. |
 | Create Crafts & Additions | [Superheater](#superheater): the Liquid Blaze Burner. |
 | Create: Connected | [Cranker](#cranker): the crank wheels. [Superheater](#superheater): the Fluid Vessel above a burner. |
-| AE2 and ExtendedAE | [Cranker](#cranker): the AE2 crank. [Crystal Tender](#crystal-tender): budding certus quartz and the entro budding blocks. |
+| Applied Energistics 2 (AE2) and ExtendedAE | [Cranker](#cranker): the AE2 crank. [Crystal Tender](#crystal-tender): budding certus quartz and the entro budding blocks. |
 | Botany Pots | [Cultivator](#cultivator) and [Harvester](#harvester): the pots. |
 | Iron's Spells 'n Spellbooks | [Brewer](#brewer): the Alchemist Cauldron. |
 | Easy Magic, Enchanting Infuser, Apothic Enchanting | [Muse](#muse): their tables and infusers, and Quanta with Apothic Enchanting. |
@@ -1418,6 +1418,9 @@ NeoForge's capabilities.
 | Mystical Agriculture | [Harvester](#harvester): its crops. The Cultivator leaves them, because bone meal never grows them. |
 | Cobblemon: Mega Showdown, Ars Elemental, Oh The Biomes We've Gone, Allthemodium, Deep Aether, Deeper and Darker, YUNG's Cave Biomes, the Undergarden and Actually Additions | [Cultivator](#cultivator) and [Harvester](#harvester): their crops, as the integration page lists them. |
 | CobbleFurnies, Handcrafted and Valhelsia Furniture | [Telekinesis](#telekinesis) and [Magnet](#magnet): their furniture containers. |
+| Sophisticated Core | [Experience Collector](#experience-collector): its XP fluid on the outputs, while Create: Enchantment Industry is absent. |
+| Better Archeology | [Lumberjack](#lumberjack): never a tree that holds its rotten log. |
+| Just Dire Things | [Experience Collector](#experience-collector): its XP machines take the XP fluid of the outputs. |
 
 ### Known limits
 
