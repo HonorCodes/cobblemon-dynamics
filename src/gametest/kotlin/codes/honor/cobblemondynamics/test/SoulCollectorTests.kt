@@ -29,6 +29,35 @@ class SoulCollectorTests {
     }
 
     /**
+     * CD-SOU-04: orbs at horizontal offsets 7 and 9 from the pasture block, along the x axis. A bound Lv100 Gastly takes the orb at 7,
+     * inside the work area, into the collector. The orb at 9, outside the work area, stays on the ground for 200 ticks after that.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 1_200)
+    fun cdSou04OnlyTheOrbsOfTheWorkArea(helper: GameTestHelper) {
+        val collectorRel = BlockPos(11, 2, 8)
+        helper.setBlock(collectorRel, DynamicsBlocks.EXPERIENCE_COLLECTOR.get())
+        val collector = helper.getBlockEntity<ExperienceCollectorBlockEntity>(collectorRel)
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 11), owner)
+        TestKit.workMode(pasture, true)
+        TestKit.standBeside(owner, pasture)
+        val gastly = TestKit.tether(helper, pasture, owner, "gastly level=100")
+        helper.assertTrue(TestKit.bind(helper, owner, gastly, collectorRel) != null, "CD-SOU-02: the bind to a collector was refused")
+        val inside = orb(helper, BlockPos(18, 2, 11), 7)
+        val outside = orb(helper, BlockPos(20, 2, 11), 7)
+        helper.startSequence()
+            .thenWaitUntil {
+                helper.assertTrue(!inside.isAlive, "CD-SOU-04: the orb at offset 7 is still on the ground")
+                helper.assertTrue(collector.store.stored == 7, "CD-SOU-04: the collector holds ${collector.store.stored} XP")
+            }
+            .thenExecuteFor(200) {
+                helper.assertTrue(outside.isAlive && outside.value == 7, "CD-SOU-04: the orb at offset 9 was taken")
+                helper.assertTrue(collector.store.stored == 7, "CD-SOU-04: the collector holds ${collector.store.stored} XP")
+            }
+            .thenSucceed()
+    }
+
+    /**
      * CD-SOU-08, CD-SOU-11: a bound Lv100 Gastly at an empty collector waits in Standby while no orb lies in the work area. Then 10 orbs
      * of 7 XP drop beside the pasture: the Gastly Works within 40 ticks, and the collector holds all 70 XP within 400 ticks, never more.
      */
