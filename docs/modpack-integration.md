@@ -380,6 +380,11 @@ These targets need no code of 1.2, because a role reaches them through a capabil
 - **The Stoker:** the Oven of Handcrafted, the Cinder Furnace of the Twilight Forest and the Altar of the Aether.
 - **The Experience Collector's outputs:** the XP machines of Ender IO, Industrial Foregoing, Cyclic and Just Dire Things.
 
+### Known limits
+
+- **Easy Magic's `maxEnchantingPower`.** The hook on Easy Magic's table caps the power with a Muse at 15, the default of
+  that server setting, so on a server that raises the setting a Muse gives less than its full share.
+
 ## Other mods
 
 - **Cobbleworkers.** At each poll of a Work Mode pasture, the mod sets `cobbleworkers.resting` in the `persistentData` of
