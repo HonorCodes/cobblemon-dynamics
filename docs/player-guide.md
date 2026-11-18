@@ -712,7 +712,7 @@ Kinetic Dynamo takes the wheel's power: beside the wheel on its axle, or past at
 which Immersive Engineering adds together. To reverse the wheel, flip it with the Work Leash as a Create wheel.
 The wheel keeps its direction through restarts.
 
-**Role file parameter:** `virtual_torque` (29), at most the torque of an optimized overshot wheel.
+**Role file parameter:** `virtual_torque` (29.5), at most the torque of an optimized overshot wheel.
 
 ### Cranker
 
