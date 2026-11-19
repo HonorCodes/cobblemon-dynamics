@@ -33,7 +33,7 @@ class LumberjackTagFilesTest {
     }
 
     @Test
-    fun `CD-LUM-08 the never tag holds each default, and each entry of another mod is optional`() {
+    fun `CD-LUM-08 CD-PCK-10 the never tag holds each default, and each entry of another mod is optional`() {
         val never = entries("lumberjack/never")
         assertEquals(NEVER.toSet(), never.map { it.id }.toSet())
         assertEquals(never.size, never.map { it.id }.toSet().size, "an entry is listed twice")

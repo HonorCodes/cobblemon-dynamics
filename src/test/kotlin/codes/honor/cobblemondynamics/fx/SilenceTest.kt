@@ -70,6 +70,18 @@ class SilenceTest {
         }
     }
 
+    /** ADR-0015, the 1.2.1 amendment: a pick sets the fruit's state and drops its loot itself, as a harvest does. */
+    @Test
+    fun `CD-PCK-11 CD-FX-09 a pick makes no sound, posts no break event and uses no fake player`() {
+        val dir = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/handler/farming")
+        for (name in listOf("PickerHandler.kt", "PickerRules.kt")) {
+            val file = File(dir, name)
+            assertTrue(file.isFile, "CD-PCK-11: no ${file.path}")
+            val text = file.readText()
+            for (call in SOUND_CALLS + "BreakEvent" + "FakePlayer") assertFalse(call in text, "CD-PCK-11: $name names $call")
+        }
+    }
+
     private companion object {
         val CRY = Regex("\"cry\"", RegexOption.IGNORE_CASE)
 

@@ -114,7 +114,7 @@ class CropAdapterChoiceTest {
     }
 
     @Test
-    fun `CD-HRV-03 an apricorn gets no harvest adapter, also in a pick tag`() {
+    fun `CD-HRV-03 CD-PCK-10 an apricorn gets no harvest adapter, also in a pick tag`() {
         val apricorn = CropFacts(apricorn = true, bonemealable = true, age = 3, ageMax = 3, adapterTags = setOf(HarvestKind.PICK_TO_AGE_1))
         assertNull(CropAdapters.harvestKind(apricorn))
     }
