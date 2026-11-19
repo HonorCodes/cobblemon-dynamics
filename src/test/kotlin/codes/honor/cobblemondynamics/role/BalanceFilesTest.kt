@@ -11,6 +11,8 @@ import codes.honor.cobblemondynamics.compat.pneumaticcraft.PncHeaterParams
 import codes.honor.cobblemondynamics.handler.capability.GeneratorParams
 import codes.honor.cobblemondynamics.handler.cobblemon.HealingCharge
 import codes.honor.cobblemondynamics.handler.cobblemon.HealingParams
+import codes.honor.cobblemondynamics.handler.farming.AreaParams
+import codes.honor.cobblemondynamics.handler.farming.CropArea
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.GrowthPace
 import codes.honor.cobblemondynamics.handler.farming.HarvestClock
@@ -83,6 +85,17 @@ class BalanceFilesTest {
             assertTrue(top <= 30, "${role.id} applies $top growth uses per minute")
         }
         assertEquals(30, CultivatorParams.of(BuiltInRoles.parse("cultivator").params).usesPerMinuteAt100)
+        assertAreaAtMost11("cobblemon_dynamics:cultivator", "cultivator")
+    }
+
+    /** CD-BAL-08, CD-BAL-09: a use or a harvest works its crop and at most 10 more, at every level (CD-CRP-25). */
+    private fun assertAreaAtMost11(handler: String, file: String) {
+        for (role in withHandler(handler)) {
+            val params = AreaParams.of(role.params)
+            val top = (1..200).maxOf { level -> 1 + CropArea.count(level, params) }
+            assertTrue(top <= 11, "${role.id} works $top crops in one use")
+        }
+        assertEquals(AreaParams(10, 10), AreaParams.of(BuiltInRoles.parse(file).params))
     }
 
     /** One harvest per claim, `harvest_ticks` after the work starts (BM4). */
@@ -95,6 +108,7 @@ class BalanceFilesTest {
             assertTrue(ticks >= 20, "${role.id} harvests $ticks ticks after its work starts")
         }
         assertEquals(20, HarvestClock.ticksOf(BuiltInRoles.parse("harvester").params))
+        assertAreaAtMost11("cobblemon_dynamics:harvester", "harvester")
     }
 
     /** A player with an iron axe breaks a log in 10 ticks, and Oritech's Treefeller fells 20 logs per second (BM6). */

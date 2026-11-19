@@ -1156,6 +1156,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             stalled = { ticks -> stalls[key(target)] = t.now + ticks },
             stalledAt = { pos, ticks -> stalls[key(pos)] = t.now + ticks },
             isStalled = { pos -> slot.worker.isStalled(key(pos), t.now) },
+            area = siteOf(slot)?.area(t.settings),
+            laneFree = { pos -> claims.isFree(key(pos), slot.worker.pokemonId) },
         )
     }
 

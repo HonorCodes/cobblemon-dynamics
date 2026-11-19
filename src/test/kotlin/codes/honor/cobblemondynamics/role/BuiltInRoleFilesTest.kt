@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.engine.WorkSpots
 import codes.honor.cobblemondynamics.handler.create.HeatGate
 import codes.honor.cobblemondynamics.handler.create.TailwindMath
 import codes.honor.cobblemondynamics.handler.create.TailwindParams
+import codes.honor.cobblemondynamics.handler.farming.AreaParams
 import codes.honor.cobblemondynamics.handler.farming.CultivatorParams
 import codes.honor.cobblemondynamics.handler.farming.HarvestClock
 import codes.honor.cobblemondynamics.handler.item.TransferParams
@@ -467,6 +468,16 @@ class BuiltInRoleFilesTest {
     }
 
     @Test
+    fun `CD-CRP-25 the Cultivator's and the Harvester's files hold 10 levels per extra crop and 10 extra crops`() {
+        for (name in listOf("cultivator", "harvester")) {
+            val params = BuiltInRoles.parse(name).params
+            assertEquals(10, params.get("levels_per_extra_crop")?.asInt, name)
+            assertEquals(10, params.get("max_extra_crops")?.asInt, name)
+            assertEquals(AreaParams(10, 10), AreaParams.of(params), name)
+        }
+    }
+
+    @Test
     fun `CD-HRV-01 the Harvester plays Razor Leaf`() {
         val effect = BuiltInRoles.parse("harvester").effect
         assertEquals(listOf("razorleaf", "physical", "special"), effect.animations)
@@ -747,7 +758,12 @@ class BuiltInRoleFilesTest {
             val own = BuiltInRoles.parse(base)
             assertEquals(own.types, role.types, name)
             assertTrue(role.autoAssign, name)
-            assertEquals(own.params, role.params, name)
+            // CD-CRP-25: a pot is one block, so the pot roles have no area keys and keep one pot per use.
+            val ownParams = own.params.deepCopy().apply {
+                remove("levels_per_extra_crop")
+                remove("max_extra_crops")
+            }
+            assertEquals(ownParams, role.params, name)
             assertEquals(listOf("botanypots"), RoleConditions.mods(JsonParser.parseString(file.readText())), name)
             assertEffectOf(name, base)
         }

@@ -95,16 +95,22 @@ object HarvestApply {
         )
         val cells = mapOf(HarvestCell.CROP to crop, HarvestCell.UPPER to upper, HarvestCell.FRUIT to fruit)
         if (!changed.all(mayChange) || !plan.broken().mapNotNull(cells::get).all(mayBreak)) return false
-        if (plan.upper == CellChange.Clear) {
-            // ADR-0015 decision 4: the crop adapter clears the upper half with no shape update, so that the lower half does not break
-            // itself with its own drops before its replant. The upper half adapter leaves the lower half to its own rule, which a
-            // shape update runs: hearty grains set themselves to age 3.
-            val flags = if (kind == HarvestKind.UPPER_HALF) Block.UPDATE_ALL else Block.UPDATE_CLIENTS or Block.UPDATE_KNOWN_SHAPE
-            clear(level, upper, flags)
+        // The crop's next state comes before any change, so a block of another mod that throws there leaves every cell as it is.
+        // Once the cells change, the items drop even when a later change throws, so no crop is reset with its harvest lost.
+        val next = nextState(state, plan.crop)
+        try {
+            if (plan.upper == CellChange.Clear) {
+                // ADR-0015 decision 4: the crop adapter clears the upper half with no shape update, so that the lower half does not
+                // break itself with its own drops before its replant. The upper half adapter leaves the lower half to its own rule,
+                // which a shape update runs: hearty grains set themselves to age 3.
+                val flags = if (kind == HarvestKind.UPPER_HALF) Block.UPDATE_ALL else Block.UPDATE_CLIENTS or Block.UPDATE_KNOWN_SHAPE
+                clear(level, upper, flags)
+            }
+            changeCrop(level, crop, state, plan.crop, next)
+            if (fruit != null && plan.fruit == CellChange.Clear) clear(level, fruit, Block.UPDATE_ALL)
+        } finally {
+            drop(level, crop, face, stacks, plan.seed)
         }
-        changeCrop(level, crop, state, plan.crop)
-        if (fruit != null && plan.fruit == CellChange.Clear) clear(level, fruit, Block.UPDATE_ALL)
-        drop(level, crop, face, stacks, plan.seed)
         return true
     }
 
@@ -199,20 +205,28 @@ object HarvestApply {
         return true
     }
 
-    private fun changeCrop(level: ServerLevel, crop: BlockPos, state: BlockState, change: CellChange) {
+    /** The state that [change] sets in the crop's cell, or null for a cell that keeps its block or goes to its fluid. */
+    private fun nextState(state: BlockState, change: CellChange): BlockState? = when (change) {
+        CellChange.Keep, CellChange.Clear -> null
+        is CellChange.SetAge -> withAge(state, change.age)
+        CellChange.ClearBerries -> state.trySetValue(BlockStateProperties.BERRIES, false)
+        CellChange.Replant -> replantState(state.block, state)
+        is CellChange.ReplantAs -> replantState(BuiltInRegistries.BLOCK.get(change.block), state)
+    }
+
+    /** Sets the crop's cell to [next], the [nextState] of [change]. */
+    private fun changeCrop(level: ServerLevel, crop: BlockPos, state: BlockState, change: CellChange, next: BlockState?) {
         when (change) {
             CellChange.Keep -> {}
             CellChange.Clear -> clear(level, crop, Block.UPDATE_ALL)
-            is CellChange.SetAge -> level.setBlock(crop, withAge(state, change.age), Block.UPDATE_ALL)
-            CellChange.ClearBerries -> level.setBlock(crop, state.trySetValue(BlockStateProperties.BERRIES, false), Block.UPDATE_ALL)
-            CellChange.Replant -> broken(level, crop, state) { replantState(state.block, state) }
-            is CellChange.ReplantAs -> broken(level, crop, state) { replantState(BuiltInRegistries.BLOCK.get(change.block), state) }
+            is CellChange.SetAge, CellChange.ClearBerries -> next?.let { level.setBlock(crop, it, Block.UPDATE_ALL) }
+            CellChange.Replant, is CellChange.ReplantAs -> next?.let { broken(level, crop, state, it) }
         }
     }
 
     /** A broken cell takes [next], and the old state runs its break effects with no tool, as `Block.dropResources` runs them. */
-    private fun broken(level: ServerLevel, pos: BlockPos, old: BlockState, next: () -> BlockState) {
-        level.setBlock(pos, next(), Block.UPDATE_ALL)
+    private fun broken(level: ServerLevel, pos: BlockPos, old: BlockState, next: BlockState) {
+        level.setBlock(pos, next, Block.UPDATE_ALL)
         old.spawnAfterBreak(level, pos, ItemStack.EMPTY, true)
     }
 
