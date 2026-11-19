@@ -12,7 +12,7 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
-/** The Brew Stoker's target: a brewing stand, which the worker fuels as blaze powder does while it can brew (CD-BRF-01). */
+/** The Brew Stoker's target: a brewing stand, whose next brew the worker lights as blaze powder would (CD-BRF-01). */
 object BrewingFuelHandler : TargetHandler {
     private const val BOTTLE_SLOTS = 3
     private const val INGREDIENT_SLOT = 3
@@ -25,8 +25,9 @@ object BrewingFuelHandler : TargetHandler {
 
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = level.getBlockEntity(canonical) is BrewingStandBlockEntity
 
-    /** CD-BRF-04: only while the ingredient can brew one of the bottles. */
-    override fun hasDemand(ctx: WorkContext): Boolean = standAt(ctx)?.let { canBrew(ctx.level, it) } ?: false
+    /** CD-BRF-04: only while a brew waits for fuel to start. */
+    override fun hasDemand(ctx: WorkContext): Boolean =
+        standAt(ctx)?.let { BrewingRules.stokerDemand(canBrew(ctx.level, it), it.brewTime, it.fuel) } ?: false
 
     /** The memo holds the stand's fuel when this stretch of work starts, which the stop lowers the fuel back to (CD-BRF-05). */
     override fun onStart(ctx: WorkContext) {

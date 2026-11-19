@@ -11,6 +11,13 @@ object BrewingRules {
      */
     fun fuelWhileWorking(fuel: Int, canBrew: Boolean): Int = if (canBrew && fuel < 1) 1 else fuel
 
+    /**
+     * CD-BRF-04, decision 20 of the 1.2.1 plan: a brew waits to start, which only fuel does: the stand can brew, no brew runs, and its
+     * fuel is below 1. A running brew needs no fuel, so the Brew Stoker waits in Standby through it, and a Poison/Fire worker speeds it
+     * as the Brewer (CD-ASG-21).
+     */
+    fun stokerDemand(canBrew: Boolean, brewTime: Int, fuel: Int): Boolean = canBrew && brewTime == 0 && fuel < 1
+
     /** CD-BRF-05: a Brew Stoker that stops leaves the stand no more fuel than it held when the work started. */
     fun fuelAfterStop(fuel: Int, atStart: Int): Int = minOf(fuel, atStart)
 

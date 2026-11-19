@@ -2,14 +2,20 @@ package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.item.alchemy.PotionContents
+import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.CropBlock
+import net.minecraft.world.level.block.entity.BrewingStandBlockEntity
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import kotlin.math.abs
@@ -102,6 +108,55 @@ class DualTypeTests {
             // The sapling's own cycle: grown by the Cultivator, then felled by the Lumberjack, with the binding held on the grown oak.
             val saplingDone = sapling.felled >= 1
             if (treeDone && saplingDone) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-ASG-16, CD-ASG-21, CD-BRF-04, decision 20 of the 1.2.1 plan: an unbound level 30 Salandit, Poison/Fire, at a real brewing stand
+     * with fuel 0, three water bottles and two sticks of the test mod's recipe. It lights the first brew as the Brew Stoker, switches to
+     * the Brewer while that brew runs and speeds it, then lights the second brew as the Brew Stoker.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_600)
+    fun cdAsg21SalanditLightsAndSpeedsTheBrew(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), owner)
+        TestKit.workMode(pasture, true)
+        val standRel = BlockPos(7, 1, 3)
+        helper.setBlock(standRel, Blocks.BREWING_STAND)
+        val stand = helper.getBlockEntity<BrewingStandBlockEntity>(standRel)
+        repeat(3) { stand.setItem(it, PotionContents.createItemStack(Items.POTION, Potions.WATER)) }
+        stand.setItem(3, ItemStack(Items.STICK, 2))
+        stand.fuel = 0
+        val salandit = TestKit.tether(helper, pasture, owner, "salandit level=30")
+        var step = "light"
+        var startedAt = -1L
+        var doneAt = -1L
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, salandit) ?: return@onEachTick
+            val role = TestKit.engine(helper).roleOf(salandit.pokemon.uuid)?.definition?.id?.path
+            val working = worker.status == WorkerStatus.WORKING
+            if (working && role == "brew_stoker") {
+                helper.assertTrue(stand.brewTime == 0, "CD-BRF-04: the Brew Stoker Works during a brew, brew time ${stand.brewTime}")
+            }
+            when (step) {
+                "light" -> if (working) {
+                    helper.assertTrue(role == "brew_stoker", "CD-ASG-16: the Salandit lights the stand as $role")
+                    step = "speed"
+                }
+
+                "speed" -> {
+                    if (startedAt < 0 && stand.brewTime > 0) startedAt = helper.tick
+                    if (working && role == "brewer") step = "brew"
+                }
+
+                "brew" -> {
+                    if (doneAt < 0 && stand.brewTime == 0) {
+                        doneAt = helper.tick
+                        helper.assertTrue(doneAt - startedAt < 380, "CD-BRW-02: the worked brew took ${doneAt - startedAt} ticks")
+                    }
+                    if (doneAt >= 0 && working && role == "brew_stoker") helper.succeed()
+                }
+            }
         }
     }
 

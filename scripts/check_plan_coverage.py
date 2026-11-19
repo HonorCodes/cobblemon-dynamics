@@ -101,7 +101,7 @@ V121_ROWS = (
 # Earlier rows whose last part is 1.2.1 work: the split-row table of docs/plans/2026-11-18-v1.2.1-replant-area-dual-type.md.
 V121_PARTS = (
     "CD-LUM-17", "CD-LUM-18", "CD-HRV-08", "CD-CRP-20", "CD-BAL-08", "CD-BAL-09", "CD-ASG-16", "CD-LSH-16", "CD-CRP-22",
-    "CD-QWK-03", "CD-REL-04", "CD-REL-05",
+    "CD-QWK-03", "CD-REL-04", "CD-REL-05", "CD-BRF-03", "CD-BRF-04",
 )
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")
