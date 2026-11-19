@@ -89,6 +89,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /** One warning for each species whose Brain cannot hold a work order. */
     private val unbridged = OnceLogger()
+    private val unfreed = OnceLogger()
 
     fun worker(pokemonId: UUID): Worker? = slots[pokemonId]?.worker
 
@@ -764,7 +765,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val grid = LevelSpotGrid(level, role.handler, target, others, entity.bbWidth.toDouble(), height)
         // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
         val shape = TargetShape.around(target) { level.isLoaded(it) && role.handler.isPartOfTarget(level, target, it) }
-        val allowed: (BlockPos) -> Boolean = { role.handler.allowsSpot(level, target, it, height) }
+        // CD-ASG-24: no spot puts the body where the target's tree grows.
+        val columns = GrowthColumns(role.handler.growthCells(level, target))
+        val width = entity.bbWidth.toDouble()
+        val allowed: (BlockPos) -> Boolean = { columns.allows(it, width, height) && role.handler.allowsSpot(level, target, it, height) }
         val center = role.handler.targetCenter(target)
         return WorkSpots.findReachable(grid, area, shape, center, role.definition.range, entity.position(), reachable, allowed = allowed)
     }
@@ -802,6 +806,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val ctx = context(t, slot, target, role, slot.memo)
         val before = worker.status
         var event: MachineEvent? = null
+        // CD-ASG-25: one read before and one after the handler's calls, for a handler that grows, fells or replants a tree.
+        val stateBefore = if (handler.growsTrees && t.level.isLoaded(target)) t.level.getBlockState(target) else null
         val ok = guarded(handler, false) {
             // The machine reads arrival only while Traveling, so the handler is asked only then, after the engine's own rule.
             val arrived = isArrived(slot.entity, spot) || (before == WorkerStatus.TRAVELING && handler.acceptsArrival(ctx))
@@ -833,8 +839,28 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             if (worker.status == WorkerStatus.WORKING) handler.applyWork(ctx)
             true
         }
+        if (stateBefore != null && t.level.getBlockState(target) != stateBefore) freeBodies(t, site, slot, target)
         if (!ok) release(t, slot, callHandler = false)
         return event
+    }
+
+    /**
+     * CD-ASG-25: after a growth use, a fell or a replant changed [target], the [acting] worker and each other worker of [site] on that target whose body now overlaps a
+     * block moves to the nearest cell of [Unstick.freeCells] inside the work area where its body fits on a floor. A worker with no such
+     * cell stays. A block of another mod whose shape fails counts as no room.
+     */
+    private fun freeBodies(t: Tick, site: WorkSite, acting: WorkerSlot, target: BlockPos) {
+        val area = site.area(t.settings)
+        for (slot in site.slots.values) {
+            if ((slot !== acting && slot.worker.target != target) || slot.entity.isRemoved || slot.entity.level() !== t.level) continue
+            try {
+                free(slot.entity, slot.worker.spot, area)
+            } catch (e: Exception) {
+                unfreed.warn(e.javaClass.name) { "A worker stays where a tree grew at $target, because a block's shape fails: $e" }
+            } catch (e: LinkageError) {
+                unfreed.warn(e.javaClass.name) { "A worker stays where a tree grew at $target, because a block's shape fails: $e" }
+            }
+        }
     }
 
     /**
@@ -1326,6 +1352,24 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val top = level.getBlockState(cell).getCollisionShape(level, cell).max(Direction.Axis.Y)
             val y = Unstick.onTop(entity.y, cell.y, top) ?: return
             if (fits(entity, x, y, z)) entity.teleportTo(x, y, z)
+        }
+
+        /** CD-ASG-25: a worker whose body overlaps a block goes to the nearest cell of [Unstick.freeCells] that holds it, if any. */
+        private fun free(entity: PokemonEntity, spot: BlockPos?, area: WorkArea) {
+            val level = entity.level()
+            if (level.noCollision(entity, entity.boundingBox)) return
+            for (cell in Unstick.freeCells(entity.blockPosition(), spot)) {
+                if (!area.contains(cell) || !level.isLoaded(cell)) continue
+                val below = cell.below()
+                if (level.getBlockState(below).getCollisionShape(level, below).isEmpty) continue
+                val x = cell.x + 0.5
+                val z = cell.z + 0.5
+                if (!fits(entity, x, cell.y.toDouble(), z)) continue
+                entity.navigation.stop()
+                entity.teleportTo(x, cell.y.toDouble(), z)
+                entity.deltaMovement = Vec3.ZERO
+                return
+            }
         }
 
         private fun fits(entity: PokemonEntity, x: Double, y: Double, z: Double): Boolean =

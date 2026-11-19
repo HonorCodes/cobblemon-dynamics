@@ -45,6 +45,23 @@ object WorkerBody {
 }
 
 /**
+ * CD-ASG-24: the columns that a target fills when it grows into a tree: each of its growth [cells] and every cell above it. A tree
+ * grows into its sapling's cell and up, whatever stands there, so a worker whose body lies in a column ends up inside the trunk.
+ */
+class GrowthColumns(cells: Collection<BlockPos>) {
+    private val columns = cells.map { AABB(it.x.toDouble(), it.y.toDouble(), it.z.toDouble(), it.x + 1.0, it.y + HEIGHT, it.z + 1.0) }
+
+    /** Whether the body of a worker [width] wide and [height] high stays out of every column, on [spot]'s center and where it stops. */
+    fun allows(spot: BlockPos, width: Double, height: Double): Boolean =
+        columns.isEmpty() || WorkerBody.boxes(spot, width, height).none { body -> columns.any { it.intersects(body) } }
+
+    private companion object {
+        /** Higher than any tree and any work range. */
+        const val HEIGHT = 4096.0
+    }
+}
+
+/**
  * The blocks of a target, as the work spot preference sees them (CD-ASG-09): its base height, the lowest y of its blocks, and its
  * footprint, the columns (x, z) that its blocks fill.
  */

@@ -1,10 +1,12 @@
 package codes.honor.cobblemondynamics.engine
 
+import net.minecraft.core.BlockPos
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.abs
 
 class UnstickTest {
     /** A Dragonair 0.95 wide pressed against the pasture block's south face, with the corner of its box inside the block's cell. */
@@ -71,5 +73,28 @@ class UnstickTest {
         for (now in 0L..60L) stall.stalled(now, 0.0, 0.0, 0.0)
         for (now in 80L..179L) assertFalse(stall.stalled(now, 0.0, 0.0, 0.0), "stalled at tick $now")
         assertTrue(stall.stalled(180, 0.0, 0.0, 0.0))
+    }
+
+    @Test
+    fun `CD-ASG-25 a worker in a grown tree looks for a free cell nearest first, within 3 blocks, and its work spot too`() {
+        val at = BlockPos(10, 64, 10)
+        val spot = BlockPos(30, 64, 10)
+        val cells = Unstick.freeCells(at, spot)
+        assertEquals(at, cells.first())
+        assertEquals(7 * 7 * 3 + 1, cells.size)
+        assertTrue(spot in cells)
+        assertTrue(cells.zipWithNext().all { (a, b) -> a.distSqr(at) <= b.distSqr(at) }, "not nearest first")
+        val near = { c: BlockPos -> abs(c.x - 10) <= 3 && abs(c.y - 64) <= 1 && abs(c.z - 10) <= 3 }
+        assertTrue(cells.all { it == spot || near(it) })
+        // The cells next to the worker come before the cells 2 away.
+        assertTrue(cells.indexOf(at.east()) < cells.indexOf(at.east(2)))
+    }
+
+    @Test
+    fun `CD-ASG-25 a work spot as near as another cell comes first`() {
+        val at = BlockPos(0, 64, 0)
+        val cells = Unstick.freeCells(at, at.south())
+        assertEquals(at.south(), cells[1])
+        assertEquals(7 * 7 * 3, Unstick.freeCells(at, null).size)
     }
 }

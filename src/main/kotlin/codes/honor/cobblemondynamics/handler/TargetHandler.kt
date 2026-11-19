@@ -59,6 +59,18 @@ interface TargetHandler {
 
     fun targetCenter(canonical: BlockPos): Vec3 = Vec3.atCenterOf(canonical)
 
+    /**
+     * CD-ASG-24: the cells that the target at [canonical] fills when it grows into a tree, such as a sapling's cell, its 2 × 2 or a
+     * tree's trunk base. No work spot puts a worker's body in their columns, from their height up. Empty for a target that grows in place.
+     */
+    fun growthCells(level: ServerLevel, canonical: BlockPos): List<BlockPos> = emptyList()
+
+    /**
+     * CD-ASG-25: true for a handler whose work grows, fells or replants a tree at its target. When that work changes the target's block,
+     * the engine frees each worker of the target whose body the change filled.
+     */
+    val growsTrees: Boolean get() = false
+
     fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean
 
     /**

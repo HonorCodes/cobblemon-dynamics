@@ -95,8 +95,8 @@ PLANS["1.2.1"] = ("2026-11-18-v1.2.1-replant-area-dual-type.md",)
 # The new rows of 1.2.1. They lie in the areas of earlier phases, so every other mode leaves them out.
 V121_ROWS = (
     "CD-LUM-31", "CD-LUM-32", "CD-LUM-33", "CD-HRV-22", "CD-HRV-23", "CD-HRV-24", "CD-CUL-11", "CD-CUL-12", "CD-CUL-13",
-    "CD-CRP-23", "CD-CRP-24", "CD-CRP-25", "CD-ASG-21", "CD-ASG-22", "CD-ASG-23", "CD-LSH-30", "CD-LSH-31", "CD-LSH-32",
-    "CD-LSH-33", "CD-LSH-34", "CD-REL-18",
+    "CD-CRP-23", "CD-CRP-24", "CD-CRP-25", "CD-ASG-21", "CD-ASG-22", "CD-ASG-23", "CD-ASG-24", "CD-ASG-25",
+    "CD-LSH-30", "CD-LSH-31", "CD-LSH-32", "CD-LSH-33", "CD-LSH-34", "CD-REL-18",
 )
 # Earlier rows whose last part is 1.2.1 work: the split-row table of docs/plans/2026-11-18-v1.2.1-replant-area-dual-type.md.
 V121_PARTS = (

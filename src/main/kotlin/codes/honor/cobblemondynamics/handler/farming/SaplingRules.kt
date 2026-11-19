@@ -37,4 +37,10 @@ object SaplingRules {
      */
     fun corner(pos: BlockPos, same: (BlockPos) -> Boolean): BlockPos =
         CORNERS.map { (x, z) -> pos.offset(x, 0, z) }.firstOrNull { corner -> square(corner).all(same) } ?: pos
+
+    /**
+     * CD-ASG-24: the cells that a tree grown at [corner] fills at its base: [corner], and each other cell of the 2 × 2 whose least corner
+     * it is that holds the same sapling or trunk ([same]).
+     */
+    fun growthCells(corner: BlockPos, same: (BlockPos) -> Boolean): List<BlockPos> = listOf(corner) + square(corner).drop(1).filter(same)
 }

@@ -62,4 +62,15 @@ class SaplingRulesTest {
         assertEquals(start, SaplingRules.corner(start.offset(1, 0, 1)) { it in cells })
         assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(2, 0, 0)) { it in cells })
     }
+
+    @Test
+    fun `CD-ASG-24 a lone sapling's tree fills its cell, and a square's tree fills the four cells of the square`() {
+        val lone = BlockPos(0, 64, 0)
+        assertEquals(listOf(lone), SaplingRules.growthCells(lone) { it == lone })
+        val corner = BlockPos(5, 64, 5)
+        val square = SaplingRules.square(corner)
+        assertEquals(square, SaplingRules.growthCells(corner) { it in square })
+        // A cell of the square with another block is no growth cell.
+        assertEquals(listOf(corner, corner.east()), SaplingRules.growthCells(corner) { it == corner.east() })
+    }
 }

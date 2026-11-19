@@ -88,6 +88,13 @@ object LumberjackHandler : TargetHandler {
         return TreeRules.bindingHolds(reader.facts(canonical), reader.facts(canonical.below()))
     }
 
+    /** CD-ASG-24: the trunk base cells of the tree, or of the saplings that grow it. */
+    override fun growthCells(level: ServerLevel, canonical: BlockPos): List<BlockPos> =
+        TreeRules.growthCells(TreeFactsReader(level)::facts, canonical)
+
+    /** CD-ASG-25: the fell and the replant change the base cell. */
+    override val growsTrees: Boolean = true
+
     /** The claim follows the binding, so a claim on a sapling stays while the worker waits for the tree. */
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = bindingHolds(level, canonical)
 

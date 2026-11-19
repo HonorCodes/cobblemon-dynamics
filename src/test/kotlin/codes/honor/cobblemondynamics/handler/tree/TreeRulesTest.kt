@@ -239,4 +239,21 @@ class TreeRulesTest {
             for (hook in listOf(true, false)) assertEquals(Feller.OWN, TreeRules.feller(grid.read(base), hook), "$id with the hook: $hook")
         }
     }
+
+    @Test
+    fun `CD-ASG-24 the Lumberjack's growth cells are the trunk base of its tree, grown or as saplings`() {
+        val grid = TreeGrid()
+        grid.oak(base)
+        assertEquals(listOf(base), TreeRules.growthCells(grid.read, base))
+        val corner = BlockPos(-3, 64, 5)
+        grid.darkOak(corner)
+        val square = TreeRules.square(corner)
+        assertEquals(square, TreeRules.growthCells(grid.read, corner))
+        val saplings = BlockPos(10, 64, 10)
+        for (cell in TreeRules.square(saplings)) grid.sapling(cell, DARK_OAK_SAPLING)
+        assertEquals(TreeRules.square(saplings), TreeRules.growthCells(grid.read, saplings))
+        // An empty base, between the fell and the replant, keeps its own cell.
+        val empty = BlockPos(30, 64, 30)
+        assertEquals(listOf(empty), TreeRules.growthCells(grid.read, empty))
+    }
 }

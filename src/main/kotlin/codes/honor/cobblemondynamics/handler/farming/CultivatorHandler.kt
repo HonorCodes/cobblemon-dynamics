@@ -57,6 +57,16 @@ object CultivatorHandler : TargetHandler {
         return pos in square && square.all { sameSapling(level, it, state) }
     }
 
+    /** CD-ASG-24: a sapling's tree fills its cell, or each cell of its 2 × 2. A crop grows in place. */
+    override fun growthCells(level: ServerLevel, canonical: BlockPos): List<BlockPos> {
+        val state = level.getBlockState(canonical)
+        if (!state.`is`(BlockTags.SAPLINGS)) return emptyList()
+        return SaplingRules.growthCells(canonical) { sameSapling(level, it, state) }
+    }
+
+    /** CD-ASG-25: a growth use on a sapling grows a tree. */
+    override val growsTrees: Boolean = true
+
     private fun sameSapling(level: ServerLevel, pos: BlockPos, sapling: BlockState): Boolean =
         level.isLoaded(pos) && level.getBlockState(pos).`is`(sapling.block)
 

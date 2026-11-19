@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.engine
 
+import net.minecraft.core.BlockPos
 import net.minecraft.util.Mth
 
 /**
@@ -36,6 +37,23 @@ object Unstick {
         if (!(shapeTop > 0.0 && shapeTop <= 1.0)) return null
         val top = cellY + shapeTop
         return if (top > feetY + EPSILON) top else null
+    }
+
+    /** CD-ASG-25: how far, on x and z, a worker whose body a grown tree filled may move to a free cell. */
+    const val FREE_RADIUS = 3
+
+    /**
+     * CD-ASG-25: where a worker in cell [at] may go when a tree grows into its body, nearest first: the cells within [FREE_RADIUS] on x
+     * and z and 1 on y, and its work [spot] wherever it is. A tie goes to the spot, then to the lowest `BlockPos.asLong()`. The engine
+     * takes the first cell with a floor inside the work area where the body fits.
+     */
+    fun freeCells(at: BlockPos, spot: BlockPos?): List<BlockPos> {
+        val cells = LinkedHashSet<BlockPos>()
+        spot?.let(cells::add)
+        for (dx in -FREE_RADIUS..FREE_RADIUS) {
+            for (dy in -1..1) for (dz in -FREE_RADIUS..FREE_RADIUS) cells += at.offset(dx, dy, dz)
+        }
+        return cells.sortedWith(compareBy<BlockPos>({ it.distSqr(at) }, { it != spot }, { it.asLong() }))
     }
 }
 
