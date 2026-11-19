@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler
 
+import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
@@ -150,6 +151,16 @@ class WorkContext(
      * skips after a travel timeout or with no work spot is not stalled.
      */
     val isStalled: (BlockPos) -> Boolean = { false },
+    /**
+     * The worker's work area: its pasture's, or its Quick Work order's. Null for a context with no site, where an area of a farming use
+     * works no cell (CD-CRP-24).
+     */
+    val area: WorkArea? = null,
+    /**
+     * Whether no other worker's claim or binding holds the cell at the position in the lane of the context's role, for this worker
+     * (CD-CRP-24, CD-CLM-11). False for a context with no claim registry.
+     */
+    val laneFree: (BlockPos) -> Boolean = { false },
 )
 
 /**

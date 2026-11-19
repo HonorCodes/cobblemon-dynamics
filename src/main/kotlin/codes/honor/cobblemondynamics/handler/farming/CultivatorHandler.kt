@@ -59,12 +59,7 @@ object CultivatorHandler : TargetHandler {
      */
     override fun hasDemand(ctx: WorkContext): Boolean {
         if ((ctx.memo.value as? Memo)?.stall?.isStalled(ctx.now) == true) return false
-        val state = ctx.level.getBlockState(ctx.target)
-        val block = state.block as? BonemealableBlock ?: return false
-        if (!saplingGrows(ctx.level, ctx.target, state)) return false
-        val facts = CropFactsReader.read(ctx.level, ctx.target, state)
-        val valid = block.isValidBonemealTarget(ctx.level, ctx.target, state)
-        return CropRules.cultivatorDemand(valid, CropAdapters.harvestKind(facts), facts)
+        return demandAt(ctx.level, ctx.target, ctx.level.getBlockState(ctx.target))
     }
 
     /** The uses count from the tick that this stretch of work started. The stall lasts as long as the claim. */
@@ -78,19 +73,55 @@ object CultivatorHandler : TargetHandler {
      * rule and `BonemealEvent`, as a dispenser does, so a mod that changes or blocks bonemeal on its crops still decides. A use that
      * returns true costs Work Stamina and shows the bonemeal sparkles, with no level event and so no sound. Each use that leaves the
      * crop unchanged counts toward the stall of CD-CUL-09, also a use that the block or a mod refused.
+     *
+     * CD-CUL-11, CD-CUL-12: the use also grows up to N crops of the area (CD-CRP-23 to CD-CRP-25), each in the same way, and the use
+     * tick costs its Work Stamina once when one of its calls returned true. The stall records the target's change only.
      */
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
         val params = CultivatorParams.of(ctx.role.params)
         if (!TickClock.every(GrowthPace.intervalTicks(ctx.pokemon.level, params.usesPerMinuteAt100), memo.since, ctx.now)) return
         val before = FarmCells.states(ctx.level, ctx.target)
-        val sparkleAt = (before.first().block as? BonemealableBlock)?.getParticlePos(ctx.target) ?: ctx.target
-        // CD-CUL-05: a new stack that no inventory holds, and no player.
-        if (BoneMealItem.applyBonemeal(ItemStack(Items.BONE_MEAL), ctx.level, ctx.target, null)) {
-            ctx.spend(params.staminaTicksPerUse)
-            sparkle(ctx.level, sparkleAt)
-        }
-        if (memo.stall.record(changed = FarmCells.states(ctx.level, ctx.target) != before, now = ctx.now)) ctx.stalled(memo.stall.waitTicks)
+        var grew = grow(ctx.level, ctx.target, before.first())
+        val changed = FarmCells.states(ctx.level, ctx.target) != before
+        val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params))
+        CropArea.walk(ctx.target, extra, { cell -> areaCrop(ctx, cell) }, { cell, state ->
+            if (grow(ctx.level, cell, state)) grew = true
+            true
+        }) { cell, e -> AreaWarnings.failed("Cultivator", ctx.level, cell, e) }
+        val cost = CropArea.cost(grew, params.staminaTicksPerUse)
+        if (cost > 0) ctx.spend(cost)
+        if (memo.stall.record(changed = changed, now = ctx.now)) ctx.stalled(memo.stall.waitTicks)
+    }
+
+    /** CD-CUL-05, CD-CUL-07: one growth use with a new stack that no inventory holds and no player, and its sparkles where it grew. */
+    private fun grow(level: ServerLevel, pos: BlockPos, state: BlockState): Boolean {
+        val sparkleAt = (state.block as? BonemealableBlock)?.getParticlePos(pos) ?: pos
+        val grew = BoneMealItem.applyBonemeal(ItemStack(Items.BONE_MEAL), level, pos, null)
+        if (grew) sparkle(level, sparkleAt)
+        return grew
+    }
+
+    /**
+     * CD-CRP-24: the state of the crop at [cell] when the area's use may grow it in this tick, else null: inside the work area and
+     * loaded, a target of the role and its own canonical cell, with the demand of CD-CUL-03, free in the Cultivator's lane, and allowed
+     * by the land claim checks.
+     */
+    private fun areaCrop(ctx: WorkContext, cell: BlockPos): BlockState? {
+        if (ctx.area?.contains(cell) != true || !ctx.level.isLoaded(cell)) return null
+        val state = ctx.level.getBlockState(cell)
+        if (!matches(ctx.level, cell, state, null) || canonical(ctx.level, cell) != cell) return null
+        if (!demandAt(ctx.level, cell, state) || !ctx.laneFree(cell) || !ctx.mayChange(cell)) return null
+        return state
+    }
+
+    /** CD-CUL-03, CD-LUM-23: bonemeal can still change the crop, the Harvester would not take it yet, and a sapling's square is complete. */
+    private fun demandAt(level: ServerLevel, pos: BlockPos, state: BlockState): Boolean {
+        val block = state.block as? BonemealableBlock ?: return false
+        if (!saplingGrows(level, pos, state)) return false
+        val facts = CropFactsReader.read(level, pos, state)
+        val valid = block.isValidBonemealTarget(level, pos, state)
+        return CropRules.cultivatorDemand(valid, CropAdapters.harvestKind(facts), facts)
     }
 
     /** CD-CUL-07: the green of a bone meal use, inside the block, through a particle packet. */
