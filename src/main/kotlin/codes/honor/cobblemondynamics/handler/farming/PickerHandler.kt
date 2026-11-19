@@ -97,15 +97,15 @@ object PickerHandler : TargetHandler {
         override val stalled: Boolean get() = ctx.isStalled(cell)
         override val worked: Boolean get() = AreaGuard.isWorked(ctx.level, AREA_LANE, cell)
         override val denied: Boolean get() = AreaGuard.isDenied(ctx.level, ROLE, state.block)
-        override val ripe: Boolean get() = isRipe(ctx.level, cell, state)
+        override val ripe: Boolean get() = isRipe(ctx.level, cell, state, guarded = false)
         override val laneFree: Boolean get() = ctx.laneFree(cell)
     }
 
     /**
      * CD-PCK-06, CD-PCK-09: picks the ripe fruit [state] at [cell] when both land claim checks allow it. An apricorn takes Cobblemon's
      * own harvest, the one that a player's right click runs: the block's loot drops in its cell, and the apricorn goes back to age 0, with
-     * no player and no sound. Another block of the tag drops its loot with no tool and takes its lowest `age` in the same way. Returns
-     * whether the pick ran.
+     * no player and no sound. Another block of the tag takes its lowest `age` in the same way and then drops the loot of its ripe state
+     * with no tool. Returns whether the pick ran.
      */
     private fun pick(ctx: WorkContext, cell: BlockPos, state: BlockState): Boolean {
         if (!PickerRules.mayPick({ ctx.mayChange(cell) }, { ctx.mayBreak(cell) })) return false
@@ -115,22 +115,42 @@ object PickerHandler : TargetHandler {
             return true
         }
         val age = CropFactsReader.ageProperty(state) ?: return false
+        // The reset comes first, so a block that refuses its new state drops no loot. The loot is that of the ripe state.
+        if (!ctx.level.setBlock(cell, state.setValue(age, age.possibleValues.min()), Block.UPDATE_CLIENTS)) return false
         Block.dropResources(state, ctx.level, cell)
-        ctx.level.setBlock(cell, state.setValue(age, age.possibleValues.min()), Block.UPDATE_CLIENTS)
         return true
     }
 
     private fun isTarget(state: BlockState): Boolean = PickerRules.isTarget(
         state.block is ApricornBlock,
-        state.`is`(FarmingTags.PICKER_TARGETS),
-        CropFactsReader.ageProperty(state) != null,
+        { state.`is`(FarmingTags.PICKER_TARGETS) },
+        { isRefused(state.block) },
+        { CropFactsReader.hasHalf(state) },
+        { CropFactsReader.ageProperty(state) != null },
     )
 
-    /** CD-PCK-05: a target at its largest `age` that still holds where it hangs, as an apricorn on its leaves. */
-    private fun isRipe(level: ServerLevel, pos: BlockPos, state: BlockState): Boolean {
+    private fun isRefused(block: Block): Boolean = BuiltInRegistries.BLOCK.getKey(block).toString() in PickerRules.REFUSED
+
+    /** CD-PCK-05: the kind of the tag's member [block] for the load line of `FarmingLines`, from its default state. */
+    fun memberOf(block: Block): PickerRules.TagMember {
+        val state = block.defaultBlockState()
+        return PickerRules.memberOf(
+            block is ApricornBlock,
+            isRefused(block),
+            CropFactsReader.hasHalf(state),
+            CropFactsReader.ageProperty(state) != null,
+        )
+    }
+
+    /**
+     * CD-PCK-05: a target at its largest `age` that still holds where it hangs, as an apricorn on its leaves. With [guarded] false, as in
+     * an area, a `canSurvive` that throws reaches the walk, which leaves the block out of the area (CD-PCK-08).
+     */
+    private fun isRipe(level: ServerLevel, pos: BlockPos, state: BlockState, guarded: Boolean = true): Boolean {
         if (!isTarget(state)) return false
         val age = CropFactsReader.ageProperty(state) ?: return false
         if (!PickerRules.isRipe(state.getValue(age), age.possibleValues.max())) return false
+        if (!guarded) return state.canSurvive(level, pos)
         return CropArea.attempt({ e -> warnFailed(state.block, pos, e) }) { state.canSurvive(level, pos) } == true
     }
 

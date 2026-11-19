@@ -117,7 +117,7 @@ object LeashInteractions {
         val types = pokemon?.types?.map { it.showdownId }.orEmpty()
         // CD-PCK-04: a role that no leash binds, such as the Picker at an apricorn, gets a refusal that names the worker.
         val worksAlone = roles.isEmpty() && pending == null && pokemon != null && check != BindRules.PendingCheck.NO_AREA &&
-            RoleRegistry.current.forTypes(types).any { !it.definition.leash && matches(level, it, clicked) }
+            RoleRegistry.current.forTypes(types).any { !it.definition.leash && it.definition.autoAssign && matches(level, it, clicked) }
         // CD-CRP-22: a Cobblemon that fits both farming roles binds the role of its primary type.
         val best = RoleSelection.best(roles.map { it.definition }, types, RoleRegistry::sameGroup)
             ?.let { def -> roles.first { it.definition == def } }

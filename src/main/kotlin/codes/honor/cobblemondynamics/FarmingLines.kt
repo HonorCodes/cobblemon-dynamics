@@ -8,6 +8,8 @@ import codes.honor.cobblemondynamics.handler.farming.FarmingTags
 import codes.honor.cobblemondynamics.handler.farming.HarvestLoot
 import codes.honor.cobblemondynamics.handler.farming.HarvestLootMap
 import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
+import codes.honor.cobblemondynamics.handler.farming.PickerHandler
+import codes.honor.cobblemondynamics.handler.farming.PickerRules
 import com.mojang.logging.LogUtils
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
@@ -43,6 +45,24 @@ object FarmingLines {
         log.newLoad()
         log.info(line(blocks, CultivatorHandler.LANE, FarmingTags.CULTIVATOR_TARGETS, CropAdapters::growthAdapterName))
         log.info(line(blocks, HarvesterHandler.LANE, FarmingTags.HARVESTER_TARGETS, CropAdapters::harvestAdapterName, unknown))
+        log.info(pickerLine(blocks))
+    }
+
+    /**
+     * CD-PCK-05: the members of `#cobblemon_dynamics:picker_targets`: the apricorns, the other fruit that the Picker picks at its
+     * largest `age`, the members with no `age`, and the refused ones, so a pack maker sees each block that is no apricorn.
+     */
+    private fun pickerLine(blocks: Registry<Block>): String {
+        val members = blocks.getTagOrEmpty(FarmingTags.PICKER_TARGETS).mapNotNull { holder ->
+            blocks.getKey(holder.value())?.let { it to PickerHandler.memberOf(holder.value()) }
+        }
+        val of = { kind: PickerRules.TagMember -> members.filter { it.second == kind }.map { it.first } }
+        return LoadLines.picker(
+            of(PickerRules.TagMember.APRICORN).size,
+            of(PickerRules.TagMember.OTHER_FRUIT),
+            of(PickerRules.TagMember.NO_AGE),
+            of(PickerRules.TagMember.REFUSED),
+        )
     }
 
     /**

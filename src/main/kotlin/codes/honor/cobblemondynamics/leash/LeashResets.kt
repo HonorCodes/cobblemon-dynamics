@@ -134,14 +134,14 @@ object LeashResets {
 
     /**
      * CD-LSH-14: after a change of form, the binding stays while a role of the same handler fits the new types, and takes the best
-     * of them. Returns false when the binding is gone. A role that the config or a failed handler turned off keeps its bindings.
+     * of them. A bound role that a data pack set to `leash` false counts as a role that no longer fits (CD-PCK-04). Returns false when the binding is gone. A role that the config or a failed handler turned off keeps its bindings.
      */
     fun recheckRole(server: MinecraftServer, pokemon: Pokemon): Boolean {
         val binding = BindingStore.read(pokemon) ?: return false
         val roles = RoleRegistry.current
         val bound = roles.get(binding.roleId) ?: return true
         val types = pokemon.types.map { it.showdownId }
-        if (RoleSelection.isEligible(bound.definition, types)) return true
+        if (RoleSelection.bindingFits(bound.definition, types)) return true
         val next = RoleSelection.best(roles.forLeash(types).map { it.definition }.filter { it.handler == bound.definition.handler }, types)
         if (next == null) {
             clear(server, pokemon, NO_ROLE)

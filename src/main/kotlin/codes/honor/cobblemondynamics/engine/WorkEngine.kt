@@ -460,7 +460,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (current?.kind == ClaimKind.WORK && current.key != key && !isSwitchedClaim(t, slot, binding)) release(t, slot)
         if (claims.claimOf(worker.pokemonId) != null || worker.tired || worker.isSkipped(key, t.now)) return
         if (!BrainBridge.canHoldOrder(slot.entity)) return
-        val role = t.roles.get(binding.roleId)?.takeIf { RoleSelection.isEligible(it.definition, typesOf(slot.pokemon)) } ?: return
+        // CD-PCK-04: a role that no longer fits, or that a data pack set to leash false, waits for LeashResets to clear the binding.
+        val role = t.roles.get(binding.roleId)?.takeIf { RoleSelection.bindingFits(it.definition, typesOf(slot.pokemon)) } ?: return
         if (!t.level.isLoaded(binding.target)) return
         val switched = switchFor(t, slot, binding.target, role) {
             guarded(role.handler, false) {

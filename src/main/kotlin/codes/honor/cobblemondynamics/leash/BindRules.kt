@@ -73,7 +73,10 @@ object BindRules {
         val maxWorkers: Int = EngineSettings.DEFAULT.maxWorkersPerContainer,
         /** The bound role's handler refuses the target itself with this lang key, which names the worker, or null (CD-LUM-20). */
         val targetRefusal: String? = null,
-        /** No leash role fits, and a role of the Pokémon's types that no leash binds matches the block, as the Picker an apricorn (CD-PCK-04). */
+        /**
+         * No leash role fits, and an auto-assign role of the Pokémon's types that no leash binds matches the block, as the Picker an
+         * apricorn (CD-PCK-04). Its refusal names the worker inside the work area only.
+         */
         val worksAlone: Boolean = false,
     )
 
@@ -117,7 +120,14 @@ object BindRules {
         if (!input.pastureInWorkMode) return Outcome.Refuse(NOT_WORK_MODE)
         // CD-LSH-16: one click gives one predictable role.
         val role = RoleSelection.best(input.fittingRoles, input.types, sameGroup)
-            ?: return if (input.worksAlone) Outcome.Refuse(WORKS_ALONE, namesWorker = true) else Outcome.Refuse(NO_ROLE)
+            ?: return when {
+                !input.worksAlone -> Outcome.Refuse(NO_ROLE)
+
+                // CD-PCK-04: the worker takes no work outside its work area, so the area's refusal wins there.
+                !input.insideWorkArea -> Outcome.Refuse(OUTSIDE_AREA)
+
+                else -> Outcome.Refuse(WORKS_ALONE, namesWorker = true)
+            }
         val twoTargets = shapeOf(role) == BindingShape.SOURCE_AND_DESTINATION
         if (twoTargets && input.pending != null && input.sameAsPending) return Outcome.Refuse(DESTINATION_SAME)
         // CD-TLK-12: the destination may sit outside the work area, but not past the role's range from the pasture block.

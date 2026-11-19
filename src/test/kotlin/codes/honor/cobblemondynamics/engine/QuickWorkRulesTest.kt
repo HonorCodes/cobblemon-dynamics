@@ -271,4 +271,22 @@ class QuickWorkRulesTest {
         assertEquals(QuickWorkRules.Pick.Order(picker), pick(listOf(picker), listOf("bug", "flying")))
         assertEquals(QuickWorkRules.Pick.None, pick(emptyList(), listOf("bug")), "Caterpie fits no role there")
     }
+
+    @Test
+    fun `CD-PCK-12 a role that no leash binds and Quick Work does not order gives nothing, not the Work Leash message`() {
+        val noLeash = pump.copy(leash = false, quickWork = true)
+        assertEquals(QuickWorkRules.Pick.None, QuickWorkRules.pick(listOf(noLeash), listOf("water"), false, orderable = { false }))
+        assertEquals(QuickWorkRules.Pick.NeedsLeash, QuickWorkRules.pick(listOf(pump), listOf("water"), false, orderable = { false }))
+    }
+
+    @Test
+    fun `CD-PCK-04 CD-PCK-12 a role is unreachable only with no leash, no auto claim and no Quick Work order`() {
+        val single = BindingShape.SINGLE
+        assertFalse(QuickWorkRules.unreachable(picker, scanned = true, shape = single), "the Picker")
+        assertTrue(QuickWorkRules.unreachable(picker, scanned = false, shape = single), "the Picker on a handler that never scans")
+        assertFalse(QuickWorkRules.unreachable(pump, scanned = false, shape = single), "the Pump binds")
+        assertFalse(QuickWorkRules.unreachable(pump.copy(leash = false, quickWork = true), scanned = false, shape = single), "opts in")
+        val twoTargets = BindingShape.SOURCE_AND_DESTINATION
+        assertTrue(QuickWorkRules.unreachable(telekinesis.copy(leash = false, quickWork = true), scanned = false, shape = twoTargets))
+    }
 }

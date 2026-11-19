@@ -313,4 +313,11 @@ class BindRulesTest {
         assertEquals(BindRules.NOT_WORK_MODE, refusal(input(roles = emptyList(), workMode = false).copy(worksAlone = true)).messageKey)
         assertInstanceOf(BindRules.Outcome.Bind::class.java, evaluate(input().copy(worksAlone = true)), "a leash role fits too")
     }
+
+    @Test
+    fun `CD-PCK-04 outside the work area a click where only a role with no leash fits gets the area's refusal`() {
+        val outside = refusal(input(roles = emptyList(), inside = false).copy(worksAlone = true))
+        assertEquals(BindRules.OUTSIDE_AREA, outside.messageKey)
+        assertEquals(BindRules.NO_ROLE, refusal(input(roles = emptyList(), inside = false)).messageKey)
+    }
 }

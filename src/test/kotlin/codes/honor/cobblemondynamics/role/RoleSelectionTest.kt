@@ -125,4 +125,13 @@ class RoleSelectionTest {
         assertTrue(RoleSelection.isEligible(anyOf, listOf("bug")), "any of: Caterpie")
         assertTrue(RoleSelection.isEligible(anyOf, listOf("normal", "flying")), "any of: Pidgey")
     }
+
+    /** CD-PCK-04: a data pack that turns the leash off on a bound role ends its bindings, as a change of form does. */
+    @Test
+    fun `CD-PCK-04 a binding fits only a role of the types that a leash may bind`() {
+        val lumberjack = role("lumberjack", setOf("bug"), autoAssign = false)
+        assertTrue(RoleSelection.bindingFits(lumberjack, listOf("bug", "flying")))
+        assertFalse(RoleSelection.bindingFits(lumberjack.copy(leash = false), listOf("bug", "flying")), "a pack set leash false")
+        assertFalse(RoleSelection.bindingFits(lumberjack, listOf("flying")), "a form with no Bug type")
+    }
 }

@@ -79,11 +79,11 @@ object RoleCodec {
             ((json as? JsonObject)?.get("effect") as? JsonObject)?.has("sound") == true ->
                 DataResult.error { "the effect names a sound, and work effects are silent" }
 
-            b.typeMatch != ANY && b.typeMatch != ALL -> DataResult.error {
+            b.typeMatch.lowercase() != ANY && b.typeMatch.lowercase() != ALL -> DataResult.error {
                 "type_match must be \"$ANY\" or \"$ALL\", not \"${b.typeMatch}\""
             }
 
-            b.typeMatch == ALL && b.types.isEmpty() -> DataResult.error { "type_match \"$ALL\" needs at least one type" }
+            b.typeMatch.lowercase() == ALL && b.types.isEmpty() -> DataResult.error { "type_match \"$ALL\" needs at least one type" }
 
             !b.autoAssign && !b.leash && !b.quickWork.orElse(false) ->
                 DataResult.error { "a role with auto_assign false and leash false never works" }
@@ -99,7 +99,7 @@ object RoleCodec {
                     params = b.params.asJsonObject,
                     effect = b.effect,
                     quickWork = b.quickWork.orElse(null),
-                    allTypes = b.typeMatch == ALL,
+                    allTypes = b.typeMatch.lowercase() == ALL,
                     leash = b.leash,
                 ),
             )

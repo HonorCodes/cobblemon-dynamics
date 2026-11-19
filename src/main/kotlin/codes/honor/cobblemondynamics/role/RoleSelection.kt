@@ -11,6 +11,12 @@ object RoleSelection {
         return role.types.isNotEmpty() && own.containsAll(role.types)
     }
 
+    /**
+     * CD-PCK-04: a binding of [role] still fits a Cobblemon of [pokemonTypes]: the role is of its types, and a leash may bind it. A data
+     * pack that sets `leash` to false on a bound role ends its bindings as a change of form does (CD-LSH-14).
+     */
+    fun bindingFits(role: RoleDefinition, pokemonTypes: Collection<String>): Boolean = role.leash && isEligible(role, pokemonTypes)
+
     private val ORDER = compareByDescending<RoleDefinition> { it.priority }.thenBy { it.id.toString() }
 
     /** Two roles of one handler, such as the Fan Catalyst files, which pick by type (ruling 1 of the Phase 2 plan). */

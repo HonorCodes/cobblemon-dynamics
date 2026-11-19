@@ -3,10 +3,40 @@ package codes.honor.cobblemondynamics.handler.farming
 /** The pure rules of the Picker (R95). The handler reads every input from the level. */
 object PickerRules {
     /**
-     * CD-PCK-05: a Picker target is a block of the class `ApricornBlock` or of `#cobblemon_dynamics:picker_targets` ([inTag]) that has an
-     * `age` property, which tells when its fruit is ripe.
+     * CD-PCK-05: vanilla blocks whose largest `age` means no ripe fruit, which the Picker refuses also when a pack adds them to its tag.
+     * A pick would cut, reset or burn them.
      */
-    fun isTarget(apricorn: Boolean, inTag: Boolean, hasAge: Boolean): Boolean = (apricorn || inTag) && hasAge
+    val REFUSED: Set<String> = setOf(
+        "minecraft:bamboo",
+        "minecraft:cactus",
+        "minecraft:cave_vines",
+        "minecraft:chorus_flower",
+        "minecraft:fire",
+        "minecraft:frosted_ice",
+        "minecraft:kelp",
+        "minecraft:sugar_cane",
+        "minecraft:twisting_vines",
+        "minecraft:weeping_vines",
+    )
+
+    /** What the load line of the Picker's tag says of one member (CD-PCK-05). */
+    enum class TagMember { APRICORN, OTHER_FRUIT, NO_AGE, REFUSED }
+
+    /**
+     * CD-PCK-05: a Picker target is a block of the class `ApricornBlock`, or of `#cobblemon_dynamics:picker_targets` ([inTag]) and not
+     * [refused], with no `half` property ([twoBlock]), so a two-block crop is never picked half by half, and with an `age` property,
+     * which tells when its fruit is ripe. The cheap checks come first, and each runs only when the ones before it pass.
+     */
+    fun isTarget(apricorn: Boolean, inTag: () -> Boolean, refused: () -> Boolean, twoBlock: () -> Boolean, hasAge: () -> Boolean): Boolean =
+        (apricorn || inTag()) && (apricorn || !refused()) && !twoBlock() && hasAge()
+
+    /** CD-PCK-05: the kind of a member of the tag for the load line, by the rule of [isTarget]. */
+    fun memberOf(apricorn: Boolean, refused: Boolean, twoBlock: Boolean, hasAge: Boolean): TagMember = when {
+        (refused && !apricorn) || twoBlock -> TagMember.REFUSED
+        !hasAge -> TagMember.NO_AGE
+        apricorn -> TagMember.APRICORN
+        else -> TagMember.OTHER_FRUIT
+    }
 
     /** CD-PCK-05: the fruit is ripe at the largest value of the block's `age`, as an apricorn at age 3. */
     fun isRipe(age: Int?, maxAge: Int?): Boolean = age != null && maxAge != null && age >= maxAge

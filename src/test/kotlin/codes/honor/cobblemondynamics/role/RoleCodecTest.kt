@@ -122,4 +122,10 @@ class RoleCodecTest {
         assertFalse(parse(withKeys("\"auto_assign\": false, \"leash\": false, \"quick_work\": true,")).getOrThrow().leash)
         assertTrue(parse(withKeys("\"auto_assign\": true, \"leash\": \"no\",")).error().isPresent)
     }
+
+    @Test
+    fun `CD-PCK-02 type_match reads in any case`() {
+        assertTrue(parse(withKeys("\"auto_assign\": true, \"type_match\": \"ALL\",", "[\"bug\", \"flying\"]")).getOrThrow().allTypes)
+        assertFalse(parse(withKeys("\"auto_assign\": true, \"type_match\": \"Any\",")).getOrThrow().allTypes)
+    }
 }

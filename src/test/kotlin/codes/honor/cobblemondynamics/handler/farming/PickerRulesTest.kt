@@ -12,13 +12,61 @@ import org.junit.jupiter.api.Test
 class PickerRulesTest {
     private val target = BlockPos(4, 70, 9)
 
+    private fun target(apricorn: Boolean, inTag: Boolean, refused: Boolean = false, twoBlock: Boolean = false, hasAge: Boolean = true) =
+        PickerRules.isTarget(apricorn, { inTag }, { refused }, { twoBlock }, { hasAge })
+
     @Test
     fun `CD-PCK-05 an apricorn or a block of the tag with an age is a target, and nothing else`() {
-        assertTrue(PickerRules.isTarget(apricorn = true, inTag = false, hasAge = true), "an apricorn")
-        assertTrue(PickerRules.isTarget(apricorn = true, inTag = true, hasAge = true), "an apricorn in the tag")
-        assertTrue(PickerRules.isTarget(apricorn = false, inTag = true, hasAge = true), "a fruit of a pack")
-        assertFalse(PickerRules.isTarget(apricorn = false, inTag = false, hasAge = true), "a crop of no tag")
-        assertFalse(PickerRules.isTarget(apricorn = false, inTag = true, hasAge = false), "a tagged block with no age")
+        assertTrue(target(apricorn = true, inTag = false), "an apricorn")
+        assertTrue(target(apricorn = true, inTag = true), "an apricorn in the tag")
+        assertTrue(target(apricorn = false, inTag = true), "a fruit of a pack")
+        assertFalse(target(apricorn = false, inTag = false), "a crop of no tag")
+        assertFalse(target(apricorn = false, inTag = true, hasAge = false), "a tagged block with no age")
+        assertFalse(target(apricorn = false, inTag = true, twoBlock = true), "a tagged two-block crop")
+        assertFalse(target(apricorn = false, inTag = true, refused = true), "a tagged chorus flower")
+        assertTrue(target(apricorn = true, inTag = true, refused = true), "an apricorn is never refused")
+    }
+
+    @Test
+    fun `CD-PCK-05 the block and the tag come before the other checks, and the age last`() {
+        val read = mutableListOf<String>()
+        val none = PickerRules.isTarget(
+            false,
+            { false.also { read += "tag" } },
+            { false.also { read += "refused" } },
+            { false.also { read += "half" } },
+            { true.also { read += "age" } },
+        )
+        assertFalse(none)
+        assertEquals(listOf("tag"), read, "a block of no tag")
+        read.clear()
+        PickerRules.isTarget(true, {
+            true.also { read += "tag" }
+        }, { true.also { read += "refused" } }, { false.also { read += "half" } }) {
+            true.also { read += "age" }
+        }
+        assertEquals(listOf("half", "age"), read, "an apricorn reads no tag and no refused list")
+    }
+
+    @Test
+    fun `CD-PCK-05 the refused list holds the vanilla blocks whose top age means no fruit`() {
+        for (id in listOf("chorus_flower", "kelp", "cave_vines", "bamboo", "sugar_cane", "cactus", "frosted_ice", "fire")) {
+            assertTrue("minecraft:$id" in PickerRules.REFUSED, id)
+        }
+        assertFalse("cobblemon:red_apricorn" in PickerRules.REFUSED)
+        assertFalse("minecraft:cocoa" in PickerRules.REFUSED, "cocoa is a tree fruit")
+    }
+
+    @Test
+    fun `CD-PCK-05 the load line sorts each member of the tag`() {
+        assertEquals(
+            PickerRules.TagMember.APRICORN,
+            PickerRules.memberOf(apricorn = true, refused = false, twoBlock = false, hasAge = true),
+        )
+        assertEquals(PickerRules.TagMember.OTHER_FRUIT, PickerRules.memberOf(false, refused = false, twoBlock = false, hasAge = true))
+        assertEquals(PickerRules.TagMember.NO_AGE, PickerRules.memberOf(false, refused = false, twoBlock = false, hasAge = false))
+        assertEquals(PickerRules.TagMember.REFUSED, PickerRules.memberOf(false, refused = true, twoBlock = false, hasAge = true))
+        assertEquals(PickerRules.TagMember.REFUSED, PickerRules.memberOf(false, refused = false, twoBlock = true, hasAge = true))
     }
 
     @Test

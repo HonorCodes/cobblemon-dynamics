@@ -50,6 +50,9 @@ object CropFactsReader {
     fun ageProperty(state: BlockState): IntegerProperty? =
         state.properties.firstOrNull { it is IntegerProperty && it.name == AGE } as? IntegerProperty
 
+    /** Whether [state] has a `half` property, as each block of a two-block crop has. */
+    fun hasHalf(state: BlockState): Boolean = half(state) != null
+
     /** Whether [state] is the upper block of a two-block crop. */
     fun isUpper(state: BlockState): Boolean = half(state) == DoubleBlockHalf.UPPER
 
