@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.handler.farming.TrampleGuard
 import codes.honor.cobblemondynamics.handler.tree.LeafSaplings
+import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.net.PanelViewers
 import codes.honor.cobblemondynamics.pasture.WorkModeService
@@ -16,6 +17,7 @@ import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.level.BlockEvent
+import net.neoforged.neoforge.event.level.BlockGrowFeatureEvent
 import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.event.server.ServerStartingEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
@@ -44,6 +46,7 @@ object EngineEvents {
             Feedback.reset()
             EngineTiming.stopRecording()
             LeafSaplings.reset()
+            LumberjackHandler.reset()
         }
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedInEvent> { event ->
             (event.entity as? ServerPlayer)?.let(Feedback::onLogin)
@@ -53,6 +56,12 @@ object EngineEvents {
             PanelViewers.forget(player)
             DynamicsPayloads.forget(player.uuid)
             WorkModeService.forget(player.uuid)
+        }
+        // CD-ASG-26: a tree, a huge fungus or a huge mushroom grows, by a random tick, bone meal or a worker. The event comes before the
+        // feature places its blocks, so the engine frees the workers that it filled on its next tick of that level.
+        NeoForge.EVENT_BUS.addListener<BlockGrowFeatureEvent> { event ->
+            val level = event.level as? ServerLevel ?: return@addListener
+            WorkEngine.get()?.queueGrowth(level, event.pos)
         }
         NeoForge.EVENT_BUS.addListener<LevelTickEvent.Post> { event ->
             val level = event.level as? ServerLevel ?: return@addListener

@@ -66,8 +66,8 @@ interface TargetHandler {
     fun growthCells(level: ServerLevel, canonical: BlockPos): List<BlockPos> = emptyList()
 
     /**
-     * CD-ASG-25: true for a handler whose work grows, fells or replants a tree at its target. When that work changes the target's block,
-     * the engine frees each worker of the target whose body the change filled.
+     * CD-ASG-25: true for a handler whose work grows, fells or replants a tree at its target. When that work changes the target's block
+     * from or to a sapling or a log, the engine frees each worker near the target whose body the change filled.
      */
     val growsTrees: Boolean get() = false
 

@@ -255,5 +255,9 @@ class TreeRulesTest {
         // An empty base, between the fell and the replant, keeps its own cell.
         val empty = BlockPos(30, 64, 30)
         assertEquals(listOf(empty), TreeRules.growthCells(grid.read, empty))
+        // After the fell of a 2 x 2 trunk, the whole square, also before the replant and after a replant of the corner alone.
+        assertEquals(TreeRules.square(empty), TreeRules.growthCells(grid.read, empty, lastSquare = true))
+        grid.sapling(empty, DARK_OAK_SAPLING)
+        assertEquals(TreeRules.square(empty), TreeRules.growthCells(grid.read, empty, lastSquare = true))
     }
 }

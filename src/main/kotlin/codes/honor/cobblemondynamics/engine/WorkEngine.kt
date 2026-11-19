@@ -57,12 +57,15 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.pathfinder.PathType
+import net.minecraft.world.level.pathfinder.WalkNodeEvaluator
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
@@ -90,6 +93,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /** One warning for each species whose Brain cannot hold a work order. */
     private val unbridged = OnceLogger()
     private val unfreed = OnceLogger()
+
+    /** CD-ASG-26: the places where a tree grew since the last tick of their level, at most [MAX_GROWTHS]. */
+    private val growths = ArrayList<Pair<ServerLevel, BlockPos>>()
 
     fun worker(pokemonId: UUID): Worker? = slots[pokemonId]?.worker
 
@@ -137,6 +143,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /** One engine tick of [level], after the level ticked its block entities and entities. */
     fun tickLevel(level: ServerLevel) {
         val dimension = level.dimension().location()
+        if (growths.isNotEmpty()) drainGrowths(level)
         val indexed = level.getExistingDataOrNull(DynamicsAttachments.WORK_PASTURES)?.all().orEmpty()
         // CD-QWK-24: with no order, this check is all the Quick Work that a level tick does.
         val quick = if (orders.isEmpty()) emptyList() else orders.values.filter { it.level === level }
@@ -160,6 +167,19 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         for (order in quick) tickOrder(t, order)
         for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) direct(t, slot)
         for (order in quick) if (orders[order.slot.worker.pokemonId] === order) direct(t, order.slot)
+    }
+
+    /** CD-ASG-26: a tree grows at [pos]. The next tick of [level] frees the workers that it filled. A full queue drops the place. */
+    fun queueGrowth(level: ServerLevel, pos: BlockPos) {
+        if (growths.size < MAX_GROWTHS) growths += level to pos.immutable()
+    }
+
+    private fun drainGrowths(level: ServerLevel) {
+        val here = growths.filter { it.first === level }
+        if (here.isEmpty()) return
+        growths.removeAll { it.first === level }
+        val t = tick(level)
+        for ((_, pos) in here) freeAround(t, pos)
     }
 
     fun onWorkModeChanged(level: ServerLevel, pasture: BlockPos, enabled: Boolean) {
@@ -765,10 +785,18 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val grid = LevelSpotGrid(level, role.handler, target, others, entity.bbWidth.toDouble(), height)
         // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
         val shape = TargetShape.around(target) { level.isLoaded(it) && role.handler.isPartOfTarget(level, target, it) }
-        // CD-ASG-24: no spot puts the body where the target's tree grows.
+        // CD-ASG-24: no spot puts the body where the target's tree grows, or in the column of any other sapling.
         val columns = GrowthColumns(role.handler.growthCells(level, target))
         val width = entity.bbWidth.toDouble()
-        val allowed: (BlockPos) -> Boolean = { columns.allows(it, width, height) && role.handler.allowsSpot(level, target, it, height) }
+        val sapling = BlockPos.MutableBlockPos()
+        val isSapling = { x: Int, y: Int, z: Int ->
+            level.isLoaded(sapling.set(x, y, z)) && level.getBlockState(sapling).`is`(BlockTags.SAPLINGS)
+        }
+        val allowed: (BlockPos) -> Boolean = {
+            columns.allows(it, width, height) &&
+                GrowthColumns.clearOfSaplings(it, width, height, isSapling) &&
+                role.handler.allowsSpot(level, target, it, height)
+        }
         val center = role.handler.targetCenter(target)
         return WorkSpots.findReachable(grid, area, shape, center, role.definition.range, entity.position(), reachable, allowed = allowed)
     }
@@ -808,6 +836,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         var event: MachineEvent? = null
         // CD-ASG-25: one read before and one after the handler's calls, for a handler that grows, fells or replants a tree.
         val stateBefore = if (handler.growsTrees && t.level.isLoaded(target)) t.level.getBlockState(target) else null
+        var misplaced = false
         val ok = guarded(handler, false) {
             // The machine reads arrival only while Traveling, so the handler is asked only then, after the engine's own rule.
             val arrived = isArrived(slot.entity, spot) || (before == WorkerStatus.TRAVELING && handler.acceptsArrival(ctx))
@@ -815,12 +844,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             when (val e = event) {
                 MachineEvent.StartedWorking -> {
                     handler.onStart(ctx)
-                    snap(slot.entity, spot, handler.targetCenter(target))
+                    misplaced = !snap(slot.entity, spot, handler.targetCenter(target))
                 }
 
                 MachineEvent.EnteredStandby -> when (before) {
                     WorkerStatus.WORKING -> handler.onStop(ctx)
-                    WorkerStatus.TRAVELING -> snap(slot.entity, spot, handler.targetCenter(target))
+
+                    WorkerStatus.TRAVELING -> {
+                        misplaced = !snap(slot.entity, spot, handler.targetCenter(target))
+                    }
+
                     else -> {}
                 }
 
@@ -839,27 +872,58 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             if (worker.status == WorkerStatus.WORKING) handler.applyWork(ctx)
             true
         }
-        if (stateBefore != null && t.level.getBlockState(target) != stateBefore) freeBodies(t, site, slot, target)
+        if (stateBefore != null) {
+            val after = t.level.getBlockState(target)
+            if (after != stateBefore && (isTree(stateBefore) || isTree(after))) freeAround(t, target)
+        }
+        // CD-ASG-25: a spot that a tree filled since the claim gets no snap. The worker leaves the tree, and a pasture worker claims again
+        // with a new spot.
+        if (misplaced) {
+            freeSlot(t, site, slot)
+            if (site is PastureRuntime && claims.claimOf(worker.pokemonId) != null) release(t, slot)
+        }
         if (!ok) release(t, slot, callHandler = false)
         return event
     }
 
+    /** The sites of [t]'s level: its pastures and its Quick Work orders. */
+    private fun sitesOf(t: Tick): List<WorkSite> = runtimesOf(t.dimension) + orders.values.filter { it.level === t.level }
+
     /**
-     * CD-ASG-25: after a growth use, a fell or a replant changed [target], the [acting] worker and each other worker of [site] on that target whose body now overlaps a
-     * block moves to the nearest cell of [Unstick.freeCells] inside the work area where its body fits on a floor. A worker with no such
-     * cell stays. A block of another mod whose shape fails counts as no room.
+     * CD-ASG-25, CD-ASG-26: a tree grew at [pos], or a fell or a replant changed it. Each worker of the engine in the level whose body
+     * lies near it, within [GROWTH_REACH] on x and z and [GROWTH_HEIGHT] up, and overlaps a block, leaves the tree ([free]). A pasture
+     * worker whose spot the tree filled then claims again, with a new spot. A worker that rides or carries another entity stays.
      */
-    private fun freeBodies(t: Tick, site: WorkSite, acting: WorkerSlot, target: BlockPos) {
-        val area = site.area(t.settings)
-        for (slot in site.slots.values) {
-            if ((slot !== acting && slot.worker.target != target) || slot.entity.isRemoved || slot.entity.level() !== t.level) continue
-            try {
-                free(slot.entity, slot.worker.spot, area)
-            } catch (e: Exception) {
-                unfreed.warn(e.javaClass.name) { "A worker stays where a tree grew at $target, because a block's shape fails: $e" }
-            } catch (e: LinkageError) {
-                unfreed.warn(e.javaClass.name) { "A worker stays where a tree grew at $target, because a block's shape fails: $e" }
+    private fun freeAround(t: Tick, pos: BlockPos) {
+        val near = AABB(pos).inflate(GROWTH_REACH, 0.0, GROWTH_REACH).expandTowards(0.0, GROWTH_HEIGHT, 0.0).expandTowards(0.0, -1.0, 0.0)
+        for (site in sitesOf(t)) {
+            for (slot in site.slots.values.toList()) {
+                val entity = slot.entity
+                if (entity.isRemoved || entity.level() !== t.level || !entity.boundingBox.intersects(near)) continue
+                if (entity.isPassenger || entity.isVehicle) continue
+                freeSlot(t, site, slot)
+                val spot = slot.worker.spot
+                if (site is PastureRuntime && spot != null && claims.claimOf(slot.worker.pokemonId)?.kind == ClaimKind.WORK &&
+                    !centerFits(entity, spot)
+                ) {
+                    release(t, slot)
+                }
             }
+        }
+    }
+
+    /** CD-ASG-25: [free] for one worker of [site], within its work area and the land that its owner may use. */
+    private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot) {
+        val owner = when (site) {
+            is PastureRuntime -> site.placer
+            is QuickRuntime -> site.owner
+        }
+        try {
+            free(slot.entity, slot.worker.spot, site.area(t.settings)) { LandClaims.ownerMayUse(owner, t.level, it) }
+        } catch (e: Exception) {
+            unfreed.warn(e.javaClass.name) { "A worker stays in a tree, because a block's check fails: $e" }
+        } catch (e: LinkageError) {
+            unfreed.warn(e.javaClass.name) { "A worker stays in a tree, because a block's check fails: $e" }
         }
     }
 
@@ -1315,6 +1379,21 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     companion object {
         private const val CANNOT_REACH = "cobblemon_dynamics.leash.cannot_reach"
 
+        /** A body that only touches a block is not inside it. */
+        private const val TOUCH = 1e-3
+
+        /** CD-LND-12: the most checks of the claim mods that the net of CD-ASG-25 asks for one worker. */
+        private const val MAX_CLAIM_ASKS = 4
+
+        /** CD-ASG-26: at most this many growths wait for the next tick of their level. */
+        private const val MAX_GROWTHS = 256
+
+        /** CD-ASG-25: how far from a grown tree's base, on x and z, a worker's body may lie for the net to look at it. */
+        private const val GROWTH_REACH = 6.0
+
+        /** CD-ASG-25: how far above a grown tree's base a worker's body may lie for the net to look at it. */
+        private const val GROWTH_HEIGHT = 40.0
+
         /** Two pasture polls, so that the wander pause of a worker that waits for its crop never lapses between polls (CD-CRP-09). */
         private const val WAIT_PAUSE_TICKS = 2L * PastureRuntime.POLL_TICKS
 
@@ -1354,17 +1433,42 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             if (fits(entity, x, y, z)) entity.teleportTo(x, y, z)
         }
 
-        /** CD-ASG-25: a worker whose body overlaps a block goes to the nearest cell of [Unstick.freeCells] that holds it, if any. */
-        private fun free(entity: PokemonEntity, spot: BlockPos?, area: WorkArea) {
+        /** A block of a grown tree, which [free]'s fill may pass: a log, a leaf or a mangrove root. */
+        private fun isTreeBlock(state: BlockState): Boolean =
+            state.`is`(BlockTags.LOGS) || state.`is`(BlockTags.LEAVES) || state.`is`(Blocks.MANGROVE_ROOTS) ||
+                state.`is`(Blocks.MUDDY_MANGROVE_ROOTS)
+
+        /** A sapling or a log, so that the net of CD-ASG-25 runs for the change of a tree target and not for a crop's age. */
+        private fun isTree(state: BlockState): Boolean = state.`is`(BlockTags.SAPLINGS) || state.`is`(BlockTags.LOGS)
+
+        /**
+         * CD-ASG-25: a worker whose body overlaps a block goes to the nearest cell of [Unstick.reachableCells] with a sturdy floor, no
+         * fluid, a walkable path type, room for its body out of every sapling's column, inside [area], and on land that [mayUse]
+         * allows. It stays when no cell passes.
+         */
+        private fun free(entity: PokemonEntity, spot: BlockPos?, area: WorkArea, mayUse: (BlockPos) -> Boolean) {
             val level = entity.level()
-            if (level.noCollision(entity, entity.boundingBox)) return
-            for (cell in Unstick.freeCells(entity.blockPosition(), spot)) {
-                if (!area.contains(cell) || !level.isLoaded(cell)) continue
+            if (level.noBlockCollision(entity, entity.boundingBox.deflate(TOUCH))) return
+            val passable = { pos: BlockPos ->
+                level.isLoaded(pos) && level.getBlockState(pos).let { it.getCollisionShape(level, pos).isEmpty || isTreeBlock(it) }
+            }
+            val width = entity.bbWidth.toDouble()
+            val height = entity.bbHeight.toDouble()
+            val isSapling = { x: Int, y: Int, z: Int -> level.getBlockState(BlockPos(x, y, z)).`is`(BlockTags.SAPLINGS) }
+            var asks = 0
+            for (cell in Unstick.reachableCells(entity.blockPosition(), spot, passable)) {
+                if (!area.contains(cell)) continue
                 val below = cell.below()
-                if (level.getBlockState(below).getCollisionShape(level, below).isEmpty) continue
+                if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) continue
+                if (!level.getFluidState(cell).isEmpty) continue
+                val type = WalkNodeEvaluator.getPathTypeStatic(entity, cell)
+                if (type != PathType.WALKABLE && type != PathType.OPEN) continue
                 val x = cell.x + 0.5
                 val z = cell.z + 0.5
-                if (!fits(entity, x, cell.y.toDouble(), z)) continue
+                if (!fits(entity, x, cell.y.toDouble(), z) || !GrowthColumns.clearOfSaplings(cell, width, height, isSapling)) continue
+                // CD-LND-12: at most MAX_CLAIM_ASKS checks of the claim mods for one worker.
+                if (asks++ >= MAX_CLAIM_ASKS) return
+                if (!mayUse(cell)) continue
                 entity.navigation.stop()
                 entity.teleportTo(x, cell.y.toDouble(), z)
                 entity.deltaMovement = Vec3.ZERO
@@ -1373,20 +1477,29 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
 
         private fun fits(entity: PokemonEntity, x: Double, y: Double, z: Double): Boolean =
-            entity.level().noCollision(entity, entity.boundingBox.move(x - entity.x, y - entity.y, z - entity.z))
+            entity.level().noBlockCollision(entity, entity.boundingBox.move(x - entity.x, y - entity.y, z - entity.z).deflate(TOUCH))
+
+        /** Whether the body of [entity] fits on [spot]'s center, where [snap] puts it, as the spot rule measures it ([WorkerBody]). */
+        private fun centerFits(entity: PokemonEntity, spot: BlockPos): Boolean =
+            entity.level().noBlockCollision(entity, WorkerBody.boxes(spot, entity.bbWidth.toDouble(), entity.bbHeight.toDouble()).first())
 
         /** Primary first, which [RoleSelection.best] reads between the roles of one handler. */
         private fun typesOf(pokemon: Pokemon): Set<String> = pokemon.types.mapTo(LinkedHashSet()) { it.showdownId }
 
         private fun hasFairyType(pokemon: Pokemon): Boolean = pokemon.types.any { it == ElementalTypes.FAIRY }
 
-        /** On arrival: the spot center, at rest, facing the target. The Brain's work activity holds it from the next tick. */
-        private fun snap(entity: PokemonEntity, spot: BlockPos, lookAt: Vec3) {
+        /**
+         * On arrival: the spot center, at rest, facing the target. The Brain's work activity holds it from the next tick. A spot where the
+         * body no longer fits, because a tree grew there since the claim, gets no snap, and the result is false (CD-ASG-25).
+         */
+        private fun snap(entity: PokemonEntity, spot: BlockPos, lookAt: Vec3): Boolean {
+            if (!centerFits(entity, spot)) return false
             entity.navigation.stop()
             entity.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
             entity.teleportTo(spot.x + 0.5, spot.y.toDouble(), spot.z + 0.5)
             entity.deltaMovement = Vec3.ZERO
             BrainBridge.face(entity, lookAt)
+            return true
         }
 
         /** On reaching a bed: the sleep point, at rest. The Brain's work activity holds it there from the next tick (CD-BED-10). */

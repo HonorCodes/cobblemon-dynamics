@@ -1,12 +1,17 @@
 package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
+import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.id
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.world.item.BoneMealItem
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.SaplingBlock
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 import kotlin.math.abs
@@ -144,6 +149,97 @@ class GrowthSpotTests {
             }
             if (diglett != null && helper.getBlockState(corner).`is`(Blocks.DARK_OAK_LOG)) {
                 assertFree(helper, caterpie, corner, "CD-ASG-24")
+                helper.succeed()
+            }
+        }
+    }
+
+    /** Waits until [entity] holds its Lumberjack claim in Standby, then runs [then] once, and checks [check] on each later tick. */
+    private fun whenWaiting(helper: GameTestHelper, entity: PokemonEntity, hold: BlockPos, then: () -> Unit, check: () -> Unit) {
+        var held = true
+        var done = false
+        helper.onEachTick {
+            if (held && TestKit.claimOf(helper, entity) == null) TestKit.moveTo(helper, entity, hold) else held = false
+            val worker = TestKit.workerOf(helper, entity)
+            if (!done && worker?.status == WorkerStatus.STANDBY) {
+                done = true
+                then()
+            } else if (done) {
+                check()
+            }
+        }
+    }
+
+    /**
+     * CD-ASG-24: a level 50 Caterpie bound as the Lumberjack to an oak sapling waits for its tree. Oak saplings stand east, south and
+     * north of it, as in a hedge, and the Caterpie comes from the pasture in the south-east, so before the fix its nearest spot was a
+     * neighbouring sapling's cell. The three neighbours then grow by a direct grow call, and the Caterpie must not be in a trunk.
+     */
+    @GameTest(template = "floor_23x17x23", timeoutTicks = 1_200)
+    fun cdAsg24NoSpotInANeighbouringSaplingsCell(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 15), owner)
+        TestKit.workMode(pasture, true)
+        TestKit.standBeside(owner, pasture)
+        val bound = BlockPos(6, 2, 9)
+        val neighbours = listOf(bound.east(), bound.south(), bound.north())
+        for (cell in neighbours + bound) {
+            helper.setBlock(cell.below(), Blocks.DIRT)
+            helper.setBlock(cell, Blocks.OAK_SAPLING)
+        }
+        val caterpie = TestKit.tether(helper, pasture, owner, "caterpie level=50")
+        val binding = TestKit.bind(helper, owner, caterpie, bound)
+        helper.assertTrue(binding?.roleId == id("lumberjack"), "CD-LSH-16: the Caterpie bound to the sapling as ${binding?.roleId}")
+        var grownAt = -1L
+        whenWaiting(helper, caterpie, BlockPos(11, 2, 9), then = {
+            val spot = TestKit.workerOf(helper, caterpie)?.spot?.let { TestKit.relative(helper, it) }
+            helper.assertTrue(spot !in neighbours, "CD-ASG-24: the Caterpie waits in the cell of a neighbouring sapling, $spot")
+            for (neighbour in neighbours) {
+                val pos = helper.absolutePos(neighbour)
+                val state = helper.level.getBlockState(pos).setValue(SaplingBlock.STAGE, 1)
+                (Blocks.OAK_SAPLING as SaplingBlock).advanceTree(helper.level, pos, state, helper.level.random)
+            }
+            grownAt = helper.tick
+        }) {
+            if (helper.tick >= grownAt + 2) {
+                assertFree(helper, caterpie, bound, "CD-ASG-24")
+                helper.succeed()
+            }
+        }
+    }
+
+    /**
+     * CD-ASG-26: a level 50 Caterpie bound as the Lumberjack to an oak sapling waits beside it. The owner then plants a sapling in the
+     * Caterpie's own cell and grows it with bone meal, as a player can. On the next engine tick the Caterpie must leave the trunk.
+     */
+    @GameTest(template = "floor_23x17x23", timeoutTicks = 1_200)
+    fun cdAsg26PlayerGrowsATreeOnAWaitingLumberjack(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 15), owner)
+        TestKit.workMode(pasture, true)
+        TestKit.standBeside(owner, pasture)
+        val bound = BlockPos(6, 2, 9)
+        helper.setBlock(bound.below(), Blocks.DIRT)
+        helper.setBlock(bound, Blocks.OAK_SAPLING)
+        val caterpie = TestKit.tether(helper, pasture, owner, "caterpie level=50")
+        val binding = TestKit.bind(helper, owner, caterpie, bound)
+        helper.assertTrue(binding?.roleId == id("lumberjack"), "CD-LSH-16: the Caterpie bound to the sapling as ${binding?.roleId}")
+        var grownAt = -1L
+        var cell: BlockPos? = null
+        whenWaiting(helper, caterpie, BlockPos(11, 2, 9), then = {
+            val at = caterpie.blockPosition()
+            cell = TestKit.relative(helper, at)
+            helper.level.setBlockAndUpdate(at.below(), Blocks.DIRT.defaultBlockState())
+            helper.level.setBlockAndUpdate(at, Blocks.OAK_SAPLING.defaultBlockState())
+            var uses = 0
+            while (!helper.level.getBlockState(at).`is`(Blocks.OAK_LOG) && uses++ < 200) {
+                BoneMealItem.applyBonemeal(ItemStack(Items.BONE_MEAL), helper.level, at, owner)
+            }
+            helper.assertTrue(helper.level.getBlockState(at).`is`(Blocks.OAK_LOG), "the owner's oak did not grow in $uses uses")
+            grownAt = helper.tick
+        }) {
+            if (helper.tick >= grownAt + 2) {
+                assertFree(helper, caterpie, cell!!, "CD-ASG-26")
                 helper.succeed()
             }
         }

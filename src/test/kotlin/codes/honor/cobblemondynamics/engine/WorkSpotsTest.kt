@@ -283,6 +283,34 @@ class WorkSpotsTest {
         assertTrue(columns.allows(corner.east(2), 0.4, 0.3))
         assertTrue(columns.allows(corner.west(), 0.9, 1.4))
     }
+
+    /** A row of saplings: the spot for one may not stand in the cell of the next one, which grows a tree of its own. */
+    @Test
+    fun `CD-ASG-24 no body lies in the column of a neighbouring sapling`() {
+        val saplings = setOf(BlockPos(0, 1, 0), BlockPos(1, 1, 0))
+        val isSapling = { x: Int, y: Int, z: Int -> BlockPos(x, y, z) in saplings }
+        assertFalse(GrowthColumns.clearOfSaplings(BlockPos(1, 1, 0), 0.4, 0.3, isSapling))
+        assertTrue(GrowthColumns.clearOfSaplings(BlockPos(0, 1, 1), 0.4, 0.3, isSapling))
+        // On top of a block over the sapling's cell at the body's height, and one below the floor height.
+        assertFalse(GrowthColumns.clearOfSaplings(BlockPos(1, 2, 0), 0.4, 1.5, isSapling))
+        assertTrue(GrowthColumns.clearOfSaplings(BlockPos(1, 3, 0), 0.4, 1.5, isSapling))
+        // A body 1.2 wide beside the row reaches into a sapling's column from the cell south of the row.
+        assertFalse(GrowthColumns.clearOfSaplings(BlockPos(2, 1, 1), 1.2, 0.9, isSapling))
+        assertTrue(GrowthColumns.clearOfSaplings(BlockPos(3, 1, 2), 1.2, 0.9, isSapling))
+    }
+
+    /** A body 1 block wide or wider is checked where navigation stops it, too, and that place alone may reach the column. */
+    @Test
+    fun `CD-ASG-24 the stop box of a wide body counts`() {
+        val sapling = BlockPos(0, 1, 0)
+        val columns = GrowthColumns(listOf(sapling))
+        // A Torterra 2.25 wide two cells west: its center box ends at x = -0.375, and its stop box, centered 1.5 blocks from the
+        // spot's lowest corner, reaches x = 0.625 over the sapling.
+        val (center, stop) = WorkerBody.boxes(sapling.west(2), 2.25, 2.4)
+        assertTrue(center.maxX < 0.0)
+        assertTrue(stop.maxX > 0.0)
+        assertFalse(columns.allows(sapling.west(2), 2.25, 2.4))
+    }
 }
 
 class WorkerBodyTest {

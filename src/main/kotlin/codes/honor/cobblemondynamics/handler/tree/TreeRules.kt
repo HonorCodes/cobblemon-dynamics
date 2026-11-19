@@ -101,9 +101,10 @@ object TreeRules {
 
     /**
      * CD-ASG-24: the trunk base cells of the tree on [base], grown or to grow: [base], and each other cell of its 2 × 2 that holds a log
-     * or a sapling of the base's block. An empty base, between a fell and its replant, keeps its own cell.
+     * or a sapling of the base's block. After the fell of a 2 × 2 trunk ([lastSquare]), the whole square, which its replant fills.
      */
-    fun growthCells(cells: (BlockPos) -> CellFacts, base: BlockPos): List<BlockPos> {
+    fun growthCells(cells: (BlockPos) -> CellFacts, base: BlockPos, lastSquare: Boolean = false): List<BlockPos> {
+        if (lastSquare) return square(base)
         val facts = cells(base)
         if (!facts.logTarget && !facts.sapling) return listOf(base)
         val same = { pos: BlockPos -> cells(pos).let { (it.logTarget || it.sapling) && it.blockId == facts.blockId } }
