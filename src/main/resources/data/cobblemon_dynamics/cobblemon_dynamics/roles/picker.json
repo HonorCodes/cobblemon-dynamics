@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:picker",
+  "types": ["bug", "flying"],
+  "type_match": "all",
+  "auto_assign": true,
+  "leash": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": { "harvest_ticks": 20, "levels_per_extra_crop": 10, "max_extra_crops": 10 },
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["bugbite", "physical"],
+    "target_particles": ["cobblemon:impact_bug"]
+  }
+}

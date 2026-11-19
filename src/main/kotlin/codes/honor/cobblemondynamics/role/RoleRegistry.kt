@@ -4,7 +4,9 @@ import codes.honor.cobblemondynamics.LoadLines
 import codes.honor.cobblemondynamics.LoadLog
 import codes.honor.cobblemondynamics.MixinState
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
+import codes.honor.cobblemondynamics.engine.QuickWorkRules
 import codes.honor.cobblemondynamics.handler.HandlerRegistry
+import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.vanilla.MuseBonus
 import com.google.gson.Gson
@@ -114,6 +116,14 @@ object RoleRegistry : SimpleJsonResourceReloadListener(Gson(), "cobblemon_dynami
         val required = MixinGate.required(MuseBonus.withApothicEnchanting)
         val warn = { message: String -> if (mixinWarnings.add(message)) LOGGER.warn(message) }
         current = MixinGate.apply(roles, MixinState::applied, required, warn)
+        for ((definition, handler) in current.active) {
+            if (QuickWorkRules.unreachable(definition, handler.scanKind != ScanKind.NONE, handler.bindingShape)) {
+                warn(
+                    "Role ${definition.id} works for no Cobblemon: its file sets leash false, and its handler takes no auto claim or " +
+                        "Quick Work order",
+                )
+            }
+        }
         offTargets = MixinGate.offTargets(MixinGate.REQUIRED_FOR_TARGET, MixinState::applied, ::modLoaded, warn)
         log.info(LoadLines.roles(parsed.size, current.active.size, current.disabled))
     }

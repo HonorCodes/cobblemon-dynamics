@@ -17,6 +17,9 @@ object FarmingTags {
     /** The blocks that a Harvester harvests (CD-HRV-02, CD-CRP-02). */
     val HARVESTER_TARGETS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("harvester_targets"))
 
+    /** The blocks that a Picker picks when their `age` is at its largest (CD-PCK-05). The default holds `#cobblemon:apricorns`. */
+    val PICKER_TARGETS: TagKey<Block> = TagKey.create(Registries.BLOCK, id("picker_targets"))
+
     /** Cobblemon's apricorns, which no Harvester takes, also when a datapack adds one to its tag (CD-HRV-03). */
     val APRICORNS: TagKey<Block> = TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("cobblemon", "apricorns"))
 

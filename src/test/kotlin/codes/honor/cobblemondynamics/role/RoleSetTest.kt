@@ -42,4 +42,15 @@ class RoleSetTest {
         val set = RoleSet(mapOf(stoker.id to stoker, wheel.id to wheel), { FakeHandler(it) }, emptySet()) { }
         assertEquals(listOf(stoker.id), set.forTypes(listOf("fire", "flying")).map { it.definition.id })
     }
+
+    @Test
+    fun `CD-PCK-03 CD-PCK-04 forTypes asks the all-of rule, and forLeash leaves out a role that no leash binds`() {
+        val picker = role("picker", setOf("bug", "flying"), handler = "cobblemon_dynamics:picker").copy(allTypes = true, leash = false)
+        val lumberjack = role("lumberjack", setOf("bug"), autoAssign = false, handler = "cobblemon_dynamics:lumberjack")
+        val set = RoleSet(mapOf(picker.id to picker, lumberjack.id to lumberjack), { FakeHandler(it) }, emptySet()) { }
+        assertEquals(listOf(lumberjack.id, picker.id), set.forTypes(listOf("bug", "flying")).map { it.definition.id }, "Butterfree")
+        assertEquals(listOf(lumberjack.id), set.forTypes(listOf("bug")).map { it.definition.id }, "Caterpie")
+        assertEquals(emptyList<ResourceLocation>(), set.forTypes(listOf("flying")).map { it.definition.id }, "Rookidee")
+        assertEquals(listOf(lumberjack.id), set.forLeash(listOf("bug", "flying")).map { it.definition.id }, "Butterfree with a leash")
+    }
 }

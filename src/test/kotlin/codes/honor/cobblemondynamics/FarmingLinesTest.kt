@@ -33,4 +33,17 @@ class FarmingLinesTest {
             LoadLines.farming("harvester", mapOf("pick_to_age_1" to 1, "crop" to 1), emptyList(), emptyMap()),
         )
     }
+
+    @Test
+    fun `CD-PCK-05 the Picker's line names each member of its tag that is no apricorn`() {
+        val id = { s: String -> ResourceLocation.parse(s) }
+        assertEquals(
+            "Farming: picker 11 blocks [apricorn 7], not apricorns [a:fig, b:plum], no age [c:leaf], refused [minecraft:kelp]",
+            LoadLines.picker(7, listOf(id("b:plum"), id("a:fig")), listOf(id("c:leaf")), listOf(id("minecraft:kelp"))),
+        )
+        assertEquals(
+            "Farming: picker 7 blocks [apricorn 7], not apricorns [], no age [], refused []",
+            LoadLines.picker(7, emptyList(), emptyList(), emptyList()),
+        )
+    }
 }

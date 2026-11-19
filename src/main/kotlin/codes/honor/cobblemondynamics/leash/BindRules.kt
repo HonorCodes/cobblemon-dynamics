@@ -12,6 +12,7 @@ object BindRules {
     const val NO_SELECTION = "cobblemon_dynamics.leash.no_selection"
     const val NOT_WORK_MODE = "cobblemon_dynamics.leash.not_work_mode"
     const val NO_ROLE = "cobblemon_dynamics.leash.no_role"
+    const val WORKS_ALONE = "cobblemon_dynamics.leash.works_alone"
     const val OUTSIDE_AREA = "cobblemon_dynamics.leash.outside_area"
     const val ALREADY_ASSIGNED = "cobblemon_dynamics.leash.already_assigned"
     const val ALREADY_ASSIGNED_OTHER = "cobblemon_dynamics.leash.already_assigned_other"
@@ -72,6 +73,11 @@ object BindRules {
         val maxWorkers: Int = EngineSettings.DEFAULT.maxWorkersPerContainer,
         /** The bound role's handler refuses the target itself with this lang key, which names the worker, or null (CD-LUM-20). */
         val targetRefusal: String? = null,
+        /**
+         * No leash role fits, and an auto-assign role of the Pokémon's types that no leash binds matches the block, as the Picker an
+         * apricorn (CD-PCK-04). Its refusal names the worker inside the work area only.
+         */
+        val worksAlone: Boolean = false,
     )
 
     /** What a block click does with the leash's pending source before it reads any block of it (CD-SEC-08). */
@@ -113,7 +119,15 @@ object BindRules {
         if (input.selection == null || !input.pokemonOwnedByPlayer) return Outcome.Refuse(NO_SELECTION)
         if (!input.pastureInWorkMode) return Outcome.Refuse(NOT_WORK_MODE)
         // CD-LSH-16: one click gives one predictable role.
-        val role = RoleSelection.best(input.fittingRoles, input.types, sameGroup) ?: return Outcome.Refuse(NO_ROLE)
+        val role = RoleSelection.best(input.fittingRoles, input.types, sameGroup)
+            ?: return when {
+                !input.worksAlone -> Outcome.Refuse(NO_ROLE)
+
+                // CD-PCK-04: the worker takes no work outside its work area, so the area's refusal wins there.
+                !input.insideWorkArea -> Outcome.Refuse(OUTSIDE_AREA)
+
+                else -> Outcome.Refuse(WORKS_ALONE, namesWorker = true)
+            }
         val twoTargets = shapeOf(role) == BindingShape.SOURCE_AND_DESTINATION
         if (twoTargets && input.pending != null && input.sameAsPending) return Outcome.Refuse(DESTINATION_SAME)
         // CD-TLK-12: the destination may sit outside the work area, but not past the role's range from the pasture block.

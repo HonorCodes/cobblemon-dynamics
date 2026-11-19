@@ -13,10 +13,11 @@ object RoleSwitch {
     /**
      * CD-LSH-33, CD-ASG-22: the roles that the worker may take on its target, [own] first: the role of its binding, or of its auto claim.
      * Each other role of [enabled], the enabled roles of the worker's types, passes when its handler is not [own]'s, it names one target
-     * whose claims share no target ([single]), its handler [matches] the cell and resolves it to itself ([resolvesToItself]), and, for a
-     * worker with no binding ([bound] false), its auto-assign flag is true. Last, its handler [accepts] the cell for that role: it would
-     * not refuse a bind there and holds the cell valid, so a tree that no role fells keeps no binding. An [own] role that is not [single]
-     * has no switch roles, and the list is empty. The cheap checks run first, so a role of another handler costs no block read.
+     * whose claims share no target ([single]), its handler [matches] the cell and resolves it to itself ([resolvesToItself]), for a worker
+     * with no binding ([bound] false) its auto-assign flag is true, and for a bound worker its file lets the leash bind it (CD-PCK-04).
+     * Last, its handler [accepts] the cell for that role: it would not refuse a bind there and holds the cell valid, so a tree that no
+     * role fells keeps no binding. An [own] role that is not [single] has no switch roles, and the list is empty. The cheap checks run
+     * first, so a role of another handler costs no block read.
      */
     fun rolesOf(
         own: RoleDefinition,
@@ -31,7 +32,7 @@ object RoleSwitch {
         val others = enabled.filter { role ->
             role.id != own.id &&
                 role.handler != own.handler &&
-                (bound || role.autoAssign) &&
+                (if (bound) role.leash else role.autoAssign) &&
                 single(role) &&
                 matches(role) &&
                 resolvesToItself(role) &&

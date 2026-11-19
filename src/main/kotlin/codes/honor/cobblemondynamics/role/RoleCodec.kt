@@ -30,6 +30,10 @@ object RoleCodec {
         ).apply(i, ::EffectDefinition)
     }
 
+    /** CD-PCK-02: the values of `type_match`. */
+    private const val ANY = "any"
+    private const val ALL = "all"
+
     private data class Body(
         val schema: Int,
         val handler: ResourceLocation,
@@ -40,6 +44,8 @@ object RoleCodec {
         val params: JsonElement,
         val effect: EffectDefinition,
         val quickWork: Optional<Boolean>,
+        val typeMatch: String,
+        val leash: Boolean,
     )
 
     // auto_assign has no default, so a leash-only role file that leaves it out fails to parse (CD-PMP-02, CD-MUS-02).
@@ -55,6 +61,9 @@ object RoleCodec {
             EFFECT.fieldOf("effect").forGetter { it.effect },
             // Absent, true or false: see RoleDefinition.quickWork (CD-QWK-36, CD-FRZ-02).
             Codec.BOOL.optionalFieldOf("quick_work").forGetter { it.quickWork },
+            // CD-PCK-02, CD-PCK-04: an older file has neither key, so its types stay "any of" and the leash binds it.
+            Codec.STRING.optionalFieldOf("type_match", ANY).forGetter { it.typeMatch },
+            Codec.BOOL.optionalFieldOf("leash", true).forGetter { it.leash },
         ).apply(i, ::Body)
     }
 
@@ -70,6 +79,15 @@ object RoleCodec {
             ((json as? JsonObject)?.get("effect") as? JsonObject)?.has("sound") == true ->
                 DataResult.error { "the effect names a sound, and work effects are silent" }
 
+            b.typeMatch.lowercase() != ANY && b.typeMatch.lowercase() != ALL -> DataResult.error {
+                "type_match must be \"$ANY\" or \"$ALL\", not \"${b.typeMatch}\""
+            }
+
+            b.typeMatch.lowercase() == ALL && b.types.isEmpty() -> DataResult.error { "type_match \"$ALL\" needs at least one type" }
+
+            !b.autoAssign && !b.leash && !b.quickWork.orElse(false) ->
+                DataResult.error { "a role with auto_assign false and leash false never works" }
+
             else -> DataResult.success(
                 RoleDefinition(
                     id = id,
@@ -81,6 +99,8 @@ object RoleCodec {
                     params = b.params.asJsonObject,
                     effect = b.effect,
                     quickWork = b.quickWork.orElse(null),
+                    allTypes = b.typeMatch.lowercase() == ALL,
+                    leash = b.leash,
                 ),
             )
         }

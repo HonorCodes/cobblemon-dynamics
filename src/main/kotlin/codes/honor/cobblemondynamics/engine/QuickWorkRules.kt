@@ -85,6 +85,13 @@ object QuickWorkRules {
         (role.quickWork ?: (role.autoAssign && scanned)) && shape == BindingShape.SINGLE
 
     /**
+     * CD-PCK-04, CD-PCK-12: nothing gives [role]: no leash binds it, no scan gives it as an auto claim, and Quick Work never orders it.
+     * The role registry warns about such a role file once.
+     */
+    fun unreachable(role: RoleDefinition, scanned: Boolean, shape: BindingShape): Boolean =
+        !role.leash && !(role.autoAssign && scanned) && !mayOrder(role, scanned, shape)
+
+    /**
      * CD-QWK-03 to CD-QWK-05, CD-QWK-36. [fitting] are the roles that the Pokémon's [types], primary first, make it eligible for and
      * whose handler matches the aimed block. [orderable] is [mayOrder] of each. A Fairy-type is a healer, which no auto claim gives a
      * machine (CD-ASG-04), so it gets an order only for a role that opts in to Quick Work, and otherwise nothing. A role that opts out
@@ -102,7 +109,9 @@ object QuickWorkRules {
     ): Pick {
         val candidates = fitting.filter { if (hasFairyType) it.quickWork == true else it.quickWork != false }
         if (candidates.isEmpty()) return Pick.None
-        val role = RoleSelection.withWork(candidates.filter(orderable), types, sameGroup, hasDemand) ?: return Pick.NeedsLeash
+        // CD-PCK-12: a role that no leash binds never sends the Work Leash message.
+        val role = RoleSelection.withWork(candidates.filter(orderable), types, sameGroup, hasDemand)
+            ?: return if (candidates.any { it.leash }) Pick.NeedsLeash else Pick.None
         return Pick.Order(role)
     }
 

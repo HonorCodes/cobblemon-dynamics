@@ -54,6 +54,7 @@ class BuiltInRoleFilesTest {
         "lumberjack" to Row("cobblemon_dynamics:lumberjack", setOf("bug"), false, 0, "aerialace"),
         "freezer" to Row("cobblemon_dynamics:freezer", setOf("ice"), true, 0, "icebeam"),
         "soul_collector" to Row("cobblemon_dynamics:soul_collector", setOf("ghost"), false, 0, "nightshade"),
+        "picker" to Row("cobblemon_dynamics:picker", setOf("bug", "flying"), true, 0, "bugbite"),
         "stoker_immersiveengineering" to Row("cobblemon_dynamics:ie_furnace", setOf("fire"), true, 0, "ember"),
         "wheel_driver_immersiveengineering" to Row("cobblemon_dynamics:ie_watermill", setOf("water"), true, 0, "watergun"),
         "tailwind_immersiveengineering" to Row("cobblemon_dynamics:ie_windmill", setOf("flying"), false, 0, "gust"),
@@ -794,5 +795,39 @@ class BuiltInRoleFilesTest {
         assertEquals(1, role.params.get("extra_steps_per_tick")?.asInt)
         assertEquals(listOf("irons_spellbooks"), RoleConditions.mods(JsonParser.parseString(file.readText())))
         assertEffectOf("brewer_irons_spellbooks", "brewer")
+    }
+
+    @Test
+    fun `CD-PCK-01 the Picker file names its handler, Bug and Flying both, auto_assign true, no leash and no quick_work`() {
+        val json = JsonParser.parseString(File(BuiltInRoles.dir, "picker.json").readText()).asJsonObject
+        assertFalse(json.has("quick_work"), "picker.json names quick_work")
+        val role = BuiltInRoles.parse("picker")
+        assertEquals("cobblemon_dynamics:picker", role.handler.toString())
+        assertEquals(setOf("bug", "flying"), role.types)
+        assertTrue(role.allTypes, "the Picker needs both types")
+        assertTrue(role.autoAssign)
+        assertFalse(role.leash, "a leash binds the Picker")
+        assertEquals(0, role.priority)
+        assertEquals(6.0, role.range)
+        assertTrue(RoleSelection.isEligible(role, listOf("bug", "flying")), "Butterfree")
+        assertFalse(RoleSelection.isEligible(role, listOf("bug")), "Caterpie")
+        assertFalse(RoleSelection.isEligible(role, listOf("flying")), "Rookidee")
+    }
+
+    @Test
+    fun `CD-PCK-07 CD-PCK-08 the Picker's file holds the Harvester's 20 ticks and its area numbers`() {
+        val params = BuiltInRoles.parse("picker").params
+        assertEquals(20, HarvestClock.ticksOf(params))
+        assertEquals(AreaParams(10, 10), AreaParams.of(params))
+        assertEquals(BuiltInRoles.parse("harvester").params, params, "the Picker's numbers differ from the Harvester's")
+    }
+
+    /** No Bug Bite timeline or particle ships with Cobblemon 1.8.4, so the Picker plays the move by name with Cobblemon's bug impact. */
+    @Test
+    fun `CD-PCK-01 the Picker plays Bug Bite with the bug impact at the fruit`() {
+        val effect = BuiltInRoles.parse("picker").effect
+        assertEquals(listOf("bugbite", "physical"), effect.animations)
+        assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:impact_bug"), effect.targetParticles.map { it.toString() })
     }
 }

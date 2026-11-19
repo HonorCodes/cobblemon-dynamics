@@ -52,6 +52,17 @@ object LoadLines {
             "${toServer.size} to the server [${toServer.joinToString(", ")}]"
 
     /**
+     * CD-PCK-05: the line of the Picker's tag, with each member that is no apricorn: the fruit that it picks, the members with no
+     * `age`, which it never picks, and the refused ones.
+     */
+    fun picker(apricorns: Int, other: List<ResourceLocation>, noAge: List<ResourceLocation>, refused: List<ResourceLocation>): String {
+        val list = { ids: List<ResourceLocation> -> ids.map { it.toString() }.sorted().joinToString(", ") }
+        val total = apricorns + other.size + noAge.size + refused.size
+        return "Farming: picker $total blocks [apricorn $apricorns], not apricorns [${list(other)}], no age [${list(noAge)}], " +
+            "refused [${list(refused)}]"
+    }
+
+    /**
      * CD-CRP-05: one farming role's tagged blocks, counted by the crop adapter that reads each one, with the adapters in name order,
      * and the ids of the tagged blocks that no adapter reads. CD-FRM-03: when an entry of the loot data map names a table that did not
      * load, the line ends with each such block and its table, in block id order.

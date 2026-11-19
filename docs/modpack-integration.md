@@ -152,6 +152,21 @@ Each entry of another mod is optional, so the tags load without that mod. The de
 `#minecraft:bee_growables` and `#cobblemon:crops`, which hold Cobblemon's apricorns and terrain seeds. A Harvester never
 takes an apricorn, also one that a pack adds to its tag.
 
+Version 1.2.1 adds the Picker (Bug and Flying, both), the one role that takes apricorns. It picks a ripe apricorn off
+its tree with no player, and the apricorn drops to the ground and grows again:
+
+- `#cobblemon_dynamics:picker_targets` names the tree fruit that a Picker picks when the block's `age` property is at
+  its largest value. The default holds `#cobblemon:apricorns`, and a pack adds the fruit of other mods with a data pack.
+  A block of the tag with no `age` is never picked. A fruit of another class than Cobblemon's apricorn goes back to its
+  lowest `age` and drops the loot table of its ripe state with no tool.
+- **Warning:** add only tree fruit whose largest `age` means ripe fruit. A pick resets any other block, such as a crop that
+  grows in stages or a plant that grows by its `age`, and drops its loot. The Picker never picks a block with a `half`
+  property, such as a two-block crop, and refuses chorus flowers, kelp, cave vines, bamboo, sugar cane, cactus, twisting
+  and weeping vines, fire and frosted ice. At each data load, the log line `Farming: picker ...` names each member of the
+  tag that is no apricorn, each member with no `age`, and each refused member.
+- A role file's `"type_match": "all"` asks a Cobblemon for every type of the file's `types`, and `"leash": false` keeps
+  the Work Leash from binding the role. A file with neither key reads as before.
+
 A crop adapter decides how a role reads a block. The mod names no class of a crop mod. The adapters read vanilla
 classes, Cobblemon's classes, block state properties and these adapter tags, which a pack can extend:
 

@@ -109,4 +109,29 @@ class RoleSelectionTest {
         // Without the farming group, the id order decides between two handlers, as in 1.0.
         assertEquals(cultivator, RoleSelection.best(listOf(harvester, cultivator), listOf("grass", "ground")))
     }
+
+    /** R95: the Picker needs Bug and Flying both, and a role file with no `type_match` keeps "any of" (CD-PCK-02). */
+    @Test
+    fun `CD-PCK-02 a role of type_match all needs every type, and any of them is enough for the others`() {
+        val picker = role("picker", setOf("bug", "flying")).copy(allTypes = true)
+        assertTrue(RoleSelection.isEligible(picker, listOf("bug", "flying")), "Butterfree")
+        assertTrue(RoleSelection.isEligible(picker, listOf("Flying", "Bug")), "a Flying/Bug in the other order")
+        assertFalse(RoleSelection.isEligible(picker, listOf("bug")), "Caterpie")
+        assertFalse(RoleSelection.isEligible(picker, listOf("flying")), "Rookidee")
+        assertFalse(RoleSelection.isEligible(picker, listOf("normal", "flying")), "Pidgey")
+        assertFalse(RoleSelection.isEligible(picker, listOf("bug", "grass")), "Paras")
+        assertFalse(RoleSelection.isEligible(picker, emptyList()), "no types")
+        val anyOf = role("tailwind", setOf("bug", "flying"))
+        assertTrue(RoleSelection.isEligible(anyOf, listOf("bug")), "any of: Caterpie")
+        assertTrue(RoleSelection.isEligible(anyOf, listOf("normal", "flying")), "any of: Pidgey")
+    }
+
+    /** CD-PCK-04: a data pack that turns the leash off on a bound role ends its bindings, as a change of form does. */
+    @Test
+    fun `CD-PCK-04 a binding fits only a role of the types that a leash may bind`() {
+        val lumberjack = role("lumberjack", setOf("bug"), autoAssign = false)
+        assertTrue(RoleSelection.bindingFits(lumberjack, listOf("bug", "flying")))
+        assertFalse(RoleSelection.bindingFits(lumberjack.copy(leash = false), listOf("bug", "flying")), "a pack set leash false")
+        assertFalse(RoleSelection.bindingFits(lumberjack, listOf("flying")), "a form with no Bug type")
+    }
 }

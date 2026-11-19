@@ -93,4 +93,39 @@ class RoleCodecTest {
     fun `types are lower-cased`() {
         assertEquals(setOf("water"), parse(waterGun.replace("[\"water\"]", "[\"Water\"]")).getOrThrow().types)
     }
+
+    /** The Water Gun file with [keys] after its `auto_assign` key, which they may replace, and [types] in place of its types. */
+    private fun withKeys(keys: String, types: String = "[\"water\"]") =
+        waterGun.replace("[\"water\"]", types).replace("\"auto_assign\": true,", keys)
+
+    @Test
+    fun `CD-PCK-02 type_match is any by default, all needs every type, and another value or no types is an error`() {
+        assertFalse(parse(waterGun).getOrThrow().allTypes, "a file with no type_match")
+        assertFalse(parse(withKeys("\"auto_assign\": true, \"type_match\": \"any\",")).getOrThrow().allTypes)
+        val all = parse(withKeys("\"auto_assign\": true, \"type_match\": \"all\",", "[\"bug\", \"flying\"]")).getOrThrow()
+        assertTrue(all.allTypes)
+        assertEquals(setOf("bug", "flying"), all.types)
+        val bad = parse(withKeys("\"auto_assign\": true, \"type_match\": \"both\","))
+        assertTrue(bad.error().isPresent, "type_match both parsed")
+        assertTrue(RoleCodec.describeError(id, bad).contains("type_match"))
+        assertTrue(parse(withKeys("\"auto_assign\": true, \"type_match\": \"all\",", "[]")).error().isPresent, "all with no types")
+    }
+
+    @Test
+    fun `CD-PCK-04 leash is true by default, a file can set it to false, and a role that nothing can give is an error`() {
+        assertTrue(parse(waterGun).getOrThrow().leash, "a file with no leash key")
+        val autoOnly = parse(withKeys("\"auto_assign\": true, \"leash\": false,")).getOrThrow()
+        assertFalse(autoOnly.leash)
+        assertTrue(autoOnly.autoAssign)
+        val nothing = parse(withKeys("\"auto_assign\": false, \"leash\": false,"))
+        assertTrue(nothing.error().isPresent, "a role with no auto-assign flag and no leash parsed")
+        assertFalse(parse(withKeys("\"auto_assign\": false, \"leash\": false, \"quick_work\": true,")).getOrThrow().leash)
+        assertTrue(parse(withKeys("\"auto_assign\": true, \"leash\": \"no\",")).error().isPresent)
+    }
+
+    @Test
+    fun `CD-PCK-02 type_match reads in any case`() {
+        assertTrue(parse(withKeys("\"auto_assign\": true, \"type_match\": \"ALL\",", "[\"bug\", \"flying\"]")).getOrThrow().allTypes)
+        assertFalse(parse(withKeys("\"auto_assign\": true, \"type_match\": \"Any\",")).getOrThrow().allTypes)
+    }
 }

@@ -317,4 +317,13 @@ class FarmingTagFilesTest {
             "harvest/break_and_replant" to listOf("minecraft:nether_wart", "minecraft:cocoa", "aether:berry_bush"),
         )
     }
+
+    @Test
+    fun `CD-PCK-05 the Picker's tag adds to the packs' and holds Cobblemon's apricorns`() {
+        val json = JsonParser.parseString(File(dir, "picker_targets.json").readText()).asJsonObject
+        assertEquals(false, json["replace"]?.asBoolean, "picker_targets.json replaces the tag")
+        assertEquals(listOf(Entry("#cobblemon:apricorns", required = true)), own("picker_targets"))
+        assertEquals(resolve("cobblemon:apricorns"), resolve("cobblemon_dynamics:picker_targets"))
+        assertEquals(7, resolve("cobblemon_dynamics:picker_targets").size, "the Cobblemon jar changed its apricorns")
+    }
 }

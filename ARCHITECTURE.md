@@ -75,7 +75,7 @@ src/main/kotlin/codes/honor/cobblemondynamics/
                          farmland moisture
     capability/          FE push, fluid fill (NeoForge capabilities, and farmland for the Pump)
     item/                Telekinesis transfer, Magnet pickup (NeoForge item capability, plain containers)
-    farming/             Cultivator and Harvester, crop facts and adapters, harvest plans (ADR-0015)
+    farming/             Cultivator, Harvester and Picker, crop facts and adapters, harvest plans (ADR-0015)
     cobblemon/           Healing Machine charge
     tree/                Lumberjack: tree search, canopy, shell, fell plan and run, replant (ADR-0017)
     water/               Freezer: freeze rules and pace (ADR-0019)

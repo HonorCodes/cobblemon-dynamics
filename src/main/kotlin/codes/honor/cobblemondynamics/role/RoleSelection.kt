@@ -1,7 +1,21 @@
 package codes.honor.cobblemondynamics.role
 
 object RoleSelection {
-    fun isEligible(role: RoleDefinition, pokemonTypes: Collection<String>): Boolean = pokemonTypes.any { it.lowercase() in role.types }
+    /**
+     * CD-ASG-02, CD-PCK-02, CD-PCK-03: one of the Cobblemon's types is a type of [role], or, for a role of `type_match` `all`, each type
+     * of the role is one of the Cobblemon's. Every check of a role's types asks this.
+     */
+    fun isEligible(role: RoleDefinition, pokemonTypes: Collection<String>): Boolean {
+        if (!role.allTypes) return pokemonTypes.any { it.lowercase() in role.types }
+        val own = pokemonTypes.mapTo(HashSet()) { it.lowercase() }
+        return role.types.isNotEmpty() && own.containsAll(role.types)
+    }
+
+    /**
+     * CD-PCK-04: a binding of [role] still fits a Cobblemon of [pokemonTypes]: the role is of its types, and a leash may bind it. A data
+     * pack that sets `leash` to false on a bound role ends its bindings as a change of form does (CD-LSH-14).
+     */
+    fun bindingFits(role: RoleDefinition, pokemonTypes: Collection<String>): Boolean = role.leash && isEligible(role, pokemonTypes)
 
     private val ORDER = compareByDescending<RoleDefinition> { it.priority }.thenBy { it.id.toString() }
 
