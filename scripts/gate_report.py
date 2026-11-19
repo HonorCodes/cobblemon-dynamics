@@ -13,15 +13,15 @@ GameTest sources with the log of each GameTest run of the gate, the deferred lis
 checklist, the test pack's README and the output of each test pack command of the gate. The 1.2 and 1.2.1 gates also read
 the lists of the GameTests that the 1.2 and 1.2.1 plans deferred by the approver's test rulings. The 1.2.1 gate runs only
 the full run, the perf run and the test pack commands smoke, crops and mods, and marks the tests of the other checks
-`left out`. The Phase 2 and 1.2 gates read the output of `py scripts/art.py check`, and each gate after Phase 1 reads the
-play-test notes of the reports of earlier gates. The script rewrites only the generated blocks of the gate's report,
+`left out`. The Phase 2, 1.2 and 1.2.1 gates read the output of `py scripts/art.py check`, and each gate after Phase 1
+reads the play-test notes of the reports of earlier gates. The script rewrites only the generated blocks of the gate's report,
 docs/testing/phase-N-gate.md or docs/testing/vN-gate.md, and keeps the text around them.
 
 Usage: py scripts/gate_report.py [--phase 1] --gradle-log FILE --testpack-log FILE [--testpack-log FILE ...] [--allow-dirty]
        py scripts/gate_report.py --phase 2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
        py scripts/gate_report.py --phase 1.1 --gradle-log FILE --testpack-log FILE [...] [--allow-dirty]
        py scripts/gate_report.py --phase 1.2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
-       py scripts/gate_report.py --phase 1.2.1 --gradle-log FILE --testpack-log FILE [...] [--allow-dirty]
+       py scripts/gate_report.py --phase 1.2.1 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
        py scripts/gate_report.py --self-check
 Exit code 0 when every automated row has a passing test, 1 when a row has not or an input disagrees with another, and 2
 when an input is missing or unreadable.
@@ -206,16 +206,16 @@ PHASES = {
                  ART_REVIEW, ruled_plans=(V12_PLAN,), record_pack=("mods",), client=False),
     # CD-REL-18: every row of 1.2.1 passes on the release commit, every earlier row still passes there, and the test pack's
     # cases smoke, crops and mods pass. The v1.2.1 tag and its jar (the 1.2.1 parts of CD-REL-04 and CD-REL-05) and the next
-    # pack release (CD-REL-15) come after the gate, by Task D of the 1.2.1 plan. 1.2.1 adds no art, so the art checks do not
-    # run, and the art review rows completed at the 1.2 gate. The 1.2 and 1.2.1 plans list the GameTests that the approver's
+    # pack release (CD-REL-15) come after the gate, by Task D of the 1.2.1 plan. 1.2.1 adds no art, but the art rows rest on
+    # the art checks of the commit, so they run as at the 1.2 gate. The 1.2 and 1.2.1 plans list the GameTests that the approver's
     # test rulings deferred. 1.2.1 changes no Create, compat or claim code, so the gate runs only build, the full run, the
     # perf run and the cases smoke, crops and mods (decision 17 of the 1.2.1 plan). The COHO players test 1.2.1 (R93), so the
     # gate records no play-test note and runs no play-test client.
     "1.2.1": Phase("1.2.1", V121_REPORT, lambda row, area: True, (M5_PLAN, M8_PLAN),
                    {"CD-REL-04": "the v1.2.1 tag", "CD-REL-05": "the v1.2.1 tag", "CD-REL-15": "the next pack release"},
                    "CD-REL-18", {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT,
-                                 "CD-REL-17": V12_REPORT} | dict.fromkeys(ART_REVIEW, V12_REPORT),
-                   {}, ruled_plans=(V12_PLAN, V121_PLAN), record_pack=("smoke", "crops", "mods"), client=False,
+                                 "CD-REL-17": V12_REPORT},
+                   ART_REVIEW, ruled_plans=(V12_PLAN, V121_PLAN), record_pack=("smoke", "crops", "mods"), client=False,
                    note=False, runs=("full", "perf"), pack=("smoke", "crops", "mods")),
 }
 
@@ -1338,14 +1338,14 @@ def self_check() -> int:
     assert v12.gate_runs == RUNS and v12.gate_pack({"smoke", "deps"}) == {"smoke", "deps"} and not v12.leaves_out
     v121 = PHASES["1.2.1"]
     assert v121.holds("CD-PCK-01", "PCK") and v121.holds("CD-XPC-02", "XPC"), "the 1.2.1 gate holds every row"
-    assert v121.record == "CD-REL-18" and not v121.checks_art and not v121.client and not v121.note, v121
+    assert v121.record == "CD-REL-18" and v121.checks_art and not v121.client and not v121.note, v121
     assert v121.record_pack == ("smoke", "crops", "mods") and v121.pack == v121.record_pack and v121.leaves_out
     assert [run.task for run in v121.gate_runs] == ["runGameTestServer", "runGameTestServerPerf"], v121.gate_runs
     assert v121.gate_pack({"smoke", "deps", "compat", "reload", "restart", "crops", "mods"}) == {"smoke", "crops", "mods"}
     assert v121.later == {"CD-REL-04": "the v1.2.1 tag", "CD-REL-05": "the v1.2.1 tag", "CD-REL-15": "the next pack release"}
     assert v121.earlier == {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT,
-                            "CD-REL-17": V12_REPORT} | dict.fromkeys(ART_REVIEW, V12_REPORT), v121.earlier
-    assert v121.deferred_plans == (M5_PLAN, M8_PLAN) and v121.ruled_plans == (V12_PLAN, V121_PLAN) and not v121.art_review
+                            "CD-REL-17": V12_REPORT}, v121.earlier
+    assert v121.deferred_plans == (M5_PLAN, M8_PLAN) and v121.ruled_plans == (V12_PLAN, V121_PLAN) and v121.art_review == ART_REVIEW
     demo = SpecRow("CD-UI-01", frozenset({"Demo"}))
     assert evaluate(demo, set(), checks[1:], {}, first) == ("play-test", [])
     unit = Ref("unit", "UiTest", "CD-UI-01 a button")
@@ -1493,7 +1493,8 @@ def self_check() -> int:
                               "CD-REL-04": ("open (the v1.2.1 tag)", [], [])}, {}, whole=True)
     assert totals(gate) == (
         "The spec sheet has 3 `MUST` and `MUST NOT` rows. 1 of the 1 rows with automated tests pass. 0 rows have a "
-        "play-test part, and 0 of them have no automated test. 0 rows have a GameTest that the approver's test rulings "
+        "play-test part, and 0 of them have no automated test. 0 rows wait for the approver's art review. "
+        "0 rows have a GameTest that the approver's test rulings "
         "deferred, and 0 of them have no other test. 2 rows have a test in a check that this gate leaves out, and 1 of "
         "them have no other test (CD-CLM-12). 1 rows stay open after Phase 1.2.1 (CD-REL-04). 0 automated rows have no "
         "passing test."), totals(gate)
@@ -1502,7 +1503,7 @@ def self_check() -> int:
     summary = render_summary(gate)
     assert ("The 1.2.1 gate leaves out `./gradlew runGameTestServerCore` and `py scripts/testpack/testpack.py deps`. "
             "The section \"Deferred\" of this report gives the reason.") in summary, summary
-    assert "runGameTestServerCompat" not in summary and "Art checks" not in summary and "Play-test client" not in summary
+    assert "runGameTestServerCompat" not in summary and "| Art checks |" in summary and "Play-test client" not in summary
 
     # The list of the GameTests that the 1.2.1 plan deferred by the rulings: a group line for each task, as in the 1.2 plan.
     ruling = ("a\nGameTests deferred by the rulings (the marks).\n\n- Task B:\n  - CD-HRV-24: `CropAreaTest`.\n"
@@ -1518,7 +1519,7 @@ def self_check() -> int:
     assert (args.phase, args.art_log) == ("2", pathlib.Path("art.txt")) and arguments().parse_args([]).phase == "1", args
     assert arguments().parse_args(["--phase", "1.1"]).phase == "1.1"
     assert arguments().parse_args(["--phase", "1.2", "--art-log", "art.txt"]).phase == "1.2"
-    assert arguments().parse_args(["--phase", "1.2.1"]).phase == "1.2.1"
+    assert arguments().parse_args(["--phase", "1.2.1", "--art-log", "art.txt"]).phase == "1.2.1"
     assert sorted(PHASES) == ["1", "1.1", "1.2", "1.2.1", "2"], sorted(PHASES)
     print("self-check passed")
     return 0
@@ -1553,7 +1554,7 @@ def arguments() -> argparse.ArgumentParser:
     parser.add_argument("--testpack-log", action="append", default=[], type=pathlib.Path,
                         help="the output of one test pack command, such as smoke or mods; give one for each command")
     parser.add_argument("--art-log", type=pathlib.Path,
-                        help=f"the output of {ART_COMMAND}, for the Phase 2 and 1.2 gates")
+                        help=f"the output of {ART_COMMAND}, for the Phase 2, 1.2 and 1.2.1 gates")
     parser.add_argument("--allow-dirty", action="store_true",
                         help="write the report although tracked files differ from the commit")
     parser.add_argument("--self-check", action="store_true", help="check the parsers on built-in samples")
