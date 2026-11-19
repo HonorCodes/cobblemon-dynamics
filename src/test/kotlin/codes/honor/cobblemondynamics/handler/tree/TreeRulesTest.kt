@@ -67,6 +67,24 @@ class TreeRulesTest {
         assertEquals(lone, TreeRules.canonical(grid.read, lone, MAX_LOGS))
     }
 
+    /** Review: a log over a log of its kind is no base, which the switch check learns with no search. */
+    @Test
+    fun `CD-LSH-33 only the base log resolves to itself, and a log over a log answers with no search`() {
+        val grid = TreeGrid()
+        val base = BlockPos(0, 64, 0)
+        grid.trunk(base, 5)
+        var reads = 0
+        val counted: (BlockPos) -> CellFacts = { pos ->
+            reads++
+            grid.read(pos)
+        }
+        assertFalse(TreeRules.resolvesToItself(counted, base.above(2), MAX_LOGS))
+        assertEquals(2, reads, "a log over a log read more than its cell and the cell below")
+        assertTrue(TreeRules.resolvesToItself(grid.read, base, MAX_LOGS))
+        val sapling = grid.sapling(BlockPos(10, 64, 10))
+        assertTrue(TreeRules.resolvesToItself(grid.read, sapling, MAX_LOGS))
+    }
+
     @Test
     fun `CD-LUM-03 a click on logs above the cap resolves to the clicked cell`() {
         val grid = TreeGrid()

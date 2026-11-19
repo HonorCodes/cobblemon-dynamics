@@ -479,6 +479,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (worker.status != WorkerStatus.STANDBY || worker.missedArrival) return
         val role = slot.role ?: return
         val target = worker.target ?: return
+        if (!RoleSwitch.maySwitch(slot.binding != null, hasFairyType(slot.pokemon)) || !t.level.isLoaded(target)) return
         if (claims.claimOf(worker.pokemonId)?.kind != ClaimKind.WORK || !BrainBridge.canHoldOrder(slot.entity)) return
         val next = switchFor(t, slot, target, role) {
             guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target, role, slot.memo)) }
@@ -493,7 +494,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      */
     private fun switchFor(t: Tick, slot: WorkerSlot, target: BlockPos, own: ActiveRole, ownDemand: () -> Boolean): ActiveRole? {
         val types = typesOf(slot.pokemon)
-        val roles = switchRolesOn(t.level, target, own, t.roles.forTypes(types), bound = slot.binding != null)
+        val roles = switchRolesOn(t.level, target, own, t.roles, types, bound = slot.binding != null, cache = slot.switchRoles)
         if (roles.size < 2) return null
         val byId = roles.associateBy { it.definition.id }
         val me = slot.worker.pokemonId
@@ -690,13 +691,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun candidate(t: Tick, slot: WorkerSlot, types: Set<String>, key: TargetKey, target: FoundTarget): CandidateView {
         val center = target.roles.first().handler.targetCenter(target.pos)
         val needsDemand = target.roles.all { it.handler.releasesWhenDone }
-        val asked = HashMap<ResourceLocation, Boolean>(2)
-        val demandOf = { def: RoleDefinition ->
-            asked.getOrPut(def.id) {
-                val role = target.roles.first { it.definition.id == def.id }
-                guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target.pos, role)) }
-            }
+        val ask = { def: RoleDefinition ->
+            val role = target.roles.first { it.definition.id == def.id }
+            guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target.pos, role)) }
         }
+        // A target of one role asks its demand once anyway, so only a target of two roles or more keeps the answers.
+        val asked = if (target.roles.size > 1) HashMap<ResourceLocation, Boolean>(target.roles.size) else null
+        val demandOf = { def: RoleDefinition -> asked?.getOrPut(def.id) { ask(def) } ?: ask(def) }
         return CandidateView(key, center, target.roles.map { it.definition }, needsDemand, demandOf) {
             target.roles.any { role -> RoleSelection.isEligible(role.definition, types) && demandOf(role.definition) }
         }
@@ -1358,28 +1359,40 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 internal fun isSingle(role: ActiveRole): Boolean = role.handler.bindingShape == BindingShape.SINGLE && !role.handler.sharesTargets
 
 /**
- * CD-LSH-33: the switch roles of [own] on [target] among [enabled], the enabled roles of a worker's types, [own] first. A handler that
- * throws counts as no match. A worker with no binding ([bound] false) gets auto-assign roles only (CD-ASG-22).
+ * CD-LSH-33: the switch roles of [own] on [target] among the enabled roles of [roleSet] for [types], [own] first. A handler that throws
+ * counts as no match. A worker with no binding ([bound] false) gets auto-assign roles only (CD-ASG-22). A switch role's handler must
+ * not refuse a bind on the cell and must hold it valid (CD-LSH-31). [cache] keeps the answer until the block at [target], the role set,
+ * [own] or [types] change, because the Lumberjack's checks can search a whole tree.
  */
 internal fun switchRolesOn(
     level: ServerLevel,
     target: BlockPos,
     own: ActiveRole,
-    enabled: List<ActiveRole>,
+    roleSet: RoleSet,
+    types: Collection<String>,
     bound: Boolean,
+    cache: SwitchCache<List<ActiveRole>>? = null,
 ): List<ActiveRole> {
-    val byId = enabled.associateBy { it.definition.id } + (own.definition.id to own)
-    val state by lazy { level.getBlockState(target) }
-    val blockEntity by lazy { level.getBlockEntity(target) }
-    val roles = RoleSwitch.rolesOf(
-        own.definition,
-        enabled.map { it.definition },
-        bound,
-        single = { def -> isSingle(byId.getValue(def.id)) },
-        matches = { def -> byId.getValue(def.id).handler.let { h -> guarded(h, false) { h.matches(level, target, state, blockEntity) } } },
-        resolvesToItself = { def -> byId.getValue(def.id).handler.let { h -> guarded(h, null) { h.canonical(level, target) } == target } },
-    )
-    return roles.map { byId.getValue(it.id) }
+    val state = level.getBlockState(target)
+    val compute = {
+        val enabled = roleSet.forTypes(types)
+        val byId = enabled.associateBy { it.definition.id } + (own.definition.id to own)
+        val blockEntity by lazy { level.getBlockEntity(target) }
+        val handlerOf = { def: RoleDefinition -> byId.getValue(def.id).handler }
+        val roles = RoleSwitch.rolesOf(
+            own.definition,
+            enabled.map { it.definition },
+            bound,
+            single = { def -> isSingle(byId.getValue(def.id)) },
+            matches = { def -> handlerOf(def).let { h -> guarded(h, false) { h.matches(level, target, state, blockEntity) } } },
+            resolvesToItself = { def -> handlerOf(def).let { h -> guarded(h, false) { h.resolvesToItself(level, target) } } },
+            accepts = { def ->
+                handlerOf(def).let { h -> guarded(h, false) { h.bindRefusal(level, target, def) == null && h.stillValid(level, target) } }
+            },
+        )
+        roles.map { byId.getValue(it.id) }
+    }
+    return cache?.get(listOf(target, own.definition.id, bound, state, roleSet, types.toList()), compute) ?: compute()
 }
 
 /**

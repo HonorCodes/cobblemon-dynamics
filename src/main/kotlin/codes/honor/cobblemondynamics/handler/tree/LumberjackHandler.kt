@@ -78,6 +78,10 @@ object LumberjackHandler : TargetHandler {
     /** CD-LUM-03: the search runs once from the clicked cell. */
     override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos = TreeRules.canonical(TreeFactsReader(level)::facts, pos, maxLogs())
 
+    /** CD-LSH-33: a log over a log of its kind is no base cell, which needs no search. */
+    override fun resolvesToItself(level: ServerLevel, pos: BlockPos): Boolean =
+        TreeRules.resolvesToItself(TreeFactsReader(level)::facts, pos, maxLogs())
+
     /** CD-LUM-19, CD-LSH-08: the binding keeps its base cell through the fell and the regrowth. */
     override fun bindingHolds(level: ServerLevel, canonical: BlockPos): Boolean {
         val reader = TreeFactsReader(level)

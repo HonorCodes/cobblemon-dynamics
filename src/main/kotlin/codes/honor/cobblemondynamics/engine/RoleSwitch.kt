@@ -14,8 +14,9 @@ object RoleSwitch {
      * CD-LSH-33, CD-ASG-22: the roles that the worker may take on its target, [own] first: the role of its binding, or of its auto claim.
      * Each other role of [enabled], the enabled roles of the worker's types, passes when its handler is not [own]'s, it names one target
      * whose claims share no target ([single]), its handler [matches] the cell and resolves it to itself ([resolvesToItself]), and, for a
-     * worker with no binding ([bound] false), its auto-assign flag is true. An [own] role that is not [single] has no switch roles, and
-     * the list is empty. The cheap checks run first, so a role of another handler costs no block read.
+     * worker with no binding ([bound] false), its auto-assign flag is true. Last, its handler [accepts] the cell for that role: it would
+     * not refuse a bind there and holds the cell valid, so a tree that no role fells keeps no binding. An [own] role that is not [single]
+     * has no switch roles, and the list is empty. The cheap checks run first, so a role of another handler costs no block read.
      */
     fun rolesOf(
         own: RoleDefinition,
@@ -24,6 +25,7 @@ object RoleSwitch {
         single: (RoleDefinition) -> Boolean,
         matches: (RoleDefinition) -> Boolean,
         resolvesToItself: (RoleDefinition) -> Boolean,
+        accepts: (RoleDefinition) -> Boolean = { true },
     ): List<RoleDefinition> {
         if (!single(own)) return emptyList()
         val others = enabled.filter { role ->
@@ -32,7 +34,8 @@ object RoleSwitch {
                 (bound || role.autoAssign) &&
                 single(role) &&
                 matches(role) &&
-                resolvesToItself(role)
+                resolvesToItself(role) &&
+                accepts(role)
         }
         return listOf(own) + others
     }
@@ -61,6 +64,19 @@ object RoleSwitch {
      * the bound cell. [switchRoles] runs only when the own handler lets the target go.
      */
     fun bindingHolds(ownHolds: Boolean, switchRoles: () -> List<RoleDefinition>): Boolean = ownHolds || switchRoles().size > 1
+
+    /** CD-ASG-04: a Fairy-type with no binding heals, so a switch never gives it a machine. A bound worker switches. */
+    fun maySwitch(bound: Boolean, hasFairyType: Boolean): Boolean = bound || !hasFairyType
+}
+
+/**
+ * One cached answer of the switch checks, which can search a whole tree: [get] computes again only when its key changes. The key holds
+ * the block state at the target, so the answer lasts until the block at the target changes.
+ */
+class SwitchCache<T : Any> {
+    private var held: Pair<Any, T>? = null
+
+    fun get(key: Any, compute: () -> T): T = held?.takeIf { it.first == key }?.second ?: compute().also { held = key to it }
 }
 
 /**

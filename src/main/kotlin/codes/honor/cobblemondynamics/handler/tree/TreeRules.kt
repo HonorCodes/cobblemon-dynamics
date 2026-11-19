@@ -83,6 +83,19 @@ object TreeRules {
         return TreeSearch.logs(cells, clicked, maxLogs)?.minWith(TreeSearch.LOWEST) ?: clicked
     }
 
+    /**
+     * CD-LSH-33: whether [pos] is its own [canonical] cell. A log over a log of the same block is never the trunk's base, so it answers
+     * with no search.
+     */
+    fun resolvesToItself(cells: (BlockPos) -> CellFacts, pos: BlockPos, maxLogs: Int): Boolean {
+        val facts = cells(pos)
+        if (facts.logTarget) {
+            val below = cells(pos.below())
+            if (below.logTarget && below.blockId == facts.blockId) return false
+        }
+        return canonical(cells, pos, maxLogs) == pos
+    }
+
     /** The four cells of the 2 × 2 whose corner with the least coordinates is [corner]. */
     fun square(corner: BlockPos): List<BlockPos> = SaplingRules.square(corner)
 

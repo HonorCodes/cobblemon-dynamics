@@ -54,6 +54,9 @@ interface TargetHandler {
 
     fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean = pos == canonical
 
+    /** Whether [pos] is its own [canonical] cell. A handler whose [canonical] searches may answer first from a cheap check (CD-LSH-33). */
+    fun resolvesToItself(level: ServerLevel, pos: BlockPos): Boolean = canonical(level, pos) == pos
+
     fun targetCenter(canonical: BlockPos): Vec3 = Vec3.atCenterOf(canonical)
 
     fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean

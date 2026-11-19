@@ -22,6 +22,9 @@ class WorkerSlot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pok
     /** CD-LSH-34: the handler memos of the switch roles' demand checks, which the poll keeps for the life of the binding. */
     val probes: SwitchProbes = SwitchProbes()
 
+    /** The switch roles of the worker's last check, until the block at its target or its role changes (CD-LSH-33). */
+    val switchRoles: SwitchCache<List<ActiveRole>> = SwitchCache()
+
     /** Whether the worker's travel has stalled, which Cobblemon's navigation does not report in flight. */
     val stall: TravelStall = TravelStall()
 

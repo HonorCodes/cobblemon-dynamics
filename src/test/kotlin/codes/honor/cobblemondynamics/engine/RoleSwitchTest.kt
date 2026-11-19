@@ -148,6 +148,53 @@ class RoleSwitchTest {
         assertFalse(asked, "a binding that its own handler keeps asks no switch role")
     }
 
+    /**
+     * Review: a switch role that would refuse a bind on the cell, as the Lumberjack refuses a tree over its `max_logs` or `max_leaves`,
+     * a tree of Dynamic Trees with no hook or a tree of the never tag, is no switch role, so the binding clears as in 1.2.0.
+     */
+    @Test
+    fun `CD-LSH-31 a binding on a tree that no switch role would fell does not hold`() {
+        val oak = cell("lumberjack")
+        val types = arrayOf("bug", "ground")
+        val refused: (RoleDefinition) -> Boolean = { it != lumberjack }
+        val holds = RoleSwitch.bindingHolds(ownHolds = false) {
+            RoleSwitch.rolesOf(cultivator, enabled(*types), true, single, oak, { true }, accepts = refused)
+        }
+        assertFalse(holds, "a refused tree kept the binding")
+        val felled = RoleSwitch.bindingHolds(ownHolds = false) {
+            RoleSwitch.rolesOf(cultivator, enabled(*types), true, single, oak, { true }, accepts = { true })
+        }
+        assertTrue(felled)
+        // The accept check, which searches the tree, runs last and only for a role that passed every other check.
+        val asked = ArrayList<RoleDefinition>()
+        RoleSwitch.rolesOf(cultivator, enabled(*types), true, single, oak, { true }) {
+            asked += it
+            true
+        }
+        assertEquals(listOf(lumberjack), asked)
+    }
+
+    @Test
+    fun `CD-ASG-04 an unbound Fairy-type never switches, and a bound one does`() {
+        assertFalse(RoleSwitch.maySwitch(bound = false, hasFairyType = true))
+        assertTrue(RoleSwitch.maySwitch(bound = true, hasFairyType = true))
+        assertTrue(RoleSwitch.maySwitch(bound = false, hasFairyType = false))
+    }
+
+    /** Review: the Lumberjack's checks search the whole tree, so their answer lasts until the block at the target changes. */
+    @Test
+    fun `CD-LSH-33 the switch answer is computed again only when its key changes`() {
+        val cache = SwitchCache<Boolean>()
+        var computed = 0
+        val log = Any()
+        for (check in 0 until 100) assertTrue(cache.get(listOf(BlockPos.ZERO, log)) { computed++.let { true } })
+        assertEquals(1, computed)
+        val sapling = Any()
+        assertFalse(cache.get(listOf(BlockPos.ZERO, sapling)) { computed++.let { false } })
+        assertFalse(cache.get(listOf(BlockPos.ZERO, sapling)) { computed++.let { true } })
+        assertEquals(2, computed)
+    }
+
     @Test
     fun `CD-LSH-34 a slot keeps one memo for each switch role until its binding changes`() {
         val probes = SwitchProbes()

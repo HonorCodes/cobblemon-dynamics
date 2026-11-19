@@ -4,9 +4,11 @@ import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.engine.EngineTiming
 import codes.honor.cobblemondynamics.engine.RoleSwitch
+import codes.honor.cobblemondynamics.engine.SwitchCache
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.guarded
 import codes.honor.cobblemondynamics.engine.switchRolesOn
+import codes.honor.cobblemondynamics.handler.farming.CultivatorHandler
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.role.RoleRegistry
@@ -22,6 +24,7 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.tick.LevelTickEvent
 import net.neoforged.neoforge.server.ServerLifecycleHooks
@@ -47,6 +50,9 @@ object LeashResets {
     const val LAND_CLAIM_DESTINATION = "land_claim_destination"
 
     private const val CHECK_TICKS = 10L
+
+    /** CD-LSH-31: the switch answer of each index entry by Pokémon, until the block at its target changes. */
+    private val switchHolds = HashMap<UUID, SwitchCache<Boolean>>()
     private const val LOST = "cobblemon_dynamics.binding.lost"
     private const val REASON = "cobblemon_dynamics.binding.reason"
 
@@ -151,6 +157,7 @@ object LeashResets {
 
     /** Removes the index entry of [pokemonId] at [target]. */
     fun unindex(level: ServerLevel, target: BlockPos, pokemonId: UUID) {
+        switchHolds.remove(pokemonId)
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return
         if (index.remove(target, pokemonId)) level.setData(DynamicsAttachments.LEASH_INDEX, index)
     }
@@ -200,19 +207,37 @@ object LeashResets {
             }
         }
         if (!level.isLoaded(target)) return
-        val bound = RoleRegistry.current.get(ref.roleId) ?: return
+        val roles = RoleRegistry.current
+        val bound = roles.get(ref.roleId) ?: return
         val handler = bound.handler
+        val state = level.getBlockState(target)
+        // CD-CUL-13: 1.2.0 bound a Cultivator to the clicked sapling of a 2 × 2, and 1.2.1 names the square's corner.
+        if (checked != null && handler === CultivatorHandler && state.`is`(BlockTags.SAPLINGS)) {
+            val corner = guarded(handler, target) { handler.canonical(level, target) }
+            if (corner != target) return moveTarget(level, target, ref, checked, corner)
+        }
         // CD-CRP-09: a farming binding keeps the empty cell of a harvested crop.
         if (guarded(handler, true) { handler.bindingHolds(level, target) }) return
-        // CD-LSH-31: a switch role that finds a target of its own on the cell keeps the binding, as the Lumberjack on the oak that grew
-        // from a Cultivator's sapling. The stored role and the index entry stay.
-        val pokemon = checked ?: find(level.server, ref)
-        val holds = pokemon != null &&
+        // CD-LSH-31: a switch role that finds a target of its own on the cell, and would fell or work it, keeps the binding, as the
+        // Lumberjack on the oak that grew from a Cultivator's sapling. Only a Pokémon that this check read counts, so no store lookup
+        // runs every 10 ticks, and the answer lasts until the block at the target changes.
+        val pokemon = checked ?: return lost(level, target, ref, TARGET_GONE)
+        val types = pokemon.types.map { it.showdownId }
+        val key = listOf(target, ref.roleId, state, roles, types)
+        val holds = switchHolds.getOrPut(ref.pokemonId) { SwitchCache() }.get(key) {
             RoleSwitch.bindingHolds(ownHolds = false) {
-                val types = pokemon.types.map { it.showdownId }
-                switchRolesOn(level, target, bound, RoleRegistry.current.forTypes(types), bound = true).map { it.definition }
+                switchRolesOn(level, target, bound, roles, types, bound = true).map { it.definition }
             }
+        }
         if (!holds) lost(level, target, ref, TARGET_GONE, pokemon)
+    }
+
+    /** Moves the binding of [pokemon] and its index entry from [from] to [to], with no message. */
+    private fun moveTarget(level: ServerLevel, from: BlockPos, ref: LeashIndex.Ref, pokemon: Pokemon, to: BlockPos) {
+        val binding = BindingStore.read(pokemon) ?: return
+        BindingStore.write(pokemon, binding.copy(target = to))
+        unindex(level, from, ref.pokemonId)
+        reindex(level, to, ref)
     }
 
     private fun lost(
