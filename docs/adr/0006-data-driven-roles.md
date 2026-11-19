@@ -71,3 +71,10 @@ The approver ruled after the Phase 1 play-test that Fire-types do not heat Blaze
 Burner Keeper role file is gone. The Superheater, a Dragon role, is the only built-in role on the
 `cobblemon_dynamics:burner_heat` handler: it keeps a burner kindled below level 50 and superheats it from
 level 50. The handler stays registered, so a data pack can still add its own burner role.
+
+## Amendment (1.2.1, R94): priority among the roles with work
+
+Status: Proposed (2026-11-18), with [ADR-0005, Amendment 4](0005-global-claim-registry.md#amendment-4-one-role-at-a-time-on-a-target-121-r94). When one worker fits two roles on the same target, the
+role with the higher `priority` wins among the roles that have demand on the target, and among all of them only when none has
+demand. The Brew Stoker still outranks the Brewer, so a Poison/Fire worker fuels a stand first and speeds its brew once the
+fuel is full (R94 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md)).
