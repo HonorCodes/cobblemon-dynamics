@@ -11,75 +11,126 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
-/** ADR-0017, decision 10: the replant takes saplings from the drops, so no sapling comes from nothing. */
+/** ADR-0017, decision 10 and its 1.2.1 amendment: the replant takes its saplings from the drops first and creates the shortfall. */
 class ReplantRuleTest {
     private val base = BlockPos(0, 64, 0)
-    private val saplings = setOf(rl(OAK_SAPLING), rl(DARK_OAK_SAPLING), rl(SPRUCE_SAPLING))
+    private val jungleSapling = rl("minecraft:jungle_sapling")
 
     private fun choose(
+        kind: ResourceLocation,
         drops: List<Pair<ResourceLocation, Int>>,
         twoByTwo: Boolean = false,
-        survives: (ResourceLocation, BlockPos) -> Boolean = { _, _ -> true },
-    ): ReplantRule.Replant<ResourceLocation>? =
-        ReplantRule.choose(drops, base, twoByTwo, saplings::contains, survives) { it == rl(DARK_OAK_SAPLING) }
+        survives: (BlockPos) -> Boolean = { true },
+        allowed: (BlockPos) -> Boolean = { true },
+    ): ReplantRule.Replant<ResourceLocation>? {
+        val held = drops.filter { it.first == kind }.sumOf { it.second }
+        return ReplantRule.choose(kind, held, base, twoByTwo, { _, cell -> survives(cell) }, { it == rl(DARK_OAK_SAPLING) }, allowed)
+    }
 
-    /** What drops after the replant. */
+    /** What pops after the replant. */
     private fun kept(drops: List<Pair<ResourceLocation, Int>>, replant: ReplantRule.Replant<ResourceLocation>?) =
-        FellPlan.merged(drops, taken = listOfNotNull(replant?.let { it.item to it.cells.size }))
+        FellPlan.merged(drops, taken = listOfNotNull(replant?.let { it.item to it.taken }))
 
     @Test
     fun `CD-LUM-17 the drops of an oak with 3 saplings plant one in the base cell and keep 2`() {
         val drops = listOf(rl(OAK_LOG) to 5, rl(OAK_SAPLING) to 3)
-        val replant = choose(drops)
-        assertEquals(ReplantRule.Replant(rl(OAK_SAPLING), listOf(base)), replant)
+        val replant = choose(rl(OAK_SAPLING), drops)
+        assertEquals(ReplantRule.Replant(rl(OAK_SAPLING), listOf(base), taken = 1), replant)
         assertEquals(listOf(rl(OAK_LOG) to 5, rl(OAK_SAPLING) to 2), kept(drops, replant))
     }
 
     @Test
-    fun `CD-LUM-17 drops with no sapling plant nothing, and a sapling that cannot survive in the base cell is not planted`() {
-        assertNull(choose(listOf(rl(OAK_LOG) to 5)))
-        assertNull(choose(listOf(rl(OAK_SAPLING) to 3)) { _, cell -> cell != base })
-    }
-
-    @Test
-    fun `CD-LUM-18 a dark oak with 5 saplings plants 4 in its 2 x 2`() {
-        val drops = listOf(rl(DARK_OAK_SAPLING) to 5)
-        val replant = choose(drops, twoByTwo = true)
-        assertEquals(ReplantRule.Replant(rl(DARK_OAK_SAPLING), TreeRules.square(base)), replant)
-        assertEquals(listOf(rl(DARK_OAK_SAPLING) to 1), kept(drops, replant))
-    }
-
-    @Test
-    fun `CD-LUM-18 a dark oak with 3 saplings plants none and keeps all`() {
-        val drops = listOf(rl(DARK_OAK_SAPLING) to 3)
-        val replant = choose(drops, twoByTwo = true)
-        assertNull(replant)
+    fun `CD-LUM-17 CD-LUM-32 the drops of an oak with no sapling plant one created oak sapling and keep every item`() {
+        val drops = listOf(rl(OAK_LOG) to 5)
+        val replant = choose(rl(OAK_SAPLING), drops)
+        assertEquals(ReplantRule.Replant(rl(OAK_SAPLING), listOf(base), taken = 0), replant)
+        assertEquals(1, replant?.created)
         assertEquals(drops, kept(drops, replant))
-        assertNull(choose(listOf(rl(DARK_OAK_SAPLING) to 5)), "a dark oak sapling grows alone in a trunk of 1 log")
     }
 
     @Test
-    fun `CD-LUM-18 a mega spruce with 2 saplings plants one at the corner cell`() {
-        val replant = choose(listOf(rl(SPRUCE_SAPLING) to 2), twoByTwo = true)
-        assertEquals(ReplantRule.Replant(rl(SPRUCE_SAPLING), listOf(base)), replant)
-    }
-
-    @Test
-    fun `CD-LUM-18 a 2 x 2 whose cell cannot hold a sapling plants one at the corner cell`() {
-        val corner = base
-        val replant = choose(listOf(rl(SPRUCE_SAPLING) to 4), twoByTwo = true) { _, cell -> cell == corner }
-        assertEquals(ReplantRule.Replant(rl(SPRUCE_SAPLING), listOf(corner)), replant)
+    fun `CD-LUM-17 a sapling that cannot survive in the base cell is not planted`() {
+        assertNull(choose(rl(OAK_SAPLING), listOf(rl(OAK_SAPLING) to 3), survives = { it != base }))
     }
 
     /** A claim can change during a fell of several ticks, so the end of the fell asks the use question of each planted cell again. */
     @Test
-    fun `CD-LUM-17 a replant whose cell the claim refuses at the end of the fell plants nothing, and every sapling drops`() {
-        val drops = listOf(rl(OAK_SAPLING) to 3)
-        val replant = choose(drops)
-        assertEquals(replant, ReplantRule.allowedBy(replant) { true })
-        assertNull(ReplantRule.allowedBy(replant) { false })
-        assertEquals(drops, kept(drops, ReplantRule.allowedBy(replant) { false }))
-        val square = choose(listOf(rl(DARK_OAK_SAPLING) to 4), twoByTwo = true)
-        assertNull(ReplantRule.allowedBy(square) { it != base.east() }, "a 2 x 2 planted with one cell refused")
+    fun `CD-LUM-17 a replant whose cell the claim refuses at the end of the fell plants nothing and keeps all`() {
+        val drops = listOf(rl(OAK_LOG) to 5, rl(OAK_SAPLING) to 3)
+        val replant = choose(rl(OAK_SAPLING), drops, allowed = { false })
+        assertNull(replant)
+        assertEquals(drops, kept(drops, replant))
+    }
+
+    @Test
+    fun `CD-LUM-18 a dark oak with 5 saplings in its drops plants 4 and keeps 1`() {
+        val drops = listOf(rl(DARK_OAK_SAPLING) to 5)
+        val replant = choose(rl(DARK_OAK_SAPLING), drops, twoByTwo = true)
+        assertEquals(ReplantRule.Replant(rl(DARK_OAK_SAPLING), TreeRules.square(base), taken = 4), replant)
+        assertEquals(listOf(rl(DARK_OAK_SAPLING) to 1), kept(drops, replant))
+    }
+
+    @Test
+    fun `CD-LUM-18 a dark oak with 3 plants 4, takes 3, creates 1 and keeps none`() {
+        val drops = listOf(rl(DARK_OAK_SAPLING) to 3)
+        val replant = choose(rl(DARK_OAK_SAPLING), drops, twoByTwo = true)
+        assertEquals(ReplantRule.Replant(rl(DARK_OAK_SAPLING), TreeRules.square(base), taken = 3), replant)
+        assertEquals(1, replant?.created)
+        assertEquals(emptyList<Pair<ResourceLocation, Int>>(), kept(drops, replant))
+    }
+
+    @Test
+    fun `CD-LUM-18 a dark oak with none plants 4`() {
+        val replant = choose(rl(DARK_OAK_SAPLING), emptyList(), twoByTwo = true)
+        assertEquals(ReplantRule.Replant(rl(DARK_OAK_SAPLING), TreeRules.square(base), taken = 0), replant)
+        assertEquals(4, replant?.created)
+    }
+
+    @Test
+    fun `CD-LUM-18 a mega spruce with 2 plants 4`() {
+        val replant = choose(rl(SPRUCE_SAPLING), listOf(rl(SPRUCE_SAPLING) to 2), twoByTwo = true)
+        assertEquals(ReplantRule.Replant(rl(SPRUCE_SAPLING), TreeRules.square(base), taken = 2), replant)
+    }
+
+    @Test
+    fun `CD-LUM-18 a mega spruce whose square has one cell over stone plants one at the corner`() {
+        val stone = base.east().south()
+        val drops = listOf(rl(SPRUCE_SAPLING) to 4)
+        val replant = choose(rl(SPRUCE_SAPLING), drops, twoByTwo = true, survives = { it != stone })
+        assertEquals(ReplantRule.Replant(rl(SPRUCE_SAPLING), listOf(base), taken = 1), replant)
+        assertEquals(listOf(rl(SPRUCE_SAPLING) to 3), kept(drops, replant))
+    }
+
+    @Test
+    fun `CD-LUM-18 a mega spruce whose square has one refused cell plants one at the corner`() {
+        val replant = choose(rl(SPRUCE_SAPLING), listOf(rl(SPRUCE_SAPLING) to 4), twoByTwo = true, allowed = { it != base.east() })
+        assertEquals(ReplantRule.Replant(rl(SPRUCE_SAPLING), listOf(base), taken = 1), replant)
+    }
+
+    @Test
+    fun `CD-LUM-18 a dark oak whose square has a cell over stone plants none and keeps all`() {
+        val drops = listOf(rl(DARK_OAK_SAPLING) to 5)
+        val replant = choose(rl(DARK_OAK_SAPLING), drops, twoByTwo = true, survives = { it != base.south() })
+        assertNull(replant)
+        assertEquals(drops, kept(drops, replant))
+        assertNull(choose(rl(DARK_OAK_SAPLING), drops), "a dark oak sapling grows alone in a trunk of 1 log")
+    }
+
+    @Test
+    fun `CD-LUM-32 a 2 x 2 jungle with 2 saplings takes 2, creates 2 and pops no sapling`() {
+        val drops = listOf(rl("minecraft:jungle_log") to 24, jungleSapling to 2)
+        val replant = choose(jungleSapling, drops, twoByTwo = true)
+        assertEquals(2, replant?.taken)
+        assertEquals(2, replant?.created)
+        assertEquals(listOf(rl("minecraft:jungle_log") to 24), kept(drops, replant))
+    }
+
+    @Test
+    fun `CD-LUM-32 a 2 x 2 jungle with 6 saplings takes 4, creates none and pops 2`() {
+        val drops = listOf(jungleSapling to 6)
+        val replant = choose(jungleSapling, drops, twoByTwo = true)
+        assertEquals(4, replant?.taken)
+        assertEquals(0, replant?.created)
+        assertEquals(listOf(jungleSapling to 2), kept(drops, replant))
     }
 }

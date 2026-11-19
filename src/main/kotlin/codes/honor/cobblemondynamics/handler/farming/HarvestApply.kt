@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.farming
 
+import codes.honor.cobblemondynamics.OnceLogger
 import com.cobblemon.mod.common.block.entity.BerryBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -7,6 +8,7 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.BlockItem
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.AttachedStemBlock
 import net.minecraft.world.level.block.Block
@@ -26,6 +28,8 @@ import net.minecraft.world.phys.Vec3
  * each cell with `Level.setBlock` and drops each item through `Block.popResourceFromFace`.
  */
 object HarvestApply {
+    private val warnings = OnceLogger()
+
     /**
      * Harvests the crop at [crop] once. Its items come out of the crop's face toward [spot] (CD-HRV-06). [mayChange] answers the land
      * claim checks of each cell that the harvest changes, in this tick (CD-HRV-13), and [mayBreak] the break question of each cell that
@@ -63,7 +67,10 @@ object HarvestApply {
         }.filterNot { it.isEmpty }
         val drops = stacks.map { Drop(idOf(it), it.count) }
         val ageAfter = facts.harvestLoot?.ageAfter ?: 0
-        val plan = HarvestPlans.plan(kind, drops, ownSeeds(stacks, state), seeds(stacks, state), whole, ageAfter) {
+        // CD-HRV-22, CD-HRV-23: only the two adapters that break the crop replant it from its seed item.
+        val breaks = kind == HarvestKind.CROP || kind == HarvestKind.BREAK_AND_REPLANT
+        val seedBlock = if (breaks) seedBlockOf(level, crop, state) else null
+        val plan = HarvestPlans.plan(kind, drops, ownSeeds(stacks, state), seeds(stacks, state), whole, ageAfter, seedBlock) {
             replantState(it?.let(BuiltInRegistries.BLOCK::get) ?: state.block, state).canSurvive(level, crop)
         }
         val changed = listOfNotNull(
@@ -84,6 +91,32 @@ object HarvestApply {
         if (fruit != null && plan.fruit == CellChange.Clear) clear(level, fruit, Block.UPDATE_ALL)
         drop(level, crop, face, stacks, plan.seed)
         return true
+    }
+
+    /**
+     * CD-HRV-22: the seed item of the crop [state] at [pos]: its clone item, else its `Block.asItem()`, when that item is a `BlockItem`
+     * whose block is the crop's own block or another block of `#cobblemon_dynamics:cultivator_targets`. Wheat gives wheat seeds, carrots
+     * a carrot and cocoa its beans. A crop whose check fails has no seed item, and logs once.
+     */
+    fun seedItemOf(level: ServerLevel, pos: BlockPos, state: BlockState): Item? {
+        val block = state.block
+        return try {
+            listOf(block.getCloneItemStack(level, pos, state).item, block.asItem()).firstOrNull { item ->
+                val placed = (item as? BlockItem)?.block
+                placed != null && (placed === block || placed.defaultBlockState().`is`(FarmingTags.CULTIVATOR_TARGETS))
+            }
+        } catch (e: Exception) {
+            warnings.warn("seed:${BuiltInRegistries.BLOCK.getKey(block)}") {
+                "The Harvester finds no seed item of $block, whose check fails: $e"
+            }
+            null
+        }
+    }
+
+    /** CD-HRV-22: the block that the seed item of [seedItemOf] places, or null with no seed item. */
+    fun seedBlockOf(level: ServerLevel, pos: BlockPos, state: BlockState): SeedBlock? {
+        val placed = (seedItemOf(level, pos, state) as? BlockItem)?.block ?: return null
+        return if (placed === state.block) SeedBlock.Own else SeedBlock.Other(BuiltInRegistries.BLOCK.getKey(placed))
     }
 
     /**

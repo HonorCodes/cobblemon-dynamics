@@ -24,6 +24,16 @@ sealed interface CellChange {
     data class ReplantAs(val block: ResourceLocation) : CellChange
 }
 
+/**
+ * CD-HRV-22: the block that a crop's seed item places, which a harvest replants when the loot holds no seed. [Own] is the crop's own
+ * block, and [Other] another block of the Cultivator's tag.
+ */
+sealed interface SeedBlock {
+    data object Own : SeedBlock
+
+    data class Other(val block: ResourceLocation) : SeedBlock
+}
+
 /** A cell that a harvest changes: the crop's own, the upper half above it, or the fruit that an attached stem faces. */
 enum class HarvestCell { CROP, UPPER, FRUIT }
 
@@ -63,6 +73,7 @@ object HarvestPlans {
      * tells whether a replant of that block can survive in the crop's cell, where null is the crop's own first state. [hasUpper]
      * tells a crop of the crop adapter with an upper half, such as flax. A berry tree keeps its cell, because
      * `BerryBlockEntity.harvest` already set it back to age 3. [ageAfter] is the `age` that a pick by loot table leaves (CD-FRM-03).
+     * [seedBlock] is the block of the crop's seed item, which only the two adapters that break the crop read (CD-HRV-22, CD-HRV-23).
      */
     fun plan(
         kind: HarvestKind,
@@ -71,9 +82,10 @@ object HarvestPlans {
         seeds: Map<ResourceLocation, ResourceLocation>,
         hasUpper: Boolean,
         ageAfter: Int = 0,
+        seedBlock: SeedBlock? = null,
         survives: (ResourceLocation?) -> Boolean,
     ): HarvestPlan = when (kind) {
-        HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT -> breakAndReplant(loot, ownSeeds, seeds, survives, hasUpper)
+        HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT -> breakAndReplant(loot, ownSeeds, seeds, seedBlock, survives, hasUpper)
         HarvestKind.PICK_TO_AGE_0 -> HarvestPlan(loot, CellChange.SetAge(0))
         HarvestKind.PICK_TO_AGE_1 -> HarvestPlan(loot, CellChange.SetAge(1))
         HarvestKind.CAVE_VINES, HarvestKind.CAVE_VINES_TAG -> HarvestPlan(loot, CellChange.ClearBerries)
@@ -93,14 +105,26 @@ object HarvestPlans {
         survives: (ResourceLocation?) -> Boolean,
     ): HarvestPlan = plan(kind, loot, ownSeeds, seeds, hasUpper = false, survives = survives)
 
+    /** The plan of a crop with no upper half, whose seed item places [seedBlock] (CD-HRV-22). */
+    fun plan(
+        kind: HarvestKind,
+        loot: List<Drop>,
+        ownSeeds: Set<ResourceLocation>,
+        seeds: Map<ResourceLocation, ResourceLocation>,
+        seedBlock: SeedBlock?,
+        survives: (ResourceLocation?) -> Boolean,
+    ): HarvestPlan = plan(kind, loot, ownSeeds, seeds, hasUpper = false, seedBlock = seedBlock, survives = survives)
+
     /**
-     * CD-HRV-07, CD-HRV-08: one item of the crop's own seeds replants it, else one item of another block of the Cultivator's tag
-     * whose block survives in the cell, else the cell goes to its fluid and every item drops. No seed comes from nothing.
+     * CD-HRV-07, CD-HRV-08, CD-HRV-22: one item of the crop's own seeds replants it, else one item of another block of the Cultivator's
+     * tag whose block survives in the cell, else [seedBlock] with no item taken, so the whole loot drops. With none of these the cell
+     * goes to its fluid and every item drops.
      */
     private fun breakAndReplant(
         loot: List<Drop>,
         ownSeeds: Set<ResourceLocation>,
         seeds: Map<ResourceLocation, ResourceLocation>,
+        seedBlock: SeedBlock?,
         survives: (ResourceLocation?) -> Boolean,
         hasUpper: Boolean,
     ): HarvestPlan {
@@ -112,7 +136,12 @@ object HarvestPlans {
             val item = loot[other].item
             return HarvestPlan(minusOne(loot, other), CellChange.ReplantAs(seeds.getValue(item)), upper, seed = item)
         }
-        return HarvestPlan(loot, CellChange.Clear, upper)
+        val created = when (seedBlock) {
+            SeedBlock.Own -> CellChange.Replant.takeIf { survives(null) }
+            is SeedBlock.Other -> CellChange.ReplantAs(seedBlock.block).takeIf { survives(seedBlock.block) }
+            null -> null
+        }
+        return HarvestPlan(loot, created ?: CellChange.Clear, upper)
     }
 
     /** [loot] with one item fewer in the stack at [index]. A stack that this empties leaves the list. */

@@ -38,16 +38,124 @@ class HarvestPlanTest {
     }
 
     @Test
-    fun `CD-HRV-08 cabbage with no seed, and a replant that cannot survive, drop everything and clear the cell`() {
+    fun `CD-HRV-08 CD-HRV-22 cabbage loot with no seed replants from its seed block, and with no seed block clears the cell`() {
         val cabbage = ResourceLocation.parse("farmersdelight:cabbage")
         val cabbageSeeds = ResourceLocation.parse("farmersdelight:cabbage_seeds")
-        val none = HarvestPlans.plan(HarvestKind.CROP, listOf(Drop(cabbage, 1)), setOf(cabbageSeeds), emptyMap(), always)
-        assertEquals(listOf(Drop(cabbage, 1)), none.drops)
+        val loot = listOf(Drop(cabbage, 1))
+        val created = HarvestPlans.plan(HarvestKind.CROP, loot, setOf(cabbageSeeds), emptyMap(), SeedBlock.Own, always)
+        assertEquals(loot, created.drops)
+        assertEquals(CellChange.Replant, created.crop)
+        assertEquals(null, created.seed, "a created replant takes an item from the loot")
+        val none = HarvestPlans.plan(HarvestKind.CROP, loot, setOf(cabbageSeeds), emptyMap(), survives = always)
+        assertEquals(loot, none.drops)
         assertEquals(CellChange.Clear, none.crop)
         assertEquals(null, none.seed)
-        val dry = HarvestPlans.plan(HarvestKind.CROP, listOf(Drop(wheat, 1), Drop(seeds, 2)), setOf(seeds), emptyMap()) { false }
+    }
+
+    @Test
+    fun `CD-HRV-08 a replant that cannot survive keeps every item and plans an empty cell`() {
+        val loot = listOf(Drop(wheat, 1), Drop(seeds, 2))
+        val dry = HarvestPlans.plan(HarvestKind.CROP, loot, setOf(seeds), emptyMap(), SeedBlock.Own) { false }
         assertEquals(CellChange.Clear, dry.crop)
-        assertEquals(3, dry.drops.sumOf { it.count })
+        assertEquals(loot, dry.drops)
+        assertEquals(null, dry.seed)
+        val stem = ResourceLocation.parse("aether:berry_bush_stem")
+        val other = HarvestPlans.plan(
+            HarvestKind.BREAK_AND_REPLANT,
+            listOf(Drop(wheat, 2)),
+            emptySet(),
+            emptyMap(),
+            SeedBlock.Other(stem),
+        ) {
+            it != stem
+        }
+        assertEquals(CellChange.Clear, other.crop, "a seed block of another block that cannot survive")
+        assertEquals(listOf(Drop(wheat, 2)), other.drops)
+    }
+
+    @Test
+    fun `CD-HRV-22 wheat loot of 2 wheat and no seed plans the replant and keeps both wheat`() {
+        val plan = HarvestPlans.plan(HarvestKind.CROP, listOf(Drop(wheat, 2)), setOf(seeds), emptyMap(), SeedBlock.Own, always)
+        assertEquals(listOf(Drop(wheat, 2)), plan.drops)
+        assertEquals(CellChange.Replant, plan.crop)
+        assertEquals(null, plan.seed)
+    }
+
+    @Test
+    fun `CD-HRV-22 loot with seeds still takes one seed`() {
+        val plan = HarvestPlans.plan(
+            HarvestKind.CROP,
+            listOf(Drop(wheat, 1), Drop(seeds, 3)),
+            setOf(seeds),
+            emptyMap(),
+            SeedBlock.Own,
+            always,
+        )
+        assertEquals(listOf(Drop(wheat, 1), Drop(seeds, 2)), plan.drops)
+        assertEquals(CellChange.Replant, plan.crop)
+        assertEquals(seeds, plan.seed)
+    }
+
+    @Test
+    fun `CD-HRV-22 a seed item whose block is another block of the Cultivator's tag plans that block`() {
+        val stem = ResourceLocation.parse("aether:berry_bush_stem")
+        val berry = ResourceLocation.parse("aether:blue_berry")
+        val plan = HarvestPlans.plan(
+            HarvestKind.BREAK_AND_REPLANT,
+            listOf(Drop(berry, 2)),
+            emptySet(),
+            emptyMap(),
+            SeedBlock.Other(stem),
+            always,
+        )
+        assertEquals(CellChange.ReplantAs(stem), plan.crop)
+        assertEquals(listOf(Drop(berry, 2)), plan.drops)
+        assertEquals(null, plan.seed)
+    }
+
+    /** Decision 7 of the 1.2.1 plan: a dropped seed of another block of the tag wins over a created seed of the crop's own block. */
+    @Test
+    fun `CD-HRV-22 a dropped seed of another block of the tag wins over a created own seed`() {
+        val stem = ResourceLocation.parse("aether:berry_bush_stem")
+        val loot = listOf(Drop(wheat, 1), Drop(stem, 1))
+        val plan = HarvestPlans.plan(HarvestKind.BREAK_AND_REPLANT, loot, emptySet(), mapOf(stem to stem), SeedBlock.Own, always)
+        assertEquals(CellChange.ReplantAs(stem), plan.crop)
+        assertEquals(stem, plan.seed)
+        assertEquals(listOf(Drop(wheat, 1)), plan.drops)
+    }
+
+    @Test
+    fun `CD-HRV-23 the adapters that keep the crop's block never break or replant its cell, with or without seeds`() {
+        val keep = listOf(
+            HarvestKind.PICK_TO_AGE_0,
+            HarvestKind.PICK_TO_AGE_1,
+            HarvestKind.CAVE_VINES,
+            HarvestKind.CAVE_VINES_TAG,
+            HarvestKind.UPPER_HALF,
+            HarvestKind.GOURD,
+            HarvestKind.BERRY_TREE,
+            HarvestKind.PICK_BY_LOOT_TABLE,
+        )
+        val loots = listOf(listOf(Drop(wheat, 2)), listOf(Drop(wheat, 1), Drop(seeds, 2)))
+        for (kind in keep) {
+            for (loot in loots) {
+                for (seedBlock in listOf(null, SeedBlock.Own)) {
+                    val plan = HarvestPlans.plan(
+                        kind,
+                        loot,
+                        setOf(seeds),
+                        emptyMap(),
+                        hasUpper = false,
+                        seedBlock = seedBlock,
+                        survives = always,
+                    )
+                    val broken = plan.crop == CellChange.Clear || plan.crop == CellChange.Replant || plan.crop is CellChange.ReplantAs
+                    assertFalse(broken, "$kind with $loot and $seedBlock plans ${plan.crop}")
+                    assertFalse(HarvestCell.CROP in plan.broken(), "$kind breaks its crop cell")
+                    assertEquals(null, plan.seed, "$kind takes a seed")
+                }
+            }
+        }
     }
 
     @Test

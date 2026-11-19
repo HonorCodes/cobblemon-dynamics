@@ -158,4 +158,20 @@ class FellPlanTest {
         assertTrue(BlockPos(16, 66, 3) in plan.questions, "the painting of chunk 1 is not asked about")
         assertEquals(plan(grid, tree, setOf(torch)).questions.size + 2, plan.questions.size)
     }
+
+    @Test
+    fun `CD-LUM-31 leafIds lists the tree's leaf block ids, most common first, then by id, and baseId names the base log`() {
+        val base = BlockPos(0, 64, 0)
+        val leaves = (1..5).map { base.above(it).east() }
+        val ids = listOf("x:b_leaves", "x:b_leaves", "x:a_leaves", "x:c_leaves", "x:a_leaves").map(::rl)
+        val blocks = (leaves.zip(ids) + (base to rl(OAK_LOG))).toMap()
+        val plan = FellPlan.of(Tree(base, setOf(base), leaves.toSet()), emptySet()) { blocks.getValue(it) }
+        assertEquals(listOf(rl("x:a_leaves"), rl("x:b_leaves"), rl("x:c_leaves")), plan.leafIds)
+        assertEquals(rl(OAK_LOG), plan.baseId)
+        val (grid, oak, _) = borderOak()
+        val more = (oak.leaves - oak.leaves.first()).take(3)
+        for (pos in more) grid.leaf(pos, "minecraft:azalea_leaves")
+        val mixed = plan(grid, tree(grid, oak.base))
+        assertEquals(listOf(rl(TreeGrid.OAK_LEAVES), rl("minecraft:azalea_leaves")), mixed.leafIds)
+    }
 }
