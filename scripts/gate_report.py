@@ -7,10 +7,13 @@ CD-CMP-08 to CD-CMP-10, and the shared containers CD-CLM-10, CD-CLM-11, CD-LSH-2
 and MUST NOT row of the sheet to pass on one commit. The 1.1 gate holds every row too: the rows of 1.1 (the CUL, HRV and CRP
 areas, CD-BAL-08, CD-BAL-09 and CD-REL-16), and every earlier row, which CD-REL-16 needs to still pass. The 1.2 gate holds
 every row as well: the rows of 1.2, and every earlier row, which CD-REL-17 needs to still pass beside the test pack's case
-mods. The script reads the spec sheet, the JUnit XML reports of `./gradlew build`, the GameTest sources with the log of each
-GameTest run, the deferred lists of the gate's plans, the manual checklist, the test pack's README and the output of each
-test pack command. The 1.2 gate also reads the list of the GameTests that the 1.2 plan deferred by the approver's test
-rulings. The Phase 2 and 1.2 gates read the output of `py scripts/art.py check`, and each gate after Phase 1 reads the
+mods. The 1.2.1 gate holds every row too: the rows of 1.2.1, and every earlier row, which CD-REL-18 needs to still pass beside
+the test pack's cases smoke, crops and mods. The script reads the spec sheet, the JUnit XML reports of `./gradlew build`, the
+GameTest sources with the log of each GameTest run of the gate, the deferred lists of the gate's plans, the manual
+checklist, the test pack's README and the output of each test pack command of the gate. The 1.2 and 1.2.1 gates also read
+the lists of the GameTests that the 1.2 and 1.2.1 plans deferred by the approver's test rulings. The 1.2.1 gate runs only
+the full run, the perf run and the test pack commands smoke, crops and mods, and marks the tests of the other checks
+`left out`. The Phase 2 and 1.2 gates read the output of `py scripts/art.py check`, and each gate after Phase 1 reads the
 play-test notes of the reports of earlier gates. The script rewrites only the generated blocks of the gate's report,
 docs/testing/phase-N-gate.md or docs/testing/vN-gate.md, and keeps the text around them.
 
@@ -18,6 +21,7 @@ Usage: py scripts/gate_report.py [--phase 1] --gradle-log FILE --testpack-log FI
        py scripts/gate_report.py --phase 2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
        py scripts/gate_report.py --phase 1.1 --gradle-log FILE --testpack-log FILE [...] [--allow-dirty]
        py scripts/gate_report.py --phase 1.2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
+       py scripts/gate_report.py --phase 1.2.1 --gradle-log FILE --testpack-log FILE [...] [--allow-dirty]
        py scripts/gate_report.py --self-check
 Exit code 0 when every automated row has a passing test, 1 when a row has not or an input disagrees with another, and 2
 when an input is missing or unreadable.
@@ -49,6 +53,8 @@ PHASE_3_REPORT = ROOT / "docs/testing/phase-3-gate.md"
 V11_REPORT = ROOT / "docs/testing/v1.1-gate.md"
 V12_REPORT = ROOT / "docs/testing/v1.2-gate.md"
 V12_PLAN = ROOT / "docs/plans/2026-11-15-v1.2-new-roles-and-compat.md"
+V121_REPORT = ROOT / "docs/testing/v1.2.1-gate.md"
+V121_PLAN = ROOT / "docs/plans/2026-11-18-v1.2.1-replant-area-dual-type.md"
 # The task of each plan whose end-of-phase pass wrote the tests of its deferred list.
 DEFERRED_TASKS = {M5_PLAN: "M5 Task 9", M8_PLAN: "M8 Task 7"}
 CHECKLIST = ROOT / "docs/testing/manual-checklist.md"
@@ -76,6 +82,8 @@ PACK_ORDER = ["smoke", "deps", "compat", "reload", "restart", "crops", "mods"]
 # The mark of a row whose GameTest a plan deferred by the approver's test rulings, and the header of the plan's list of them.
 DEFERRED_GAMETEST = "GameTest deferred"
 RULED_LIST = "\nGameTests deferred by the rulings ("
+# The status and the mark of a test whose GameTest run or test pack command the gate leaves out.
+LEFT_OUT = "left out"
 
 
 class Run(NamedTuple):
@@ -126,7 +134,9 @@ class Phase(NamedTuple):
     completed to that gate's report. art_review maps each row that completes with the approver's art review to the case
     of `py scripts/art.py check` that reads the review record for the row. ruled_plans are the plans whose list of the
     GameTests deferred by the approver's test rulings the gate reads. record_pack names the test pack commands whose result
-    the record needs. client is false when a ruling leaves the play-test client out of the gate.
+    the record needs. client is false when a ruling leaves the play-test client out of the gate. note is false when the
+    gate records no play-test note. runs names the GameTest runs of the gate, and pack its test pack commands; None means
+    every run or every command. The tests of the runs and commands that the gate leaves out are marked `left out`.
     """
 
     number: str
@@ -140,11 +150,28 @@ class Phase(NamedTuple):
     ruled_plans: tuple[pathlib.Path, ...] = ()
     record_pack: tuple[str, ...] = ()
     client: bool = True
+    note: bool = True
+    runs: tuple[str, ...] | None = None
+    pack: tuple[str, ...] | None = None
 
     @property
     def checks_art(self) -> bool:
         """The gate of the art review rows also runs the art checks."""
         return bool(self.art_review)
+
+    @property
+    def gate_runs(self) -> tuple[Run, ...]:
+        """The GameTest runs of the gate, in the order of RUNS."""
+        return tuple(run for run in RUNS if self.runs is None or run.name in self.runs)
+
+    def gate_pack(self, commands: set[str]) -> set[str]:
+        """The test pack commands of the gate, of the commands that testpack.py has."""
+        return set(commands) if self.pack is None else commands & set(self.pack)
+
+    @property
+    def leaves_out(self) -> bool:
+        """The gate leaves out some GameTest runs or test pack commands."""
+        return self.runs is not None or self.pack is not None
 
 
 # The plan index, "The art review rows": CD-ART-02, CD-ART-03, CD-ART-04 and CD-ART-10 complete when the review record
@@ -177,6 +204,19 @@ PHASES = {
                  {"CD-REL-04": "the v1.2.0 tag", "CD-REL-05": "the v1.2.0 tag", "CD-REL-15": "the next pack release"},
                  "CD-REL-17", {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT},
                  ART_REVIEW, ruled_plans=(V12_PLAN,), record_pack=("mods",), client=False),
+    # CD-REL-18: every row of 1.2.1 passes on the release commit, every earlier row still passes there, and the test pack's
+    # cases smoke, crops and mods pass. The v1.2.1 tag and its jar (the 1.2.1 parts of CD-REL-04 and CD-REL-05) and the next
+    # pack release (CD-REL-15) come after the gate, by Task D of the 1.2.1 plan. 1.2.1 adds no art, so the art checks do not
+    # run, and the art review rows completed at the 1.2 gate. The 1.2 and 1.2.1 plans list the GameTests that the approver's
+    # test rulings deferred. 1.2.1 changes no Create, compat or claim code, so the gate runs only build, the full run, the
+    # perf run and the cases smoke, crops and mods (decision 17 of the 1.2.1 plan). The COHO players test 1.2.1 (R93), so the
+    # gate records no play-test note and runs no play-test client.
+    "1.2.1": Phase("1.2.1", V121_REPORT, lambda row, area: True, (M5_PLAN, M8_PLAN),
+                   {"CD-REL-04": "the v1.2.1 tag", "CD-REL-05": "the v1.2.1 tag", "CD-REL-15": "the next pack release"},
+                   "CD-REL-18", {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT,
+                                 "CD-REL-17": V12_REPORT} | dict.fromkeys(ART_REVIEW, V12_REPORT),
+                   {}, ruled_plans=(V12_PLAN, V121_PLAN), record_pack=("smoke", "crops", "mods"), client=False,
+                   note=False, runs=("full", "perf"), pack=("smoke", "crops", "mods")),
 }
 
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|")
@@ -310,6 +350,7 @@ class Gate:
     art_log: pathlib.Path | None = None
     art_verdict: tuple[str, str] = ("not run", "")
     ruled_groups: list[tuple[str, list[str]]] = dataclasses.field(default_factory=list)
+    left_out: list[str] = dataclasses.field(default_factory=list)
     evaluated: dict[str, tuple[str, list, list[Check]]] = dataclasses.field(default_factory=dict)
 
 
@@ -864,22 +905,27 @@ def client_summary() -> str:
 def evaluate(row: SpecRow, refs: set[Ref], checks: list[Check], results: dict[Ref, tuple[str, str]], phase: Phase,
              ruled: bool = False):
     """The result of a row, and each of its tests that did not pass with its status and detail. ruled is true for a row
-    whose GameTest a plan deferred by the approver's test rulings: the row rests on its other tests, if it has any."""
+    whose GameTest a plan deferred by the approver's test rulings: the row rests on its other tests, if it has any. A test
+    of a check that the gate leaves out neither passes nor fails the row: the row rests on its other tests."""
     scripted = any("scripted" in check.marks for check in checks)
     special = row.id in phase.later or row.id == phase.record or row.id in phase.earlier
     required = not special and bool(row.parts & AUTOMATED_PARTS or ("Demo" in row.parts and scripted))
     manual = any("scripted" not in check.marks for check in checks) or ("Demo" in row.parts and not scripted)
-    play_test = row.id == phase.record or (row.id not in phase.later and row.id not in phase.earlier and manual)
+    play_test = (row.id == phase.record and phase.note) or (
+        row.id not in phase.later and row.id not in phase.earlier and manual)
     # The art case of a row in review fails until the approver approves every asset, so it waits and does not fail.
     review = Ref("art", phase.art_review[row.id]) if row.id in phase.art_review else None
     reviewing = review in refs and results.get(review, ("",))[0] == "fail"
-    missing = [(ref, results.get(ref, ("not run", "no result"))) for ref in sorted(refs)]
+    left_out = {ref for ref in refs if results.get(ref, ("",))[0] == LEFT_OUT}
+    tested = refs - left_out
+    missing = [(ref, results.get(ref, ("not run", "no result"))) for ref in sorted(tested)]
     missing = [(ref, result) for ref, result in missing if result[0] != PASS and not (reviewing and ref == review)]
     if missing:
         return "fail", missing
     if required and not refs and not ruled:
         return "no test", []
-    parts = [PASS] if refs and not reviewing else []
+    parts = [PASS] if tested and not reviewing else []
+    parts += [LEFT_OUT] if left_out else []
     parts += [DEFERRED_GAMETEST] if ruled else []
     parts += ["art review"] if reviewing else []
     parts += ["play-test"] if play_test else []
@@ -900,17 +946,25 @@ def collect(args: argparse.Namespace, phase: Phase) -> Gate:
     tests, problems = read_gametests(area_token(areas), every)
     results: dict[Ref, tuple[str, str]] = dict(unit_results)
     run_logs = {}
-    for run in RUNS:
+    for run in phase.gate_runs:
         log, statuses, run_problems = read_run(run, run_tests(run, tests), commit_time)
         run_logs[run.name] = log
         results.update(statuses)
         problems += run_problems
+    # A test of a run that the gate leaves out, and of no run of the gate (a test of the shared sources runs in both).
+    left_runs = [run for run in RUNS if run not in phase.gate_runs]
+    for run in left_runs:
+        for test in run_tests(run, tests):
+            results.setdefault(test.ref, (LEFT_OUT, f"the {phase.number} gate leaves out {run.task}"))
     problems += [f"GameTest {ref.group}.{ref.name} is in no GameTest run" for ref in tests if ref not in results]
     commands, cases = read_testpack_shape()
+    ran = phase.gate_pack(commands)
     pack_results, pack_logs = read_testpack_logs(args.testpack_log, commands, commit_time)
     results.update(pack_results)
     problems += [f"no output of the test pack command {command}: pass it with --testpack-log"
-                 for command in sorted(commands - pack_logs.keys())]
+                 for command in sorted(ran - pack_logs.keys())]
+    problems += [f"the {phase.number} gate runs the test pack command {command}, which testpack.py lacks"
+                 for command in phase.pack or () if command not in commands]
     outcomes, build_result = read_gradle(args.gradle_log, commit_time)
     gradle_refs = read_build_checks()
     tasks = sorted({ref.group for refs in gradle_refs.values() for ref in refs})
@@ -932,6 +986,9 @@ def collect(args: argparse.Namespace, phase: Phase) -> Gate:
         for row, refs in extra.items():
             row_refs[row] |= refs
     row_refs[phase.record] |= {Ref("testpack", command) for command in phase.record_pack}
+    for ref in {ref for refs in row_refs.values() for ref in refs}:
+        if ref.kind == "testpack" and ref.group not in ran and ref not in results:
+            results[ref] = (LEFT_OUT, f"the {phase.number} gate leaves out the test pack command {ref.group}")
     art_log, art_verdict = None, ("not run", "")
     if phase.checks_art:
         art = art_cases(read(ART_SCRIPT))
@@ -955,6 +1012,9 @@ def collect(args: argparse.Namespace, phase: Phase) -> Gate:
                 git("show", "-s", "--format=%cs", "HEAD").strip(), git("show", "-s", "--format=%s", "HEAD").strip(),
                 rows, checks, unit_cites, tests, run_logs, results, pack_logs, tasks, outcomes, build_result, row_refs,
                 deferred_groups, problems, sheet.whole, art_log, art_verdict, ruled_groups)
+    gate.left_out = [f"`./gradlew {run.task}`" for run in left_runs]
+    gate.left_out += [f"`py scripts/testpack/testpack.py {command}`" for command in
+                      sorted(commands - ran, key=lambda name: (PACK_ORDER.index(name) if name in PACK_ORDER else 99, name))]
     ruled_rows = {row for _, group_rows in ruled_groups for row in group_rows}
     for row in rows.values():
         row_checks = [check for check in checks if check.row == row.id]
@@ -998,9 +1058,13 @@ def totals(gate: Gate) -> str:
     bare = [row for row in deferred if not gate.evaluated[row][0].startswith(PASS)]
     ruled = (f"{len(deferred)} rows have a GameTest that the approver's test rulings deferred{listing(deferred)}, and "
              f"{len(bare)} of them have no other test{listing(bare)}. ") if gate.phase.ruled_plans else ""
+    left = [row for row, (result, _, _) in gate.evaluated.items() if LEFT_OUT in result]
+    alone = [row for row in left if not gate.evaluated[row][0].startswith(PASS)]
+    leaving = (f"{len(left)} rows have a test in a check that this gate leaves out, and {len(alone)} of them have no "
+               f"other test{listing(alone)}. ") if gate.phase.leaves_out else ""
     return (f"The spec sheet has {len(results)} {scope(gate)}`MUST` and `MUST NOT` rows. {len(passing)} of the "
             f"{len(automated)} rows with automated tests pass. {len(play_test)} rows have a play-test part, and "
-            f"{len(only)} of them have no automated test. {waiting}{ruled}{len(later)} rows stay open after Phase "
+            f"{len(only)} of them have no automated test. {waiting}{ruled}{leaving}{len(later)} rows stay open after Phase "
             f"{gate.phase.number}{listing(later)}. {len(failing_rows(gate))} automated rows have no passing test.")
 
 
@@ -1031,7 +1095,7 @@ def render_summary(gate: Gate) -> str:
     checks = ", ".join(f"`{task}` {gradle_status(task, gate.gradle_outcomes)[0]}" for task in gate.gradle_tasks)
     ending = f"The Gradle log ends with {gate.build_result}." if gate.build_result else "No Gradle log was given."
     out.append(f"| Jar and source checks | `./gradlew build` | {checks}. {ending} |")
-    for run in RUNS:
+    for run in gate.phase.gate_runs:
         log = gate.run_logs[run.name]
         line = count(gate, (test.ref for test in run_tests(run, gate.tests)))
         if log.status == FINISHED:
@@ -1050,6 +1114,10 @@ def render_summary(gate: Gate) -> str:
     if gate.phase.client:
         out.append(f"| Play-test client | `py scripts/testpack/testpack.py client` | {client_summary()} |")
     out.append("")
+    if gate.left_out:
+        out += [(f"The {gate.phase.number} gate leaves out {', '.join(gate.left_out[:-1])} and {gate.left_out[-1]}. "
+                 if len(gate.left_out) > 1 else f"The {gate.phase.number} gate leaves out {gate.left_out[0]}. ")
+                + "The section \"Deferred\" of this report gives the reason.", ""]
     perf_log = read(RUNS[2].log) if RUNS[2].log.is_file() else ""
     perf = PERF.search(perf_log)
     lines = PERF_LINES.search(perf_log)
@@ -1140,6 +1208,10 @@ def render_rows(gate: Gate) -> str:
     if phase.ruled_plans:
         legend_result += (f"`{DEFERRED_GAMETEST}` means that the plan deferred the GameTest of the row by the approver's "
                           "test rulings: the row rests on its other tests, and on the play-test where it has none. ")
+    if phase.leaves_out:
+        legend_result += (f"`{LEFT_OUT}` means that a test of the row is in a GameTest run or a test pack command that "
+                          "this gate leaves out, which the run summary names: the row rests on its other tests here, "
+                          "and on the last gate that ran that check. ")
     legend_result += "The section \"Rows without a passing test\" lists each row with `fail` or `no test`."
     out = ["## Rows", "",
            (f"The table has one line for each {scope(gate)}`MUST` and `MUST NOT` row of the spec sheet, in the order of "
@@ -1149,7 +1221,8 @@ def render_rows(gate: Gate) -> str:
         result, _, checks = gate.evaluated[row]
         cell = ref_labels(gate.row_refs[row], checks)
         if row == phase.record:
-            cell = "this report (the run on the commit) and the play-test note" + (f"; {cell}" if cell else "")
+            record = "this report (the run on the commit)" + (" and the play-test note" if phase.note else "")
+            cell = record + (f"; {cell}" if cell else "")
         elif not cell and row in phase.later:
             cell = f"after the Phase {phase.number} gate ({phase.later[row]})"
         out.append(f"| {row} | {cell or 'none'} | {result} | `{gate.short}` |")
@@ -1262,6 +1335,17 @@ def self_check() -> int:
     assert v12.later == {"CD-REL-04": "the v1.2.0 tag", "CD-REL-05": "the v1.2.0 tag", "CD-REL-15": "the next pack release"}
     assert v12.earlier == {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT}, v12.earlier
     assert v12.deferred_plans == (M5_PLAN, M8_PLAN) and v12.ruled_plans == (V12_PLAN,) and v12.art_review == ART_REVIEW
+    assert v12.gate_runs == RUNS and v12.gate_pack({"smoke", "deps"}) == {"smoke", "deps"} and not v12.leaves_out
+    v121 = PHASES["1.2.1"]
+    assert v121.holds("CD-PCK-01", "PCK") and v121.holds("CD-XPC-02", "XPC"), "the 1.2.1 gate holds every row"
+    assert v121.record == "CD-REL-18" and not v121.checks_art and not v121.client and not v121.note, v121
+    assert v121.record_pack == ("smoke", "crops", "mods") and v121.pack == v121.record_pack and v121.leaves_out
+    assert [run.task for run in v121.gate_runs] == ["runGameTestServer", "runGameTestServerPerf"], v121.gate_runs
+    assert v121.gate_pack({"smoke", "deps", "compat", "reload", "restart", "crops", "mods"}) == {"smoke", "crops", "mods"}
+    assert v121.later == {"CD-REL-04": "the v1.2.1 tag", "CD-REL-05": "the v1.2.1 tag", "CD-REL-15": "the next pack release"}
+    assert v121.earlier == {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT,
+                            "CD-REL-17": V12_REPORT} | dict.fromkeys(ART_REVIEW, V12_REPORT), v121.earlier
+    assert v121.deferred_plans == (M5_PLAN, M8_PLAN) and v121.ruled_plans == (V12_PLAN, V121_PLAN) and not v121.art_review
     demo = SpecRow("CD-UI-01", frozenset({"Demo"}))
     assert evaluate(demo, set(), checks[1:], {}, first) == ("play-test", [])
     unit = Ref("unit", "UiTest", "CD-UI-01 a button")
@@ -1364,6 +1448,23 @@ def self_check() -> int:
     assert evaluate(release, {mods}, [], {mods: ("fail", "a compat line lacks an adapter")}, v12)[0] == "fail"
     assert evaluate(release, {mods}, [], {}, v12)[0] == "fail", "the record fails while the case mods has no result"
 
+    # The marks of the 1.2.1 gate (evaluate): a test of a check that the gate leaves out, and the record with no note.
+    core = Ref("gametest", "CoreTests", "cdCrk01CrankTurnsTheDrive")
+    deps = Ref("testpack", "deps", "neoforge-floor")
+    crank = SpecRow("CD-CRK-01", frozenset({"GameTest"}))
+    left = {core: (LEFT_OUT, "the 1.2.1 gate leaves out runGameTestServerCore"), deps: (LEFT_OUT, "")}
+    assert evaluate(crank, {core, unit}, [], {**left, unit: (PASS, "")}, v121) == ("pass, left out", [])
+    assert evaluate(crank, {core, deps}, [], left, v121) == ("left out", [])
+    assert evaluate(crank, {core, unit}, [], {**left, unit: ("fail", "")}, v121)[0] == "fail"
+    assert evaluate(crank, {core}, [], {}, v12)[0] == "fail", "a test of a run of the gate that did not run fails"
+    smoke, crops = Ref("testpack", "smoke"), Ref("testpack", "crops")
+    patch = SpecRow("CD-REL-18", frozenset({"Inspect"}))
+    cases = {smoke: (PASS, ""), crops: (PASS, ""), mods: (PASS, "")}
+    assert evaluate(patch, {smoke, crops, mods}, [], cases, v121) == ("pass", []), "the 1.2.1 gate records no note"
+    assert evaluate(patch, {smoke, crops, mods}, [], {**cases, crops: ("fail", "")}, v121)[0] == "fail"
+    assert evaluate(SpecRow("CD-REL-17", frozenset({"Inspect"})), {note}, [], {note: ("fail", "the note has no date")},
+                    v121)[0] == "fail", "CD-REL-17 rests on the dated play-test note of the 1.2 report"
+
     # The run summary's art line, and the totals that name the phase (art_summary, totals).
     rows = {"CD-ART-10": ("art review", [], []), "CD-REL-04": ("open (M9)", [], []),
             "CD-UI-01": ("pass, play-test", [], [])}
@@ -1388,12 +1489,37 @@ def self_check() -> int:
         "play-test part, and 0 of them have no automated test. 0 rows wait for the approver's art review. 2 rows have a "
         "GameTest that the approver's test rulings deferred (CD-XPC-02, CD-XPC-07), and 1 of them have no other test "
         "(CD-XPC-02). 1 rows stay open after Phase 1.2 (CD-REL-04). 0 automated rows have no passing test."), totals(gate)
+    gate = sample_gate(v121, {"CD-CRK-01": ("pass, left out", [], []), "CD-CLM-12": (LEFT_OUT, [], []),
+                              "CD-REL-04": ("open (the v1.2.1 tag)", [], [])}, {}, whole=True)
+    assert totals(gate) == (
+        "The spec sheet has 3 `MUST` and `MUST NOT` rows. 1 of the 1 rows with automated tests pass. 0 rows have a "
+        "play-test part, and 0 of them have no automated test. 0 rows have a GameTest that the approver's test rulings "
+        "deferred, and 0 of them have no other test. 2 rows have a test in a check that this gate leaves out, and 1 of "
+        "them have no other test (CD-CLM-12). 1 rows stay open after Phase 1.2.1 (CD-REL-04). 0 automated rows have no "
+        "passing test."), totals(gate)
+    gate.left_out = ["`./gradlew runGameTestServerCore`", "`py scripts/testpack/testpack.py deps`"]
+    gate.run_logs = {run.name: RunLog("not run", "no log", 0, frozenset(), "") for run in v121.gate_runs}
+    summary = render_summary(gate)
+    assert ("The 1.2.1 gate leaves out `./gradlew runGameTestServerCore` and `py scripts/testpack/testpack.py deps`. "
+            "The section \"Deferred\" of this report gives the reason.") in summary, summary
+    assert "runGameTestServerCompat" not in summary and "Art checks" not in summary and "Play-test client" not in summary
+
+    # The list of the GameTests that the 1.2.1 plan deferred by the rulings: a group line for each task, as in the 1.2 plan.
+    ruling = ("a\nGameTests deferred by the rulings (the marks).\n\n- Task B:\n  - CD-HRV-24: `CropAreaTest`.\n"
+              "- Task E:\n  - CD-PCK-09: `PickerRulesTest`.\n\n### Task E: The Picker\n")
+    pick = Ref("unit", "PickerRulesTest", "CD-PCK-09 a pick asks the change and the break")
+    listed, groups, unknown = deferred_refs(deferred_items(ruling, V121_PLAN, RULED_LIST, "\n#"), {},
+                                            {pick: {"CD-PCK-09"}}, set())
+    assert groups == [("Task B", ["CD-HRV-24"]), ("Task E", ["CD-PCK-09"])] and listed["CD-PCK-09"] == {pick}, groups
+    assert unknown == ["the deferred list names CropAreaTest, which no test has"], unknown
 
     # The options (main).
     args = arguments().parse_args(["--phase", "2", "--art-log", "art.txt"])
     assert (args.phase, args.art_log) == ("2", pathlib.Path("art.txt")) and arguments().parse_args([]).phase == "1", args
     assert arguments().parse_args(["--phase", "1.1"]).phase == "1.1"
     assert arguments().parse_args(["--phase", "1.2", "--art-log", "art.txt"]).phase == "1.2"
+    assert arguments().parse_args(["--phase", "1.2.1"]).phase == "1.2.1"
+    assert sorted(PHASES) == ["1", "1.1", "1.2", "1.2.1", "2"], sorted(PHASES)
     print("self-check passed")
     return 0
 
@@ -1421,7 +1547,7 @@ def sample_gate(phase: Phase, evaluated: dict[str, tuple[str, list, list[Check]]
 def arguments() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--phase", choices=sorted(PHASES), default="1",
-                        help="the gate whose report the script writes: 1, 2, 1.1 or 1.2 (default 1)")
+                        help="the gate whose report the script writes: 1, 2, 1.1, 1.2 or 1.2.1 (default 1)")
     parser.add_argument("--gradle-log", action="append", default=[], type=pathlib.Path,
                         help="the console output of ./gradlew build and the GameTest runs, with --console=plain")
     parser.add_argument("--testpack-log", action="append", default=[], type=pathlib.Path,
