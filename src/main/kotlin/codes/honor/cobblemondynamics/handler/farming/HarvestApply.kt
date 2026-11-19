@@ -1,12 +1,17 @@
 package codes.honor.cobblemondynamics.handler.farming
 
+import codes.honor.cobblemondynamics.OnceLogger
 import com.cobblemon.mod.common.block.entity.BerryBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
+import net.minecraft.tags.TagKey
 import net.minecraft.world.item.BlockItem
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.AttachedStemBlock
 import net.minecraft.world.level.block.Block
@@ -26,6 +31,8 @@ import net.minecraft.world.phys.Vec3
  * each cell with `Level.setBlock` and drops each item through `Block.popResourceFromFace`.
  */
 object HarvestApply {
+    private val warnings = OnceLogger()
+
     /**
      * Harvests the crop at [crop] once. Its items come out of the crop's face toward [spot] (CD-HRV-06). [mayChange] answers the land
      * claim checks of each cell that the harvest changes, in this tick (CD-HRV-13), and [mayBreak] the break question of each cell that
@@ -63,8 +70,23 @@ object HarvestApply {
         }.filterNot { it.isEmpty }
         val drops = stacks.map { Drop(idOf(it), it.count) }
         val ageAfter = facts.harvestLoot?.ageAfter ?: 0
-        val plan = HarvestPlans.plan(kind, drops, ownSeeds(stacks, state), seeds(stacks, state), whole, ageAfter) {
-            replantState(it?.let(BuiltInRegistries.BLOCK::get) ?: state.block, state).canSurvive(level, crop)
+        // CD-HRV-22, CD-HRV-23: only the two adapters that break the crop replant it from its seed item.
+        val breaks = kind == HarvestKind.CROP || kind == HarvestKind.BREAK_AND_REPLANT
+        val seedBlock = if (breaks) seedBlockOf(level, crop, state) else null
+        val blockOf = { id: ResourceLocation? -> id?.let(BuiltInRegistries.BLOCK::get) ?: state.block }
+        val plan = HarvestPlans.plan(
+            kind,
+            drops,
+            ownSeeds(stacks, state),
+            seeds(stacks, state),
+            whole,
+            ageAfter,
+            seedBlock,
+            grows = { id -> checked(blockOf(id)) { isGrowthStage(replantState(blockOf(id), state)) } },
+        ) { id -> checked(blockOf(id)) { replantState(blockOf(id), state).canSurvive(level, crop) } }
+        if (HarvestPlans.noSeedItem(kind, seedBlock, plan)) {
+            val id = BuiltInRegistries.BLOCK.getKey(state.block)
+            warnings.warn("no-seed:$id") { "The Harvester leaves $id unplanted: its loot holds no seed, and it has no seed item" }
         }
         val changed = listOfNotNull(
             crop.takeIf { plan.crop != CellChange.Keep },
@@ -84,6 +106,70 @@ object HarvestApply {
         if (fruit != null && plan.fruit == CellChange.Clear) clear(level, fruit, Block.UPDATE_ALL)
         drop(level, crop, face, stacks, plan.seed)
         return true
+    }
+
+    /**
+     * CD-HRV-22: the seed item of the crop [state] at [pos]: its clone item, else its `Block.asItem()`, when that item is a `BlockItem`
+     * whose block is the crop's own block or another block of `#cobblemon_dynamics:cultivator_targets` with growth stages
+     * ([HarvestPlans.replantable]). Wheat gives wheat seeds, carrots a carrot and cocoa its beans. A crop whose check fails has no seed
+     * item, and logs once.
+     */
+    fun seedItemOf(level: ServerLevel, pos: BlockPos, state: BlockState): Item? {
+        val block = state.block
+        var item: Item? = null
+        checked(block) {
+            item = listOf(block.getCloneItemStack(level, pos, state).item, block.asItem()).firstOrNull { candidate ->
+                val placed = (candidate as? BlockItem)?.block
+                placed != null && (placed === block || otherReplant(placed))
+            }
+            true
+        }
+        return item
+    }
+
+    /** CD-HRV-22: another block of the Cultivator's tag that a created replant may place. */
+    private fun otherReplant(block: Block): Boolean {
+        val state = block.defaultBlockState()
+        if (!state.`is`(FarmingTags.CULTIVATOR_TARGETS)) return false
+        val hasAge = CropFactsReader.ageProperty(state) != null
+        return HarvestPlans.replantable(block is CropBlock, hasAge, state.`is`(BlockTags.SAPLINGS), state.`is`(ROOTY_SOIL))
+    }
+
+    /** Dynamic Trees' rooty soil, which grows no crop. */
+    private val ROOTY_SOIL: TagKey<Block> = TagKey.create(
+        Registries.BLOCK,
+        ResourceLocation.fromNamespaceAndPath("dynamictrees", "rooty_soil"),
+    )
+
+    /** CD-HRV-22: whether [state] is a growth stage, below its largest `age`. */
+    private fun isGrowthStage(state: BlockState): Boolean {
+        val block = state.block
+        if (block is CropBlock) return HarvestPlans.growthStage(block.getAge(state), block.maxAge)
+        val age = CropFactsReader.ageProperty(state) ?: return false
+        return HarvestPlans.growthStage(state.getValue(age), age.possibleValues.max())
+    }
+
+    /**
+     * [check] of a block of another mod, such as its `canSurvive`, `getStateForAge` or clone item. A check that fails reads false and
+     * logs once for each block, so the role stays on (CD-LUM-29).
+     */
+    private inline fun checked(block: Block, check: () -> Boolean): Boolean = try {
+        check()
+    } catch (e: Exception) {
+        failed(block, e)
+    } catch (e: LinkageError) {
+        failed(block, e)
+    }
+
+    private fun failed(block: Block, e: Throwable): Boolean {
+        warnings.warn("check:${BuiltInRegistries.BLOCK.getKey(block)}") { "The Harvester skips a check of $block, which fails: $e" }
+        return false
+    }
+
+    /** CD-HRV-22: the block that the seed item of [seedItemOf] places, or null with no seed item. */
+    fun seedBlockOf(level: ServerLevel, pos: BlockPos, state: BlockState): SeedBlock? {
+        val placed = (seedItemOf(level, pos, state) as? BlockItem)?.block ?: return null
+        return if (placed === state.block) SeedBlock.Own else SeedBlock.Other(BuiltInRegistries.BLOCK.getKey(placed))
     }
 
     /**

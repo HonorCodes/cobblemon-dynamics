@@ -19,7 +19,12 @@ data class FellPlan(
     val twoByTwo: Boolean,
     /** CD-LUM-27: the `ChunkPos.asLong` key of each chunk that the fell changes or drops into. */
     val chunks: Set<Long> = emptySet(),
+    /** CD-LUM-31: the block id of each leaf of the tree, the most common first, then by id. */
+    val leafIds: List<ResourceLocation> = emptyList(),
 ) {
+    /** CD-LUM-31, CD-LUM-33: the block id of the base log when the plan was made, which the name rule and the warning name. */
+    val baseId: ResourceLocation? get() = steps.lastOrNull { it.pos == base }?.blockId
+
     /** The steps of each tick: at most [blocksPerTick] (CD-LUM-14). */
     fun batches(blocksPerTick: Int): List<List<FellStep>> = steps.chunked(blocksPerTick.coerceAtLeast(1))
 
@@ -52,7 +57,10 @@ data class FellPlan(
             // The drops pop out of a face of the base cell, which can lie in the next chunk.
             val cells = steps.map { it.pos } + hanging.map { it.first } + Direction.Plane.HORIZONTAL.map(tree.base::relative)
             val chunks = cells.mapTo(LinkedHashSet()) { chunkKey(it.x shr 4, it.z shr 4) }
-            return FellPlan(tree.base, steps, questions.values.toList(), twoByTwo, chunks)
+            val leafIds = steps.filter { !it.shell && it.pos in tree.leaves }.groupingBy { it.blockId }.eachCount().entries
+                .sortedWith(compareByDescending<Map.Entry<ResourceLocation, Int>> { it.value }.thenBy { it.key })
+                .map { it.key }
+            return FellPlan(tree.base, steps, questions.values.toList(), twoByTwo, chunks, leafIds)
         }
 
         /** The key of chunk ([x], [z]), as `ChunkPos.asLong` packs it. */

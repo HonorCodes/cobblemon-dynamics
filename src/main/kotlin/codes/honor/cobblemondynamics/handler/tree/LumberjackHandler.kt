@@ -38,9 +38,10 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * The Lumberjack's target (ADR-0017): a tree that a Work Leash names, keyed by its trunk base cell. The worker fells the whole tree with
- * its own natural leaves and the blocks that hang on it, drops the loot beside the trunk, and replants a sapling of the drops. The
- * binding then waits on the sapling, as a bound Harvester waits on its crop. Each block goes with `Level.setBlock`, so the fell is silent
- * and no listener of a player's break hears it. A tree of Dynamic Trees falls by that mod's own fell instead (CD-LUM-25).
+ * its own natural leaves and the blocks that hang on it, drops the loot beside the trunk, and always replants its sapling, from the
+ * drops first. The binding then waits on the sapling, as a bound Harvester waits on its crop. Each block goes with `Level.setBlock`, so
+ * the fell is silent and no listener of a player's break hears it. A tree of Dynamic Trees falls by that mod's own fell instead
+ * (CD-LUM-25).
  */
 object LumberjackHandler : TargetHandler {
     /** CD-LUM-25: the fell of a mod whose trees fall by its own rules. Its compat package registers one while the mod is loaded. */
@@ -131,10 +132,11 @@ object LumberjackHandler : TargetHandler {
         }
         val run = FellRun(fell.plan, params.blocksPerTick, tickets(ctx.level))
         memo.run = run
-        // CD-LUM-30: the item frames and paintings come off first, silently, and their items join the drops.
+        // CD-LUM-30: the item frames and paintings come off first, silently, and their items pop with the drops. They never count for
+        // the replant: a sapling in a frame is no sapling of the tree.
         for (entity in fell.hanging) {
             if (entity.isRemoved) continue
-            memo.loot += dropsOf(entity)
+            memo.hanging += dropsOf(entity)
             entity.discard()
         }
         if (run.step { remove(ctx.level, it, memo.loot) }) end(ctx, memo, run)
@@ -294,27 +296,47 @@ object LumberjackHandler : TargetHandler {
     }
 
     /**
-     * CD-LUM-16 to CD-LUM-18: after the last block, the replant takes its saplings from the drops, and the rest pop toward the spot. The
-     * run ends and gives its chunks back also when a drop fails (CD-LUM-27, CD-LUM-29).
+     * CD-LUM-16 to CD-LUM-18, CD-LUM-31 to CD-LUM-33: after the last block, the replant plants its kind, takes what it can from the
+     * drops and creates the rest, and the other items pop toward the spot. The run ends and gives its chunks back also when a drop fails
+     * (CD-LUM-27, CD-LUM-29).
      */
     private fun end(ctx: WorkContext, memo: Memo, run: FellRun) {
         val level = ctx.level
         val plan = run.plan
         try {
             val drops = FellPlan.merged(memo.loot.map { it to it.count }, same = ItemStack::isSameItemSameComponents)
-            val chosen = ReplantRule.choose(
-                drops,
-                plan.base,
-                plan.twoByTwo,
+            // CD-LUM-31: the kind comes from the tree's own leaves and log. A dropped sapling counts only when it is of that kind, so a
+            // stray sapling never decides the kind.
+            val kind = SaplingSource.kind(
+                leafIds = plan.leafIds,
+                baseLogId = plan.baseId,
+                leafSapling = { leaf -> LeafSaplings.of(level, leaf, plan.base)?.let(::ItemStack) },
+                byId = { id -> BuiltInRegistries.ITEM.getOptional(id).orElse(null)?.let(::ItemStack) },
                 isSapling = { saplingOf(it) != null },
-                survives = { stack, cell -> canPlant(level, stack, cell) },
-                needsFour = { stack -> saplingOf(stack)?.defaultBlockState()?.`is`(SaplingRules.NEEDS_FOUR) == true },
+                survives = { stack -> saplingOf(stack)?.let { stands(level, it, plan.base) } == true },
+                warnings = warnings,
             )
-            // CD-LUM-17: a claim can change during a fell of several ticks, so the replant asks the use question again.
-            val replant = ReplantRule.allowedBy(chosen, ctx.mayChange)
+            // CD-LUM-17: a claim can change during a fell of several ticks, so the replant asks the use question of each cell again.
+            val replant = kind?.let { item ->
+                ReplantRule.choose(
+                    item,
+                    held = drops.filter { ItemStack.isSameItemSameComponents(it.first, item) }.sumOf { it.second },
+                    base = plan.base,
+                    twoByTwo = plan.twoByTwo,
+                    survives = { stack, cell -> canPlant(level, stack, cell) },
+                    needsFour = { stack -> saplingOf(stack)?.defaultBlockState()?.`is`(SaplingRules.NEEDS_FOUR) == true },
+                    allowed = ctx.mayChange,
+                )
+            }
+            if (kind != null && replant == null) {
+                val sapling = saplingOf(kind)
+                if (sapling != null && sapling.defaultBlockState().`is`(SaplingRules.NEEDS_FOUR)) {
+                    ReplantRule.warnStump(BuiltInRegistries.BLOCK.getKey(sapling), plan.base, warnings)
+                }
+            }
             val sapling = replant?.let { saplingOf(it.item) }?.defaultBlockState()
             if (replant != null && sapling != null) for (cell in replant.cells) level.setBlock(cell, sapling, Block.UPDATE_ALL)
-            val taken = listOfNotNull(replant?.takeIf { sapling != null }?.let { it.item to it.cells.size })
+            val taken = listOfNotNull(replant?.takeIf { sapling != null }?.let { it.item to it.taken })
             val face = DropFace.toward(plan.base, ctx.spot ?: plan.base)
             for ((stack, count) in FellPlan.merged(
                 drops,
@@ -323,9 +345,13 @@ object LumberjackHandler : TargetHandler {
             )) {
                 pop(level, plan.base, face, stack, count)
             }
+            for ((stack, count) in FellPlan.merged(memo.hanging.map { it to it.count }, same = ItemStack::isSameItemSameComponents)) {
+                pop(level, plan.base, face, stack, count)
+            }
         } finally {
             memo.run = null
             memo.loot.clear()
+            memo.hanging.clear()
             run.release()
         }
     }
@@ -351,7 +377,21 @@ object LumberjackHandler : TargetHandler {
     /** A sapling goes only into an empty cell where it stands. */
     private fun canPlant(level: ServerLevel, stack: ItemStack, cell: BlockPos): Boolean {
         val block = saplingOf(stack) ?: return false
-        return TreeFactsReader.stateOf(level, cell)?.isAir == true && block.defaultBlockState().canSurvive(level, cell)
+        return TreeFactsReader.stateOf(level, cell)?.isAir == true && stands(level, block, cell)
+    }
+
+    /** Whether [sapling] stands in [cell]. A sapling of another mod whose check fails stands nowhere, and logs once (CD-LUM-29). */
+    private fun stands(level: ServerLevel, sapling: Block, cell: BlockPos): Boolean = try {
+        sapling.defaultBlockState().canSurvive(level, cell)
+    } catch (e: Exception) {
+        failedSapling(sapling, e)
+    } catch (e: LinkageError) {
+        failedSapling(sapling, e)
+    }
+
+    private fun failedSapling(sapling: Block, e: Throwable): Boolean {
+        warnings.warn("sapling:${BuiltInRegistries.BLOCK.getKey(sapling)}") { "The Lumberjack plants no $sapling, whose check fails: $e" }
+        return false
     }
 
     /** The largest `max_logs` of the active Lumberjack roles, so that a click finds the base of any tree that one of them fells. */
@@ -366,6 +406,9 @@ object LumberjackHandler : TargetHandler {
         val wait = TreeWait()
         var run: FellRun? = null
         val loot = ArrayList<ItemStack>()
+
+        /** CD-LUM-30: the items of the frames and paintings that the fell took, which pop but never count for the replant. */
+        val hanging = ArrayList<ItemStack>()
 
         /** CD-LUM-28: the tree on the claim's target. A base cell with no log of the tag has none, which costs one read. */
         fun tree(ctx: WorkContext): Tree? {
