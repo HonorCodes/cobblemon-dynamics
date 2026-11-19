@@ -13,9 +13,10 @@ and crops of many other mods, such as Immersive Engineering, Mekanism and Botany
 
 ## Status
 
-**Version 1.2.0 is the latest release.** Download it from the
-[GitHub releases](https://github.com/HonorCodes/cobblemon-dynamics/releases) or CurseForge. Version 1.2 adds four
-roles: the [Lumberjack](#lumberjack), the Soul Collector with its [Experience Collector](#experience-collector), the
+**Version 1.2.1 is the latest release.** Download it from the
+[GitHub releases](https://github.com/HonorCodes/cobblemon-dynamics/releases) or CurseForge. Version 1.2.1 adds the
+Picker, lets a dual-type Cobblemon do the roles of both its types, makes the Lumberjack and the Harvester always replant,
+and lets the Cultivator and the Harvester work 1 extra crop per 10 levels. Version 1.2 added four roles: the [Lumberjack](#lumberjack), the Soul Collector with its [Experience Collector](#experience-collector), the
 [Freezer](#freezer) and the Heater. The existing roles also work the machines and crops of many other mods, with no
 setup (see [Compatibility](#compatibility)). Version 1.1 added two farming roles, the Cultivator and the Harvester (see
 [Farming](#farming)).
@@ -86,7 +87,10 @@ anywhere within 32 blocks of the pasture block.
 ## Roles
 
 A role is a job that a Cobblemon of a given type does on a specific block. A Cobblemon
-with two types can do the roles of either type, one role at a time.
+with two types does the roles of both types, one role at a time. Since 1.2.1 it switches to whichever of its roles has
+work on its target. For example, a Bug/Ground leashed to a tree fells it, replants it, grows the sapling with bone meal,
+and fells it again. A Grass/Ground grows its crop and then harvests it. A role whose type cell says "both" needs the two
+types together.
 
 | Type | Role | Works on | Move effect | Assignment | Added in |
 | --- | --- | --- | --- | --- | --- |
@@ -107,10 +111,10 @@ with two types can do the roles of either type, one role at a time.
 | Water | Fan Catalyst Water | Create encased fan: washing | Bubble | Leash only | Phase 2 |
 | Ghost | Fan Catalyst Ghost | Create encased fan: haunting | Will-O-Wisp | Leash only | Phase 2 |
 | Flying | Tailwind | Create windmill bearing, and the windmills of Immersive Engineering and Mekanism and the air of PneumaticCraft since 1.2 | Gust | Leash only | Phase 2 |
-| Ground | Cultivator | A growing crop, which gets the effect of bone meal, and saplings since 1.2 | Mud Sport | Auto | 1.1 |
-| Grass | Harvester | A fully grown crop, which it harvests and replants | Razor Leaf | Auto | 1.1 |
+| Ground | Cultivator | A growing crop, which gets the effect of bone meal, and saplings since 1.2. Since 1.2.1, 1 extra crop nearby per 10 levels | Mud Sport | Auto | 1.1 |
+| Grass | Harvester | A fully grown crop, which it harvests and replants, even with no seed in the drops since 1.2.1. Since 1.2.1, 1 extra crop nearby per 10 levels | Razor Leaf | Auto | 1.1 |
 | Bug and Flying, both | Picker | A ripe apricorn, which it picks off the tree to fall to the ground | Bug Bite | Auto only, no leash | 1.2.1 |
-| Bug | Lumberjack | A natural tree, which it fells with its leaves and replants from the drops | Aerial Ace | Leash only | 1.2 |
+| Bug | Lumberjack | A natural tree, which it fells with its leaves and replants, with a full 2×2 for a big tree since 1.2.1 | Aerial Ace | Leash only | 1.2 |
 | Ghost | Soul Collector | An Experience Collector, which it fills with the XP orbs of the work area | Night Shade | Leash only | 1.2 |
 | Ice | Freezer | Surface water, which it ices over on top within 5 blocks of itself | Ice Beam | Auto, no Quick Work | 1.2 |
 | Fire | Heater | The heat valves of Mekanism, and the heat machines of PneumaticCraft | Ember | Auto on Mekanism, leash only on PneumaticCraft | 1.2 |
