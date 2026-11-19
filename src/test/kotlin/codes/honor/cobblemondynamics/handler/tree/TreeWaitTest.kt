@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.handler.tree
 
+import codes.honor.cobblemondynamics.engine.SwitchProbes
 import net.minecraft.core.BlockPos
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -19,6 +21,25 @@ class TreeWaitTest {
         searches = 0
         for (now in 0L until 100L) assertEquals(tree, found.tree(now, baseIsLog = true) { searches++.let { tree } })
         assertEquals(5, searches, "a found tree")
+    }
+
+    /** R94: the switch asks the Lumberjack's demand at each poll of a worker in Standby, through the slot's memo for that role. */
+    @Test
+    fun `CD-LSH-34 a kept memo that waits on a refused tree searches once in 1,200 ticks, and a new memo each poll does not`() {
+        val probes = SwitchProbes()
+        val lumberjack = ResourceLocation.parse("cobblemon_dynamics:lumberjack")
+        probes.follow(BlockPos.ZERO to lumberjack)
+        var searches = 0
+        for (now in 0L until 1_200L step 20L) {
+            probes.follow(BlockPos.ZERO to lumberjack)
+            val memo = probes.memo(lumberjack)
+            val wait = memo.value as? TreeWait ?: TreeWait().also { memo.value = it }
+            assertNull(wait.tree(now, baseIsLog = true) { searches++.let { null } })
+        }
+        assertEquals(1, searches, "a kept memo")
+        searches = 0
+        for (now in 0L until 1_200L step 20L) assertNull(TreeWait().tree(now, baseIsLog = true) { searches++.let { null } })
+        assertEquals(60, searches, "a new memo each poll")
     }
 
     @Test

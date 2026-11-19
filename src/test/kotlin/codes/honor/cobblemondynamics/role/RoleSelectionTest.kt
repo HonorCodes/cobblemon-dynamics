@@ -76,10 +76,30 @@ class RoleSelectionTest {
     @Test
     fun `CD-CRP-21 Torterra at fully grown wheat gets the Harvester and at wheat of age 3 the Cultivator`() {
         val torterra = listOf("grass", "ground")
-        val grown = RoleSelection.best(listOf(cultivator, harvester), torterra, farming) { it == harvester }
+        val grown = RoleSelection.withWork(listOf(cultivator, harvester), torterra, farming) { it == harvester }
         assertEquals(harvester, grown)
-        val growing = RoleSelection.best(listOf(cultivator, harvester), torterra, farming) { it == cultivator }
+        val growing = RoleSelection.withWork(listOf(cultivator, harvester), torterra, farming) { it == cultivator }
         assertEquals(cultivator, growing)
+    }
+
+    /** R94: a role with no work never keeps the worker from a role with work on the same target, whatever their groups. */
+    @Test
+    fun `CD-ASG-16 among the roles with demand first, then among all of them`() {
+        val brewer = role("brewer", setOf("poison"), handler = "cobblemon_dynamics:brewing_speed")
+        val brewStoker = role("brew_stoker", setOf("fire"), priority = 10, handler = "cobblemon_dynamics:brewing_fuel")
+        val salazzle = listOf("poison", "fire")
+        val both = listOf(brewer, brewStoker)
+        assertEquals(brewStoker, RoleSelection.withWork(both, salazzle) { true }, "both have demand")
+        assertEquals(brewStoker, RoleSelection.withWork(both, salazzle) { it == brewStoker }, "only the Brew Stoker has demand")
+        assertEquals(brewer, RoleSelection.withWork(both, salazzle) { it == brewer }, "only the Brewer has demand")
+        assertEquals(brewStoker, RoleSelection.withWork(both, salazzle) { false }, "neither has demand")
+    }
+
+    @Test
+    fun `CD-ASG-16 one role asks no demand`() {
+        val brewer = role("brewer", setOf("poison"))
+        assertEquals(brewer, RoleSelection.withWork(listOf(brewer), listOf("poison")) { error("asked the demand of the only role") })
+        assertEquals(null, RoleSelection.withWork(emptyList(), listOf("poison")) { error("asked the demand of no role") })
     }
 
     @Test

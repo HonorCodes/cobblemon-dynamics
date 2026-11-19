@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.engine
 
+import net.minecraft.core.BlockPos
 import net.minecraft.util.Mth
+import kotlin.math.abs
 
 /**
  * Where a stuck Traveling worker goes: one that Cobblemon's navigation reports stuck after 100 ticks with no progress, or one whose
@@ -36,6 +38,32 @@ object Unstick {
         if (!(shapeTop > 0.0 && shapeTop <= 1.0)) return null
         val top = cellY + shapeTop
         return if (top > feetY + EPSILON) top else null
+    }
+
+    /** CD-ASG-25: how far, on x and z, a worker whose body a grown tree filled may move to a free cell. */
+    const val FREE_RADIUS = 3
+
+    /**
+     * CD-ASG-25: the cells that a worker in cell [at] reaches from there, nearest first: a flood fill over the six faces, within
+     * [FREE_RADIUS] on x and z and 1 on y, through the cells that [passable] lets it pass, such as air and the grown tree's own logs,
+     * leaves and roots. [at] comes first. The work [spot] counts only when the fill reaches it, and wins a tie of distance, then the
+     * lowest `BlockPos.asLong()` does.
+     */
+    fun reachableCells(at: BlockPos, spot: BlockPos?, passable: (BlockPos) -> Boolean): List<BlockPos> {
+        val seen = LinkedHashSet<BlockPos>()
+        val queue = ArrayDeque<BlockPos>()
+        seen += at
+        queue += at
+        while (queue.isNotEmpty()) {
+            val cell = queue.removeFirst()
+            for (next in listOf(cell.east(), cell.west(), cell.south(), cell.north(), cell.above(), cell.below())) {
+                if (abs(next.x - at.x) > FREE_RADIUS || abs(next.z - at.z) > FREE_RADIUS || abs(next.y - at.y) > 1) continue
+                if (next in seen || !passable(next)) continue
+                seen += next
+                queue += next
+            }
+        }
+        return seen.sortedWith(compareBy<BlockPos>({ it.distSqr(at) }, { it != spot }, { it.asLong() }))
     }
 }
 

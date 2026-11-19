@@ -240,6 +240,77 @@ class WorkSpotsTest {
         assertEquals(WorkSpots.find(grid, area, TargetShape.of(target), center, 6.0, from), spot)
         assertEquals(1, checked.size)
     }
+
+    /** A sapling at the target: a narrow worker never stands in its column, and a wide one never reaches into it. */
+    @Test
+    fun `CD-ASG-24 no work spot puts the body in the column of a sapling that grows into a tree`() {
+        val sapling = BlockPos(0, 1, 0)
+        val columns = GrowthColumns(listOf(sapling))
+        // A Nincada 0.4 wide: its own cell and the cells above it are out, the cells beside it are in.
+        assertFalse(columns.allows(sapling, 0.4, 0.3))
+        assertFalse(columns.allows(sapling.above(3), 0.4, 0.3))
+        assertTrue(columns.allows(sapling.east(), 0.4, 0.3))
+        assertTrue(columns.allows(sapling.below(2), 0.4, 0.3))
+        // A Torterra 2.25 wide reaches 1.125 from its spot's center, and navigation stops it 1.5 from the spot's lowest corner.
+        assertFalse(columns.allows(sapling.east(), 2.25, 2.4))
+        assertFalse(columns.allows(sapling.west(2), 2.25, 2.4))
+        assertTrue(columns.allows(sapling.east(2), 2.25, 2.4))
+        assertTrue(columns.allows(sapling.west(3), 2.25, 2.4))
+        // A target that grows no tree keeps every spot.
+        assertTrue(GrowthColumns(emptyList()).allows(sapling, 0.4, 0.3))
+    }
+
+    @Test
+    fun `CD-ASG-24 the spot at a sapling is beside it, never in its cell, also when no cell beside it has room`() {
+        val sapling = BlockPos(0, 1, 0)
+        val columns = GrowthColumns(listOf(sapling))
+        // The four cells beside the sapling have leaves of another tree over them, so only the sapling's cell and the diagonals stand.
+        val standable = setOf(sapling, BlockPos(1, 1, 1), BlockPos(-1, 1, 1), BlockPos(1, 1, -1), BlockPos(-1, 1, -1))
+        val grid = OpenGrid(standable)
+        val before = WorkSpots.find(grid, area, TargetShape.of(sapling), center, 6.0, from)
+        assertEquals(sapling, before, "without the columns, the sapling's own cell is the nearest spot")
+        val spot = WorkSpots.find(grid, area, TargetShape.of(sapling), center, 6.0, from, allowed = { columns.allows(it, 0.4, 0.3) })
+        assertNotNull(spot)
+        assertNotEquals(sapling, spot)
+        assertTrue(spot!! in standable)
+    }
+
+    @Test
+    fun `CD-ASG-24 a 2 x 2 keeps a worker out of all four columns`() {
+        val corner = BlockPos(0, 1, 0)
+        val columns = GrowthColumns(listOf(corner, corner.east(), corner.south(), corner.east().south()))
+        for (cell in listOf(corner, corner.east(), corner.south(), corner.east().south())) assertFalse(columns.allows(cell, 0.4, 0.3))
+        assertTrue(columns.allows(corner.east(2), 0.4, 0.3))
+        assertTrue(columns.allows(corner.west(), 0.9, 1.4))
+    }
+
+    /** A row of saplings: the spot for one may not stand in the cell of the next one, which grows a tree of its own. */
+    @Test
+    fun `CD-ASG-24 no body lies in the column of a neighbouring sapling`() {
+        val saplings = setOf(BlockPos(0, 1, 0), BlockPos(1, 1, 0))
+        val isSapling = { x: Int, y: Int, z: Int -> BlockPos(x, y, z) in saplings }
+        assertFalse(GrowthColumns.clearOfSaplings(BlockPos(1, 1, 0), 0.4, 0.3, isSapling))
+        assertTrue(GrowthColumns.clearOfSaplings(BlockPos(0, 1, 1), 0.4, 0.3, isSapling))
+        // On top of a block over the sapling's cell at the body's height, and one below the floor height.
+        assertFalse(GrowthColumns.clearOfSaplings(BlockPos(1, 2, 0), 0.4, 1.5, isSapling))
+        assertTrue(GrowthColumns.clearOfSaplings(BlockPos(1, 3, 0), 0.4, 1.5, isSapling))
+        // A body 1.2 wide beside the row reaches into a sapling's column from the cell south of the row.
+        assertFalse(GrowthColumns.clearOfSaplings(BlockPos(2, 1, 1), 1.2, 0.9, isSapling))
+        assertTrue(GrowthColumns.clearOfSaplings(BlockPos(3, 1, 2), 1.2, 0.9, isSapling))
+    }
+
+    /** A body 1 block wide or wider is checked where navigation stops it, too, and that place alone may reach the column. */
+    @Test
+    fun `CD-ASG-24 the stop box of a wide body counts`() {
+        val sapling = BlockPos(0, 1, 0)
+        val columns = GrowthColumns(listOf(sapling))
+        // A Torterra 2.25 wide two cells west: its center box ends at x = -0.375, and its stop box, centered 1.5 blocks from the
+        // spot's lowest corner, reaches x = 0.625 over the sapling.
+        val (center, stop) = WorkerBody.boxes(sapling.west(2), 2.25, 2.4)
+        assertTrue(center.maxX < 0.0)
+        assertTrue(stop.maxX > 0.0)
+        assertFalse(columns.allows(sapling.west(2), 2.25, 2.4))
+    }
 }
 
 class WorkerBodyTest {

@@ -78,11 +78,41 @@ object LumberjackHandler : TargetHandler {
     /** CD-LUM-03: the search runs once from the clicked cell. */
     override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos = TreeRules.canonical(TreeFactsReader(level)::facts, pos, maxLogs())
 
+    /** CD-LSH-33: a log over a log of its kind is no base cell, which needs no search. */
+    override fun resolvesToItself(level: ServerLevel, pos: BlockPos): Boolean =
+        TreeRules.resolvesToItself(TreeFactsReader(level)::facts, pos, maxLogs())
+
     /** CD-LUM-19, CD-LSH-08: the binding keeps its base cell through the fell and the regrowth. */
     override fun bindingHolds(level: ServerLevel, canonical: BlockPos): Boolean {
         val reader = TreeFactsReader(level)
         return TreeRules.bindingHolds(reader.facts(canonical), reader.facts(canonical.below()))
     }
+
+    /** CD-ASG-24: the trunk base cells of the tree, or of the saplings that grow it. */
+    override fun growthCells(level: ServerLevel, canonical: BlockPos): List<BlockPos> =
+        TreeRules.growthCells(TreeFactsReader(level)::facts, canonical, squareKey(level, canonical) in squares)
+
+    /**
+     * CD-ASG-24: the base cells of the 2 × 2 trunks that a fell started on, so that the square's columns stay out of work spots between
+     * the fell and the replant, and after a replant of the corner alone. At most [MAX_SQUARES], the oldest first out.
+     */
+    private val squares: MutableSet<String> = java.util.Collections.newSetFromMap(
+        java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<String, Boolean>() {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>): Boolean = size > MAX_SQUARES
+            },
+        ),
+    )
+
+    private const val MAX_SQUARES = 4096
+
+    private fun squareKey(level: ServerLevel, base: BlockPos): String = "${level.dimension().location()}@${base.asLong()}"
+
+    /** Forgets every square when the server stops. */
+    fun reset() = squares.clear()
+
+    /** CD-ASG-25: the fell and the replant change the base cell. */
+    override val growsTrees: Boolean = true
 
     /** The claim follows the binding, so a claim on a sapling stays while the worker waits for the tree. */
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = bindingHolds(level, canonical)
@@ -132,6 +162,7 @@ object LumberjackHandler : TargetHandler {
         }
         val run = FellRun(fell.plan, params.blocksPerTick, tickets(ctx.level))
         memo.run = run
+        if (fell.plan.twoByTwo) squares += squareKey(ctx.level, fell.plan.base)
         // CD-LUM-30: the item frames and paintings come off first, silently, and their items pop with the drops. They never count for
         // the replant: a sapling in a frame is no sapling of the tree.
         for (entity in fell.hanging) {

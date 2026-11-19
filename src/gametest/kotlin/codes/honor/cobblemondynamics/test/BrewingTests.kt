@@ -129,45 +129,29 @@ class BrewingTests {
     }
 
     /**
-     * Vanilla turns a blaze powder into 20 fuel whenever the stand's fuel is 0, so the powder goes in once the Brew Stoker Works. The
-     * test mod's brew of water and a stick gives water, so the stand can brew again after each brew and the worker never stops: with
-     * vanilla brews, the stand has nothing to brew between two brews, and a Brew Stoker in Standby gives the stand its own fuel back
-     * (CD-BRF-05). Three brews leave the powder (CD-BRF-03). Then the last stick goes, and the worker is in Standby within 20 ticks
-     * (CD-BRF-04), with the stand's own fuel of 0 (CD-BRF-05).
+     * Decision 20 of the 1.2.1 plan. Vanilla turns a blaze powder into 20 fuel whenever the stand's fuel is 0, so a stand with powder
+     * fuels itself. The Brew Stoker has demand only while a brew waits for fuel (CD-BRF-04), so it claims the stand (CD-BRF-01) and never
+     * Works through the 3 brews of the test mod's stick recipe. It adds no fuel and takes no powder (CD-BRF-03): the stand spends 3 of the
+     * powder's 20.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 2_200)
-    fun cdBrf03BlazePowderStaysThroughThreeBrews(helper: GameTestHelper) {
+    fun cdBrf03StandWithBlazePowderFuelsItself(helper: GameTestHelper) {
         val (owner, pasture) = pasture(helper)
-        val stand = stand(helper, standRel, ItemStack(Items.STICK, 4), fuel = 0)
+        val stand = stand(helper, standRel, ItemStack(Items.STICK, 3), fuel = 0)
+        stand.setItem(FUEL_SLOT, ItemStack(Items.BLAZE_POWDER))
         val charmander = TestKit.tether(helper, pasture, owner, "charmander level=10")
-        var powderIn = false
-        var removedAt = -1L
+        var claimed = false
         helper.onEachTick {
             val worker = TestKit.workerOf(helper, charmander) ?: return@onEachTick
-            if (!powderIn) {
-                if (worker.status == WorkerStatus.WORKING) {
-                    stand.setItem(FUEL_SLOT, ItemStack(Items.BLAZE_POWDER))
-                    powderIn = true
-                }
-                return@onEachTick
-            }
-            val powder = stand.getItem(FUEL_SLOT)
-            helper.assertTrue(powder.`is`(Items.BLAZE_POWDER) && powder.count == 1, "CD-BRF-03: the fuel slot holds $powder")
-            if (removedAt < 0) {
-                helper.assertTrue(worker.status == WorkerStatus.WORKING, "the Brew Stoker is ${worker.status} at a stand that can brew")
-                helper.assertTrue(stand.fuel >= 1, "CD-BRF-02: the Worked stand holds ${stand.fuel} fuel")
-                if (stand.getItem(INGREDIENT_SLOT).count == 1) {
-                    stand.setItem(INGREDIENT_SLOT, ItemStack.EMPTY)
-                    removedAt = helper.tick
-                }
-            } else if (worker.status == WorkerStatus.STANDBY) {
-                helper.assertTrue(stand.fuel == 0, "CD-BRF-05: the stopped Brew Stoker left ${stand.fuel} fuel")
+            helper.assertTrue(
+                worker.status != WorkerStatus.WORKING,
+                "CD-BRF-04: the Brew Stoker Works at fuel ${stand.fuel} with brew time ${stand.brewTime}",
+            )
+            if (TestKit.claimOf(helper, charmander)?.kind == ClaimKind.WORK) claimed = true
+            if (stand.getItem(INGREDIENT_SLOT).isEmpty && stand.brewTime == 0) {
+                helper.assertTrue(claimed, "CD-BRF-01: the Charmander never claimed the stand")
+                helper.assertTrue(stand.fuel == 17, "CD-BRF-03: three brews left the stand at fuel ${stand.fuel}, not 17")
                 helper.succeed()
-            } else {
-                helper.assertTrue(
-                    helper.tick - removedAt < 20,
-                    "CD-BRF-04: the Brew Stoker is ${worker.status} 20 ticks after the stick went",
-                )
             }
         }
     }

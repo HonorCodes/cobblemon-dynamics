@@ -1,10 +1,12 @@
 package codes.honor.cobblemondynamics.engine
 
+import net.minecraft.core.BlockPos
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.abs
 
 class UnstickTest {
     /** A Dragonair 0.95 wide pressed against the pasture block's south face, with the corner of its box inside the block's cell. */
@@ -71,5 +73,39 @@ class UnstickTest {
         for (now in 0L..60L) stall.stalled(now, 0.0, 0.0, 0.0)
         for (now in 80L..179L) assertFalse(stall.stalled(now, 0.0, 0.0, 0.0), "stalled at tick $now")
         assertTrue(stall.stalled(180, 0.0, 0.0, 0.0))
+    }
+
+    @Test
+    fun `CD-ASG-25 a worker in a grown tree reaches the open cells nearest first, within 3 blocks`() {
+        val at = BlockPos(10, 64, 10)
+        val cells = Unstick.reachableCells(at, null) { true }
+        assertEquals(at, cells.first())
+        assertEquals(7 * 7 * 3, cells.size)
+        assertTrue(cells.zipWithNext().all { (a, b) -> a.distSqr(at) <= b.distSqr(at) }, "not nearest first")
+        val near = { c: BlockPos -> abs(c.x - 10) <= 3 && abs(c.y - 64) <= 1 && abs(c.z - 10) <= 3 }
+        assertTrue(cells.all(near))
+        assertTrue(cells.indexOf(at.east()) < cells.indexOf(at.east(2)))
+    }
+
+    /** A wall at x = 12 from y 63 to 65 shuts the cells east of it off, though they are within 3 blocks. */
+    @Test
+    fun `CD-ASG-25 a cell behind a wall is out of reach, and so is a far work spot`() {
+        val at = BlockPos(10, 64, 10)
+        val wall = { c: BlockPos -> c.x == 12 }
+        val spot = BlockPos(13, 64, 10)
+        val cells = Unstick.reachableCells(at, spot) { !wall(it) }
+        assertTrue(cells.none { it.x >= 12 }, "a cell behind the wall: ${cells.filter { it.x >= 12 }}")
+        assertFalse(spot in cells)
+        assertFalse(BlockPos(30, 64, 10) in Unstick.reachableCells(at, BlockPos(30, 64, 10)) { true })
+    }
+
+    @Test
+    fun `CD-ASG-25 the fill passes through the tree's own blocks, and a reachable work spot wins a tie`() {
+        val at = BlockPos(0, 64, 0)
+        // Only the cell itself and the cells south of it pass, as a log and the air beyond it.
+        val cells = Unstick.reachableCells(at, at.south()) { it.x == 0 && it.y == 64 && it.z in 0..3 }
+        assertEquals(listOf(at, at.south(), at.south(2), at.south(3)), cells)
+        val open = Unstick.reachableCells(at, at.south()) { true }
+        assertEquals(at.south(), open[1])
     }
 }

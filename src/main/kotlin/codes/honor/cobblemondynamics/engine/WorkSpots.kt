@@ -45,6 +45,42 @@ object WorkerBody {
 }
 
 /**
+ * CD-ASG-24: the columns that a target fills when it grows into a tree: each of its growth [cells] and every cell above it. A tree
+ * grows into its sapling's cell and up, whatever stands there, so a worker whose body lies in a column ends up inside the trunk.
+ */
+class GrowthColumns(cells: Collection<BlockPos>) {
+    private val columns = cells.map { AABB(it.x.toDouble(), it.y.toDouble(), it.z.toDouble(), it.x + 1.0, it.y + HEIGHT, it.z + 1.0) }
+
+    /**
+     * Whether the body of a worker [width] wide and [height] high stays out of every column, both on [spot]'s center and, for a body 1
+     * block wide or wider, where navigation stops it ([WorkerBody.boxes]).
+     */
+    fun allows(spot: BlockPos, width: Double, height: Double): Boolean =
+        columns.isEmpty() || WorkerBody.boxes(spot, width, height).none { body -> columns.any { it.intersects(body) } }
+
+    companion object {
+        /** Higher than any tree and any work range. */
+        private const val HEIGHT = 4096.0
+
+        /**
+         * CD-ASG-24: whether a body at [spot] stays out of the column of every sapling, the target's or any other's: no cell of the
+         * columns under its boxes, from one below the spot's floor height to the top of the body, holds a sapling ([isSapling]). A
+         * tree does not grow through a solid floor, so a sapling lower down cannot reach the body.
+         */
+        fun clearOfSaplings(spot: BlockPos, width: Double, height: Double, isSapling: (Int, Int, Int) -> Boolean): Boolean {
+            for (box in WorkerBody.boxes(spot, width, height)) {
+                for (x in floor(box.minX).toInt()..floor(box.maxX).toInt()) {
+                    for (z in floor(box.minZ).toInt()..floor(box.maxZ).toInt()) {
+                        for (y in spot.y - 1..floor(box.maxY).toInt()) if (isSapling(x, y, z)) return false
+                    }
+                }
+            }
+            return true
+        }
+    }
+}
+
+/**
  * The blocks of a target, as the work spot preference sees them (CD-ASG-09): its base height, the lowest y of its blocks, and its
  * footprint, the columns (x, z) that its blocks fill.
  */

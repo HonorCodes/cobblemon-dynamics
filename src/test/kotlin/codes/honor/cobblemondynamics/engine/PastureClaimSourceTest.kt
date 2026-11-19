@@ -26,8 +26,9 @@ class PastureClaimSourceTest {
     private fun callers(call: String): Set<String> = functions.filter { (_, text) -> call in text }.mapTo(sortedSetOf()) { it.first }
 
     @Test
-    fun `CD-LND-12 the engine asks the pasture check only in the poll, the assignment after a scan, the choice of a bed and a harvest`() {
-        val askers = setOf("assign", "landRefusal", "mayChange", "nearestFreeBed", "placerMayUse")
+    fun `CD-LND-12 the engine asks the pasture check only in the poll, the assignment after a scan, a bed, a harvest and the tree net`() {
+        // CD-ASG-25: the net that moves a worker out of a grown tree asks through freeSlot, at most MAX_CLAIM_ASKS times for each worker.
+        val askers = setOf("assign", "freeSlot", "landRefusal", "mayChange", "nearestFreeBed", "placerMayUse")
         assertEquals(askers, callers(PASTURE_CHECK), "who asks $PASTURE_CHECK")
         // CD-HRV-13: the harvest asks through its context, once for each block that it changes.
         assertEquals(setOf("context"), callers("mayChange("), "who calls mayChange")

@@ -16,12 +16,17 @@ data class WorkerView(
     val isSkipped: (TargetKey) -> Boolean,
 )
 
-/** [needsDemand]: every role of the candidate releases its claim when done, so an idle worker takes it only with demand (CD-CRP-10). */
+/**
+ * [needsDemand]: every role of the candidate releases its claim when done, so an idle worker takes it only with demand (CD-CRP-10).
+ * [demandOf] tells whether one role of the candidate has demand there, which the pick asks only of a worker that fits two roles or more
+ * of the candidate (CD-ASG-16).
+ */
 data class CandidateView(
     val key: TargetKey,
     val center: Vec3,
     val roles: List<RoleDefinition>,
     val needsDemand: Boolean = false,
+    val demandOf: (RoleDefinition) -> Boolean = { true },
     val hasDemand: () -> Boolean,
 )
 
@@ -36,9 +41,7 @@ object Assigner {
             null
         } else {
             // Nearest first, so the demand of a releasing role, such as the Freezer's whole test, runs only until a target has it.
-            options(w, candidates, isFree)
-                .sortedWith(nearestTo(w))
-                .firstOrNull { (candidate, _) -> !candidate.needsDemand || candidate.hasDemand() }
+            options(w, candidates, isFree).firstOrNull { (candidate, _) -> !candidate.needsDemand || candidate.hasDemand() }
         }
 
     /** CD-ASG-19: the nearest free target with demand, for an auto worker that waited in Standby long enough. */
@@ -50,29 +53,32 @@ object Assigner {
     ): Pair<CandidateView, RoleDefinition>? = if (!mayAutoAssign(w)) {
         null
     } else {
-        options(w, candidates.filter { it.key != current }, isFree)
-            .sortedWith(nearestTo(w))
-            .firstOrNull { (candidate, _) -> candidate.hasDemand() }
+        options(w, candidates.filter { it.key != current }, isFree).firstOrNull { (candidate, _) -> candidate.hasDemand() }
     }
 
     // CD-ASG-04: a Fairy type heals and never takes a machine through an auto claim. CD-STA-09: a Tired worker takes none.
     private fun mayAutoAssign(w: WorkerView): Boolean = !w.tired && !w.hasFairyType
 
+    /** The free targets nearest first, each with its role. The role of a candidate is asked only when the walk reaches it. */
     private fun options(
         w: WorkerView,
         candidates: List<CandidateView>,
         isFree: (TargetKey) -> Boolean,
     ): Sequence<Pair<CandidateView, RoleDefinition>> = candidates.asSequence()
         .filter { isFree(it.key) && !w.isSkipped(it.key) }
+        .sortedWith(nearestTo(w))
         .mapNotNull { candidate -> roleFor(w, candidate)?.let { candidate to it } }
 
-    /** CD-ASG-05: a role whose auto-assign flag is false never counts. */
-    private fun roleFor(w: WorkerView, candidate: CandidateView): RoleDefinition? =
-        RoleSelection.best(candidate.roles.filter { it.autoAssign && RoleSelection.isEligible(it, w.types) }, w.types.toList())
+    /** CD-ASG-05, CD-ASG-22: a role whose auto-assign flag is false never counts. CD-ASG-16: a role with demand comes first. */
+    private fun roleFor(w: WorkerView, candidate: CandidateView): RoleDefinition? = RoleSelection.withWork(
+        candidate.roles.filter { it.autoAssign && RoleSelection.isEligible(it, w.types) },
+        w.types.toList(),
+        hasDemand = candidate.demandOf,
+    )
 
     /** Nearest first. Ties go to the lowest key, so the choice is stable. */
-    private fun nearestTo(w: WorkerView): Comparator<Pair<CandidateView, RoleDefinition>> =
-        compareBy<Pair<CandidateView, RoleDefinition>> { it.first.center.distanceToSqr(w.pos) }.thenBy(KEY_ORDER) { it.first.key }
+    private fun nearestTo(w: WorkerView): Comparator<CandidateView> =
+        compareBy<CandidateView> { it.center.distanceToSqr(w.pos) }.thenBy(KEY_ORDER) { it.key }
 
     /** Block keys by `BlockPos.asLong()`, before entity keys by UUID. */
     private val KEY_ORDER: Comparator<TargetKey> = Comparator { a, b ->

@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.tree
 
 import codes.honor.cobblemondynamics.handler.farming.PlotRule
+import codes.honor.cobblemondynamics.handler.farming.SaplingRules
 import net.minecraft.core.BlockPos
 
 /** Who fells a tree (ADR-0017, decisions 8 and 15). */
@@ -82,12 +83,35 @@ object TreeRules {
         return TreeSearch.logs(cells, clicked, maxLogs)?.minWith(TreeSearch.LOWEST) ?: clicked
     }
 
-    /** The four cells of the 2 × 2 whose corner with the least coordinates is [corner]. */
-    fun square(corner: BlockPos): List<BlockPos> = listOf(corner, corner.east(), corner.south(), corner.east().south())
-
-    /** The least corner of a 2 × 2 of saplings like [sapling] that holds [pos], or [pos]. */
-    private fun saplingCorner(cells: (BlockPos) -> CellFacts, pos: BlockPos, sapling: CellFacts): BlockPos {
-        val corners = listOf(pos.offset(-1, 0, -1), pos.offset(-1, 0, 0), pos.offset(0, 0, -1), pos)
-        return corners.firstOrNull { corner -> square(corner).all { cells(it).sapling && cells(it).blockId == sapling.blockId } } ?: pos
+    /**
+     * CD-LSH-33: whether [pos] is its own [canonical] cell. A log over a log of the same block is never the trunk's base, so it answers
+     * with no search.
+     */
+    fun resolvesToItself(cells: (BlockPos) -> CellFacts, pos: BlockPos, maxLogs: Int): Boolean {
+        val facts = cells(pos)
+        if (facts.logTarget) {
+            val below = cells(pos.below())
+            if (below.logTarget && below.blockId == facts.blockId) return false
+        }
+        return canonical(cells, pos, maxLogs) == pos
     }
+
+    /** The four cells of the 2 × 2 whose corner with the least coordinates is [corner]. */
+    fun square(corner: BlockPos): List<BlockPos> = SaplingRules.square(corner)
+
+    /**
+     * CD-ASG-24: the trunk base cells of the tree on [base], grown or to grow: [base], and each other cell of its 2 × 2 that holds a log
+     * or a sapling of the base's block. After the fell of a 2 × 2 trunk ([lastSquare]), the whole square, which its replant fills.
+     */
+    fun growthCells(cells: (BlockPos) -> CellFacts, base: BlockPos, lastSquare: Boolean = false): List<BlockPos> {
+        if (lastSquare) return square(base)
+        val facts = cells(base)
+        if (!facts.logTarget && !facts.sapling) return listOf(base)
+        val same = { pos: BlockPos -> cells(pos).let { (it.logTarget || it.sapling) && it.blockId == facts.blockId } }
+        return SaplingRules.growthCells(base, same)
+    }
+
+    /** CD-CUL-13: the least corner of a 2 × 2 of saplings like [sapling] that holds [pos], or [pos], as the Cultivator finds it. */
+    private fun saplingCorner(cells: (BlockPos) -> CellFacts, pos: BlockPos, sapling: CellFacts): BlockPos =
+        SaplingRules.corner(pos) { cells(it).sapling && cells(it).blockId == sapling.blockId }
 }

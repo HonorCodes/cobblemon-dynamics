@@ -41,9 +41,34 @@ object CultivatorHandler : TargetHandler {
         return grows(level, crop, if (crop == pos) state else level.getBlockState(crop))
     }
 
-    override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos = FarmCells.lower(level, pos, level.getBlockState(pos))
+    /** CD-CUL-13: a sapling of a complete 2 × 2 of its kind resolves to the square's least corner, as the Lumberjack resolves it. */
+    override fun canonical(level: ServerLevel, pos: BlockPos): BlockPos {
+        val state = level.getBlockState(pos)
+        if (state.`is`(BlockTags.SAPLINGS)) return SaplingRules.corner(pos) { sameSapling(level, it, state) }
+        return FarmCells.lower(level, pos, state)
+    }
 
-    override fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean = FarmCells.isPart(level, canonical, pos)
+    /** CD-CUL-13: each cell of the 2 × 2 whose corner is [canonical] is part of that target. */
+    override fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean {
+        if (pos == canonical) return true
+        val state = level.getBlockState(canonical)
+        if (!state.`is`(BlockTags.SAPLINGS)) return FarmCells.isPart(level, canonical, pos)
+        val square = SaplingRules.square(canonical)
+        return pos in square && square.all { sameSapling(level, it, state) }
+    }
+
+    /** CD-ASG-24: a sapling's tree fills its cell, or each cell of its 2 × 2. A crop grows in place. */
+    override fun growthCells(level: ServerLevel, canonical: BlockPos): List<BlockPos> {
+        val state = level.getBlockState(canonical)
+        if (!state.`is`(BlockTags.SAPLINGS)) return emptyList()
+        return SaplingRules.growthCells(canonical) { sameSapling(level, it, state) }
+    }
+
+    /** CD-ASG-25: a growth use on a sapling grows a tree. */
+    override val growsTrees: Boolean = true
+
+    private fun sameSapling(level: ServerLevel, pos: BlockPos, sapling: BlockState): Boolean =
+        level.isLoaded(pos) && level.getBlockState(pos).`is`(sapling.block)
 
     /**
      * CD-CRP-09: a harvest by hand leaves the cell empty, and the leashed worker waits there for the replant. A block of the role's

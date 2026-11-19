@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.tree
 
+import codes.honor.cobblemondynamics.handler.farming.SaplingRules
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.DARK_OAK_SAPLING
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.DT_OAK_BRANCH
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.MAX_LEAVES
@@ -48,6 +49,40 @@ class TreeRulesTest {
         grid.sapling(mixed, SPRUCE_SAPLING)
         for (cell in listOf(mixed.east(), mixed.south(), mixed.east().south())) grid.sapling(cell, DARK_OAK_SAPLING)
         assertEquals(mixed.east(), TreeRules.canonical(grid.read, mixed.east(), MAX_LOGS))
+    }
+
+    /** The Lumberjack and the Cultivator name one cell for a 2 x 2 of saplings, also where two squares overlap. */
+    @Test
+    fun `CD-CUL-13 the Lumberjack's sapling corner is the Cultivator's`() {
+        val grid = TreeGrid()
+        val start = BlockPos(20, 64, 20)
+        val cells = (0..2).flatMap { x -> (0..1).map { z -> start.offset(x, 0, z) } }
+        for (cell in cells) grid.sapling(cell, SPRUCE_SAPLING)
+        val lone = grid.sapling(BlockPos(30, 64, 30), SPRUCE_SAPLING)
+        for (cell in cells + lone) {
+            val same: (BlockPos) -> Boolean = { grid.read(it).sapling && grid.read(it).blockId == grid.read(cell).blockId }
+            assertEquals(SaplingRules.corner(cell, same), TreeRules.canonical(grid.read, cell, MAX_LOGS), "the sapling at $cell")
+        }
+        assertEquals(start, TreeRules.canonical(grid.read, start.offset(1, 0, 1), MAX_LOGS))
+        assertEquals(lone, TreeRules.canonical(grid.read, lone, MAX_LOGS))
+    }
+
+    /** Review: a log over a log of its kind is no base, which the switch check learns with no search. */
+    @Test
+    fun `CD-LSH-33 only the base log resolves to itself, and a log over a log answers with no search`() {
+        val grid = TreeGrid()
+        val base = BlockPos(0, 64, 0)
+        grid.trunk(base, 5)
+        var reads = 0
+        val counted: (BlockPos) -> CellFacts = { pos ->
+            reads++
+            grid.read(pos)
+        }
+        assertFalse(TreeRules.resolvesToItself(counted, base.above(2), MAX_LOGS))
+        assertEquals(2, reads, "a log over a log read more than its cell and the cell below")
+        assertTrue(TreeRules.resolvesToItself(grid.read, base, MAX_LOGS))
+        val sapling = grid.sapling(BlockPos(10, 64, 10))
+        assertTrue(TreeRules.resolvesToItself(grid.read, sapling, MAX_LOGS))
     }
 
     @Test
@@ -203,5 +238,26 @@ class TreeRulesTest {
             val grid = TreeGrid().apply { oak(base, logId = id) }
             for (hook in listOf(true, false)) assertEquals(Feller.OWN, TreeRules.feller(grid.read(base), hook), "$id with the hook: $hook")
         }
+    }
+
+    @Test
+    fun `CD-ASG-24 the Lumberjack's growth cells are the trunk base of its tree, grown or as saplings`() {
+        val grid = TreeGrid()
+        grid.oak(base)
+        assertEquals(listOf(base), TreeRules.growthCells(grid.read, base))
+        val corner = BlockPos(-3, 64, 5)
+        grid.darkOak(corner)
+        val square = TreeRules.square(corner)
+        assertEquals(square, TreeRules.growthCells(grid.read, corner))
+        val saplings = BlockPos(10, 64, 10)
+        for (cell in TreeRules.square(saplings)) grid.sapling(cell, DARK_OAK_SAPLING)
+        assertEquals(TreeRules.square(saplings), TreeRules.growthCells(grid.read, saplings))
+        // An empty base, between the fell and the replant, keeps its own cell.
+        val empty = BlockPos(30, 64, 30)
+        assertEquals(listOf(empty), TreeRules.growthCells(grid.read, empty))
+        // After the fell of a 2 x 2 trunk, the whole square, also before the replant and after a replant of the corner alone.
+        assertEquals(TreeRules.square(empty), TreeRules.growthCells(grid.read, empty, lastSquare = true))
+        grid.sapling(empty, DARK_OAK_SAPLING)
+        assertEquals(TreeRules.square(empty), TreeRules.growthCells(grid.read, empty, lastSquare = true))
     }
 }

@@ -54,7 +54,22 @@ interface TargetHandler {
 
     fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean = pos == canonical
 
+    /** Whether [pos] is its own [canonical] cell. A handler whose [canonical] searches may answer first from a cheap check (CD-LSH-33). */
+    fun resolvesToItself(level: ServerLevel, pos: BlockPos): Boolean = canonical(level, pos) == pos
+
     fun targetCenter(canonical: BlockPos): Vec3 = Vec3.atCenterOf(canonical)
+
+    /**
+     * CD-ASG-24: the cells that the target at [canonical] fills when it grows into a tree, such as a sapling's cell, its 2 × 2 or a
+     * tree's trunk base. No work spot puts a worker's body in their columns, from their height up. Empty for a target that grows in place.
+     */
+    fun growthCells(level: ServerLevel, canonical: BlockPos): List<BlockPos> = emptyList()
+
+    /**
+     * CD-ASG-25: true for a handler whose work grows, fells or replants a tree at its target. When that work changes the target's block
+     * from or to a sapling or a log, the engine frees each worker near the target whose body the change filled.
+     */
+    val growsTrees: Boolean get() = false
 
     fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean
 
