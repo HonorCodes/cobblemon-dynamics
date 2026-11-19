@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.role
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
@@ -14,7 +15,7 @@ class AssignerTest {
     private val dim = ResourceLocation.withDefaultNamespace("overworld")
     private val stoker = role("stoker", setOf("fire"))
     private val pump = role("pump", setOf("water"), autoAssign = false)
-    private fun candidate(x: Int, roles: List<codes.honor.cobblemondynamics.role.RoleDefinition> = listOf(stoker), demand: Boolean = true) =
+    private fun candidate(x: Int, roles: List<RoleDefinition> = listOf(stoker), demand: Boolean = true) =
         CandidateView(TargetKey.block(dim, BlockPos(x, 64, 0)), Vec3(x + 0.5, 64.5, 0.5), roles) { demand }
     private fun fire(tired: Boolean = false, fairy: Boolean = false, types: Set<String> = setOf("fire")) =
         WorkerView(UUID.randomUUID(), Vec3(0.5, 64.0, 0.5), types, fairy, tired) { false }
@@ -75,6 +76,49 @@ class AssignerTest {
         val empty = candidate(4, demand = false)
         val busy = candidate(6, demand = true)
         assertEquals(busy.key, Assigner.pickForStandbyMove(fire(), current.key, listOf(current, empty, busy)) { true }!!.first.key)
+    }
+
+    @Test
+    fun `CD-ASG-16 a worker that fits two roles of a target takes the one with demand`() {
+        val brewer = role("brewer", setOf("poison"), handler = "cobblemon_dynamics:brewing_speed")
+        val brewStoker = role("brew_stoker", setOf("fire"), priority = 10, handler = "cobblemon_dynamics:brewing_fuel")
+        val salazzle = fire(types = linkedSetOf("poison", "fire"))
+        fun stand(withDemand: Set<RoleDefinition>) = CandidateView(
+            TargetKey.block(dim, BlockPos(2, 64, 0)),
+            Vec3(2.5, 64.5, 0.5),
+            listOf(brewStoker, brewer),
+            demandOf = { it in withDemand },
+        ) { withDemand.isNotEmpty() }
+        assertEquals(brewer, Assigner.pickForIdle(salazzle, listOf(stand(setOf(brewer)))) { true }?.second)
+        assertEquals(brewStoker, Assigner.pickForIdle(salazzle, listOf(stand(setOf(brewStoker)))) { true }?.second)
+        assertEquals(brewStoker, Assigner.pickForIdle(salazzle, listOf(stand(emptySet()))) { true }?.second)
+    }
+
+    @Test
+    fun `CD-ASG-22 an unbound Bug-Ground worker gets no role at a tree`() {
+        val lumberjack = role("lumberjack", setOf("bug"), autoAssign = false, handler = "cobblemon_dynamics:lumberjack")
+        val nincada = WorkerView(UUID.randomUUID(), Vec3.ZERO, linkedSetOf("bug", "ground"), false, false) { false }
+        assertNull(Assigner.pickForIdle(nincada, listOf(candidate(3, listOf(lumberjack)))) { true })
+    }
+
+    /** CD-CRP-06: a crop is one candidate in each lane, with the role of that lane. */
+    @Test
+    fun `CD-ASG-23 an unbound Grass-Ground worker takes the nearer crop of either lane with the role of that lane`() {
+        val cultivator = role("cultivator", setOf("ground"), handler = "cobblemon_dynamics:cultivator")
+        val harvester = role("harvester", setOf("grass"), handler = "cobblemon_dynamics:harvester")
+        val torterra = WorkerView(UUID.randomUUID(), Vec3(0.5, 64.0, 0.5), linkedSetOf("grass", "ground"), false, false) { false }
+        fun crop(x: Int, grown: Boolean) = listOf(
+            CandidateView(TargetKey.block(dim, BlockPos(x, 64, 0), "cultivator"), Vec3(x + 0.5, 64.5, 0.5), listOf(cultivator), true) {
+                !grown
+            },
+            CandidateView(TargetKey.block(dim, BlockPos(x, 64, 0), "harvester"), Vec3(x + 0.5, 64.5, 0.5), listOf(harvester), true) {
+                grown
+            },
+        )
+        val growingNear = Assigner.pickForIdle(torterra, crop(5, grown = true) + crop(2, grown = false)) { true }
+        assertEquals(TargetKey.block(dim, BlockPos(2, 64, 0), "cultivator") to cultivator, growingNear?.let { it.first.key to it.second })
+        val grownNear = Assigner.pickForIdle(torterra, crop(5, grown = false) + crop(2, grown = true)) { true }
+        assertEquals(TargetKey.block(dim, BlockPos(2, 64, 0), "harvester") to harvester, grownNear?.let { it.first.key to it.second })
     }
 
     @Test

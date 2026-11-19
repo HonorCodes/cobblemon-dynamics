@@ -52,6 +52,16 @@ class QuickWorkRulesTest {
         assertEquals(QuickWorkRules.Pick.Order(stoker), pick(listOf(stoker), listOf("fire")))
     }
 
+    /** R94: a role with no work never shadows a role with work, also between two handlers. */
+    @Test
+    fun `CD-QWK-03 a Poison and Fire Salazzle at a stand where only the Brewer has demand gets the Brewer`() {
+        val salazzle = listOf("poison", "fire")
+        val onlyBrewer = QuickWorkRules.pick(listOf(brewer, brewStoker), salazzle, false, ::orderable, hasDemand = { it == brewer })
+        assertEquals(QuickWorkRules.Pick.Order(brewer), onlyBrewer)
+        val neither = QuickWorkRules.pick(listOf(brewer, brewStoker), salazzle, false, ::orderable, hasDemand = { false })
+        assertEquals(QuickWorkRules.Pick.Order(brewStoker), neither)
+    }
+
     @Test
     fun `CD-QWK-03 CD-QWK-04 a leash-only or two-target role gives no order but the Work Leash message`() {
         assertEquals(QuickWorkRules.Pick.NeedsLeash, pick(listOf(telekinesis), listOf("psychic")))

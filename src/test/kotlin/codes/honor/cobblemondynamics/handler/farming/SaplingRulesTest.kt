@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.farming
 
 import com.google.gson.JsonParser
+import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -37,5 +38,28 @@ class SaplingRulesTest {
             val square = saplings(x to z, x + 1 to z, x to z + 1, x + 1 to z + 1)
             assertTrue(SaplingRules.inFullSquare(square), "the square from ($x, $z)")
         }
+    }
+
+    @Test
+    fun `CD-CUL-13 each sapling of a 2 x 2 resolves to its least corner, and a lone sapling to itself`() {
+        val corner = BlockPos(4, 64, 7)
+        val square = SaplingRules.square(corner).toSet()
+        assertEquals(setOf(corner, corner.east(), corner.south(), corner.east().south()), square)
+        for (cell in square) assertEquals(corner, SaplingRules.corner(cell) { it in square }, "the spruce sapling at $cell")
+        val lone = BlockPos(10, 64, 10)
+        assertEquals(lone, SaplingRules.corner(lone) { it == lone })
+        // Three of four make no square.
+        val three = square - corner.east().south()
+        for (cell in three) assertEquals(cell, SaplingRules.corner(cell) { it in three })
+    }
+
+    /** Two squares that overlap, as in a 3 x 2 of saplings: the corner with the least x and z is tried first, as the Lumberjack does. */
+    @Test
+    fun `CD-CUL-13 in two overlapping squares the middle saplings resolve to the first square`() {
+        val start = BlockPos(0, 64, 0)
+        val cells = (0..2).flatMap { x -> (0..1).map { z -> start.offset(x, 0, z) } }.toSet()
+        assertEquals(start, SaplingRules.corner(start.offset(1, 0, 0)) { it in cells })
+        assertEquals(start, SaplingRules.corner(start.offset(1, 0, 1)) { it in cells })
+        assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(2, 0, 0)) { it in cells })
     }
 }

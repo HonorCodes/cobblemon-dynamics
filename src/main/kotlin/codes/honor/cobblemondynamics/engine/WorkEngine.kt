@@ -17,6 +17,7 @@ import codes.honor.cobblemondynamics.compat.WorkerEvents
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.fx.EffectPlayer
+import codes.honor.cobblemondynamics.handler.BindingShape
 import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
@@ -390,7 +391,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             }
             slot.worker.leashed = slot.binding != null
             slot.rule = RecoveryRule.of(hasFairyType(slot.pokemon), slot.binding != null)
+            // CD-LSH-34: the memos of the switch roles last while the binding names one target and role, or the auto claim one target.
+            slot.probes.follow(slot.binding?.let { it.target to it.roleId } ?: slot.worker.target)
             claimBound(t, runtime, slot, taken)
+            switchInStandby(t, runtime, slot, taken)
             // CD-CMP-01: the Cobbleworkers shim marks each worker within one poll of Work Mode turning on.
             WorkerEvents.polled(slot.pokemon)
         }
@@ -423,18 +427,26 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /**
      * A leashed worker claims its bound target and no other (CD-ASG-20). A Tired worker waits until it has rested (CD-STA-14). While its
-     * crop's cell is empty, the worker holds no claim (CD-CLM-08) and so no work order, and it waits where it stands (CD-CRP-09).
+     * crop's cell is empty, the worker holds no claim (CD-CLM-08) and so no work order, and it waits where it stands (CD-CRP-09). A work
+     * claim on the bound target in the lane of a switch role stays, and a worker with no claim takes the first switch role with demand
+     * there, or else its bound role (CD-LSH-30).
      */
     private fun claimBound(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
         val binding = slot.binding ?: return
         val worker = slot.worker
         val key = TargetKey.block(t.dimension, binding.target, RoleRegistry.laneOf(binding.roleId))
         val current = claims.claimOf(worker.pokemonId)
-        if (current?.kind == ClaimKind.WORK && current.key != key) release(t, slot)
+        if (current?.kind == ClaimKind.WORK && current.key != key && !isSwitchedClaim(t, slot, binding)) release(t, slot)
         if (claims.claimOf(worker.pokemonId) != null || worker.tired || worker.isSkipped(key, t.now)) return
         if (!BrainBridge.canHoldOrder(slot.entity)) return
         val role = t.roles.get(binding.roleId)?.takeIf { RoleSelection.isEligible(it.definition, typesOf(slot.pokemon)) } ?: return
         if (!t.level.isLoaded(binding.target)) return
+        val switched = switchFor(t, slot, binding.target, role) {
+            guarded(role.handler, false) {
+                role.handler.hasDemand(context(t, slot, binding.target, role, slot.probes.memo(role.definition.id)))
+            }
+        }
+        if (switched != null && claimSwitch(t, runtime, slot, binding.target, switched, taken, moving = false)) return
         if (guarded(role.handler, false) { role.handler.stillValid(t.level, binding.target) }) {
             val attempt = claim(t, runtime, slot, binding.target, role, taken, moving = false)
             if (attempt == Attempt.NO_SPOT) cannotReach(t, slot, binding.target)
@@ -442,6 +454,86 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             // Each poll renews the pause before it lapses. Until the first poll, the hold of the released order pauses the wander.
             BrainBridge.pauseWander(slot.entity, WAIT_PAUSE_TICKS)
         }
+    }
+
+    /**
+     * CD-LSH-33: the worker's work claim names its bound target with a role that may switch in there: of the worker's types, of another
+     * handler than the bound role's, and whose binding would name one target and whose claims share no target. The handler checks of the
+     * cell ran when the switch took the claim, and `validateClaims` ends a claim whose target is no longer valid.
+     */
+    private fun isSwitchedClaim(t: Tick, slot: WorkerSlot, binding: Binding): Boolean {
+        if (slot.worker.target != binding.target) return false
+        val role = slot.role ?: return false
+        val own = t.roles.get(binding.roleId) ?: return false
+        if (!RoleSelection.isEligible(role.definition, typesOf(slot.pokemon))) return false
+        val single = { def: RoleDefinition -> isSingle(if (def.id == own.definition.id) own else role) }
+        return RoleSwitch.rolesOf(own.definition, listOf(role.definition), bound = true, single, { true }, { true }).size > 1
+    }
+
+    /**
+     * CD-ASG-21, CD-LSH-30: a worker in Standby on its target, with no missed arrival, whose role has no demand there, takes the first
+     * switch role with demand on the same target in this tick. A Quick Worker has no poll, so it keeps its role (decision 13).
+     */
+    private fun switchInStandby(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
+        val worker = slot.worker
+        if (worker.status != WorkerStatus.STANDBY || worker.missedArrival) return
+        val role = slot.role ?: return
+        val target = worker.target ?: return
+        if (claims.claimOf(worker.pokemonId)?.kind != ClaimKind.WORK || !BrainBridge.canHoldOrder(slot.entity)) return
+        val next = switchFor(t, slot, target, role) {
+            guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target, role, slot.memo)) }
+        } ?: return
+        claimSwitch(t, runtime, slot, target, next, taken, moving = true)
+    }
+
+    /**
+     * CD-LSH-30, CD-LSH-32, CD-ASG-21: the switch role that the worker of [slot] takes on [target] in place of [own], or null to keep
+     * [own]. [ownDemand] asks [own]'s demand, and each switch role asks through its memo of the slot (CD-LSH-34). A worker with no
+     * switch role asks no demand, so a worker of one type costs only the cheap checks of `RoleSwitch.rolesOf`.
+     */
+    private fun switchFor(t: Tick, slot: WorkerSlot, target: BlockPos, own: ActiveRole, ownDemand: () -> Boolean): ActiveRole? {
+        val types = typesOf(slot.pokemon)
+        val roles = switchRolesOn(t.level, target, own, t.roles.forTypes(types), bound = slot.binding != null)
+        if (roles.size < 2) return null
+        val byId = roles.associateBy { it.definition.id }
+        val me = slot.worker.pokemonId
+        val keyOf = { def: RoleDefinition -> TargetKey.block(t.dimension, target, byId.getValue(def.id).handler.claimLane) }
+        val demandOf = { def: RoleDefinition ->
+            val role = byId.getValue(def.id)
+            guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target, role, slot.probes.memo(def.id))) }
+        }
+        val pick = RoleSwitch.choose(
+            own.definition,
+            roles.map { it.definition },
+            types.toList(),
+            hasDemand = { def -> if (def.id == own.definition.id) ownDemand() else demandOf(def) },
+            // CD-LSH-32: a free lane, or one that this worker holds itself, as the two roles of a brewing stand share theirs.
+            laneFree = { def -> keyOf(def).let { claims.isFree(it, me) || claims.holderOf(it)?.worker == me } },
+            skipped = { def -> slot.worker.isSkipped(keyOf(def), t.now) },
+            sameGroup = RoleRegistry::sameGroup,
+        )
+        return pick?.takeIf { it.id != own.definition.id }?.let { byId.getValue(it.id) }
+    }
+
+    /**
+     * Claims [target] with the switch role [role]. With [moving], the worker keeps its claim until a spot is found. A claim that fails
+     * skips that role's key for `retryWaitTicks`, so the next poll tries the bound role again. A worker whose navigation cannot plan yet,
+     * as in the air, skips nothing and tries again at its next poll, as `claim` does.
+     */
+    private fun claimSwitch(
+        t: Tick,
+        runtime: PastureRuntime,
+        slot: WorkerSlot,
+        target: BlockPos,
+        role: ActiveRole,
+        taken: MutableSet<Long>,
+        moving: Boolean,
+    ): Boolean {
+        val attempt = claim(t, runtime, slot, target, role, taken, moving)
+        if (attempt == Attempt.GRANTED) return true
+        if (attempt == Attempt.NOT_NOW) return false
+        slot.worker.skipUntil[TargetKey.block(t.dimension, target, role.handler.claimLane)] = t.now + t.settings.retryWaitTicks
+        return false
     }
 
     /** The work spots that workers of this level hold, as `BlockPos.asLong()`, Quick Workers' included. */
@@ -594,14 +686,19 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
+    /** Each role's demand is asked at most once for the candidate, with a fresh memo, because a scan candidate is no binding. */
     private fun candidate(t: Tick, slot: WorkerSlot, types: Set<String>, key: TargetKey, target: FoundTarget): CandidateView {
         val center = target.roles.first().handler.targetCenter(target.pos)
         val needsDemand = target.roles.all { it.handler.releasesWhenDone }
-        return CandidateView(key, center, target.roles.map { it.definition }, needsDemand) {
-            target.roles.any { role ->
-                RoleSelection.isEligible(role.definition, types) &&
-                    guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target.pos, role)) }
+        val asked = HashMap<ResourceLocation, Boolean>(2)
+        val demandOf = { def: RoleDefinition ->
+            asked.getOrPut(def.id) {
+                val role = target.roles.first { it.definition.id == def.id }
+                guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target.pos, role)) }
             }
+        }
+        return CandidateView(key, center, target.roles.map { it.definition }, needsDemand, demandOf) {
+            target.roles.any { role -> RoleSelection.isEligible(role.definition, types) && demandOf(role.definition) }
         }
     }
 
@@ -1088,6 +1185,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun release(t: Tick, slot: WorkerSlot, callHandler: Boolean = true) {
         val worker = slot.worker
         claims.release(worker.pokemonId)
+        // CD-LSH-34: the memos of an auto worker's switch roles belong to its claim.
+        if (slot.binding == null) slot.probes.clear()
         val role = slot.role
         val target = worker.target
         if (callHandler && worker.status == WorkerStatus.WORKING && role != null && target != null) {
@@ -1253,6 +1352,34 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             entity.deltaMovement = Vec3.ZERO
         }
     }
+}
+
+/** A role whose binding names one target and whose claims share no target, which alone may switch (CD-LSH-33). */
+internal fun isSingle(role: ActiveRole): Boolean = role.handler.bindingShape == BindingShape.SINGLE && !role.handler.sharesTargets
+
+/**
+ * CD-LSH-33: the switch roles of [own] on [target] among [enabled], the enabled roles of a worker's types, [own] first. A handler that
+ * throws counts as no match. A worker with no binding ([bound] false) gets auto-assign roles only (CD-ASG-22).
+ */
+internal fun switchRolesOn(
+    level: ServerLevel,
+    target: BlockPos,
+    own: ActiveRole,
+    enabled: List<ActiveRole>,
+    bound: Boolean,
+): List<ActiveRole> {
+    val byId = enabled.associateBy { it.definition.id } + (own.definition.id to own)
+    val state by lazy { level.getBlockState(target) }
+    val blockEntity by lazy { level.getBlockEntity(target) }
+    val roles = RoleSwitch.rolesOf(
+        own.definition,
+        enabled.map { it.definition },
+        bound,
+        single = { def -> isSingle(byId.getValue(def.id)) },
+        matches = { def -> byId.getValue(def.id).handler.let { h -> guarded(h, false) { h.matches(level, target, state, blockEntity) } } },
+        resolvesToItself = { def -> byId.getValue(def.id).handler.let { h -> guarded(h, null) { h.canonical(level, target) } == target } },
+    )
+    return roles.map { byId.getValue(it.id) }
 }
 
 /**

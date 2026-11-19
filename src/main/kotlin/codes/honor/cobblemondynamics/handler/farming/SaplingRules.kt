@@ -1,11 +1,12 @@
 package codes.honor.cobblemondynamics.handler.farming
 
 import codes.honor.cobblemondynamics.id
+import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.Registries
 import net.minecraft.tags.TagKey
 import net.minecraft.world.level.block.Block
 
-/** When the Cultivator grows a sapling (CD-LUM-23). */
+/** When the Cultivator grows a sapling (CD-LUM-23), and which cell names a 2 × 2 of saplings (CD-LUM-03, CD-CUL-13). */
 object SaplingRules {
     /**
      * The saplings whose tree grows only from a complete 2 × 2 of them: the Lumberjack's tag `#cobblemon_dynamics:lumberjack/needs_four`,
@@ -17,10 +18,23 @@ object SaplingRules {
     /** The lowest corner of each 2 × 2 that holds a cell, as x and z offsets from that cell. */
     private val SQUARES = listOf(0 to 0, 0 to -1, -1 to 0, -1 to -1)
 
+    /** The same corners in the order that [corner] tries them: the least x and z first. */
+    private val CORNERS = listOf(-1 to -1, -1 to 0, 0 to -1, 0 to 0)
+
     /**
      * Whether a sapling lies in a complete 2 × 2 of its kind. [same] tells whether the cell at an x and a z offset from the sapling
      * holds the same block. The four squares that hold the sapling are those that vanilla's tree grower tries.
      */
     fun inFullSquare(same: (dx: Int, dz: Int) -> Boolean): Boolean =
         SQUARES.any { (x, z) -> same(x, z) && same(x + 1, z) && same(x, z + 1) && same(x + 1, z + 1) }
+
+    /** The four cells of the 2 × 2 whose corner with the least coordinates is [corner]. */
+    fun square(corner: BlockPos): List<BlockPos> = listOf(corner, corner.east(), corner.south(), corner.east().south())
+
+    /**
+     * CD-LUM-03, CD-CUL-13: the least corner of the first complete 2 × 2 that holds [pos] and whose cells all hold the sapling of [pos]
+     * ([same]), or [pos]. The Lumberjack and the Cultivator both ask this, so both name one cell for a square.
+     */
+    fun corner(pos: BlockPos, same: (BlockPos) -> Boolean): BlockPos =
+        CORNERS.map { (x, z) -> pos.offset(x, 0, z) }.firstOrNull { corner -> square(corner).all(same) } ?: pos
 }

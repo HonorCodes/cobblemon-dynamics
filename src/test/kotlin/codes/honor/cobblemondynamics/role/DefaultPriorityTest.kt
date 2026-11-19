@@ -18,10 +18,10 @@ class DefaultPriorityTest {
         BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().sortedBy { it.name }.map(BuiltInRoles::parse)
     }
 
-    /** A scan gives the assigner each target with every role whose handler matches it. */
-    private fun target(vararg handlers: String): CandidateView {
+    /** A scan gives the assigner each target with every role whose handler matches it, and [demand] tells which of them have work. */
+    private fun target(vararg handlers: String, demand: (RoleDefinition) -> Boolean = { true }): CandidateView {
         val key = TargetKey.Block(ResourceLocation.withDefaultNamespace("overworld"), 0L)
-        return CandidateView(key, Vec3.ZERO, roles.filter { it.handler.toString() in handlers }) { true }
+        return CandidateView(key, Vec3.ZERO, roles.filter { it.handler.toString() in handlers }, demandOf = demand) { true }
     }
 
     private fun roleFor(types: Set<String>, target: CandidateView): ResourceLocation? {
@@ -38,12 +38,17 @@ class DefaultPriorityTest {
         assertNull(roleFor(setOf("fire"), burner), "a pure Fire-type")
     }
 
+    /** R94: the Brew Stoker wins with demand, or when neither role has any, and the Brewer when only the Brewer has demand. */
     @Test
-    fun `CD-ASG-16 a Poison and Fire Salazzle on a brewing stand works as the Brew Stoker`() {
-        val stand = target(BREWING_FUEL, BREWING_SPEED)
-        assertEquals(setOf(id("brew_stoker"), id("brewer")), stand.roles.map { it.id }.toSet())
-        assertEquals(id("brew_stoker"), roleFor(setOf("poison", "fire"), stand))
-        assertEquals(id("brewer"), roleFor(setOf("poison"), stand), "a pure Poison-type")
+    fun `CD-ASG-16 a Poison and Fire Salazzle on a brewing stand takes the role with demand, the Brew Stoker first`() {
+        val salazzle = linkedSetOf("poison", "fire")
+        fun stand(vararg withDemand: String) = target(BREWING_FUEL, BREWING_SPEED) { it.id.path in withDemand }
+        assertEquals(setOf(id("brew_stoker"), id("brewer")), stand().roles.map { it.id }.toSet())
+        assertEquals(id("brew_stoker"), roleFor(salazzle, stand("brew_stoker", "brewer")), "both roles have demand")
+        assertEquals(id("brew_stoker"), roleFor(salazzle, stand("brew_stoker")), "only the Brew Stoker has demand")
+        assertEquals(id("brewer"), roleFor(salazzle, stand("brewer")), "only the Brewer has demand")
+        assertEquals(id("brew_stoker"), roleFor(salazzle, stand()), "neither role has demand")
+        assertEquals(id("brewer"), roleFor(setOf("poison"), stand("brew_stoker")), "a pure Poison-type")
     }
 
     /** Both leash-only roles fit a Create basin, which exposes a fluid and an item handler. Both have priority 0, and `pump` sorts first. */

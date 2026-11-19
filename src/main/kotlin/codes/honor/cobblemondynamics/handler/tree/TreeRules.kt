@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.tree
 
 import codes.honor.cobblemondynamics.handler.farming.PlotRule
+import codes.honor.cobblemondynamics.handler.farming.SaplingRules
 import net.minecraft.core.BlockPos
 
 /** Who fells a tree (ADR-0017, decisions 8 and 15). */
@@ -83,11 +84,9 @@ object TreeRules {
     }
 
     /** The four cells of the 2 × 2 whose corner with the least coordinates is [corner]. */
-    fun square(corner: BlockPos): List<BlockPos> = listOf(corner, corner.east(), corner.south(), corner.east().south())
+    fun square(corner: BlockPos): List<BlockPos> = SaplingRules.square(corner)
 
-    /** The least corner of a 2 × 2 of saplings like [sapling] that holds [pos], or [pos]. */
-    private fun saplingCorner(cells: (BlockPos) -> CellFacts, pos: BlockPos, sapling: CellFacts): BlockPos {
-        val corners = listOf(pos.offset(-1, 0, -1), pos.offset(-1, 0, 0), pos.offset(0, 0, -1), pos)
-        return corners.firstOrNull { corner -> square(corner).all { cells(it).sapling && cells(it).blockId == sapling.blockId } } ?: pos
-    }
+    /** CD-CUL-13: the least corner of a 2 × 2 of saplings like [sapling] that holds [pos], or [pos], as the Cultivator finds it. */
+    private fun saplingCorner(cells: (BlockPos) -> CellFacts, pos: BlockPos, sapling: CellFacts): BlockPos =
+        SaplingRules.corner(pos) { cells(it).sapling && cells(it).blockId == sapling.blockId }
 }

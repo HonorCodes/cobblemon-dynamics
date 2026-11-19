@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.tree
 
+import codes.honor.cobblemondynamics.handler.farming.SaplingRules
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.DARK_OAK_SAPLING
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.DT_OAK_BRANCH
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.MAX_LEAVES
@@ -48,6 +49,22 @@ class TreeRulesTest {
         grid.sapling(mixed, SPRUCE_SAPLING)
         for (cell in listOf(mixed.east(), mixed.south(), mixed.east().south())) grid.sapling(cell, DARK_OAK_SAPLING)
         assertEquals(mixed.east(), TreeRules.canonical(grid.read, mixed.east(), MAX_LOGS))
+    }
+
+    /** The Lumberjack and the Cultivator name one cell for a 2 x 2 of saplings, also where two squares overlap. */
+    @Test
+    fun `CD-CUL-13 the Lumberjack's sapling corner is the Cultivator's`() {
+        val grid = TreeGrid()
+        val start = BlockPos(20, 64, 20)
+        val cells = (0..2).flatMap { x -> (0..1).map { z -> start.offset(x, 0, z) } }
+        for (cell in cells) grid.sapling(cell, SPRUCE_SAPLING)
+        val lone = grid.sapling(BlockPos(30, 64, 30), SPRUCE_SAPLING)
+        for (cell in cells + lone) {
+            val same: (BlockPos) -> Boolean = { grid.read(it).sapling && grid.read(it).blockId == grid.read(cell).blockId }
+            assertEquals(SaplingRules.corner(cell, same), TreeRules.canonical(grid.read, cell, MAX_LOGS), "the sapling at $cell")
+        }
+        assertEquals(start, TreeRules.canonical(grid.read, start.offset(1, 0, 1), MAX_LOGS))
+        assertEquals(lone, TreeRules.canonical(grid.read, lone, MAX_LOGS))
     }
 
     @Test

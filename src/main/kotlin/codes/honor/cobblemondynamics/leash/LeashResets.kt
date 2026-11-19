@@ -3,8 +3,10 @@ package codes.honor.cobblemondynamics.leash
 import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.engine.EngineTiming
+import codes.honor.cobblemondynamics.engine.RoleSwitch
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.guarded
+import codes.honor.cobblemondynamics.engine.switchRolesOn
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.role.RoleRegistry
@@ -169,6 +171,7 @@ object LeashResets {
     }
 
     private fun check(level: ServerLevel, target: BlockPos, ref: LeashIndex.Ref) {
+        var checked: Pokemon? = null
         if (level.isLoaded(ref.pasture)) {
             val be = PastureAdapter.pastureAt(level, ref.pasture) ?: return lost(level, target, ref, PASTURE_GONE)
             val tethered = PastureAdapter.tetheredPokemon(be, ref.pokemonId)
@@ -184,6 +187,7 @@ object LeashResets {
             // An entry from before the index named destinations gets its destination here, so that its place counts (CD-LSH-29).
             if (bound.destination != ref.destination) reindex(level, target, ref.copy(destination = bound.destination))
             if (!recheckRole(level.server, pokemon)) return
+            checked = pokemon
             // CD-TLK-11: a two-target binding also ends when its destination is broken or replaced.
             val destination = BindingStore.read(pokemon)?.destination
             val handler = RoleRegistry.current.get(ref.roleId)?.handler
@@ -196,9 +200,19 @@ object LeashResets {
             }
         }
         if (!level.isLoaded(target)) return
-        val handler = RoleRegistry.current.get(ref.roleId)?.handler ?: return
+        val bound = RoleRegistry.current.get(ref.roleId) ?: return
+        val handler = bound.handler
         // CD-CRP-09: a farming binding keeps the empty cell of a harvested crop.
-        if (!guarded(handler, true) { handler.bindingHolds(level, target) }) lost(level, target, ref, TARGET_GONE)
+        if (guarded(handler, true) { handler.bindingHolds(level, target) }) return
+        // CD-LSH-31: a switch role that finds a target of its own on the cell keeps the binding, as the Lumberjack on the oak that grew
+        // from a Cultivator's sapling. The stored role and the index entry stay.
+        val pokemon = checked ?: find(level.server, ref)
+        val holds = pokemon != null &&
+            RoleSwitch.bindingHolds(ownHolds = false) {
+                val types = pokemon.types.map { it.showdownId }
+                switchRolesOn(level, target, bound, RoleRegistry.current.forTypes(types), bound = true).map { it.definition }
+            }
+        if (!holds) lost(level, target, ref, TARGET_GONE, pokemon)
     }
 
     private fun lost(

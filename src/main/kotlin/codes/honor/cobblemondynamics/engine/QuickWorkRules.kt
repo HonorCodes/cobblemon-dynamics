@@ -88,8 +88,9 @@ object QuickWorkRules {
      * CD-QWK-03 to CD-QWK-05, CD-QWK-36. [fitting] are the roles that the Pokémon's [types], primary first, make it eligible for and
      * whose handler matches the aimed block. [orderable] is [mayOrder] of each. A Fairy-type is a healer, which no auto claim gives a
      * machine (CD-ASG-04), so it gets an order only for a role that opts in to Quick Work, and otherwise nothing. A role that opts out
-     * gets no order and sends no Work Leash message, as it needs no leash (CD-FRZ-02). Between the roles of one group of [sameGroup],
-     * such as the two farming roles, the role with [hasDemand] on the aimed block wins (CD-CRP-21).
+     * gets no order and sends no Work Leash message, as it needs no leash (CD-FRZ-02). The roles with [hasDemand] on the aimed block come
+     * first, as an auto claim picks them (CD-QWK-03, CD-CRP-21). The order keeps its role and never switches (decision 13 of the 1.2.1
+     * plan).
      */
     fun pick(
         fitting: List<RoleDefinition>,
@@ -101,7 +102,7 @@ object QuickWorkRules {
     ): Pick {
         val candidates = fitting.filter { if (hasFairyType) it.quickWork == true else it.quickWork != false }
         if (candidates.isEmpty()) return Pick.None
-        val role = RoleSelection.best(candidates.filter(orderable), types, sameGroup, hasDemand) ?: return Pick.NeedsLeash
+        val role = RoleSelection.withWork(candidates.filter(orderable), types, sameGroup, hasDemand) ?: return Pick.NeedsLeash
         return Pick.Order(role)
     }
 
