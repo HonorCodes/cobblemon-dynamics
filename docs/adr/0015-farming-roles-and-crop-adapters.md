@@ -4,7 +4,9 @@ Status: Accepted (2026-11-12) by the coordinator under the approver's delegation
 of the [1.1 plan](../plans/2026-11-12-v1.1-farming.md#design-decisions-for-the-approver) (input R74 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md)). The approver answered the two parts that waited for them the same
 day (R75): the Cultivator grows no apricorns (decision 13, Q10: "no"), and its pace and cost stand (decision 6, Q11:
-"accept").
+"accept"). The approver's rulings of 2026-11-18 (R94) replace the rule of decision 7 that no seed comes from nothing,
+add an area to both roles, and let a dual-type worker do both roles: see
+[Amendment (1.2.1, R94)](#amendment-121-r94-always-replant-the-farming-area-and-dual-types).
 
 ## Context
 
@@ -416,3 +418,28 @@ Status: Accepted (2026-11-15), with [ADR-0020](0020-machines-and-crops-of-other-
 
 The adapters still read vanilla classes, block state properties, tags and now the data map, so no crop mod needs a compat
 package. Botany Pots is no crop family: its pots have handlers of their own in `compat/botanypots/` (ADR-0020).
+
+## Amendment (1.2.1, R94): always replant, the farming area, and dual-types
+
+Status: Proposed (2026-11-18), with the [1.2.1 plan](../plans/2026-11-18-v1.2.1-replant-area-dual-type.md). Input R94 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) holds the approver's
+rulings of 2026-11-18. This amendment replaces the rule "The approver allows no seed from nothing" of decision 7.
+
+- **Always replant.** The approver: "same with crops: even if the crop doesn't drop a seed, always replant." A harvest of the
+  crop adapter or the break-and-replant adapter that breaks a crop with no replant item in its loot still replants it, from
+  the seed item of its block: the crop's clone item, else `Block.asItem()`, when that item places the crop's own block or
+  another block of the Cultivator's tag. The whole loot then drops (CD-HRV-22). The cell stays empty only where the first
+  growth state cannot survive or no seed item is known (CD-HRV-08). The other adapters never break the crop, so they keep
+  their behaviour: the picks, the upper half, the cave vines, the gourds, the berry trees and the pick by loot table
+  (CD-HRV-23).
+- **The area.** The approver: "+1 crop per 10 levels", and "Harvester harvests an area too". Each growth use of a Cultivator
+  also grows, and each harvest of a Harvester also harvests, up to N other crops next to its target, with
+  N = min(floor(L ÷ 10), 10) for a worker of level L (CD-CUL-11, CD-HRV-24, CD-CRP-25). The cells are those within 2 blocks
+  along x and z and 1 block along y, nearest first in a fixed order (CD-CRP-23). Each passes the checks of a target of the
+  role in the tick of its use: the work area, the tags and the never tags, the lower cell of the crop, the adapter's demand
+  or full growth, a free lane, and the land claim questions (CD-CRP-24). A crop that another worker holds in the same lane
+  is that worker's. The area takes no claim and starts no stall, and a use costs the Work Stamina of one use, whatever the
+  area grows (CD-CUL-12). Two role file keys, `levels_per_extra_crop` and `max_extra_crops`, tune it, and the Botany Pots
+  roles keep one pot.
+- **Decision 10, extended.** A Cobblemon that fits both roles still binds the role of its primary type, and then also works
+  the other role whenever only that role has demand on its crop (CD-CRP-22, CD-LSH-30). Its switch claims the other lane only
+  when that lane is free (CD-LSH-32), as decision 9 requires.

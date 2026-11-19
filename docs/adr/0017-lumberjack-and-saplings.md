@@ -5,7 +5,9 @@ decisions of the
 [1.2 plan](../plans/2026-11-15-v1.2-new-roles-and-compat.md#design-decisions). Inputs R76 and R79 of the
 [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) hold the rulings, RES9 and RES12 the research. The coordinator's
 rulings on the review of the Lumberjack branch (R82, 2026-11-16) amend decisions 3, 4, 5, 7, 8, 9, 10 and 11, and the
-ruling on the detection of Dynamic Trees (R89, 2026-11-17) amends decision 15.
+ruling on the detection of Dynamic Trees (R89, 2026-11-17) amends decision 15. The approver's rulings of 2026-11-18
+(R94) replace the rule of decision 10 that no sapling comes from nothing, and extend decision 14: see
+[Amendment (1.2.1, R94)](#amendment-121-r94-a-full-replant-and-the-bugground-cycle).
 
 ## Context
 
@@ -195,3 +197,35 @@ The facts that shape the decision:
 - **TreeChop's API.** Rejected as the default: a soft dependency whose rules change with each pack's TreeChop config.
 - **One pace at every level, as an iron axe.** Rejected by the ruling on decision 1 (R81 of the spec sheet): the level sets
   the pace, as it does for the other roles that name a level.
+
+## Amendment (1.2.1, R94): a full replant, and the Bug/Ground cycle
+
+Status: Proposed (2026-11-18), with the [1.2.1 plan](../plans/2026-11-18-v1.2.1-replant-area-dual-type.md). Input R94 of the [spec sheet](../plans/2026-11-09-v1-spec-sheet.md) holds the approver's
+report and rulings of 2026-11-18. This amendment replaces the rule "no sapling comes from nothing" of decision 10.
+
+The approver's report: "lumberjacks that are chopping trees with a base of more than 1 block only replant one block." The
+approver's rulings: "fix it by always replanting even if not enough saplings were dropped", and, for a 2 × 2 tree that drops
+fewer than 4 saplings, "Always a full 2×2".
+
+- **Why only one.** A 2 × 2 trunk replanted four saplings only when its drops held four. With no Fortune, a jungle leaf drops
+  a sapling 1 time in 40, and a spruce or dark oak leaf 1 time in 20, so a giant tree often drops fewer than four. The
+  handler then planted one at the corner. One spruce or jungle sapling grows a small tree, whose next fell replants one
+  again, so one short fell ended the giant tree for good. A dark oak with fewer than four got none. The code of
+  `ReplantRule` and `FellPlan.twoByTwo` has no other fault: the corner is the trunk's least cell, and each cell of the trunk
+  is empty and over dirt when the fell ends.
+- **Decision 10, replaced.** A fell always replants (CD-LUM-17). A 2 × 2 trunk gets four saplings of one kind when each cell
+  of its square is empty, holds the sapling and passes the use question at the end of the fell. Otherwise it gets one at the
+  corner, except a sapling of `#cobblemon_dynamics:lumberjack/needs_four`, which it plants only as four (CD-LUM-18).
+- **The kind.** The first kind of this order: a sapling of the drops; the sapling that the tree's leaves drop by their loot
+  table; the item `ns:x_sapling` of the base log `ns:x_log` or of a leaf `ns:x_leaves`. A kind counts only when its item
+  places a block of `#minecraft:saplings` (CD-LUM-31). The leaf source rolls the loot table of the tree's most common leaf
+  with no tool and a fixed seed until a sapling drops, at most 512 times, and keeps the answer for each leaf block until the
+  next data reload. With no kind, the handler plants nothing and logs one line for the log's block id (CD-LUM-33).
+- **Drops first.** The replant takes as many saplings of its kind as the drops hold, up to the 1 or 4 that it plants, and
+  creates the rest. A created sapling never joins the drops (CD-LUM-32).
+- **Unchanged.** The use question of each replant cell at the end of the fell (R82), and Dynamic Trees' own fell and regrowth
+  (decision 15).
+- **Decision 14, extended.** A Bug/Ground worker bound to a tree also does the Cultivator's work on its bound cell: it fells
+  the tree, grows the replanted sapling with bone meal, and fells the new tree (CD-LSH-30,
+  [ADR-0005, Amendment 4](0005-global-claim-registry.md#amendment-4-one-role-at-a-time-on-a-target-121-r94)). So the Cultivator resolves a sapling of a complete 2 × 2 to the square's least corner, as
+  the Lumberjack does (CD-CUL-13), and both handlers name the same cell. Bone meal on that corner grows the giant tree.

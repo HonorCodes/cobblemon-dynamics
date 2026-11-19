@@ -2,6 +2,8 @@
 
 Status: Accepted (2026-11-09). [Amendment 1](#amendment-1-shared-logistics-claims-2026-11-11) lets the logistics roles share
 their containers. [Amendment 2](#amendment-2-farming-claims-2026-11-12) gives each farming role its own claim on a crop.
+[Amendment 4](#amendment-4-one-role-at-a-time-on-a-target-121-r94) lets a worker switch to another of its roles with
+demand on its target.
 
 ## Context
 
@@ -149,3 +151,28 @@ Status: Accepted (2026-11-15), with [ADR-0017](0017-lumberjack-and-saplings.md),
   in the Harvester's lane. So a pot holds one Cultivator and one Harvester at once, as a crop does (ADR-0020).
 - **The Lumberjack** claims in the null lane, and the Cultivator in its own lane. So a Ground-type that grows a sapling and
   a bound Bug-type that fells the grown tree share the base cell (ADR-0017, decision 14).
+
+## Amendment 4: one role at a time on a target (1.2.1, R94)
+
+Status: Proposed (2026-11-18), with the [1.2.1 plan](../plans/2026-11-18-v1.2.1-replant-area-dual-type.md) and [ADR-0006](0006-data-driven-roles.md). Input R94 of the
+[spec sheet](../plans/2026-11-09-v1-spec-sheet.md) holds the approver's ruling: "Yes, any role with work". A bound worker does any of its roles that has
+work on its target, switching as the target changes, and unbound dual-types also take auto work for either type.
+
+One worker per target still means one role per target at a time. The role that a worker holds is no longer fixed for the life
+of its claim or its binding:
+
+- **The choice.** Of the roles that a worker fits on a target, the engine gives it the role with the higher `priority` among
+  the roles with demand, or among all of them when none has demand (CD-ASG-16). The auto-assignment and the pick of a Quick
+  Work order use this order (CD-QWK-03). Before 1.2.1 the priority alone decided, so a Poison/Fire Salazzle took the Brew
+  Stoker at every brewing stand and never brewed.
+- **The switch.** A worker that waits in Standby with no demand takes another of its roles with demand on the same target:
+  an auto worker another auto-assign role within 20 ticks (CD-ASG-21), and a leashed worker its first switch role at its next
+  poll (CD-LSH-30). A role with demand stays, so started work, such as a fell, completes. A Quick Work order keeps its role.
+- **The switch roles of a binding.** The roles of the worker's types whose handler matches the bound cell and resolves it to
+  itself, of a single-target shape and with no shared claims. A leash-only role counts, because the worker is bound, but a
+  worker with no binding never gets one (CD-ASG-22). A role of the binding's own handler other than its role is none, so a
+  fan keeps its catalyst. A two-target or logistics binding never switches (CD-LSH-33).
+- **Claims and reservations.** A switch claims the target in the new role's lane, and only when that lane is free: it never
+  takes a claim from another worker, as a new binding does (CD-CLM-05, CD-LSH-32). The binding keeps its stored role, so it
+  keeps reserving that role's lane only (Amendment 2). A binding holds while its role's handler keeps the target, or while a
+  switch role's handler finds a target of its own on the bound cell (CD-LSH-31).

@@ -13,8 +13,10 @@ each earlier row with a Phase 3 part (the split-row table of the Phase 3 plan), 
 each earlier row with a 1.1 part (the split-row table of the 1.1 plan), cited inside a task section of the 1.1 plan.
 1.2: every row of the OPT, FIX, LUM, XPC, SOU, FRZ, HTR, FUEL, AIR, KIN, FRM and MCH areas, which Phase 1 leaves out, the rows
 of V12_ROWS, which Phase 1 leaves out too, and each earlier row with a 1.2 part (the split-row table of the 1.2 plan), cited
-inside a task section of the 1.2 plan.
-Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2}]
+inside a task section of the 1.2 plan. Every other mode leaves out the rows of V121_ROWS.
+1.2.1: the rows of V121_ROWS, new rows in earlier areas, and each earlier row with a 1.2.1 part (the split-row table of the
+1.2.1 plan), cited inside a task section of the 1.2.1 plan.
+Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2,1.2.1}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
 import argparse
@@ -88,6 +90,19 @@ V12_PARTS = (
     "CD-CRY-01", "CD-CRY-03", "CD-CRY-05", "CD-STK-01", "CD-BRN-03", "CD-MUS-01", "CD-PMP-01", "CD-TLK-01", "CD-MAG-01",
     "CD-CRK-01", "CD-CFG-01", "CD-CFG-07", "CD-QWK-03", "CD-FX-09", "CD-LND-12", "CD-LSH-08", "CD-ASG-12", "CD-ASG-19",
 )
+# 1.2.1: the full replant, the farming area and the dual-type workers (R94), and the release 1.2.1.
+PLANS["1.2.1"] = ("2026-11-18-v1.2.1-replant-area-dual-type.md",)
+# The new rows of 1.2.1. They lie in the areas of earlier phases, so every other mode leaves them out.
+V121_ROWS = (
+    "CD-LUM-31", "CD-LUM-32", "CD-LUM-33", "CD-HRV-22", "CD-HRV-23", "CD-HRV-24", "CD-CUL-11", "CD-CUL-12", "CD-CUL-13",
+    "CD-CRP-23", "CD-CRP-24", "CD-CRP-25", "CD-ASG-21", "CD-ASG-22", "CD-ASG-23", "CD-LSH-30", "CD-LSH-31", "CD-LSH-32",
+    "CD-LSH-33", "CD-LSH-34", "CD-REL-18",
+)
+# Earlier rows whose last part is 1.2.1 work: the split-row table of docs/plans/2026-11-18-v1.2.1-replant-area-dual-type.md.
+V121_PARTS = (
+    "CD-LUM-17", "CD-LUM-18", "CD-HRV-08", "CD-CRP-20", "CD-BAL-08", "CD-BAL-09", "CD-ASG-16", "CD-LSH-16", "CD-CRP-22",
+    "CD-QWK-03", "CD-REL-04", "CD-REL-05",
+)
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")
 HEADING = re.compile(r"^#{1,3} ", re.MULTILINE)
@@ -98,10 +113,10 @@ def is_phase_2(row: str, area: str) -> bool:
 
 
 def is_later(row: str, area: str) -> bool:
-    """Work that Phase 1 leaves out: Phase 3 work and the work of 1.1 and 1.2."""
+    """Work that Phase 1 leaves out: Phase 3 work and the work of 1.1, 1.2 and 1.2.1."""
     return (
         area in PHASE_3_AREAS or row in PHASE_3_ROWS or area in V11_AREAS or row in V11_ROWS
-        or area in V12_AREAS or row in V12_ROWS
+        or area in V12_AREAS or row in V12_ROWS or row in V121_ROWS
     )
 
 
@@ -120,12 +135,15 @@ def spec_rows(phase: str) -> list[str]:
         return [row for row, area in rows if area in PHASE_3_AREAS] + list(PHASE_3_ROWS) + list(PHASE_3_PARTS)
     if phase == "1.1":
         require_rows(V11_PARTS + V11_ROWS, rows, "V11_PARTS or V11_ROWS")
-        return [row for row, area in rows if area in V11_AREAS] + list(V11_ROWS) + list(V11_PARTS)
+        return [row for row, area in rows if area in V11_AREAS and row not in V121_ROWS] + list(V11_ROWS) + list(V11_PARTS)
     if phase == "1.2":
         require_rows(V12_PARTS + V12_ROWS, rows, "V12_PARTS or V12_ROWS")
-        return [row for row, area in rows if area in V12_AREAS] + list(V12_ROWS) + list(V12_PARTS)
+        return [row for row, area in rows if area in V12_AREAS and row not in V121_ROWS] + list(V12_ROWS) + list(V12_PARTS)
+    if phase == "1.2.1":
+        require_rows(V121_PARTS + V121_ROWS, rows, "V121_PARTS or V121_ROWS")
+        return list(V121_ROWS) + list(V121_PARTS)
     require_rows(PHASE_2_PARTS + PHASE_2_ROWS, rows, "PHASE_2_PARTS or PHASE_2_ROWS")
-    later = PHASE_3_ROWS + V12_ROWS
+    later = PHASE_3_ROWS + V12_ROWS + V121_ROWS
     return [row for row, area in rows if is_phase_2(row, area) and row not in later] + list(PHASE_2_PARTS)
 
 
