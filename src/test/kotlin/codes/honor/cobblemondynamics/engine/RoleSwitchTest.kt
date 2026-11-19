@@ -32,6 +32,7 @@ class RoleSwitchTest {
     private val stoker by lazy { named("stoker") }
     private val telekinesis by lazy { named("telekinesis") }
     private val fanWater by lazy { named("fan_catalyst_water") }
+    private val picker by lazy { named("picker") }
 
     /** The roles that the types make the worker eligible for, as `RoleSet.forTypes` gives them. */
     private fun enabled(vararg types: String) = all.filter { RoleSelection.isEligible(it, types.toList()) }
@@ -215,5 +216,17 @@ class RoleSwitchTest {
         val kept = probes.memo(lumberjack.id)
         probes.clear()
         assertNotSame(kept, probes.memo(lumberjack.id), "a release kept the memo")
+    }
+
+    @Test
+    fun `CD-PCK-03 CD-PCK-04 the Picker is a role of Bug and Flying both, and never a switch role of a binding`() {
+        assertTrue(picker in enabled("bug", "flying"), "Butterfree")
+        assertFalse(picker in enabled("bug"), "Caterpie")
+        assertFalse(picker in enabled("flying"), "Rookidee")
+        assertFalse(picker in enabled("normal", "flying"), "Pidgey")
+        // A cell that both handlers would take: the binding's Lumberjack never switches to the Picker.
+        val both = cell("lumberjack", "picker")
+        assertEquals(listOf(lumberjack), rolesOf(lumberjack, arrayOf("bug", "flying"), bound = true, both), "a bound Butterfree")
+        assertEquals(listOf(picker), rolesOf(picker, arrayOf("bug", "flying"), bound = false, both), "an auto Butterfree")
     }
 }

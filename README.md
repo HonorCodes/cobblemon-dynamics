@@ -109,6 +109,7 @@ with two types can do the roles of either type, one role at a time.
 | Flying | Tailwind | Create windmill bearing, and the windmills of Immersive Engineering and Mekanism and the air of PneumaticCraft since 1.2 | Gust | Leash only | Phase 2 |
 | Ground | Cultivator | A growing crop, which gets the effect of bone meal, and saplings since 1.2 | Mud Sport | Auto | 1.1 |
 | Grass | Harvester | A fully grown crop, which it harvests and replants | Razor Leaf | Auto | 1.1 |
+| Bug and Flying, both | Picker | A ripe apricorn, which it picks off the tree to fall to the ground | Bug Bite | Auto only, no leash | 1.2.1 |
 | Bug | Lumberjack | A natural tree, which it fells with its leaves and replants from the drops | Aerial Ace | Leash only | 1.2 |
 | Ghost | Soul Collector | An Experience Collector, which it fills with the XP orbs of the work area | Night Shade | Leash only | 1.2 |
 | Ice | Freezer | Surface water, which it ices over on top within 5 blocks of itself | Ice Beam | Auto, no Quick Work | 1.2 |
@@ -193,6 +194,9 @@ and berry trees, and the crops of many other mods.
   each harvest, and a bound Harvester waits until the crop is fully grown again.
 - **Apricorns.** By default, the Cultivator skips apricorns, and a data pack can add
   them. The Harvester never takes an apricorn.
+- **The Picker (Bug and Flying).** Since 1.2.1, a Cobblemon of both types picks ripe
+  apricorns off their trees on its own, as a right click does. The apricorns fall to the
+  ground for a player or a Magnet. The Work Leash never binds a Picker.
 - **Farmland.** A worker that the work engine directs never tramples farmland.
 
 The spec sheet areas CUL, HRV and CRP hold the exact rules. See

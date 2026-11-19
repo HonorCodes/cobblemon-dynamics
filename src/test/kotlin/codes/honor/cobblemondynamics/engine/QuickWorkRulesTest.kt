@@ -23,6 +23,7 @@ class QuickWorkRulesTest {
     private val pump = BuiltInRoles.parse("pump")
     private val wheelDriver = BuiltInRoles.parse("wheel_driver")
     private val muse = BuiltInRoles.parse("muse")
+    private val picker = BuiltInRoles.parse("picker")
 
     /** The handlers of the default role files: a leash-only handler has the scan kind NONE, and Telekinesis names two targets. */
     private fun orderable(role: RoleDefinition): Boolean = QuickWorkRules.mayOrder(
@@ -258,5 +259,16 @@ class QuickWorkRulesTest {
         assertNull(QuickWorkRules.endReason(standby), "an order of another role waits for its Standby limit")
         assertNull(QuickWorkRules.endReason(calm.copy(endsWhenDone = true)), "a Working farming order ended")
         assertEquals(QuickEnd.RECALLED, QuickWorkRules.endReason(standby.copy(endsWhenDone = true, entityGone = true)))
+    }
+
+    /**
+     * R95: the Picker is an auto-assign role that names one target and that a scan visits, so Quick Work orders it as an auto claim
+     * would take it, though no leash binds it (CD-PCK-12).
+     */
+    @Test
+    fun `CD-PCK-12 a Bug and Flying Butterfree aimed at a ripe apricorn gets a Picker order`() {
+        assertTrue(orderable(picker))
+        assertEquals(QuickWorkRules.Pick.Order(picker), pick(listOf(picker), listOf("bug", "flying")))
+        assertEquals(QuickWorkRules.Pick.None, pick(emptyList(), listOf("bug")), "Caterpie fits no role there")
     }
 }

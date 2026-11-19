@@ -46,6 +46,7 @@ import codes.honor.cobblemondynamics.handler.create.CreateCompat
 import codes.honor.cobblemondynamics.handler.farming.CultivatorHandler
 import codes.honor.cobblemondynamics.handler.farming.HarvestLootMap
 import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
+import codes.honor.cobblemondynamics.handler.farming.PickerHandler
 import codes.honor.cobblemondynamics.handler.item.MagnetHandler
 import codes.honor.cobblemondynamics.handler.item.TelekinesisHandler
 import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
@@ -124,6 +125,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(SoulCollectorHandler)
         HandlerRegistry.register(CultivatorHandler)
         HandlerRegistry.register(HarvesterHandler)
+        HandlerRegistry.register(PickerHandler)
         HandlerRegistry.register(LumberjackHandler)
         // CD-MCH-08: Cobblemon is required, so the Healing Machine's handler registers on every server.
         HandlerRegistry.register(HealingChargeHandler)

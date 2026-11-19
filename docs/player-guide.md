@@ -136,6 +136,7 @@ When a bind fails, the action bar shows why:
 | --- | --- |
 | "Not in a Work Mode pasture" | The Cobblemon is not in a pasture with Work Mode on. |
 | "No role fits" | None of the Cobblemon's roles works on the block. |
+| "{Cobblemon} works here on its own, with no Work Leash" | Only a role that no leash binds works on the block, such as the [Picker](#picker) on an apricorn. The Cobblemon takes that work on its own. |
 | "Outside its pasture's work area" | The block is outside the work area of the Cobblemon's pasture. |
 | "Already assigned to {Cobblemon}" | Another of your Cobblemon has a binding of a machine role on the block. Bindings of the Magnet, Telekinesis and the Soul Collector never cause this message. |
 | "Already assigned to another player's {species}" | A Cobblemon of another player has a binding of a machine role on the block. The message names its species, never its nickname. |
@@ -500,7 +501,8 @@ The Harvester harvests a fully grown crop 20 ticks after it starts work. The har
 crop, on the side that faces the worker. A Steel-type [Magnet](#magnet) bound to a chest of the same pasture collects
 the drops. A crop that the harvest breaks is replanted from its own drops: one seed or one crop item leaves the harvest.
 With no such item in the drops, the cell stays empty and every item drops. A bush, a vine or a tree fruit keeps its
-plant, and only the fruit comes off. A Harvester never takes an apricorn.
+plant, and only the fruit comes off. A Harvester never takes an apricorn: a Bug and Flying [Picker](#picker) picks
+apricorns.
 
 ### Crop to crop, or one crop with the Work Leash
 
@@ -545,6 +547,7 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Brewer](#brewer) | `cobblemon_dynamics:brewer` | Poison | Brewing stand | Auto | |
 | [Cultivator](#cultivator) | `cobblemon_dynamics:cultivator` | Ground | A crop that bone meal grows | Auto | |
 | [Harvester](#harvester) | `cobblemon_dynamics:harvester` | Grass | A fully grown crop | Auto | |
+| [Picker](#picker) | `cobblemon_dynamics:picker` | Bug and Flying, both | A ripe apricorn | Auto, never the Work Leash | |
 | [Freezer](#freezer) | `cobblemon_dynamics:freezer` | Ice | A water source under air | Auto, no Quick Work | |
 | [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron, farmland | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
@@ -927,6 +930,32 @@ one.
 The Harvester harvests the pot 20 ticks after it starts work, as a player's click does: the crop's harvest drops
 out of the side of the pot that faces the worker, and the crop starts to grow again. The seed and the soil stay in
 the pot. The harvest makes no sound.
+
+### Picker
+
+**Types:** Bug and Flying, both. **Level:** the area grows with level. **Move:** Bug Bite. **Assignment:** Auto
+only, never the Work Leash.
+
+**Target:** a ripe apricorn on its tree inside the work area: an apricorn at its last stage of growth. A block of the
+tag `#cobblemon_dynamics:picker_targets` counts too when its `age` is at its largest value. The tag holds Cobblemon's
+apricorns, and a data pack can add the tree fruit of other mods to it.
+
+A Cobblemon that is Bug-type and Flying-type, such as Butterfree, Beautifly or Scyther, picks ripe apricorns on its
+own. A Cobblemon with only one of the two types never picks. The Picker picks its apricorn 20 ticks after it starts
+work, as your right click does: the apricorn comes off the tree and falls to the ground, and its stem stays on the
+leaves and grows a new apricorn. Pick up the apricorns yourself, or bind a Steel-type [Magnet](#magnet) to a chest of
+the same pasture to collect them. Each pick also takes one more ripe apricorn next to its target for each 10 levels,
+up to 10 more, nearest first. The pick makes no sound.
+
+The Work Leash never binds a Picker. A Bug and Flying Cobblemon that you bind to a tree is a
+[Lumberjack](#lumberjack), and a click on an apricorn shows "{Cobblemon} works here on its own, with no Work Leash".
+A Quick Work order at a ripe apricorn makes the Cobblemon a Picker for that pick. No other role takes an apricorn.
+
+The Picker asks the land claim checks of each apricorn in the tick of its pick, and also asks each claim mod whether
+its player may break that block. A refused apricorn waits 6,000 ticks. See [Land claims](#land-claims).
+
+**Role file parameters:** `harvest_ticks` (20), `levels_per_extra_crop` (10) and `max_extra_crops` (10). The role
+file sets `"type_match": "all"`, so a Cobblemon needs both types, and `"leash": false`, so no leash binds it.
 
 ### Freezer
 
@@ -1324,7 +1353,9 @@ sections above name each parameter. The optional key `quick_work` changes which 
 With `true`, a role whose `auto_assign` is false takes them, if the role has one target. Such an order starts
 while the target needs no work, and its Cobblemon waits there with no time limit. With `false`, a role whose
 `auto_assign` is true takes none. A file without the key follows its `auto_assign` flag. The Muse's file sets
-`true`, and the Freezer's file sets `false`.
+`true`, and the Freezer's file sets `false`. Two more optional keys came with 1.2.1. With `"type_match": "all"`, a
+Cobblemon needs every type of the file's `types`, and with `"any"`, the default, one of them is enough. With
+`"leash": false`, no Work Leash binds the role. The default is `true`. The [Picker](#picker)'s file sets both.
 
 The `effect` object holds these keys:
 

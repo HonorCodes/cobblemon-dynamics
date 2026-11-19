@@ -58,7 +58,8 @@ the Wheel Driver, and does not repeat its numbers.
 
 ## Type index
 
-Thirteen types have roles in version 1.0, fifteen in version 1.1, and seventeen in version 1.2.
+Thirteen types have roles in version 1.0, fifteen in version 1.1, and seventeen in version 1.2. Version 1.2.1 adds the
+Picker, the first role that needs two types: Bug and Flying, both.
 
 | Type | Phase 1 | Phase 2 | 1.1 | 1.2 | Later idea |
 | --- | --- | --- | --- | --- | --- |
@@ -71,9 +72,9 @@ Thirteen types have roles in version 1.0, fifteen in version 1.1, and seventeen 
 | Fighting | Cranker | | | | |
 | Poison | Brewer | | | | |
 | Ground | | | Cultivator | | |
-| Flying | | Tailwind | | | |
+| Flying | | Tailwind | | Picker (1.2.1, with Bug) | |
 | Psychic | | Telekinesis | | | |
-| Bug | | | | Lumberjack | Pollinator |
+| Bug | | | | Lumberjack, Picker (1.2.1, with Flying) | Pollinator |
 | Rock | Crystal Tender | | | | |
 | Ghost | | Fan Catalyst (haunting) | | Soul Collector | |
 | Dragon | Superheater | | | | |
@@ -181,6 +182,18 @@ ruled on the design decisions of the [1.2 plan](plans/2026-11-15-v1.2-new-roles-
 The **Experience Collector** is a block of 1.2. It stores the XP that Soul Collectors bring, and its "Collect experience"
 button gives all of it to a player. Its back and bottom faces offer the XP to pipes as the XP fluid of the pack, and the mod
 adds no fluid of its own (spec area XPC).
+
+## 1.2.1 roles
+
+The Picker needs both of its types: a role file's `"type_match": "all"` asks for every type of its `types`, and a file
+with no `type_match` keeps "any of them". The Picker takes auto-assignment and Quick Work, and its file's
+`"leash": false` keeps the Work Leash from binding it. The plan is
+[Task E of the 1.2.1 plan](plans/2026-11-18-v1.2.1-replant-area-dual-type.md#task-e-the-picker), and input R95 of the
+spec sheet holds the approver's request.
+
+| Role | Type | Targets | What it does | Move effect | Assignment | Spec area |
+| --- | --- | --- | --- | --- | --- | --- |
+| Picker | Bug and Flying, both | A ripe apricorn on its tree, and a ripe block of `#cobblemon_dynamics:picker_targets` | Picks the fruit 20 ticks after its work starts, as a player's right click does: the fruit drops and falls to the ground, and the apricorn grows again on its leaves. Each pick also takes one more ripe fruit nearby for each 10 levels, up to 10. It is the only role that takes an apricorn. | Bug Bite | Auto, never the Work Leash | PCK |
 
 ## Machines and crops of other mods (1.2)
 
