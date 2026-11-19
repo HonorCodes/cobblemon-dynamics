@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.tree
 
+import codes.honor.cobblemondynamics.OnceLogger
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.DARK_OAK_SAPLING
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.OAK_LOG
 import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.OAK_SAPLING
@@ -8,7 +9,9 @@ import codes.honor.cobblemondynamics.handler.tree.TreeGrid.Companion.rl
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** ADR-0017, decision 10 and its 1.2.1 amendment: the replant takes its saplings from the drops first and creates the shortfall. */
@@ -132,5 +135,18 @@ class ReplantRuleTest {
         assertEquals(4, replant?.taken)
         assertEquals(0, replant?.created)
         assertEquals(listOf(jungleSapling to 2), kept(drops, replant))
+    }
+
+    /** The review of 1.2.1: the empty stump of a dark oak whose square cannot take four gets one line for each kind. */
+    @Test
+    fun `CD-LUM-18 a dark oak that plants none logs one line for each kind`() {
+        val lines = ArrayList<String>()
+        val warnings = OnceLogger(lines::add)
+        assertTrue(ReplantRule.warnStump(rl(DARK_OAK_SAPLING), base, warnings))
+        assertFalse(ReplantRule.warnStump(rl(DARK_OAK_SAPLING), base.east(9), warnings))
+        assertEquals(1, lines.size)
+        assertTrue(DARK_OAK_SAPLING in lines.single(), lines.single())
+        assertTrue(ReplantRule.warnStump(rl("ns:big_sapling"), base, warnings))
+        assertEquals(2, lines.size)
     }
 }

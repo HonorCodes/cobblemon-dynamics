@@ -74,6 +74,7 @@ object HarvestPlans {
      * tells a crop of the crop adapter with an upper half, such as flax. A berry tree keeps its cell, because
      * `BerryBlockEntity.harvest` already set it back to age 3. [ageAfter] is the `age` that a pick by loot table leaves (CD-FRM-03).
      * [seedBlock] is the block of the crop's seed item, which only the two adapters that break the crop read (CD-HRV-22, CD-HRV-23).
+     * [grows] tells whether the first state of that block is a growth stage ([growthStage]); `HarvestApply` always passes it.
      */
     fun plan(
         kind: HarvestKind,
@@ -83,9 +84,10 @@ object HarvestPlans {
         hasUpper: Boolean,
         ageAfter: Int = 0,
         seedBlock: SeedBlock? = null,
+        grows: (ResourceLocation?) -> Boolean = { true },
         survives: (ResourceLocation?) -> Boolean,
     ): HarvestPlan = when (kind) {
-        HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT -> breakAndReplant(loot, ownSeeds, seeds, seedBlock, survives, hasUpper)
+        HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT -> breakAndReplant(loot, ownSeeds, seeds, seedBlock, grows, survives, hasUpper)
         HarvestKind.PICK_TO_AGE_0 -> HarvestPlan(loot, CellChange.SetAge(0))
         HarvestKind.PICK_TO_AGE_1 -> HarvestPlan(loot, CellChange.SetAge(1))
         HarvestKind.CAVE_VINES, HarvestKind.CAVE_VINES_TAG -> HarvestPlan(loot, CellChange.ClearBerries)
@@ -116,15 +118,33 @@ object HarvestPlans {
     ): HarvestPlan = plan(kind, loot, ownSeeds, seeds, hasUpper = false, seedBlock = seedBlock, survives = survives)
 
     /**
+     * CD-HRV-22: a created replant must be a growth stage: a state with an `age` of [age] below its largest value [ageMax]. A block
+     * with no age, such as a dead bush in a pack's tag, would come back as it was harvested and give loot from nothing on each cycle.
+     */
+    fun growthStage(age: Int?, ageMax: Int?): Boolean = age != null && ageMax != null && age < ageMax
+
+    /**
+     * CD-HRV-22: whether a seed item of another block may create a replant of that block: a block of growth stages, a `CropBlock`
+     * ([crop]) or one with an `age` ([hasAge]), and never a sapling or a rooty soil of Dynamic Trees.
+     */
+    fun replantable(crop: Boolean, hasAge: Boolean, sapling: Boolean, rootySoil: Boolean): Boolean =
+        (crop || hasAge) && !sapling && !rootySoil
+
+    /** CD-HRV-08: a harvest that breaks its crop, knows no seed item of it and so leaves the cell empty, which the handler logs. */
+    fun noSeedItem(kind: HarvestKind, seedBlock: SeedBlock?, plan: HarvestPlan): Boolean =
+        (kind == HarvestKind.CROP || kind == HarvestKind.BREAK_AND_REPLANT) && seedBlock == null && plan.crop == CellChange.Clear
+
+    /**
      * CD-HRV-07, CD-HRV-08, CD-HRV-22: one item of the crop's own seeds replants it, else one item of another block of the Cultivator's
-     * tag whose block survives in the cell, else [seedBlock] with no item taken, so the whole loot drops. With none of these the cell
-     * goes to its fluid and every item drops.
+     * tag whose block survives in the cell, else [seedBlock] with no item taken, so the whole loot drops, when its first state [grows].
+     * With none of these the cell goes to its fluid and every item drops.
      */
     private fun breakAndReplant(
         loot: List<Drop>,
         ownSeeds: Set<ResourceLocation>,
         seeds: Map<ResourceLocation, ResourceLocation>,
         seedBlock: SeedBlock?,
+        grows: (ResourceLocation?) -> Boolean,
         survives: (ResourceLocation?) -> Boolean,
         hasUpper: Boolean,
     ): HarvestPlan {
@@ -137,8 +157,8 @@ object HarvestPlans {
             return HarvestPlan(minusOne(loot, other), CellChange.ReplantAs(seeds.getValue(item)), upper, seed = item)
         }
         val created = when (seedBlock) {
-            SeedBlock.Own -> CellChange.Replant.takeIf { survives(null) }
-            is SeedBlock.Other -> CellChange.ReplantAs(seedBlock.block).takeIf { survives(seedBlock.block) }
+            SeedBlock.Own -> CellChange.Replant.takeIf { grows(null) && survives(null) }
+            is SeedBlock.Other -> CellChange.ReplantAs(seedBlock.block).takeIf { grows(seedBlock.block) && survives(seedBlock.block) }
             null -> null
         }
         return HarvestPlan(loot, created ?: CellChange.Clear, upper)

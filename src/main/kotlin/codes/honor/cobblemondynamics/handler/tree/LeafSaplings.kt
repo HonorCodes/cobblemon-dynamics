@@ -54,9 +54,18 @@ object LeafSaplings {
             answers[block]?.takeIf { it.table === table }?.let { return it.sapling }
             Answer(table, roll(level, block, origin, table)).also { answers[block] = it }.sapling
         } catch (e: Exception) {
-            warnings.warn("roll:$leaf") { "The Lumberjack finds no sapling in the loot table of $leaf, because its roll fails: $e" }
-            null
+            failed(leaf, e)
+        } catch (e: LinkageError) {
+            failed(leaf, e)
         }
+    }
+
+    /** Forgets every answer and the tables that they hold, when the server stops, so that no table outlives its session. */
+    fun reset() = answers.clear()
+
+    private fun failed(leaf: ResourceLocation, e: Throwable): Item? {
+        warnings.warn("roll:$leaf") { "The Lumberjack finds no sapling in the loot table of $leaf, because its roll fails: $e" }
+        return null
     }
 
     private fun roll(level: ServerLevel, block: Block, origin: BlockPos, table: LootTable): Item? {

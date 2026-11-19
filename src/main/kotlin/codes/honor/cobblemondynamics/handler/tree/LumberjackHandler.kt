@@ -132,10 +132,11 @@ object LumberjackHandler : TargetHandler {
         }
         val run = FellRun(fell.plan, params.blocksPerTick, tickets(ctx.level))
         memo.run = run
-        // CD-LUM-30: the item frames and paintings come off first, silently, and their items join the drops.
+        // CD-LUM-30: the item frames and paintings come off first, silently, and their items pop with the drops. They never count for
+        // the replant: a sapling in a frame is no sapling of the tree.
         for (entity in fell.hanging) {
             if (entity.isRemoved) continue
-            memo.loot += dropsOf(entity)
+            memo.hanging += dropsOf(entity)
             entity.discard()
         }
         if (run.step { remove(ctx.level, it, memo.loot) }) end(ctx, memo, run)
@@ -304,8 +305,9 @@ object LumberjackHandler : TargetHandler {
         val plan = run.plan
         try {
             val drops = FellPlan.merged(memo.loot.map { it to it.count }, same = ItemStack::isSameItemSameComponents)
+            // CD-LUM-31: the kind comes from the tree's own leaves and log. A dropped sapling counts only when it is of that kind, so a
+            // stray sapling never decides the kind.
             val kind = SaplingSource.kind(
-                drops = drops.map { it.first },
                 leafIds = plan.leafIds,
                 baseLogId = plan.baseId,
                 leafSapling = { leaf -> LeafSaplings.of(level, leaf, plan.base)?.let(::ItemStack) },
@@ -326,6 +328,12 @@ object LumberjackHandler : TargetHandler {
                     allowed = ctx.mayChange,
                 )
             }
+            if (kind != null && replant == null) {
+                val sapling = saplingOf(kind)
+                if (sapling != null && sapling.defaultBlockState().`is`(SaplingRules.NEEDS_FOUR)) {
+                    ReplantRule.warnStump(BuiltInRegistries.BLOCK.getKey(sapling), plan.base, warnings)
+                }
+            }
             val sapling = replant?.let { saplingOf(it.item) }?.defaultBlockState()
             if (replant != null && sapling != null) for (cell in replant.cells) level.setBlock(cell, sapling, Block.UPDATE_ALL)
             val taken = listOfNotNull(replant?.takeIf { sapling != null }?.let { it.item to it.taken })
@@ -337,9 +345,13 @@ object LumberjackHandler : TargetHandler {
             )) {
                 pop(level, plan.base, face, stack, count)
             }
+            for ((stack, count) in FellPlan.merged(memo.hanging.map { it to it.count }, same = ItemStack::isSameItemSameComponents)) {
+                pop(level, plan.base, face, stack, count)
+            }
         } finally {
             memo.run = null
             memo.loot.clear()
+            memo.hanging.clear()
             run.release()
         }
     }
@@ -372,8 +384,14 @@ object LumberjackHandler : TargetHandler {
     private fun stands(level: ServerLevel, sapling: Block, cell: BlockPos): Boolean = try {
         sapling.defaultBlockState().canSurvive(level, cell)
     } catch (e: Exception) {
+        failedSapling(sapling, e)
+    } catch (e: LinkageError) {
+        failedSapling(sapling, e)
+    }
+
+    private fun failedSapling(sapling: Block, e: Throwable): Boolean {
         warnings.warn("sapling:${BuiltInRegistries.BLOCK.getKey(sapling)}") { "The Lumberjack plants no $sapling, whose check fails: $e" }
-        false
+        return false
     }
 
     /** The largest `max_logs` of the active Lumberjack roles, so that a click finds the base of any tree that one of them fells. */
@@ -388,6 +406,9 @@ object LumberjackHandler : TargetHandler {
         val wait = TreeWait()
         var run: FellRun? = null
         val loot = ArrayList<ItemStack>()
+
+        /** CD-LUM-30: the items of the frames and paintings that the fell took, which pop but never count for the replant. */
+        val hanging = ArrayList<ItemStack>()
 
         /** CD-LUM-28: the tree on the claim's target. A base cell with no log of the tag has none, which costs one read. */
         fun tree(ctx: WorkContext): Tree? {

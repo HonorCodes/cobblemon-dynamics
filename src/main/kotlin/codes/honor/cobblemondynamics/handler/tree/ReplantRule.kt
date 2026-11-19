@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.handler.tree
 
+import codes.honor.cobblemondynamics.OnceLogger
 import net.minecraft.core.BlockPos
+import net.minecraft.resources.ResourceLocation
 
 /**
  * The replant of a fell (ADR-0017, decision 10 and its 1.2.1 amendment). The handler plants it in the tick of the last removal. The
@@ -35,5 +37,13 @@ object ReplantRule {
             else -> return null
         }
         return Replant(kind, cells, held.coerceIn(0, cells.size))
+    }
+
+    /**
+     * CD-LUM-18: a kind that needs four got no replant, because a cell of its square cannot take one, so the stump at [base] stays
+     * empty. One line for each kind of [sapling] says why. Returns whether it logged.
+     */
+    fun warnStump(sapling: ResourceLocation, base: BlockPos, warnings: OnceLogger): Boolean = warnings.warn("needs-four:$sapling") {
+        "The Lumberjack replants no $sapling at $base: it grows only as four, and a cell of the square cannot take one"
     }
 }

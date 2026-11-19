@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** The loot of each case comes from the adapter table of ADR-0015. */
@@ -274,5 +275,66 @@ class HarvestPlanTest {
         assertEquals(CellChange.SetAge(2), plan.crop)
         assertEquals(emptySet<HarvestCell>(), plan.broken(), "the pick breaks a cell")
         assertEquals(null, HarvestPlans.lootTable(HarvestKind.PICK_TO_AGE_0, facts), "a pick of a tag rolls another table")
+    }
+
+    /** The review of 1.2.1: an ageless block in a pack's tag would come back as harvested and give loot from nothing on each cycle. */
+    @Test
+    fun `CD-HRV-22 a created replant needs a growth stage, so an ageless or fully grown block clears its cell`() {
+        val deadBush = ResourceLocation.parse("minecraft:dead_bush")
+        val stick = ResourceLocation.parse("minecraft:stick")
+        val stem = ResourceLocation.parse("aether:berry_bush_stem")
+        val loot = listOf(Drop(stick, 2))
+        for (seedBlock in listOf(SeedBlock.Own, SeedBlock.Other(stem))) {
+            val plan = HarvestPlans.plan(
+                HarvestKind.BREAK_AND_REPLANT,
+                loot,
+                emptySet(),
+                emptyMap(),
+                hasUpper = false,
+                seedBlock = seedBlock,
+                grows = { false },
+                survives = always,
+            )
+            assertEquals(CellChange.Clear, plan.crop, "$seedBlock of $deadBush")
+            assertEquals(loot, plan.drops)
+        }
+        // A dropped seed still replants, because it takes its item from the loot.
+        val dropped = HarvestPlans.plan(
+            HarvestKind.CROP,
+            listOf(Drop(seeds, 1)),
+            setOf(seeds),
+            emptyMap(),
+            hasUpper = false,
+            seedBlock = SeedBlock.Own,
+            grows = { false },
+            survives = always,
+        )
+        assertEquals(CellChange.Replant, dropped.crop)
+        assertTrue(HarvestPlans.growthStage(0, 7))
+        assertFalse(HarvestPlans.growthStage(7, 7), "a fully grown state")
+        assertFalse(HarvestPlans.growthStage(null, null), "a state with no age")
+    }
+
+    @Test
+    fun `CD-HRV-22 a seed item of another block creates a replant only of growth stages, never of a sapling or a rooty soil`() {
+        assertTrue(HarvestPlans.replantable(crop = true, hasAge = false, sapling = false, rootySoil = false))
+        assertTrue(HarvestPlans.replantable(crop = false, hasAge = true, sapling = false, rootySoil = false))
+        assertFalse(HarvestPlans.replantable(crop = false, hasAge = false, sapling = false, rootySoil = false), "a block with no stages")
+        assertFalse(HarvestPlans.replantable(crop = false, hasAge = true, sapling = true, rootySoil = false), "a sapling")
+        assertFalse(HarvestPlans.replantable(crop = false, hasAge = true, sapling = false, rootySoil = true), "a rooty soil")
+    }
+
+    @Test
+    fun `CD-HRV-08 a breaking harvest with no seed item that clears its cell is logged, and no other`() {
+        val wheatOnly = listOf(Drop(wheat, 2))
+        val cleared = HarvestPlans.plan(HarvestKind.CROP, wheatOnly, setOf(seeds), emptyMap(), survives = always)
+        assertTrue(HarvestPlans.noSeedItem(HarvestKind.CROP, null, cleared))
+        assertTrue(HarvestPlans.noSeedItem(HarvestKind.BREAK_AND_REPLANT, null, cleared))
+        val replanted = HarvestPlans.plan(HarvestKind.CROP, wheatOnly, setOf(seeds), emptyMap(), SeedBlock.Own, always)
+        assertFalse(HarvestPlans.noSeedItem(HarvestKind.CROP, SeedBlock.Own, replanted))
+        val dry = HarvestPlans.plan(HarvestKind.CROP, wheatOnly, setOf(seeds), emptyMap(), SeedBlock.Own) { false }
+        assertFalse(HarvestPlans.noSeedItem(HarvestKind.CROP, SeedBlock.Own, dry), "a seed item whose replant cannot survive")
+        val pick = HarvestPlans.plan(HarvestKind.PICK_TO_AGE_0, wheatOnly, emptySet(), emptyMap(), survives = always)
+        assertFalse(HarvestPlans.noSeedItem(HarvestKind.PICK_TO_AGE_0, null, pick))
     }
 }
