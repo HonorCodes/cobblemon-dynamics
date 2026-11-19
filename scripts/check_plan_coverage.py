@@ -13,9 +13,9 @@ each earlier row with a Phase 3 part (the split-row table of the Phase 3 plan), 
 each earlier row with a 1.1 part (the split-row table of the 1.1 plan), cited inside a task section of the 1.1 plan.
 1.2: every row of the OPT, FIX, LUM, XPC, SOU, FRZ, HTR, FUEL, AIR, KIN, FRM and MCH areas, which Phase 1 leaves out, the rows
 of V12_ROWS, which Phase 1 leaves out too, and each earlier row with a 1.2 part (the split-row table of the 1.2 plan), cited
-inside a task section of the 1.2 plan. Every other mode leaves out the rows of V121_ROWS.
-1.2.1: the rows of V121_ROWS, new rows in earlier areas, and each earlier row with a 1.2.1 part (the split-row table of the
-1.2.1 plan), cited inside a task section of the 1.2.1 plan.
+inside a task section of the 1.2 plan. Every other mode leaves out the rows of V121_ROWS and of V121_AREAS.
+1.2.1: the rows of V121_ROWS, new rows in earlier areas, the rows of the PCK area (V121_AREAS), and each earlier row with a
+1.2.1 part (the split-row table of the 1.2.1 plan), cited inside a task section of the 1.2.1 plan.
 Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2,1.2.1}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
@@ -98,6 +98,8 @@ V121_ROWS = (
     "CD-CRP-23", "CD-CRP-24", "CD-CRP-25", "CD-ASG-21", "CD-ASG-22", "CD-ASG-23", "CD-ASG-24", "CD-ASG-25",
     "CD-ASG-26", "CD-LSH-30", "CD-LSH-31", "CD-LSH-32", "CD-LSH-33", "CD-LSH-34", "CD-REL-18",
 )
+# The Picker of R95, a new area of 1.2.1, which every other mode leaves out.
+V121_AREAS = {"PCK"}
 # Earlier rows whose last part is 1.2.1 work: the split-row table of docs/plans/2026-11-18-v1.2.1-replant-area-dual-type.md.
 V121_PARTS = (
     "CD-LUM-17", "CD-LUM-18", "CD-HRV-08", "CD-CRP-20", "CD-BAL-08", "CD-BAL-09", "CD-ASG-16", "CD-LSH-16", "CD-CRP-22",
@@ -116,7 +118,7 @@ def is_later(row: str, area: str) -> bool:
     """Work that Phase 1 leaves out: Phase 3 work and the work of 1.1, 1.2 and 1.2.1."""
     return (
         area in PHASE_3_AREAS or row in PHASE_3_ROWS or area in V11_AREAS or row in V11_ROWS
-        or area in V12_AREAS or row in V12_ROWS or row in V121_ROWS
+        or area in V12_AREAS or row in V12_ROWS or row in V121_ROWS or area in V121_AREAS
     )
 
 
@@ -141,7 +143,7 @@ def spec_rows(phase: str) -> list[str]:
         return [row for row, area in rows if area in V12_AREAS and row not in V121_ROWS] + list(V12_ROWS) + list(V12_PARTS)
     if phase == "1.2.1":
         require_rows(V121_PARTS + V121_ROWS, rows, "V121_PARTS or V121_ROWS")
-        return list(V121_ROWS) + list(V121_PARTS)
+        return [row for row, area in rows if area in V121_AREAS] + list(V121_ROWS) + list(V121_PARTS)
     require_rows(PHASE_2_PARTS + PHASE_2_ROWS, rows, "PHASE_2_PARTS or PHASE_2_ROWS")
     later = PHASE_3_ROWS + V12_ROWS + V121_ROWS
     return [row for row, area in rows if is_phase_2(row, area) and row not in later] + list(PHASE_2_PARTS)
