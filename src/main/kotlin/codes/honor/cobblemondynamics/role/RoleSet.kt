@@ -51,6 +51,9 @@ class RoleSet private constructor(
 
     fun forTypes(types: Collection<String>): List<ActiveRole> = active.filter { RoleSelection.isEligible(it.definition, types) }
 
+    /** CD-PCK-04: the roles of [forTypes] that a Work Leash may bind. */
+    fun forLeash(types: Collection<String>): List<ActiveRole> = forTypes(types).filter { it.definition.leash }
+
     /** This set without the roles of [handlers], each of which [disabled] then names with [reason] of its handler. */
     fun withoutHandlers(handlers: Set<ResourceLocation>, reason: (ResourceLocation) -> String): RoleSet {
         val (removed, kept) = active.partition { it.definition.handler in handlers }

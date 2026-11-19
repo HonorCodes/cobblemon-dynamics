@@ -23,6 +23,7 @@
   "cobblemon_dynamics.leash.no_room_in_front": "No room in front of the fan",
   "cobblemon_dynamics.leash.cannot_reach": "%s cannot reach %s",
   "cobblemon_dynamics.leash.cannot_fell": "%s cannot fell this tree",
+  "cobblemon_dynamics.leash.works_alone": "%s works here on its own, with no Work Leash",
   "cobblemon_dynamics.leash.selected": "Selected %s",
   "cobblemon_dynamics.leash.cleared": "Cleared the binding of %s",
   "cobblemon_dynamics.fan.mode.blasting": "Fan mode: Blasting",

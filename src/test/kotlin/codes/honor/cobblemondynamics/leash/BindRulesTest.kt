@@ -302,4 +302,15 @@ class BindRulesTest {
     private companion object {
         val OVERWORLD: ResourceLocation = ResourceLocation.withDefaultNamespace("overworld")
     }
+
+    /** R95: a Butterfree at an apricorn fits the Picker only, which no leash binds, and the refusal names the worker (CD-PCK-04). */
+    @Test
+    fun `CD-PCK-04 a click where only a role with no leash fits refuses and names the worker, and no role fits refuses as before`() {
+        val alone = refusal(input(roles = emptyList()).copy(worksAlone = true))
+        assertEquals(BindRules.WORKS_ALONE, alone.messageKey)
+        assertTrue(alone.namesWorker)
+        assertEquals(BindRules.NO_ROLE, refusal(input(roles = emptyList())).messageKey)
+        assertEquals(BindRules.NOT_WORK_MODE, refusal(input(roles = emptyList(), workMode = false).copy(worksAlone = true)).messageKey)
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, evaluate(input().copy(worksAlone = true)), "a leash role fits too")
+    }
 }

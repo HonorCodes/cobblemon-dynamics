@@ -115,6 +115,9 @@ object LeashInteractions {
         val pending = live.takeUnless { check == BindRules.PendingCheck.ABSENT }
         val roles = if (check == BindRules.PendingCheck.NO_AREA) emptyList() else fittingRoles(level, pokemon, clicked, pending)
         val types = pokemon?.types?.map { it.showdownId }.orEmpty()
+        // CD-PCK-04: a role that no leash binds, such as the Picker at an apricorn, gets a refusal that names the worker.
+        val worksAlone = roles.isEmpty() && pending == null && pokemon != null && check != BindRules.PendingCheck.NO_AREA &&
+            RoleRegistry.current.forTypes(types).any { !it.definition.leash && matches(level, it, clicked) }
         // CD-CRP-22: a Cobblemon that fits both farming roles binds the role of its primary type.
         val best = RoleSelection.best(roles.map { it.definition }, types, RoleRegistry::sameGroup)
             ?.let { def -> roles.first { it.definition == def } }
@@ -160,6 +163,7 @@ object LeashInteractions {
             targetRefusal = best?.takeIf { pending == null }?.let { role ->
                 guarded<String?>(role.handler, null) { role.handler.bindRefusal(level, canonical, role.definition) }
             },
+            worksAlone = worksAlone,
         )
         val outcome = BindRules.evaluate(
             input,
@@ -202,13 +206,14 @@ object LeashInteractions {
     }
 
     /**
-     * The roles that [pokemon]'s types make it eligible for, whose handler matches the clicked block. With a pending source, only
-     * source-and-destination roles whose handler still matches the source, in its own level, and the clicked destination.
+     * The roles that [pokemon]'s types make it eligible for and that a leash may bind (CD-PCK-04), whose handler matches the clicked block.
+     * With a pending source, only source-and-destination roles whose handler still matches the source, in its own level, and the
+     * clicked destination.
      */
     private fun fittingRoles(level: ServerLevel, pokemon: Pokemon?, clicked: BlockPos, pending: PendingSource?): List<ActiveRole> {
         pokemon ?: return emptyList()
         val types = pokemon.types.map { it.showdownId }
-        return RoleRegistry.current.forTypes(types).filter { role ->
+        return RoleRegistry.current.forLeash(types).filter { role ->
             if (pending == null) {
                 matches(level, role, clicked)
             } else {
