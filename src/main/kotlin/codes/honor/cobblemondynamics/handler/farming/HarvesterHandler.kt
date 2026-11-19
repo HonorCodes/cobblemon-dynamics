@@ -8,6 +8,9 @@ import com.cobblemon.mod.common.block.ApricornBlock
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
+import net.minecraft.world.level.block.AttachedStemBlock
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
@@ -23,6 +26,7 @@ object HarvesterHandler : TargetHandler {
      * did not load (CD-FRM-03).
      */
     private const val REFUSED_WAIT_TICKS = 6_000L
+    private const val ROLE = "Harvester"
 
     override val id: ResourceLocation = id("harvester")
 
@@ -73,8 +77,8 @@ object HarvesterHandler : TargetHandler {
 
     /**
      * CD-HRV-05: one harvest, `harvest_ticks` after the work started. CD-HRV-24: the harvest also takes up to N fully grown crops of the
-     * area (CD-CRP-23 to CD-CRP-25), each in the same way. A crop of the area that the land claim checks refuse counts as not harvested
-     * and sets no wait. A refused target ends the harvest with no area.
+     * area (CD-CRP-23 to CD-CRP-25), each in the same way. A crop of the area that the land claim checks refuse counts as not harvested,
+     * and the worker skips it as long as a refused target. A refused target ends the harvest with no area.
      */
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
@@ -90,26 +94,36 @@ object HarvesterHandler : TargetHandler {
         }
         val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params))
         CropArea.walk(ctx.target, extra, { cell -> ripeCrop(ctx, cell) }, { cell, crop ->
-            HarvestApply.apply(ctx.level, cell, crop.kind, crop.facts, spot, ctx.mayChange, ctx.mayBreak)
-        }) { cell, e -> AreaWarnings.failed("Harvester", ctx.level, cell, e) }
+            if (!AreaGuard.take(ctx.level, LANE, cell)) return@walk false
+            val harvested = HarvestApply.apply(ctx.level, cell, crop.kind, crop.facts, spot, ctx.mayChange, ctx.mayBreak)
+            if (!harvested) ctx.stalledAt(cell, REFUSED_WAIT_TICKS)
+            harvested
+        }) { cell, crop, e -> AreaGuard.failed(ctx.level, ROLE, crop?.block ?: AreaGuard.blockAt(ctx.level, cell).block, cell, e) }
     }
 
     /**
-     * CD-CRP-24: the crop at [cell] when the area's harvest may take it in this tick, else null: inside the work area and loaded, a
-     * target of the role and its own canonical cell, fully grown for its adapter, and free in the Harvester's lane. The harvest itself
-     * asks the land claim checks.
+     * CD-CRP-24: the crop at [cell] when the area's harvest may take it in this tick, else null: loaded, not stalled for this worker
+     * and not worked by another area of the lane in this tick, no sapling and no block that failed in an area, a target of the role and
+     * its own canonical cell, fully grown for its adapter, each cell that the harvest changes inside the work area, and free in the
+     * Harvester's lane. The harvest itself asks the land claim checks.
      */
     private fun ripeCrop(ctx: WorkContext, cell: BlockPos): AreaCrop? {
-        if (ctx.area?.contains(cell) != true || !ctx.level.isLoaded(cell)) return null
+        val area = ctx.area ?: return null
+        if (!area.contains(cell) || !ctx.level.isLoaded(cell)) return null
+        if (ctx.isStalled(cell) || AreaGuard.isWorked(ctx.level, LANE, cell)) return null
         val state = ctx.level.getBlockState(cell)
+        if (state.`is`(BlockTags.SAPLINGS) || AreaGuard.isDenied(ctx.level, ROLE, state.block)) return null
         if (!matches(ctx.level, cell, state, null) || canonical(ctx.level, cell) != cell) return null
         val facts = CropFactsReader.read(ctx.level, cell, state)
         val kind = CropAdapters.harvestKind(facts) ?: return null
-        if (!CropRules.isFullyGrown(kind, facts) || !ctx.laneFree(cell)) return null
-        return AreaCrop(kind, facts)
+        if (!CropRules.isFullyGrown(kind, facts)) return null
+        val facing = if (kind == HarvestKind.GOURD) state.getOptionalValue(AttachedStemBlock.FACING).orElse(null) else null
+        val fruit = facing?.let { cell.relative(it) }
+        if (!CropArea.changedCells(cell, fruit).all(area::contains) || !ctx.laneFree(cell)) return null
+        return AreaCrop(kind, facts, state.block)
     }
 
-    private class AreaCrop(val kind: HarvestKind, val facts: CropFacts)
+    private class AreaCrop(val kind: HarvestKind, val facts: CropFacts, val block: Block)
 
     private fun kindOf(level: ServerLevel, pos: BlockPos, state: BlockState): HarvestKind? =
         CropAdapters.harvestKind(CropFactsReader.read(level, pos, state))

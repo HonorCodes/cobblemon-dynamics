@@ -9,6 +9,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.item.BoneMealItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -75,20 +76,30 @@ object CultivatorHandler : TargetHandler {
      * crop unchanged counts toward the stall of CD-CUL-09, also a use that the block or a mod refused.
      *
      * CD-CUL-11, CD-CUL-12: the use also grows up to N crops of the area (CD-CRP-23 to CD-CRP-25), each in the same way, and the use
-     * tick costs its Work Stamina once when one of its calls returned true. The stall records the target's change only.
+     * tick costs its Work Stamina once when one of its calls returned true. A growth use that throws, as a block of another mod can,
+     * counts as a use that changed nothing, with one warning. Each crop of the area keeps its own stall of CD-CUL-09, and a use that
+     * leaves it unchanged gives its place to the next crop (CD-CRP-24).
      */
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
         val params = CultivatorParams.of(ctx.role.params)
         if (!TickClock.every(GrowthPace.intervalTicks(ctx.pokemon.level, params.usesPerMinuteAt100), memo.since, ctx.now)) return
         val before = FarmCells.states(ctx.level, ctx.target)
-        var grew = grow(ctx.level, ctx.target, before.first())
+        val target = before.first()
+        var grew = CropArea.attempt({ e -> AreaGuard.targetFailed(ROLE, target.block, ctx.target, e) }) {
+            grow(ctx.level, ctx.target, target)
+        } == true
         val changed = FarmCells.states(ctx.level, ctx.target) != before
         val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params))
         CropArea.walk(ctx.target, extra, { cell -> areaCrop(ctx, cell) }, { cell, state ->
+            if (!AreaGuard.take(ctx.level, LANE, cell)) return@walk false
+            val cellBefore = FarmCells.states(ctx.level, cell)
             if (grow(ctx.level, cell, state)) grew = true
-            true
-        }) { cell, e -> AreaWarnings.failed("Cultivator", ctx.level, cell, e) }
+            val cellChanged = FarmCells.states(ctx.level, cell) != cellBefore
+            val stall = memo.areaStalls.getOrPut(cell.asLong()) { GrowthStall() }
+            if (stall.record(changed = cellChanged, now = ctx.now)) ctx.stalledAt(cell, stall.waitTicks)
+            cellChanged
+        }) { cell, state, e -> AreaGuard.failed(ctx.level, ROLE, (state ?: AreaGuard.blockAt(ctx.level, cell)).block, cell, e) }
         val cost = CropArea.cost(grew, params.staminaTicksPerUse)
         if (cost > 0) ctx.spend(cost)
         if (memo.stall.record(changed = changed, now = ctx.now)) ctx.stalled(memo.stall.waitTicks)
@@ -103,13 +114,17 @@ object CultivatorHandler : TargetHandler {
     }
 
     /**
-     * CD-CRP-24: the state of the crop at [cell] when the area's use may grow it in this tick, else null: inside the work area and
-     * loaded, a target of the role and its own canonical cell, with the demand of CD-CUL-03, free in the Cultivator's lane, and allowed
-     * by the land claim checks.
+     * CD-CRP-24: the state of the crop at [cell] when the area's use may grow it in this tick, else null: it and the cell above it
+     * inside the work area, loaded, not stalled for this worker and not worked by another area of the lane in this tick, no sapling,
+     * which grows only as a target, and no block that failed in an area, a target of the role and its own canonical cell, with the
+     * demand of CD-CUL-03, free in the Cultivator's lane, and allowed by the land claim checks.
      */
     private fun areaCrop(ctx: WorkContext, cell: BlockPos): BlockState? {
-        if (ctx.area?.contains(cell) != true || !ctx.level.isLoaded(cell)) return null
+        val area = ctx.area ?: return null
+        if (!CropArea.changedCells(cell, null).all(area::contains) || !ctx.level.isLoaded(cell)) return null
+        if (ctx.isStalled(cell) || AreaGuard.isWorked(ctx.level, LANE, cell)) return null
         val state = ctx.level.getBlockState(cell)
+        if (state.`is`(BlockTags.SAPLINGS) || AreaGuard.isDenied(ctx.level, ROLE, state.block)) return null
         if (!matches(ctx.level, cell, state, null) || canonical(ctx.level, cell) != cell) return null
         if (!demandAt(ctx.level, cell, state) || !ctx.laneFree(cell) || !ctx.mayChange(cell)) return null
         return state
@@ -145,9 +160,12 @@ object CultivatorHandler : TargetHandler {
         }
     }
 
+    /** The target's stall, and one stall for each crop of the area that a use reached in this claim, at most 74. */
     private class Memo(var since: Long) {
         val stall = GrowthStall()
+        val areaStalls = HashMap<Long, GrowthStall>()
     }
 
     private const val SPARKLES = 15
+    private const val ROLE = "Cultivator"
 }

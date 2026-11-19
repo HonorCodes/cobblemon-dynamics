@@ -4,6 +4,7 @@ import com.google.gson.JsonParser
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Vec3i
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -120,7 +121,7 @@ class CropAreaTest {
     }
 
     @Test
-    fun `CD-CRP-24 a cell that the act refuses does not count, and the walk goes on`() {
+    fun `CD-CRP-24 a cell that the act refuses or leaves unchanged does not count, and the walk goes on`() {
         val worked = mutableListOf<Vec3i>()
         val count = CropArea.walk(target, 2, { Unit }, { pos, _ ->
             val offset = pos.subtract(target)
@@ -149,20 +150,52 @@ class CropAreaTest {
     }
 
     @Test
-    fun `CD-CRP-24 a check or an act that throws skips its cell only`() {
-        val failed = mutableListOf<Vec3i>()
+    fun `CD-CRP-24 a check or an act that throws skips its cell only, with the block read before the work`() {
+        val failed = mutableListOf<Pair<Vec3i, String?>>()
         val worked = mutableListOf<Vec3i>()
         val count = CropArea.walk(target, 2, { pos ->
             if (pos.subtract(target) == Vec3i(-1, 0, 0)) throw IllegalStateException("a crop of another mod")
-            Unit
+            "crop at ${pos.subtract(target).toShortString()}"
         }, { pos, _ ->
             if (pos.subtract(target) == Vec3i(0, 0, -1)) throw NoSuchMethodError("a changed method")
             worked += pos.subtract(target)
             true
-        }, { pos, _ -> failed += pos.subtract(target) })
+        }, { pos, found, _ -> failed += pos.subtract(target) to found })
         assertEquals(2, count)
         assertEquals(listOf(Vec3i(0, 0, 1), Vec3i(1, 0, 0)), worked)
-        assertEquals(listOf(Vec3i(-1, 0, 0), Vec3i(0, 0, -1)), failed)
+        assertEquals(listOf(Vec3i(-1, 0, 0) to null, Vec3i(0, 0, -1) to "crop at 0, 0, -1"), failed)
+    }
+
+    @Test
+    fun `CD-CRP-24 a use or a harvest changes cells inside the area only`() {
+        val crop = BlockPos(1, 64, 1)
+        assertEquals(listOf(crop, crop.above()), CropArea.changedCells(crop, null))
+        assertEquals(listOf(crop, crop.above(), crop.east()), CropArea.changedCells(crop, crop.east()))
+    }
+
+    @Test
+    fun `CD-CRP-06 two areas of one lane never work one cell in the same tick`() {
+        val keys = TickKeys<String>()
+        val server = Any()
+        assertTrue(keys.take(server, 10, "harvester 1 2 3"))
+        assertTrue(keys.isTaken(server, 10, "harvester 1 2 3"))
+        assertFalse(keys.take(server, 10, "harvester 1 2 3"))
+        assertTrue(keys.take(server, 10, "cultivator 1 2 3"), "a claim in the other lane does not stop the area")
+        assertFalse(keys.isTaken(server, 11, "harvester 1 2 3"))
+        assertTrue(keys.take(server, 11, "harvester 1 2 3"), "the next tick starts an empty set")
+        assertTrue(keys.take(Any(), 11, "harvester 1 2 3"), "another server starts an empty set")
+    }
+
+    @Test
+    fun `CD-LUM-29 a block that failed in an area stays out of it until the server stops`() {
+        val denied = SessionKeys<String>()
+        val server = Any()
+        assertFalse(denied.contains(server, "Harvester:mod:crop"))
+        assertTrue(denied.add(server, "Harvester:mod:crop"))
+        assertFalse(denied.add(server, "Harvester:mod:crop"))
+        assertTrue(denied.contains(server, "Harvester:mod:crop"))
+        assertFalse(denied.contains(server, "Cultivator:mod:crop"))
+        assertFalse(denied.contains(Any(), "Harvester:mod:crop"), "a new server starts with no denied block")
     }
 
     @Test
