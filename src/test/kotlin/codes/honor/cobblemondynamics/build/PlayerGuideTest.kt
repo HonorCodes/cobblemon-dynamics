@@ -118,6 +118,40 @@ class PlayerGuideTest {
         assertTrue(missing.isEmpty(), "the section Farming lacks $missing")
     }
 
+    /** CD-PCK-13: each page that lists the roles names the Picker, its two types, its tag, the leash and the drops. */
+    @Test
+    fun `CD-PCK-13 the guide, the README, the roles page and the integration page name the Picker`() {
+        assertSections(listOf("Picker"))
+        val picker = section("Picker")
+        val names = listOf("Bug", "Flying", "apricorn", "#cobblemon_dynamics:picker_targets", "never binds a Picker", "to the ground")
+        val missing = names.filterNot { it in picker }
+        assertTrue(missing.isEmpty(), "CD-PCK-13: the section Picker of the guide lacks $missing")
+        val readme = File(root, "README.md").readLines()
+        assertTrue(
+            readme.any {
+                it.startsWith("| Bug and Flying, both | Picker |")
+            },
+            "CD-PCK-13: the README's roles table has no Picker row",
+        )
+        val roles = File(root, "docs/roles.md").readLines()
+        assertTrue(
+            roles.any {
+                it.startsWith("| Picker | Bug and Flying, both |")
+            },
+            "CD-PCK-13: docs/roles.md has no table row of the Picker",
+        )
+        for (type in listOf("| Bug |", "| Flying |")) {
+            assertTrue(
+                roles.any { it.startsWith(type) && "Picker" in it },
+                "CD-PCK-13: the type index of docs/roles.md has no Picker in its row $type",
+            )
+        }
+        val integration = File(root, "docs/modpack-integration.md").readText()
+        for (text in listOf("Picker", "#cobblemon_dynamics:picker_targets", "type_match", "leash")) {
+            assertTrue(text in integration, "CD-PCK-13: docs/modpack-integration.md does not name $text")
+        }
+    }
+
     private fun assertSections(names: List<String>) {
         val headings = guide.readLines().mapNotNull { HEADING.matchEntire(it)?.groupValues?.get(1) }
         val missing = names.filterNot { name -> headings.any { it.equals(name, ignoreCase = true) } }

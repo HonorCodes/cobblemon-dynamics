@@ -171,7 +171,7 @@ class FarmingTagFilesTest {
     }
 
     @Test
-    fun `CD-CUL-10 the Cultivator's tag holds no apricorn and no terrain seed`() {
+    fun `CD-CUL-10 CD-PCK-10 the Cultivator's tag holds no apricorn and no terrain seed`() {
         val excluded = resolve("cobblemon:apricorns") + resolve("cobblemon:terrain_seeds")
         assertEquals(11, excluded.size, "the Cobblemon jar changed its apricorns or terrain seeds")
         assertEquals(emptySet<String>(), resolve("cobblemon_dynamics:cultivator_targets").intersect(excluded))
