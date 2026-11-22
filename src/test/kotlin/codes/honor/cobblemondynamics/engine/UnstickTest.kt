@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.engine
 
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.pathfinder.PathType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -153,5 +155,60 @@ class UnstickTest {
     fun `CD-ASG-27 a step never takes the center beyond half the body's width`() {
         assertTrue(Unstick.sideShifts(0.0, 1.0, 0.1, 0.9, 0.5).isEmpty())
         assertEquals(listOf(-0.5 - Unstick.SIDESTEP_GAP), Unstick.sideShifts(0.0, 1.0, 0.5, 2.0, 0.6))
+    }
+
+    /** The Torterra of the east scene walks west, 0.01 blocks south of its path's row. */
+    @Test
+    fun `CD-ASG-27 only a face that leads a tenth of the way or more toward the goal counts, most directly first`() {
+        assertEquals(listOf(Direction.WEST), Unstick.leadingFaces(-1.5, 0.01))
+        assertEquals(listOf(Direction.SOUTH, Direction.EAST), Unstick.leadingFaces(0.4, 1.56))
+        assertEquals(setOf(Direction.NORTH, Direction.WEST), Unstick.leadingFaces(-1.0, -1.0).toSet())
+        assertTrue(Unstick.leadingFaces(0.0, 0.0).isEmpty())
+    }
+
+    @Test
+    fun `CD-ASG-27 a worker checks for a sideways step at most once in 20 ticks`() {
+        assertTrue(Unstick.sidestepDue(5, Long.MIN_VALUE))
+        assertFalse(Unstick.sidestepDue(119, 100))
+        assertTrue(Unstick.sidestepDue(120, 100))
+    }
+
+    /** A body 2.25 wide with its center at (12.5, 9.94) stands over 3 cells on x and 4 on z at its feet. */
+    @Test
+    fun `CD-ASG-27 the cells under a body at its feet`() {
+        val expected = (11..13).flatMap { x -> (8..11).map { z -> BlockPos(x, 2, z) } }
+        assertEquals(expected, Unstick.footCells(11.376, 8.816, 13.624, 11.064, 2))
+        assertEquals(listOf(BlockPos(0, 5, 0)), Unstick.footCells(0.2, 0.2, 0.8, 0.8, 5))
+    }
+
+    @Test
+    fun `CD-ASG-27 a stepped body's center lies only in open air or a walkable cell`() {
+        assertTrue(Unstick.isOpenFoot(PathType.WALKABLE))
+        assertTrue(Unstick.isOpenFoot(PathType.OPEN))
+        for (type in PathType.entries.filter { it != PathType.WALKABLE && it != PathType.OPEN }) {
+            assertFalse(Unstick.isOpenFoot(type), "a center lies in $type")
+        }
+    }
+
+    @Test
+    fun `CD-ASG-27 no cell under a stepped body holds fire, a berry bush, honey, powder snow, lava or water`() {
+        for (type in listOf(PathType.WALKABLE, PathType.OPEN, PathType.WATER_BORDER, PathType.BLOCKED)) {
+            assertTrue(Unstick.isSafeFoot(type), "$type")
+        }
+        val hazards = listOf(
+            PathType.DAMAGE_FIRE, PathType.DANGER_FIRE, PathType.DAMAGE_OTHER, PathType.DANGER_OTHER, PathType.DAMAGE_CAUTIOUS,
+            PathType.STICKY_HONEY, PathType.POWDER_SNOW, PathType.DANGER_POWDER_SNOW, PathType.LAVA, PathType.WATER,
+            PathType.DANGER_TRAPDOOR,
+        )
+        for (type in hazards) assertFalse(Unstick.isSafeFoot(type), "a step lands on $type")
+    }
+
+    @Test
+    fun `CD-ASG-27 the short watch counts only ticks on which the worker pushes against a block`() {
+        val press = TravelStall(TravelStall.PRESS_TICKS, TravelStall.PRESS_RADIUS)
+        for (now in 0L..9L) assertFalse(press.stalled(now, 10.0, 2.0, 9.94, pushing = true))
+        assertFalse(press.stalled(10, 10.0, 2.0, 9.94, pushing = false))
+        for (now in 11L..29L) assertFalse(press.stalled(now, 10.0, 2.0, 9.94, pushing = true), "pressed at tick $now")
+        assertTrue(press.stalled(30, 10.0, 2.0, 9.94, pushing = true))
     }
 }

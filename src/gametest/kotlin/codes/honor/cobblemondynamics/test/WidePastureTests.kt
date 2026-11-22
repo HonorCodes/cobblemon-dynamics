@@ -9,7 +9,9 @@ import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -19,7 +21,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
  * that it grows as the Cultivator. Cobblemon's pathfinder checks 2 cells across for it, but navigation steers its body 0.625 into a
  * third row, so a path that runs beside the pasture block takes the body straight into the block's face. Before the fix, each scene
  * held the Torterra there until its travel timed out (CD-ASG-13), in 20 of 20 runs. Now the engine steps it sideways, clear of the
- * block, and it Works before the timeout, in 20 of 20 runs (the slowest after 521 ticks).
+ * block, and it Works before the timeout, in 20 of 20 runs (the slowest after 505 ticks).
  */
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -47,6 +49,7 @@ class WidePastureTests {
     private fun run(helper: GameTestHelper, startRel: Vec3, saplingRel: BlockPos) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, PASTURE, owner)
+        dry(helper, pasture.blockPos)
         helper.setBlock(saplingRel.below(), Blocks.DIRT)
         helper.setBlock(saplingRel, Blocks.OAK_SAPLING)
         val pokemon = TestKit.pokemon("torterra level=50")
@@ -74,6 +77,19 @@ class WidePastureTests {
             val worker = TestKit.workerOf(helper, torterra) ?: throw GameTestAssertException("the Torterra is no worker")
             if (claimedAt < 0) claimedAt = worker.claimTick
             if (worker.status == WorkerStatus.WORKING) helper.succeed()
+        }
+    }
+
+    /**
+     * Cobblemon's default pasture state is waterlogged, which a player's placement on dry land is not, and the water marks the cells
+     * around it as beside water for the pathfinder. Both halves of the pasture at [pos] lose the water.
+     */
+    private fun dry(helper: GameTestHelper, pos: BlockPos) {
+        for (half in listOf(pos, pos.above())) {
+            val state = helper.level.getBlockState(half)
+            if (state.hasProperty(BlockStateProperties.WATERLOGGED)) {
+                helper.level.setBlock(half, state.setValue(BlockStateProperties.WATERLOGGED, false), Block.UPDATE_CLIENTS)
+            }
         }
     }
 

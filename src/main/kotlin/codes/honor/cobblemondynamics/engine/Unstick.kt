@@ -1,8 +1,11 @@
 package codes.honor.cobblemondynamics.engine
 
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.util.Mth
+import net.minecraft.world.level.pathfinder.PathType
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * Where a stuck Traveling worker goes: one that Cobblemon's navigation reports stuck after 100 ticks with no progress, or one whose
@@ -60,6 +63,43 @@ object Unstick {
         return listOf(down, up).filter { abs(it) <= maxShift }.sortedBy { abs(it) }
     }
 
+    /** CD-ASG-27: a face leads toward the worker's goal when it leads at least this part of the way there. */
+    const val MIN_LEAD = 0.1
+
+    /** CD-ASG-27: the fewest ticks between two sideways step checks of one worker. */
+    const val SIDESTEP_TICKS = 20L
+
+    /**
+     * CD-ASG-27: the faces of a body that lead toward a goal [dx], [dz] away, most directly first. A face leads when its part of the
+     * way, `step · (dx, dz)`, is at least [MIN_LEAD] of the whole way.
+     */
+    fun leadingFaces(dx: Double, dz: Double): List<Direction> {
+        val way = hypot(dx, dz)
+        if (way == 0.0) return emptyList()
+        val lead = { face: Direction -> face.stepX * dx + face.stepZ * dz }
+        return Direction.Plane.HORIZONTAL.filter { lead(it) >= MIN_LEAD * way }.sortedByDescending(lead)
+    }
+
+    /** CD-ASG-27: whether a worker whose last check was at tick [last] may check again at tick [now]. */
+    fun sidestepDue(now: Long, last: Long): Boolean = last == Long.MIN_VALUE || now - last >= SIDESTEP_TICKS
+
+    /** CD-ASG-27: the cells at height [y] under a body from ([minX], [minZ]) to ([maxX], [maxZ]). */
+    fun footCells(minX: Double, minZ: Double, maxX: Double, maxZ: Double, y: Int): List<BlockPos> =
+        (Mth.floor(minX)..Mth.floor(maxX)).flatMap { x -> (Mth.floor(minZ)..Mth.floor(maxZ)).map { z -> BlockPos(x, y, z) } }
+
+    /** CD-ASG-27: the center of a stepped body lies in a cell like the free cells of CD-ASG-25: open air or a walkable cell. */
+    fun isOpenFoot(type: PathType): Boolean = type == PathType.WALKABLE || type == PathType.OPEN
+
+    /**
+     * CD-ASG-27: a cell under a stepped body at its feet holds no hazard: no fire, berry bush, cactus, wither rose or other block that
+     * hurts or threatens (`DAMAGE_*`, `DANGER_*`), and no honey, powder snow, lava or water. A cell beside water (`WATER_BORDER`) is
+     * safe, and so is a cell whose block fills only part of it, such as the pasture block's (`BLOCKED`), because the body's own
+     * collision check keeps the body out of that block.
+     */
+    fun isSafeFoot(type: PathType): Boolean = type !in UNSAFE_FEET && !type.name.startsWith("DAMAGE_") && !type.name.startsWith("DANGER_")
+
+    private val UNSAFE_FEET = setOf(PathType.STICKY_HONEY, PathType.POWDER_SNOW, PathType.LAVA, PathType.WATER)
+
     /** CD-ASG-25: how far, on x and z, a worker whose body a grown tree filled may move to a free cell. */
     const val FREE_RADIUS = 3
 
@@ -100,12 +140,15 @@ class TravelStall(private val ticks: Long = TICKS, private val radius: Double = 
     private var since = 0L
     private var last = Long.MIN_VALUE
 
-    /** Takes each Traveling tick. True once per [ticks] while the worker stays within [radius] of one point. A tick without a call starts anew. */
-    fun stalled(now: Long, x: Double, y: Double, z: Double): Boolean {
+    /**
+     * Takes each Traveling tick. True once per [ticks] while the worker stays within [radius] of one point. A tick without a call
+     * starts anew, and so does a tick on which the worker does not push against a block, when the caller counts only [pushing] ticks.
+     */
+    fun stalled(now: Long, x: Double, y: Double, z: Double, pushing: Boolean = true): Boolean {
         val dx = x - this.x
         val dy = y - this.y
         val dz = z - this.z
-        if (now != last + 1 || dx * dx + dy * dy + dz * dz > radius * radius) {
+        if (!pushing || now != last + 1 || dx * dx + dy * dy + dz * dz > radius * radius) {
             this.x = x
             this.y = y
             this.z = z
