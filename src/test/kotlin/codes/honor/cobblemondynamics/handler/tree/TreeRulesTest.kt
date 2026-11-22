@@ -63,7 +63,11 @@ class TreeRulesTest {
             val same: (BlockPos) -> Boolean = { grid.read(it).sapling && grid.read(it).blockId == grid.read(cell).blockId }
             assertEquals(SaplingRules.corner(cell, same), TreeRules.canonical(grid.read, cell, MAX_LOGS), "the sapling at $cell")
         }
-        assertEquals(start, TreeRules.canonical(grid.read, start.offset(1, 0, 1), MAX_LOGS))
+        // CD-LSH-36, CD-LSH-37: a middle sapling of the second row is the least corner of no square and names its base in the first row,
+        // and an end sapling names the corner of its one square.
+        assertEquals(start.offset(1, 0, 0), TreeRules.canonical(grid.read, start.offset(1, 0, 1), MAX_LOGS))
+        assertEquals(start.offset(1, 0, 0), TreeRules.canonical(grid.read, start.offset(1, 0, 0), MAX_LOGS))
+        assertEquals(start.offset(1, 0, 0), TreeRules.canonical(grid.read, start.offset(2, 0, 1), MAX_LOGS))
         assertEquals(lone, TreeRules.canonical(grid.read, lone, MAX_LOGS))
     }
 
@@ -259,5 +263,25 @@ class TreeRulesTest {
         assertEquals(TreeRules.square(empty), TreeRules.growthCells(grid.read, empty, lastSquare = true))
         grid.sapling(empty, DARK_OAK_SAPLING)
         assertEquals(TreeRules.square(empty), TreeRules.growthCells(grid.read, empty, lastSquare = true))
+    }
+
+    /**
+     * CD-LSH-37: the logs of a 2 x 2 trunk other than its base lie beside a log that comes first in the search's order, so a binding on one
+     * of them lets go. The base, a lone trunk and an upper log of a lone trunk are no such cell.
+     */
+    @Test
+    fun `CD-LSH-37 a log of a 2 x 2 trunk other than its base is beside the base`() {
+        val grid = TreeGrid()
+        val corner = BlockPos(-3, 64, 5)
+        grid.darkOak(corner)
+        assertFalse(TreeRules.besideBase(grid.read, corner), "the base")
+        for (cell in TreeRules.square(corner).drop(1)) assertTrue(TreeRules.besideBase(grid.read, cell), "the log at $cell")
+        val lone = BlockPos(20, 64, 20)
+        grid.oak(lone)
+        assertFalse(TreeRules.besideBase(grid.read, lone), "a lone trunk")
+        assertTrue(TreeRules.inSquareOf(corner.east().south(), corner))
+        assertFalse(TreeRules.inSquareOf(corner, corner))
+        assertFalse(TreeRules.inSquareOf(corner, corner.east(2)))
+        assertFalse(TreeRules.inSquareOf(corner, corner.above()))
     }
 }

@@ -16,7 +16,8 @@ of V12_ROWS, which Phase 1 leaves out too, and each earlier row with a 1.2 part 
 inside a task section of the 1.2 plan. Every other mode leaves out the rows of V121_ROWS, V121_AREAS and V122_ROWS.
 1.2.1: the rows of V121_ROWS, new rows in earlier areas, the rows of the PCK area (V121_AREAS), and each earlier row with a
 1.2.1 part (the split-row table of the 1.2.1 plan), cited inside a task section of the 1.2.1 plan.
-1.2.2: the rows of V122_ROWS, new rows in earlier areas from the hardening pass, cited inside a task section of the 1.2.2 plan.
+1.2.2: the new rows of the 1.2.2 plans, which every other mode leaves out, and each earlier row that they amend, cited inside a
+task section of a 1.2.2 plan.
 Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2,1.2.1,1.2.2}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
@@ -106,10 +107,17 @@ V121_PARTS = (
     "CD-LUM-17", "CD-LUM-18", "CD-HRV-08", "CD-CRP-20", "CD-BAL-08", "CD-BAL-09", "CD-ASG-16", "CD-LSH-16", "CD-CRP-22",
     "CD-QWK-03", "CD-REL-04", "CD-REL-05", "CD-BRF-03", "CD-BRF-04",
 )
-# 1.2.2: the coordinator's hardening pass under the approver's delegation (R81).
-PLANS["1.2.2"] = ("2026-11-22-v1.2.2-hardening.md",)
-# The new rows of 1.2.2. They lie in the areas of earlier phases, so every other mode leaves them out.
-V122_ROWS = ("CD-ASG-27",)
+# 1.2.2, under the approver's delegation (R81): two plans, docs/plans/2026-11-22-v1.2.2-*.md. The new rows lie in earlier
+# areas, so every other mode leaves them out, and the amended rows keep their own phase too.
+PLANS["1.2.2"] = ("2026-11-22-v1.2.2-*.md",)
+# The coordinator's hardening pass: docs/plans/2026-11-22-v1.2.2-hardening.md.
+V122_HARDENING_ROWS = ("CD-ASG-27",)
+# The audit fixes: docs/plans/2026-11-22-v1.2.2-audit-fixes.md.
+V122_AUDIT_ROWS = ("CD-LSH-35", "CD-LSH-36", "CD-LSH-37", "CD-ASG-28")
+V122_AUDIT_PARTS = ("CD-LSH-31", "CD-LSH-30", "CD-CUL-13", "CD-CRP-24", "CD-ASG-25", "CD-LUM-29")
+# The lists of 1.2.2, from both plans.
+V122_ROWS = V122_HARDENING_ROWS + V122_AUDIT_ROWS
+V122_PARTS = V122_AUDIT_PARTS
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")
 HEADING = re.compile(r"^#{1,3} ", re.MULTILINE)
@@ -150,8 +158,8 @@ def spec_rows(phase: str) -> list[str]:
         require_rows(V121_PARTS + V121_ROWS, rows, "V121_PARTS or V121_ROWS")
         return [row for row, area in rows if area in V121_AREAS] + list(V121_ROWS) + list(V121_PARTS)
     if phase == "1.2.2":
-        require_rows(V122_ROWS, rows, "V122_ROWS")
-        return list(V122_ROWS)
+        require_rows(V122_PARTS + V122_ROWS, rows, "V122_PARTS or V122_ROWS")
+        return list(V122_ROWS) + list(V122_PARTS)
     require_rows(PHASE_2_PARTS + PHASE_2_ROWS, rows, "PHASE_2_PARTS or PHASE_2_ROWS")
     later = PHASE_3_ROWS + V12_ROWS + V121_ROWS + V122_ROWS
     return [row for row, area in rows if is_phase_2(row, area) and row not in later] + list(PHASE_2_PARTS)

@@ -21,7 +21,13 @@ import net.minecraft.world.level.block.state.BlockState
 internal class TreeFactsReader(private val level: ServerLevel) {
     private val facts = HashMap<BlockPos, CellFacts>()
 
-    fun facts(pos: BlockPos): CellFacts = facts.getOrPut(pos.immutable()) { stateOf(level, pos)?.let(::factsOf) ?: UNLOADED }
+    /** CD-LSH-35: whether this search read a cell of a chunk that is not loaded, so that its answer is unknown. */
+    var metUnloaded = false
+        private set
+
+    fun facts(pos: BlockPos): CellFacts = facts.getOrPut(pos.immutable()) {
+        stateOf(level, pos)?.let(::factsOf) ?: UNLOADED.also { metUnloaded = true }
+    }
 
     companion object {
         /** The logs that a Lumberjack fells. The default holds `#minecraft:logs` (CD-LUM-02). */

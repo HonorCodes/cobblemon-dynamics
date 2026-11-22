@@ -18,7 +18,7 @@ object SaplingRules {
     /** The lowest corner of each 2 × 2 that holds a cell, as x and z offsets from that cell. */
     private val SQUARES = listOf(0 to 0, 0 to -1, -1 to 0, -1 to -1)
 
-    /** The same corners in the order that [corner] tries them: the least x and z first. */
+    /** The least corners of the four squares that hold a cell, as x and z offsets from that cell. */
     private val CORNERS = listOf(-1 to -1, -1 to 0, 0 to -1, 0 to 0)
 
     /**
@@ -32,11 +32,28 @@ object SaplingRules {
     fun square(corner: BlockPos): List<BlockPos> = listOf(corner, corner.east(), corner.south(), corner.east().south())
 
     /**
-     * CD-LUM-03, CD-CUL-13: the least corner of the first complete 2 × 2 that holds [pos] and whose cells all hold the sapling of [pos]
-     * ([same]), or [pos]. The Lumberjack and the Cultivator both ask this, so both name one cell for a square.
+     * CD-LUM-03, CD-CUL-13: the cell that names [pos]'s sapling, where its tree grows ([same] tells the cells of the same sapling): the
+     * least corner of the one complete 2 × 2 that holds [pos]; else [pos] when no complete square holds it or it is the least corner of one;
+     * else the least corner of the first complete square in vanilla's order, as a sapling that is the least corner of no square never
+     * grows the giant tree's base (CD-LSH-37). The Lumberjack and the Cultivator both ask this, so both name one cell for a square. The
+     * answer is a fixed point: it is the least corner of a complete square or a cell of none, and resolves to itself, so a binding moved
+     * to it never moves on along a row or a field of saplings (CD-LSH-36).
      */
-    fun corner(pos: BlockPos, same: (BlockPos) -> Boolean): BlockPos =
-        CORNERS.map { (x, z) -> pos.offset(x, 0, z) }.firstOrNull { corner -> square(corner).all(same) } ?: pos
+    fun corner(pos: BlockPos, same: (BlockPos) -> Boolean): BlockPos {
+        val full = VANILLA_ORDER.map { (x, z) -> pos.offset(x, 0, z) }.filter { corner -> square(corner).all(same) }
+        return when {
+            full.size == 1 -> full.single()
+            full.isEmpty() || pos in full -> pos
+            else -> full.first()
+        }
+    }
+
+    /** The least corners of the squares that hold a cell, in the order that vanilla's tree grower tries them. */
+    private val VANILLA_ORDER = listOf(0 to 0, 0 to -1, -1 to 0, -1 to -1)
+
+    /** The least corner of the one complete 2 × 2 of [same] cells that holds [pos], or null when none or more than one holds it. */
+    fun onlySquare(pos: BlockPos, same: (BlockPos) -> Boolean): BlockPos? =
+        CORNERS.map { (x, z) -> pos.offset(x, 0, z) }.filter { corner -> square(corner).all(same) }.singleOrNull()
 
     /**
      * CD-ASG-24: the cells that a tree grown at [corner] fills at its base: [corner], and each other cell of the 2 × 2 whose least corner

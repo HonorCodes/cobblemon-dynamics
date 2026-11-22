@@ -22,6 +22,7 @@ import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.handler.tree.TreeFactsReader
 import codes.honor.cobblemondynamics.heal.AllyView
 import codes.honor.cobblemondynamics.heal.HealTargets
 import codes.honor.cobblemondynamics.heal.HealTransaction
@@ -62,6 +63,7 @@ import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.LeavesBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.pathfinder.PathType
@@ -175,9 +177,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (growths.size < MAX_GROWTHS) growths += level to pos.immutable()
     }
 
-    private fun drainGrowths(level: ServerLevel) {
+    /** CD-ASG-26: frees the workers near each growth of [level]. A throw from another mod's block skips the rest and logs once. */
+    private fun drainGrowths(level: ServerLevel) = safely {
         val here = growths.filter { it.first === level }
-        if (here.isEmpty()) return
+        if (here.isEmpty()) return@safely
         growths.removeAll { it.first === level }
         val t = tick(level)
         for ((_, pos) in here) freeAround(t, pos)
@@ -495,7 +498,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /**
      * CD-ASG-21, CD-LSH-30: a worker in Standby on its target, with no missed arrival, whose role has no demand there, takes the first
-     * switch role with demand on the same target in this tick. A Quick Worker has no poll, so it keeps its role (decision 13).
+     * switch role with demand on the same target in this tick. A Quick Worker has no poll, so it keeps its role (decision 13). The switch
+     * roles of a bound worker are those of its bound role, also while it works in a switch role (CD-LSH-33).
      */
     private fun switchInStandby(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
         val worker = slot.worker
@@ -504,22 +508,34 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val target = worker.target ?: return
         if (!RoleSwitch.maySwitch(slot.binding != null, hasFairyType(slot.pokemon)) || !t.level.isLoaded(target)) return
         if (claims.claimOf(worker.pokemonId)?.kind != ClaimKind.WORK || !BrainBridge.canHoldOrder(slot.entity)) return
-        val next = switchFor(t, slot, target, role) {
+        val binding = slot.binding
+        val own = if (binding == null) role else t.roles.get(binding.roleId) ?: return
+        val next = switchFor(t, slot, target, own, current = role) {
             guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target, role, slot.memo)) }
         } ?: return
         claimSwitch(t, runtime, slot, target, next, taken, moving = true)
     }
 
     /**
-     * CD-LSH-30, CD-LSH-32, CD-ASG-21: the switch role that the worker of [slot] takes on [target] in place of [own], or null to keep
-     * [own]. [ownDemand] asks [own]'s demand, and each switch role asks through its memo of the slot (CD-LSH-34). A worker with no
-     * switch role asks no demand, so a worker of one type costs only the cheap checks of `RoleSwitch.rolesOf`.
+     * CD-LSH-30, CD-LSH-32, CD-ASG-21: the switch role that the worker of [slot] takes on [target] in place of [current], or null to keep
+     * [current]. [own] is the bound role, or the claimed role of an auto worker, whose switch roles the worker may take. [currentDemand]
+     * asks [current]'s demand, and each other switch role asks through its memo of the slot (CD-LSH-34). A worker with no switch role
+     * asks no demand, so a worker of one type costs only the cheap checks of `RoleSwitch.rolesOf`. Unknown switch roles keep [current]
+     * (CD-LSH-35).
      */
-    private fun switchFor(t: Tick, slot: WorkerSlot, target: BlockPos, own: ActiveRole, ownDemand: () -> Boolean): ActiveRole? {
+    private fun switchFor(
+        t: Tick,
+        slot: WorkerSlot,
+        target: BlockPos,
+        own: ActiveRole,
+        current: ActiveRole = own,
+        currentDemand: () -> Boolean,
+    ): ActiveRole? {
         val types = typesOf(slot.pokemon)
-        val roles = switchRolesOn(t.level, target, own, t.roles, types, bound = slot.binding != null, cache = slot.switchRoles)
+        val bound = slot.binding != null
+        val roles = switchRolesOn(t.level, target, own, t.roles, types, bound, cache = slot.switchRoles, now = t.now) ?: return null
         if (roles.size < 2) return null
-        val byId = roles.associateBy { it.definition.id }
+        val byId = roles.associateBy { it.definition.id } + (current.definition.id to current)
         val me = slot.worker.pokemonId
         val keyOf = { def: RoleDefinition -> TargetKey.block(t.dimension, target, byId.getValue(def.id).handler.claimLane) }
         val demandOf = { def: RoleDefinition ->
@@ -527,16 +543,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target, role, slot.probes.memo(def.id))) }
         }
         val pick = RoleSwitch.choose(
-            own.definition,
+            current.definition,
             roles.map { it.definition },
             types.toList(),
-            hasDemand = { def -> if (def.id == own.definition.id) ownDemand() else demandOf(def) },
+            hasDemand = { def -> if (def.id == current.definition.id) currentDemand() else demandOf(def) },
             // CD-LSH-32: a free lane, or one that this worker holds itself, as the two roles of a brewing stand share theirs.
             laneFree = { def -> keyOf(def).let { claims.isFree(it, me) || claims.holderOf(it)?.worker == me } },
             skipped = { def -> slot.worker.isSkipped(keyOf(def), t.now) },
             sameGroup = RoleRegistry::sameGroup,
         )
-        return pick?.takeIf { it.id != own.definition.id }?.let { byId.getValue(it.id) }
+        return pick?.takeIf { it.id != current.definition.id }?.let { byId.getValue(it.id) }
     }
 
     /**
@@ -881,7 +897,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         // CD-ASG-25: a spot that a tree filled since the claim gets no snap. The worker leaves the tree, and a pasture worker claims again
         // with a new spot.
         if (misplaced) {
-            freeSlot(t, site, slot)
+            freeSlot(t, site, slot, target)
             if (site is PastureRuntime && claims.claimOf(worker.pokemonId) != null) release(t, slot)
         }
         if (!ok) release(t, slot, callHandler = false)
@@ -894,16 +910,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /**
      * CD-ASG-25, CD-ASG-26: a tree grew at [pos], or a fell or a replant changed it. Each worker of the engine in the level whose body
      * lies near it, within [GROWTH_REACH] on x and z and [GROWTH_HEIGHT] up, and overlaps a block, leaves the tree ([free]). A pasture
-     * worker whose spot the tree filled then claims again, with a new spot. A worker that rides or carries another entity stays.
+     * worker whose spot the tree filled then claims again, with a new spot. A worker that rides or carries another entity stays. A throw
+     * from another mod's block skips the rest and logs once, so the net never ends the server's tick.
      */
-    private fun freeAround(t: Tick, pos: BlockPos) {
+    private fun freeAround(t: Tick, pos: BlockPos) = safely {
         val near = AABB(pos).inflate(GROWTH_REACH, 0.0, GROWTH_REACH).expandTowards(0.0, GROWTH_HEIGHT, 0.0).expandTowards(0.0, -1.0, 0.0)
         for (site in sitesOf(t)) {
             for (slot in site.slots.values.toList()) {
                 val entity = slot.entity
                 if (entity.isRemoved || entity.level() !== t.level || !entity.boundingBox.intersects(near)) continue
                 if (entity.isPassenger || entity.isVehicle) continue
-                freeSlot(t, site, slot)
+                freeSlot(t, site, slot, pos)
                 val spot = slot.worker.spot
                 if (site is PastureRuntime && spot != null && claims.claimOf(slot.worker.pokemonId)?.kind == ClaimKind.WORK &&
                     !centerFits(entity, spot)
@@ -925,14 +942,52 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** CD-ASG-25: [free] for one worker of [site], within its work area and the land that its owner may use. */
-    private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot) {
+    /**
+     * CD-ASG-25: [free] for one worker of [site] from the tree at [tree], within its work area and the land that its owner may use.
+     * CD-ASG-28: a worker that rests in place rests where the net put it. A sleeper lets its bed go, rests in place and is freed only when
+     * its body overlaps a block of the changed tree (a natural leaf or a cell of its trunk) or its bed's sleep point lies in a tree, so no
+     * rest order puts it back into the tree and no other block takes its bed. A throw from another mod's block skips this worker only.
+     */
+    private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot, tree: BlockPos) {
         val owner = when (site) {
             is PastureRuntime -> site.placer
             is QuickRuntime -> site.owner
         }
+        val entity = slot.entity
+        val worker = slot.worker
+        val level = t.level
+        val before = entity.position()
+        val trunk = lazy { TreeWay.treeTrunk(TreeFactsReader(level)::facts, tree, entity.blockPosition()) }
+        var bedLost = false
+        safely {
+            if (worker.status == WorkerStatus.SLEEPING) {
+                val inChangedTree = overlaps(entity, entity.boundingBox.deflate(TOUCH)) { pos, state ->
+                    isNaturalLeaf(state) || (isTrunkBlock(state) && pos in trunk.value)
+                }
+                bedLost = inChangedTree || worker.bed?.let { sleepsInTree(entity, it.center) } == true
+                if (!bedLost) return@safely
+            }
+            free(entity, worker.spot, site.area(t.settings), trunk) { LandClaims.ownerMayUse(owner, level, it) }
+        }
+        when (worker.status) {
+            WorkerStatus.RESTING_IN_PLACE -> if (entity.position() != before) worker.restSpot = entity.position()
+            WorkerStatus.SLEEPING -> if (bedLost) restInPlace(t, slot)
+            else -> {}
+        }
+    }
+
+    /** CD-ASG-28, CD-BED-11: the worker of [slot] lets its bed go and rests in place where it stands. */
+    private fun restInPlace(t: Tick, slot: WorkerSlot) {
+        val worker = slot.worker
+        if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
+        t.machine.onRestTick(worker, t.now, atBed = false, bedPresent = false)
+        worker.restSpot = slot.entity.position()
+    }
+
+    /** Runs [block], and logs a throw from another mod's block once, as a worker that stays in its tree (CD-ASG-25). */
+    private inline fun safely(block: () -> Unit) {
         try {
-            free(slot.entity, slot.worker.spot, site.area(t.settings)) { LandClaims.ownerMayUse(owner, t.level, it) }
+            block()
         } catch (e: Exception) {
             unfreed.warn(e.javaClass.name) { "A worker stays in a tree, because a block's check fails: $e" }
         } catch (e: LinkageError) {
@@ -993,6 +1048,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val bed = blockEntity as? BedBlockEntity ?: return@mapNotNull null
             // CD-LND-04: a bed that the placer may not use is no candidate.
             if (!LandClaims.ownerMayUse(runtime.placer, t.level, pos)) return@mapNotNull null
+            // CD-ASG-28: a bed whose sleep point lies in a tree is no candidate.
+            if (sleepsInTree(slot.entity, BedCandidate.sleepPoint(pos))) return@mapNotNull null
             BedCandidate(TargetKey.block(t.dimension, pos), BedCandidate.sleepPoint(pos), bed.tier.tier)
         }.toList()
         return BedSelector.pick(slot.entity.position(), beds) { claims.isFree(it, slot.worker.pokemonId) }
@@ -1009,7 +1066,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val present = held && isBed(t.level, bed.key)
         val atBed = present && BedSelector.isAt(entity.position(), entity.bbWidth.toDouble(), bed.center)
         when (t.machine.onRestTick(worker, t.now, atBed, present)) {
-            MachineEvent.FellAsleep -> lieDown(entity, bed.center)
+            // CD-ASG-28: a bed whose sleep point a tree filled since the claim gives no rest.
+            MachineEvent.FellAsleep -> if (sleepsInTree(entity, bed.center)) restInPlace(t, slot) else lieDown(entity, bed.center)
 
             MachineEvent.LostBed -> {
                 if (held) claims.release(worker.pokemonId)
@@ -1531,10 +1589,37 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             }
         }
 
-        /** A block of a grown tree, which [free]'s fill may pass: a log, a leaf or a mangrove root. */
-        private fun isTreeBlock(state: BlockState): Boolean =
-            state.`is`(BlockTags.LOGS) || state.`is`(BlockTags.LEAVES) || state.`is`(Blocks.MANGROVE_ROOTS) ||
-                state.`is`(Blocks.MUDDY_MANGROVE_ROOTS)
+        /** A leaf that a tree grew, which [free]'s fill may pass. A leaf with no `persistent` property counts as placed. */
+        private fun isNaturalLeaf(state: BlockState): Boolean =
+            state.`is`(BlockTags.LEAVES) && !state.getOptionalValue(LeavesBlock.PERSISTENT).orElse(true)
+
+        private fun isRoot(state: BlockState): Boolean = state.`is`(Blocks.MANGROVE_ROOTS) || state.`is`(Blocks.MUDDY_MANGROVE_ROOTS)
+
+        /** A log or a mangrove root, which may be a cell of a tree's trunk. */
+        private fun isTrunkBlock(state: BlockState): Boolean = state.`is`(BlockTags.LOGS) || isRoot(state)
+
+        /** Whether a block in [box] that [test] accepts has a collision shape that meets [box]. */
+        private fun overlaps(entity: PokemonEntity, box: AABB, test: (BlockPos, BlockState) -> Boolean): Boolean {
+            val level = entity.level()
+            val min = BlockPos.containing(box.minX, box.minY, box.minZ)
+            val max = BlockPos.containing(box.maxX, box.maxY, box.maxZ)
+            for (pos in BlockPos.betweenClosed(min, max)) {
+                if (!level.isLoaded(pos)) continue
+                val state = level.getBlockState(pos)
+                if (!test(pos, state)) continue
+                if (state.getCollisionShape(level, pos).toAabbs().any { it.move(pos).intersects(box) }) return true
+            }
+            return false
+        }
+
+        /**
+         * CD-ASG-28: whether the body of [entity] on [point], a bed's sleep point, overlaps a log, a leaf or a mangrove root. Any other block
+         * keeps the bed, so a Cobblemon of any size still sleeps on it (CD-BED-09).
+         */
+        private fun sleepsInTree(entity: PokemonEntity, point: Vec3): Boolean {
+            val box = entity.boundingBox.move(point.x - entity.x, point.y - entity.y, point.z - entity.z).deflate(TOUCH)
+            return overlaps(entity, box) { _, state -> isTrunkBlock(state) || state.`is`(BlockTags.LEAVES) }
+        }
 
         /** A sapling or a log, so that the net of CD-ASG-25 runs for the change of a tree target and not for a crop's age. */
         private fun isTree(state: BlockState): Boolean = state.`is`(BlockTags.SAPLINGS) || state.`is`(BlockTags.LOGS)
@@ -1542,13 +1627,24 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         /**
          * CD-ASG-25: a worker whose body overlaps a block goes to the nearest cell of [Unstick.reachableCells] with a sturdy floor, no
          * fluid, a walkable path type, room for its body out of every sapling's column, inside [area], and on land that [mayUse]
-         * allows. It stays when no cell passes.
+         * allows. It stays when no cell passes. The fill passes natural leaves and the changed tree's [trunk] only ([TreeWay]).
          */
-        private fun free(entity: PokemonEntity, spot: BlockPos?, area: WorkArea, mayUse: (BlockPos) -> Boolean) {
+        private fun free(
+            entity: PokemonEntity,
+            spot: BlockPos?,
+            area: WorkArea,
+            trunk: Lazy<Set<BlockPos>>,
+            mayUse: (BlockPos) -> Boolean,
+        ) {
             val level = entity.level()
             if (level.noBlockCollision(entity, entity.boundingBox.deflate(TOUCH))) return
             val passable = { pos: BlockPos ->
-                level.isLoaded(pos) && level.getBlockState(pos).let { it.getCollisionShape(level, pos).isEmpty || isTreeBlock(it) }
+                level.isLoaded(pos) &&
+                    level.getBlockState(pos).let {
+                        TreeWay.passes(it.getCollisionShape(level, pos).isEmpty, isNaturalLeaf(it)) {
+                            isTrunkBlock(it) && pos in trunk.value
+                        }
+                    }
             }
             val width = entity.bbWidth.toDouble()
             val height = entity.bbHeight.toDouble()
@@ -1617,7 +1713,10 @@ internal fun isSingle(role: ActiveRole): Boolean = role.handler.bindingShape == 
  * CD-LSH-33: the switch roles of [own] on [target] among the enabled roles of [roleSet] for [types], [own] first. A handler that throws
  * counts as no match. A worker with no binding ([bound] false) gets auto-assign roles only (CD-ASG-22). A switch role's handler must
  * not refuse a bind on the cell and must hold it valid (CD-LSH-31). [cache] keeps the answer until the block at [target], the role set,
- * [own] or [types] change, because the Lumberjack's checks can search a whole tree.
+ * [own] or [types] change, or for `SwitchCache.LIFETIME_TICKS` from [now], because the Lumberjack's checks can search a whole tree.
+ *
+ * CD-LSH-35: null, unknown and never cached, while a cell next to [target] or a cell of a switch role's tree search is in a chunk that
+ * is not loaded.
  */
 internal fun switchRolesOn(
     level: ServerLevel,
@@ -1627,28 +1726,33 @@ internal fun switchRolesOn(
     types: Collection<String>,
     bound: Boolean,
     cache: SwitchCache<List<ActiveRole>>? = null,
-): List<ActiveRole> {
+    now: Long = 0,
+): List<ActiveRole>? {
     val state = level.getBlockState(target)
-    val compute = {
+    val compute: () -> List<ActiveRole>? = compute@{
+        if (!neighboursLoaded(level, target)) return@compute null
         val enabled = roleSet.forTypes(types)
         val byId = enabled.associateBy { it.definition.id } + (own.definition.id to own)
         val blockEntity by lazy { level.getBlockEntity(target) }
         val handlerOf = { def: RoleDefinition -> byId.getValue(def.id).handler }
-        val roles = RoleSwitch.rolesOf(
+        val roles = RoleSwitch.rolesOrUnknown(
             own.definition,
             enabled.map { it.definition },
             bound,
             single = { def -> isSingle(byId.getValue(def.id)) },
             matches = { def -> handlerOf(def).let { h -> guarded(h, false) { h.matches(level, target, state, blockEntity) } } },
             resolvesToItself = { def -> handlerOf(def).let { h -> guarded(h, false) { h.resolvesToItself(level, target) } } },
-            accepts = { def ->
-                handlerOf(def).let { h -> guarded(h, false) { h.bindRefusal(level, target, def) == null && h.stillValid(level, target) } }
-            },
+            accepts = { def -> handlerOf(def).let { h -> guarded<Boolean?>(h, false) { h.switchAnswer(level, target, def) } } },
         )
-        roles.map { byId.getValue(it.id) }
+        roles?.map { byId.getValue(it.id) }
     }
-    return cache?.get(listOf(target, own.definition.id, bound, state, roleSet, types.toList()), compute) ?: compute()
+    if (cache == null) return compute()
+    return cache.get(listOf(target, own.definition.id, bound, state, roleSet, types.toList()), now, compute)
 }
+
+/** CD-LSH-35: the cells of [pos]'s column and of the 8 columns around it are loaded, which the switch checks of a cell read. */
+internal fun neighboursLoaded(level: ServerLevel, pos: BlockPos): Boolean =
+    (-1..1).all { dx -> (-1..1).all { dz -> level.isLoaded(pos.offset(dx, 0, dz)) } }
 
 /**
  * A handler that throws is turned off with one warning (CD-PERF-05). A `LinkageError` counts too, as when a later version of an

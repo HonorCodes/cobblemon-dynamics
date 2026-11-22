@@ -326,4 +326,15 @@ class FarmingTagFilesTest {
         assertEquals(resolve("cobblemon:apricorns"), resolve("cobblemon_dynamics:picker_targets"))
         assertEquals(7, resolve("cobblemon_dynamics:picker_targets").size, "the Cobblemon jar changed its apricorns")
     }
+
+    /**
+     * CD-CRP-24, CD-CUL-11: no area works a block that grows a tree, vanilla's saplings, the saplings of Dynamic Trees or its rooty soil,
+     * whose bone meal grows the tree on it (hardening audit, finding 3).
+     */
+    @Test
+    fun `CD-CRP-24 the areas leave out saplings and the rooty soil and saplings of Dynamic Trees`() {
+        val ids = FarmingTags.AREA_LEFT_OUT.map { it.location().toString() }.toSet()
+        assertEquals(setOf("minecraft:saplings", "dynamictrees:saplings", "dynamictrees:rooty_soil"), ids)
+        assertEquals("dynamictrees:rooty_soil", FarmingTags.ROOTY_SOIL.location().toString())
+    }
 }

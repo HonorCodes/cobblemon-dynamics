@@ -66,18 +66,60 @@ object RoleSwitch {
      */
     fun bindingHolds(ownHolds: Boolean, switchRoles: () -> List<RoleDefinition>): Boolean = ownHolds || switchRoles().size > 1
 
+    /**
+     * CD-LSH-35: [rolesOf] where [accepts] may not know, as for a tree search that meets a chunk that is not loaded (null). Any unknown
+     * answer makes the list unknown (null), so no partial list decides a switch or a binding.
+     */
+    fun rolesOrUnknown(
+        own: RoleDefinition,
+        enabled: List<RoleDefinition>,
+        bound: Boolean,
+        single: (RoleDefinition) -> Boolean,
+        matches: (RoleDefinition) -> Boolean,
+        resolvesToItself: (RoleDefinition) -> Boolean,
+        accepts: (RoleDefinition) -> Boolean?,
+    ): List<RoleDefinition>? {
+        var unknown = false
+        val known = { role: RoleDefinition -> accepts(role) ?: false.also { unknown = true } }
+        val roles = rolesOf(own, enabled, bound, single, matches, resolvesToItself, known)
+        return roles.takeUnless { unknown }
+    }
+
+    /**
+     * CD-LSH-31, CD-LSH-35: [bindingHolds] where the switch roles may be unknown (null). The answer is then unknown too, and the caller
+     * keeps the binding and asks again later.
+     */
+    fun holdsOrUnknown(ownHolds: Boolean, switchRoles: () -> List<RoleDefinition>?): Boolean? =
+        if (ownHolds) true else switchRoles()?.let { it.size > 1 }
+
     /** CD-ASG-04: a Fairy-type with no binding heals, so a switch never gives it a machine. A bound worker switches. */
     fun maySwitch(bound: Boolean, hasFairyType: Boolean): Boolean = bound || !hasFairyType
 }
 
 /**
- * One cached answer of the switch checks, which can search a whole tree: [get] computes again only when its key changes. The key holds
- * the block state at the target, so the answer lasts until the block at the target changes.
+ * One cached answer of the switch checks, which can search a whole tree: [get] computes again when its key changes or the answer is
+ * [lifetime] ticks old. The key holds the block state at the target, and the lifetime bounds an answer that a change next to the target
+ * made stale, at one computation for each [lifetime] ticks. An unknown answer (null) lasts [unknownLifetime] ticks.
  */
-class SwitchCache<T : Any> {
-    private var held: Pair<Any, T>? = null
+class SwitchCache<T : Any>(private val lifetime: Long = LIFETIME_TICKS, private val unknownLifetime: Long = UNKNOWN_TICKS) {
+    private var held: Pair<Any, T?>? = null
+    private var until = Long.MIN_VALUE
 
-    fun get(key: Any, compute: () -> T): T = held?.takeIf { it.first == key }?.second ?: compute().also { held = key to it }
+    fun get(key: Any, now: Long, compute: () -> T?): T? {
+        held?.takeIf { it.first == key && now < until }?.let { return it.second }
+        val answer = compute()
+        held = key to answer
+        until = now + if (answer == null) unknownLifetime else lifetime
+        return answer
+    }
+
+    companion object {
+        /** CD-LSH-33: how long an answer lasts, in ticks. */
+        const val LIFETIME_TICKS = 200L
+
+        /** CD-LSH-35: how long an unknown answer lasts, in ticks, so a search that meets an unloaded chunk does not repeat every poll. */
+        const val UNKNOWN_TICKS = 100L
+    }
 }
 
 /**

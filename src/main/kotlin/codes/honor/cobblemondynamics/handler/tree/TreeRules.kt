@@ -65,6 +65,22 @@ object TreeRules {
         PlotRule.keeps(cellInRoleTag = cell.logTarget || cell.sapling, cellEmpty = cell.air || cell.fluid, belowIsAir = below.air)
 
     /**
+     * CD-LSH-37: [pos] holds a log of the target tag whose trunk base is another cell of its 2 × 2: a cell beside it at its height that
+     * comes first in [TreeSearch.LOWEST] holds the same log. Four reads, so the binding check costs no search.
+     */
+    fun besideBase(cells: (BlockPos) -> CellFacts, pos: BlockPos): Boolean {
+        val cell = cells(pos)
+        if (!cell.logTarget) return false
+        return listOf(pos.offset(-1, 0, -1), pos.west(), pos.offset(-1, 0, 1), pos.north()).any { other ->
+            cells(other).let { it.logTarget && it.blockId == cell.blockId }
+        }
+    }
+
+    /** CD-LSH-37: [other] is another cell of a 2 × 2 that holds [pos], at its height. */
+    fun inSquareOf(pos: BlockPos, other: BlockPos): Boolean =
+        other != pos && other.y == pos.y && kotlin.math.abs(other.x - pos.x) <= 1 && kotlin.math.abs(other.z - pos.z) <= 1
+
+    /**
      * CD-LUM-20: a bind on [base] names a sapling of the never-sapling tag, whose grown tree the never tag skips, or a log of no tree
      * that the search finds.
      */

@@ -111,6 +111,13 @@ interface TargetHandler {
      */
     fun bindRefusal(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): String? = null
 
+    /**
+     * CD-LSH-31, CD-LSH-35: whether a switch to [role] may take [canonical]: true when the handler would not refuse a bind there and
+     * holds the cell valid, false when it would, and null while the answer reads a cell of a chunk that is not loaded.
+     */
+    fun switchAnswer(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): Boolean? =
+        bindRefusal(level, canonical, role) == null && stillValid(level, canonical)
+
     /** A work claim on the context's target starts for its worker, or the claim follows the Pokémon to a new entity. */
     fun onClaim(ctx: WorkContext) {}
 
