@@ -87,8 +87,17 @@ object Unstick {
     fun footCells(minX: Double, minZ: Double, maxX: Double, maxZ: Double, y: Int): List<BlockPos> =
         (Mth.floor(minX)..Mth.floor(maxX)).flatMap { x -> (Mth.floor(minZ)..Mth.floor(maxZ)).map { z -> BlockPos(x, y, z) } }
 
-    /** CD-ASG-27: the center of a stepped body lies in a cell like the free cells of CD-ASG-25: open air or a walkable cell. */
-    fun isOpenFoot(type: PathType): Boolean = type == PathType.WALKABLE || type == PathType.OPEN
+    /**
+     * CD-ASG-25, CD-ASG-27: a free cell, and the center of a stepped body, lies in open air or a walkable cell. Walkable land beside
+     * water (`WATER_BORDER`), such as a farm's rows by their water channels, counts as walkable.
+     */
+    fun isOpenFoot(type: PathType): Boolean = type == PathType.WALKABLE || type == PathType.OPEN || type == PathType.WATER_BORDER
+
+    /**
+     * CD-ASG-27: a cell under a stepped body holds no fluid ([hasFluid]), unless the fluid lies inside a block with collision
+     * ([hasCollision]), such as a waterlogged pasture block, which the body's collision check keeps the body out of.
+     */
+    fun isDryFoot(hasFluid: Boolean, hasCollision: Boolean): Boolean = !hasFluid || hasCollision
 
     /**
      * CD-ASG-27: a cell under a stepped body at its feet holds no hazard: no fire, berry bush, cactus, wither rose or other block that

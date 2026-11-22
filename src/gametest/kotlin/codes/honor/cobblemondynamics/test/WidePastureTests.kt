@@ -26,9 +26,13 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 @GameTestHolder(MOD_ID)
 @PrefixGameTestTemplate(false)
 class WidePastureTests {
-    /** The Torterra walks west, its body's south row along the pasture block's row. */
+    /**
+     * The Torterra walks west, its body's south row along the pasture block's row. The pasture keeps Cobblemon's default state, which
+     * is waterlogged, so the cells around it read as land beside water, as a farm's rows by their water channels do.
+     */
     @GameTest(template = "floor_23x10x23", timeoutTicks = 1_000)
-    fun cdAsg27TorterraFromTheEastPassesThePasture(helper: GameTestHelper) = run(helper, Vec3(15.5, 2.0, 10.5), BlockPos(6, 2, 10))
+    fun cdAsg27TorterraFromTheEastPassesAWaterloggedPasture(helper: GameTestHelper) =
+        run(helper, Vec3(15.5, 2.0, 10.5), BlockPos(6, 2, 10), waterlogged = true)
 
     /** The Torterra walks north, its body's east row along the pasture block's row. */
     @GameTest(template = "floor_23x10x23", timeoutTicks = 1_000)
@@ -46,10 +50,10 @@ class WidePastureTests {
      * The Torterra stands on [startRel] with its wander paused until its claim on the sapling at [saplingRel]. Work Mode comes on only
      * then, so that its claim and its path start there. It must Work before its travel timeout releases the claim.
      */
-    private fun run(helper: GameTestHelper, startRel: Vec3, saplingRel: BlockPos) {
+    private fun run(helper: GameTestHelper, startRel: Vec3, saplingRel: BlockPos, waterlogged: Boolean = false) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, PASTURE, owner)
-        dry(helper, pasture.blockPos)
+        if (!waterlogged) dry(helper, pasture.blockPos)
         helper.setBlock(saplingRel.below(), Blocks.DIRT)
         helper.setBlock(saplingRel, Blocks.OAK_SAPLING)
         val pokemon = TestKit.pokemon("torterra level=50")

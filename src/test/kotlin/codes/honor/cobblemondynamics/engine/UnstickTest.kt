@@ -182,12 +182,19 @@ class UnstickTest {
     }
 
     @Test
-    fun `CD-ASG-27 a stepped body's center lies only in open air or a walkable cell`() {
-        assertTrue(Unstick.isOpenFoot(PathType.WALKABLE))
-        assertTrue(Unstick.isOpenFoot(PathType.OPEN))
-        for (type in PathType.entries.filter { it != PathType.WALKABLE && it != PathType.OPEN }) {
-            assertFalse(Unstick.isOpenFoot(type), "a center lies in $type")
-        }
+    fun `CD-ASG-25 CD-ASG-27 a free cell or a stepped body's center lies only in open air, a walkable cell or land beside water`() {
+        val open = setOf(PathType.WALKABLE, PathType.OPEN, PathType.WATER_BORDER)
+        for (type in open) assertTrue(Unstick.isOpenFoot(type), "$type")
+        for (type in PathType.entries - open) assertFalse(Unstick.isOpenFoot(type), "a center lies in $type")
+    }
+
+    /** A farm's row beside its water channel reads WATER_BORDER, and the water itself is a fluid with no collision. */
+    @Test
+    fun `CD-ASG-27 a step may land on the land beside water but never in open water`() {
+        assertTrue(Unstick.isOpenFoot(PathType.WATER_BORDER))
+        assertTrue(Unstick.isDryFoot(hasFluid = false, hasCollision = false))
+        assertFalse(Unstick.isDryFoot(hasFluid = true, hasCollision = false))
+        assertTrue(Unstick.isDryFoot(hasFluid = true, hasCollision = true), "the water inside a waterlogged pasture block")
     }
 
     @Test

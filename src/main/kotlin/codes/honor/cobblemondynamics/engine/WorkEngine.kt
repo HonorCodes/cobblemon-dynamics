@@ -1467,7 +1467,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
          * center stays inside the space that its body held. It travels to its path's next point, or with no path to where navigation
          * stops it at [spot] ([Arrival.stopOffset]). Of the faces that lead there ([Unstick.leadingFaces]), the one that leads most
          * directly comes first. The new place needs room for the body and no block ahead of that face, its center inside [area] in a
-         * walkable or open cell over a sturdy floor, as [free] asks of its cell, and no fluid or hazard under each part of the body at its
+         * walkable or open cell, or one beside water, over a sturdy floor, as [free] asks of its cell, and no open fluid or hazard under each part of the body at its
          * feet. A worker that rides or carries another entity stays, and so does one for which no shift passes. The engine runs
          * this on a stall of a worker that pushes against a block, at most once in 20 ticks for each worker.
          */
@@ -1508,7 +1508,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
         /**
          * A body moved by [move] fits and has no block in [ahead]. Its center lies inside [area] in a walkable or open cell over a
-         * sturdy floor ([Unstick.isOpenFoot]), and each cell under the body at its feet holds no fluid and no hazard ([Unstick.isSafeFoot]).
+         * sturdy floor ([Unstick.isOpenFoot]), and each cell under the body at its feet holds no open fluid ([Unstick.isDryFoot]) and no
+         * hazard ([Unstick.isSafeFoot]).
          */
         private fun canSidestep(entity: PokemonEntity, ahead: AABB, move: Vec3, area: WorkArea): Boolean {
             val level = entity.level()
@@ -1522,7 +1523,11 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val moved = entity.boundingBox.move(move)
             if (!Unstick.isOpenFoot(WalkNodeEvaluator.getPathTypeStatic(entity, center))) return false
             return Unstick.footCells(moved.minX + TOUCH, moved.minZ + TOUCH, moved.maxX - TOUCH, moved.maxZ - TOUCH, center.y).all { cell ->
-                level.getFluidState(cell).isEmpty && Unstick.isSafeFoot(WalkNodeEvaluator.getPathTypeStatic(entity, cell))
+                val dry = Unstick.isDryFoot(
+                    !level.getFluidState(cell).isEmpty,
+                    !level.getBlockState(cell).getCollisionShape(level, cell).isEmpty,
+                )
+                dry && Unstick.isSafeFoot(WalkNodeEvaluator.getPathTypeStatic(entity, cell))
             }
         }
 
@@ -1555,7 +1560,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) continue
                 if (!level.getFluidState(cell).isEmpty) continue
                 val type = WalkNodeEvaluator.getPathTypeStatic(entity, cell)
-                if (type != PathType.WALKABLE && type != PathType.OPEN) continue
+                if (!Unstick.isOpenFoot(type)) continue
                 val x = cell.x + 0.5
                 val z = cell.z + 0.5
                 if (!fits(entity, x, cell.y.toDouble(), z) || !GrowthColumns.clearOfSaplings(cell, width, height, isSapling)) continue
