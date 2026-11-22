@@ -93,6 +93,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /** One warning for each species whose Brain cannot hold a work order. */
     private val unbridged = OnceLogger()
     private val unfreed = OnceLogger()
+    private val unstepped = OnceLogger()
 
     /** CD-ASG-26: the places where a tree grew since the last tick of their level, at most [MAX_GROWTHS]. */
     private val growths = ArrayList<Pair<ServerLevel, BlockPos>>()
@@ -165,8 +166,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             }
         }
         for (order in quick) tickOrder(t, order)
-        for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) direct(t, slot)
-        for (order in quick) if (orders[order.slot.worker.pokemonId] === order) direct(t, order.slot)
+        for (runtime in runtimesOf(dimension)) for (slot in runtime.slots.values.toList()) direct(t, runtime, slot)
+        for (order in quick) if (orders[order.slot.worker.pokemonId] === order) direct(t, order, order.slot)
     }
 
     /** CD-ASG-26: a tree grows at [pos]. The next tick of [level] frees the workers that it filled. A full queue drops the place. */
@@ -913,6 +914,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
+    /** CD-ASG-27: a block whose check throws leaves the worker where it stands, with one warning for each cause. */
+    private fun sidestepSafely(entity: PokemonEntity, spot: BlockPos, area: WorkArea) {
+        try {
+            sidestep(entity, spot, area)
+        } catch (e: Exception) {
+            unstepped.warn(e.javaClass.name) { "A wide worker stays stuck, because a block's check fails: $e" }
+        } catch (e: LinkageError) {
+            unstepped.warn(e.javaClass.name) { "A wide worker stays stuck, because a block's check fails: $e" }
+        }
+    }
+
     /** CD-ASG-25: [free] for one worker of [site], within its work area and the land that its owner may use. */
     private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot) {
         val owner = when (site) {
@@ -1077,7 +1089,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * Step 6: the work order goes into the Brain on every tick, because Cobblemon rebuilds Brains (CD-AI-04). A Working worker
      * has its focus entity and its effect loop, and any other worker has no focus entity, from this tick on (CD-FX-07).
      */
-    private fun direct(t: Tick, slot: WorkerSlot) {
+    private fun direct(t: Tick, site: WorkSite, slot: WorkerSlot) {
         val worker = slot.worker
         if (worker.status.isResting) {
             removeFocus(slot)
@@ -1102,7 +1114,18 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (worker.status == WorkerStatus.TRAVELING) {
             // The watch takes every Traveling tick, because the navigation reports no stuck worker in flight or in water.
             val stalled = slot.stall.stalled(t.now, entity.x, entity.y, entity.z)
-            if (stalled || entity.navigation.isStuck) unstick(entity)
+            // CD-ASG-27: a worker 1 block wide or wider that pushes against a block on each of 20 ticks steps without the full stall.
+            val wide = entity.bbWidth >= 1f
+            val pushing = entity.horizontalCollision
+            val pressed = wide && slot.press.stalled(t.now, entity.x, entity.y, entity.z, pushing)
+            if (stalled || pressed || entity.navigation.isStuck) {
+                if (!wide) {
+                    unstick(entity)
+                } else if (pushing && Unstick.sidestepDue(t.now, slot.lastSidestepTick)) {
+                    slot.lastSidestepTick = t.now
+                    sidestepSafely(entity, spot, site.area(t.settings))
+                }
+            }
         }
         BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), center, hold = isArrived(entity, spot)))
         if (!BrainBridge.holdsOrder(entity)) {
@@ -1383,6 +1406,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         /** A body that only touches a block is not inside it. */
         private const val TOUCH = 1e-3
 
+        /** CD-ASG-27: how far ahead of a face of a stuck worker's body a block counts as pressed against it. */
+        private const val PROBE = 0.05
+
         /** CD-LND-12: the most checks of the claim mods that the net of CD-ASG-25 asks for one worker. */
         private const val MAX_CLAIM_ASKS = 4
 
@@ -1419,7 +1445,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
         /**
          * A stuck traveler narrower than a block goes to the middle of its cell when its body fits there, or else to that middle on top
-         * of the block in the cell, such as the pasture block's top half, when its body fits there ([Unstick]).
+         * of the block in the cell, such as the pasture block's top half, when its body fits there ([Unstick]). A wider one steps
+         * sideways instead ([sidestep]).
          */
         private fun unstick(entity: PokemonEntity) {
             val (x, z) = Unstick.middle(entity.x, entity.z, entity.bbWidth.toDouble()) ?: return
@@ -1432,6 +1459,76 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val top = level.getBlockState(cell).getCollisionShape(level, cell).max(Direction.Axis.Y)
             val y = Unstick.onTop(entity.y, cell.y, top) ?: return
             if (fits(entity, x, y, z)) entity.teleportTo(x, y, z)
+        }
+
+        /**
+         * CD-ASG-27: a stuck traveler 1 block wide or wider that presses a face of its body against blocks higher than its step, on the
+         * side that it travels to, moves sideways by the shortest of [Unstick.sideShifts] that clears them, at most half its width, so its
+         * center stays inside the space that its body held. It travels to its path's next point, or with no path to where navigation
+         * stops it at [spot] ([Arrival.stopOffset]). Of the faces that lead there ([Unstick.leadingFaces]), the one that leads most
+         * directly comes first. The new place needs room for the body and no block ahead of that face, its center inside [area] in a
+         * walkable or open cell, or one beside water, over a sturdy floor, as [free] asks of its cell, and no open fluid or hazard under each part of the body at its
+         * feet. A worker that rides or carries another entity stays, and so does one for which no shift passes. The engine runs
+         * this on a stall of a worker that pushes against a block, at most once in 20 ticks for each worker.
+         */
+        private fun sidestep(entity: PokemonEntity, spot: BlockPos, area: WorkArea) {
+            if (entity.isPassenger || entity.isVehicle) return
+            val level = entity.level()
+            val box = entity.boundingBox
+            val low = box.minY + entity.maxUpStep() + TOUCH
+            if (low >= box.maxY - TOUCH) return
+            val stop = Arrival.stopOffset(entity.bbWidth.toDouble())
+            val toward =
+                entity.navigation.path?.takeUnless { it.isDone }?.getNextEntityPos(entity) ?: Vec3(spot.x + stop, 0.0, spot.z + stop)
+            val dx = toward.x - entity.x
+            val dz = toward.z - entity.z
+            val body = AABB(box.minX + TOUCH, low, box.minZ + TOUCH, box.maxX - TOUCH, box.maxY - TOUCH, box.maxZ - TOUCH)
+            for (face in Unstick.leadingFaces(dx, dz)) {
+                val ahead = body.move(face.stepX * PROBE, 0.0, face.stepZ * PROBE)
+                val blocks = level.getBlockCollisions(entity, ahead).flatMap { it.toAabbs() }.filter { it.intersects(ahead) }
+                if (blocks.isEmpty()) continue
+                val side = face.clockWise.axis
+                val shifts = Unstick.sideShifts(
+                    box.min(side),
+                    box.max(side),
+                    blocks.minOf { it.min(side) },
+                    blocks.maxOf { it.max(side) },
+                    entity.bbWidth / 2.0,
+                )
+                for (shift in shifts) {
+                    val move = if (side == Direction.Axis.X) Vec3(shift, 0.0, 0.0) else Vec3(0.0, 0.0, shift)
+                    if (canSidestep(entity, ahead.move(move), move, area)) {
+                        entity.teleportTo(entity.x + move.x, entity.y, entity.z + move.z)
+                        entity.deltaMovement = Vec3.ZERO
+                        return
+                    }
+                }
+            }
+        }
+
+        /**
+         * A body moved by [move] fits and has no block in [ahead]. Its center lies inside [area] in a walkable or open cell over a
+         * sturdy floor ([Unstick.isOpenFoot]), and each cell under the body at its feet holds no open fluid ([Unstick.isDryFoot]) and no
+         * hazard ([Unstick.isSafeFoot]).
+         */
+        private fun canSidestep(entity: PokemonEntity, ahead: AABB, move: Vec3, area: WorkArea): Boolean {
+            val level = entity.level()
+            val x = entity.x + move.x
+            val z = entity.z + move.z
+            val center = BlockPos.containing(x, entity.y, z)
+            if (!area.contains(center)) return false
+            if (!fits(entity, x, entity.y, z) || !level.noBlockCollision(entity, ahead)) return false
+            val below = center.below()
+            if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) return false
+            val moved = entity.boundingBox.move(move)
+            if (!Unstick.isOpenFoot(WalkNodeEvaluator.getPathTypeStatic(entity, center))) return false
+            return Unstick.footCells(moved.minX + TOUCH, moved.minZ + TOUCH, moved.maxX - TOUCH, moved.maxZ - TOUCH, center.y).all { cell ->
+                val dry = Unstick.isDryFoot(
+                    !level.getFluidState(cell).isEmpty,
+                    !level.getBlockState(cell).getCollisionShape(level, cell).isEmpty,
+                )
+                dry && Unstick.isSafeFoot(WalkNodeEvaluator.getPathTypeStatic(entity, cell))
+            }
         }
 
         /** A block of a grown tree, which [free]'s fill may pass: a log, a leaf or a mangrove root. */
@@ -1463,7 +1560,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) continue
                 if (!level.getFluidState(cell).isEmpty) continue
                 val type = WalkNodeEvaluator.getPathTypeStatic(entity, cell)
-                if (type != PathType.WALKABLE && type != PathType.OPEN) continue
+                if (!Unstick.isOpenFoot(type)) continue
                 val x = cell.x + 0.5
                 val z = cell.z + 0.5
                 if (!fits(entity, x, cell.y.toDouble(), z) || !GrowthColumns.clearOfSaplings(cell, width, height, isSapling)) continue

@@ -28,6 +28,12 @@ class WorkerSlot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pok
     /** Whether the worker's travel has stalled, which Cobblemon's navigation does not report in flight. */
     val stall: TravelStall = TravelStall()
 
+    /** CD-ASG-27: the short watch of a worker 1 block wide or wider that pushes against a block. */
+    val press: TravelStall = TravelStall(TravelStall.PRESS_TICKS, TravelStall.PRESS_RADIUS)
+
+    /** CD-ASG-27: the tick of the worker's last sideways step check, so that a stall that lasts checks at most once in 20 ticks. */
+    var lastSidestepTick: Long = Long.MIN_VALUE
+
     /** How the worker recovers, from its types and its binding at each poll (CD-HEAL-13). */
     var rule: RecoveryRule = RecoveryRule.WORKER
 

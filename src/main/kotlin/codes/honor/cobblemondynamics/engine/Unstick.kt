@@ -1,8 +1,11 @@
 package codes.honor.cobblemondynamics.engine
 
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.util.Mth
+import net.minecraft.world.level.pathfinder.PathType
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * Where a stuck Traveling worker goes: one that Cobblemon's navigation reports stuck after 100 ticks with no progress, or one whose
@@ -17,6 +20,12 @@ import kotlin.math.abs
  *   at the screen's height pushes into the recess, where the frame's top bar stops it from rising and the screen from going on.
  * From the middle of the cell that holds its center, the first two end, and its next path starts in that cell. In the third, that middle
  * lies inside the screen, so the worker goes on top of the block in its cell, where its path goes on.
+ *
+ * A worker 1 block wide or wider has no cell that holds its body, so it steps sideways instead ([sideShifts], CD-ASG-27). Cobblemon's
+ * pathfinder checks at most 2 cells on x and z for a mob (`OmniPathNodeMaker.getPathTypeOfMob`), but navigation steers a mob 2 to 3
+ * blocks wide to `node + 1.5` (`Path.getEntityPosAtNode`), so its body reaches 0.625 into a third row of cells that no path checks. A
+ * path that runs beside the pasture block can then take the body straight into the block's face, where no sideways part of the move
+ * lets it slide past, and every new path from there is the same.
  */
 object Unstick {
     private const val EPSILON = 1e-6
@@ -39,6 +48,66 @@ object Unstick {
         val top = cellY + shapeTop
         return if (top > feetY + EPSILON) top else null
     }
+
+    /** CD-ASG-27: how far beyond the blocks a sideways step takes the body. */
+    const val SIDESTEP_GAP = 0.01
+
+    /**
+     * CD-ASG-27: the sideways shifts on one axis that take a body from [bodyMin] to [bodyMax] clear of blocks that span [blockMin] to
+     * [blockMax] on that axis, the shorter first, each at most [maxShift] long. None when the blocks do not overlap the body on that axis.
+     */
+    fun sideShifts(bodyMin: Double, bodyMax: Double, blockMin: Double, blockMax: Double, maxShift: Double): List<Double> {
+        if (blockMin >= bodyMax || blockMax <= bodyMin) return emptyList()
+        val down = blockMin - bodyMax - SIDESTEP_GAP
+        val up = blockMax - bodyMin + SIDESTEP_GAP
+        return listOf(down, up).filter { abs(it) <= maxShift }.sortedBy { abs(it) }
+    }
+
+    /** CD-ASG-27: a face leads toward the worker's goal when it leads at least this part of the way there. */
+    const val MIN_LEAD = 0.1
+
+    /** CD-ASG-27: the fewest ticks between two sideways step checks of one worker. */
+    const val SIDESTEP_TICKS = 20L
+
+    /**
+     * CD-ASG-27: the faces of a body that lead toward a goal [dx], [dz] away, most directly first. A face leads when its part of the
+     * way, `step · (dx, dz)`, is at least [MIN_LEAD] of the whole way.
+     */
+    fun leadingFaces(dx: Double, dz: Double): List<Direction> {
+        val way = hypot(dx, dz)
+        if (way == 0.0) return emptyList()
+        val lead = { face: Direction -> face.stepX * dx + face.stepZ * dz }
+        return Direction.Plane.HORIZONTAL.filter { lead(it) >= MIN_LEAD * way }.sortedByDescending(lead)
+    }
+
+    /** CD-ASG-27: whether a worker whose last check was at tick [last] may check again at tick [now]. */
+    fun sidestepDue(now: Long, last: Long): Boolean = last == Long.MIN_VALUE || now - last >= SIDESTEP_TICKS
+
+    /** CD-ASG-27: the cells at height [y] under a body from ([minX], [minZ]) to ([maxX], [maxZ]). */
+    fun footCells(minX: Double, minZ: Double, maxX: Double, maxZ: Double, y: Int): List<BlockPos> =
+        (Mth.floor(minX)..Mth.floor(maxX)).flatMap { x -> (Mth.floor(minZ)..Mth.floor(maxZ)).map { z -> BlockPos(x, y, z) } }
+
+    /**
+     * CD-ASG-25, CD-ASG-27: a free cell, and the center of a stepped body, lies in open air or a walkable cell. Walkable land beside
+     * water (`WATER_BORDER`), such as a farm's rows by their water channels, counts as walkable.
+     */
+    fun isOpenFoot(type: PathType): Boolean = type == PathType.WALKABLE || type == PathType.OPEN || type == PathType.WATER_BORDER
+
+    /**
+     * CD-ASG-27: a cell under a stepped body holds no fluid ([hasFluid]), unless the fluid lies inside a block with collision
+     * ([hasCollision]), such as a waterlogged pasture block, which the body's collision check keeps the body out of.
+     */
+    fun isDryFoot(hasFluid: Boolean, hasCollision: Boolean): Boolean = !hasFluid || hasCollision
+
+    /**
+     * CD-ASG-27: a cell under a stepped body at its feet holds no hazard: no fire, berry bush, cactus, wither rose or other block that
+     * hurts or threatens (`DAMAGE_*`, `DANGER_*`), and no honey, powder snow, lava or water. A cell beside water (`WATER_BORDER`) is
+     * safe, and so is a cell whose block fills only part of it, such as the pasture block's (`BLOCKED`), because the body's own
+     * collision check keeps the body out of that block.
+     */
+    fun isSafeFoot(type: PathType): Boolean = type !in UNSAFE_FEET && !type.name.startsWith("DAMAGE_") && !type.name.startsWith("DANGER_")
+
+    private val UNSAFE_FEET = setOf(PathType.STICKY_HONEY, PathType.POWDER_SNOW, PathType.LAVA, PathType.WATER)
 
     /** CD-ASG-25: how far, on x and z, a worker whose body a grown tree filled may move to a free cell. */
     const val FREE_RADIUS = 3
@@ -68,36 +137,44 @@ object Unstick {
 }
 
 /**
- * Whether a Traveling worker's travel has stalled: it stayed within a quarter block of one point for 100 ticks, the interval of
- * vanilla's own stuck check. That check compares the progress with a distance that scales with the mob's speed, and Cobblemon's move
- * control sets that speed to 0 in flight and in water (`PokemonMoveControl`), so the navigation never reports a stuck worker there.
+ * Whether a Traveling worker's travel has stalled: by default, it stayed within a quarter block of one point for 100 ticks, the
+ * interval of vanilla's own stuck check. That check compares the progress with a distance that scales with the mob's speed, and
+ * Cobblemon's move control sets that speed to 0 in flight and in water (`PokemonMoveControl`), so the navigation never reports a stuck
+ * worker there. The short watch of CD-ASG-27 takes [PRESS_TICKS] and [PRESS_RADIUS].
  */
-class TravelStall {
+class TravelStall(private val ticks: Long = TICKS, private val radius: Double = RADIUS) {
     private var x = 0.0
     private var y = 0.0
     private var z = 0.0
     private var since = 0L
     private var last = Long.MIN_VALUE
 
-    /** Takes each Traveling tick. True once per 100 ticks while the worker stays near one point. A tick without a call starts anew. */
-    fun stalled(now: Long, x: Double, y: Double, z: Double): Boolean {
+    /**
+     * Takes each Traveling tick. True once per [ticks] while the worker stays within [radius] of one point. A tick without a call
+     * starts anew, and so does a tick on which the worker does not push against a block, when the caller counts only [pushing] ticks.
+     */
+    fun stalled(now: Long, x: Double, y: Double, z: Double, pushing: Boolean = true): Boolean {
         val dx = x - this.x
         val dy = y - this.y
         val dz = z - this.z
-        if (now != last + 1 || dx * dx + dy * dy + dz * dz > RADIUS * RADIUS) {
+        if (!pushing || now != last + 1 || dx * dx + dy * dy + dz * dz > radius * radius) {
             this.x = x
             this.y = y
             this.z = z
             since = now
         }
         last = now
-        if (now - since < TICKS) return false
+        if (now - since < ticks) return false
         since = now
         return true
     }
 
-    private companion object {
-        const val TICKS = 100L
-        const val RADIUS = 0.25
+    companion object {
+        private const val TICKS = 100L
+        private const val RADIUS = 0.25
+
+        /** CD-ASG-27: a pushing worker 1 block wide or wider steps sideways after 20 ticks within 0.1 blocks of one point. */
+        const val PRESS_TICKS = 20L
+        const val PRESS_RADIUS = 0.1
     }
 }
