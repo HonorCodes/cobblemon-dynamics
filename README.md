@@ -13,8 +13,10 @@ and crops of many other mods, such as Immersive Engineering, Mekanism and Botany
 
 ## Status
 
-**Version 1.2.1 is the latest release.** Download it from the
-[GitHub releases](https://github.com/HonorCodes/cobblemon-dynamics/releases) or CurseForge. Version 1.2.1 adds the
+**Version 1.2.2 is the latest release.** Download it from the
+[GitHub releases](https://github.com/HonorCodes/cobblemon-dynamics/releases) or CurseForge. Version 1.2.2 fixes bugs of
+1.2.1: Work Leash bindings at chunk borders and in rows of saplings, wide workers stuck at the pasture block, and the
+rescue of workers from a tree that grew on them. Version 1.2.1 added the
 Picker, lets a dual-type Cobblemon do the roles of both its types, makes the Lumberjack and the Harvester always replant,
 and lets the Cultivator and the Harvester work 1 extra crop per 10 levels. Version 1.2 added four roles: the [Lumberjack](#lumberjack), the Soul Collector with its [Experience Collector](#experience-collector), the
 [Freezer](#freezer) and the Heater. The existing roles also work the machines and crops of many other mods, with no
