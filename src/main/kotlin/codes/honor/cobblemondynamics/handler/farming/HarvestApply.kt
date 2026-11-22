@@ -5,11 +5,9 @@ import com.cobblemon.mod.common.block.entity.BerryBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.tags.BlockTags
-import net.minecraft.tags.TagKey
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -138,14 +136,8 @@ object HarvestApply {
         val state = block.defaultBlockState()
         if (!state.`is`(FarmingTags.CULTIVATOR_TARGETS)) return false
         val hasAge = CropFactsReader.ageProperty(state) != null
-        return HarvestPlans.replantable(block is CropBlock, hasAge, state.`is`(BlockTags.SAPLINGS), state.`is`(ROOTY_SOIL))
+        return HarvestPlans.replantable(block is CropBlock, hasAge, state.`is`(BlockTags.SAPLINGS), state.`is`(FarmingTags.ROOTY_SOIL))
     }
-
-    /** Dynamic Trees' rooty soil, which grows no crop. */
-    private val ROOTY_SOIL: TagKey<Block> = TagKey.create(
-        Registries.BLOCK,
-        ResourceLocation.fromNamespaceAndPath("dynamictrees", "rooty_soil"),
-    )
 
     /** CD-HRV-22: whether [state] is a growth stage, below its largest `age`. */
     private fun isGrowthStage(state: BlockState): Boolean {

@@ -140,8 +140,8 @@ object CultivatorHandler : TargetHandler {
 
     /**
      * CD-CRP-24: the state of the crop at [cell] when the area's use may grow it in this tick, else null: it and the cell above it
-     * inside the work area, loaded, not stalled for this worker and not worked by another area of the lane in this tick, no sapling,
-     * which grows only as a target, and no block that failed in an area, a target of the role and its own canonical cell, with the
+     * inside the work area, loaded, not stalled for this worker and not worked by another area of the lane in this tick, no sapling and
+     * no rooty soil of Dynamic Trees ([FarmingTags.AREA_LEFT_OUT]), which grow trees only as a target, and no block that failed in an area, a target of the role and its own canonical cell, with the
      * demand of CD-CUL-03, free in the Cultivator's lane, and allowed by the land claim checks.
      */
     private fun areaCrop(ctx: WorkContext, cell: BlockPos): BlockState? {
@@ -149,7 +149,7 @@ object CultivatorHandler : TargetHandler {
         if (!CropArea.changedCells(cell, null).all(area::contains) || !ctx.level.isLoaded(cell)) return null
         if (ctx.isStalled(cell) || AreaGuard.isWorked(ctx.level, LANE, cell)) return null
         val state = ctx.level.getBlockState(cell)
-        if (state.`is`(BlockTags.SAPLINGS) || AreaGuard.isDenied(ctx.level, ROLE, state.block)) return null
+        if (FarmingTags.leftOutOfArea(state) || AreaGuard.isDenied(ctx.level, ROLE, state.block)) return null
         if (!matches(ctx.level, cell, state, null) || canonical(ctx.level, cell) != cell) return null
         if (!demandAt(ctx.level, cell, state) || !ctx.laneFree(cell) || !ctx.mayChange(cell)) return null
         return state

@@ -8,7 +8,6 @@ import com.cobblemon.mod.common.block.ApricornBlock
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.tags.BlockTags
 import net.minecraft.world.level.block.AttachedStemBlock
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -103,7 +102,7 @@ object HarvesterHandler : TargetHandler {
 
     /**
      * CD-CRP-24: the crop at [cell] when the area's harvest may take it in this tick, else null: loaded, not stalled for this worker
-     * and not worked by another area of the lane in this tick, no sapling and no block that failed in an area, a target of the role and
+     * and not worked by another area of the lane in this tick, no sapling or rooty soil ([FarmingTags.AREA_LEFT_OUT]) and no block that failed in an area, a target of the role and
      * its own canonical cell, fully grown for its adapter, each cell that the harvest changes inside the work area, and free in the
      * Harvester's lane. The harvest itself asks the land claim checks.
      */
@@ -112,7 +111,7 @@ object HarvesterHandler : TargetHandler {
         if (!area.contains(cell) || !ctx.level.isLoaded(cell)) return null
         if (ctx.isStalled(cell) || AreaGuard.isWorked(ctx.level, LANE, cell)) return null
         val state = ctx.level.getBlockState(cell)
-        if (state.`is`(BlockTags.SAPLINGS) || AreaGuard.isDenied(ctx.level, ROLE, state.block)) return null
+        if (FarmingTags.leftOutOfArea(state) || AreaGuard.isDenied(ctx.level, ROLE, state.block)) return null
         if (!matches(ctx.level, cell, state, null) || canonical(ctx.level, cell) != cell) return null
         val facts = CropFactsReader.read(ctx.level, cell, state)
         val kind = CropAdapters.harvestKind(facts) ?: return null
