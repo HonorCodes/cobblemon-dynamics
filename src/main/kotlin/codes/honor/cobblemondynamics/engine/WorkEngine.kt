@@ -62,6 +62,7 @@ import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.LeavesBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.pathfinder.PathType
@@ -175,9 +176,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (growths.size < MAX_GROWTHS) growths += level to pos.immutable()
     }
 
-    private fun drainGrowths(level: ServerLevel) {
+    /** CD-ASG-26: frees the workers near each growth of [level]. A throw from another mod's block skips the rest and logs once. */
+    private fun drainGrowths(level: ServerLevel) = safely {
         val here = growths.filter { it.first === level }
-        if (here.isEmpty()) return
+        if (here.isEmpty()) return@safely
         growths.removeAll { it.first === level }
         val t = tick(level)
         for ((_, pos) in here) freeAround(t, pos)
@@ -894,7 +896,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         // CD-ASG-25: a spot that a tree filled since the claim gets no snap. The worker leaves the tree, and a pasture worker claims again
         // with a new spot.
         if (misplaced) {
-            freeSlot(t, site, slot)
+            freeSlot(t, site, slot, target)
             if (site is PastureRuntime && claims.claimOf(worker.pokemonId) != null) release(t, slot)
         }
         if (!ok) release(t, slot, callHandler = false)
@@ -907,16 +909,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /**
      * CD-ASG-25, CD-ASG-26: a tree grew at [pos], or a fell or a replant changed it. Each worker of the engine in the level whose body
      * lies near it, within [GROWTH_REACH] on x and z and [GROWTH_HEIGHT] up, and overlaps a block, leaves the tree ([free]). A pasture
-     * worker whose spot the tree filled then claims again, with a new spot. A worker that rides or carries another entity stays.
+     * worker whose spot the tree filled then claims again, with a new spot. A worker that rides or carries another entity stays. A throw
+     * from another mod's block skips the rest and logs once, so the net never ends the server's tick.
      */
-    private fun freeAround(t: Tick, pos: BlockPos) {
+    private fun freeAround(t: Tick, pos: BlockPos) = safely {
         val near = AABB(pos).inflate(GROWTH_REACH, 0.0, GROWTH_REACH).expandTowards(0.0, GROWTH_HEIGHT, 0.0).expandTowards(0.0, -1.0, 0.0)
         for (site in sitesOf(t)) {
             for (slot in site.slots.values.toList()) {
                 val entity = slot.entity
                 if (entity.isRemoved || entity.level() !== t.level || !entity.boundingBox.intersects(near)) continue
                 if (entity.isPassenger || entity.isVehicle) continue
-                freeSlot(t, site, slot)
+                freeSlot(t, site, slot, pos)
                 val spot = slot.worker.spot
                 if (site is PastureRuntime && spot != null && claims.claimOf(slot.worker.pokemonId)?.kind == ClaimKind.WORK &&
                     !centerFits(entity, spot)
@@ -938,14 +941,38 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** CD-ASG-25: [free] for one worker of [site], within its work area and the land that its owner may use. */
-    private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot) {
+    /**
+     * CD-ASG-25: [free] for one worker of [site] from the tree at [tree], within its work area and the land that its owner may use.
+     * CD-ASG-27: a worker that rests in place rests where the net put it, and a sleeper whose body the tree reached lets its bed go and
+     * rests in place where the net put it, so no rest order puts it back into the tree.
+     */
+    private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot, tree: BlockPos) {
         val owner = when (site) {
             is PastureRuntime -> site.placer
             is QuickRuntime -> site.owner
         }
+        val entity = slot.entity
+        val worker = slot.worker
+        val before = entity.position()
+        val inBlock = worker.status == WorkerStatus.SLEEPING && !entity.level().noBlockCollision(entity, entity.boundingBox.deflate(TOUCH))
+        safely { free(entity, worker.spot, site.area(t.settings), tree) { LandClaims.ownerMayUse(owner, t.level, it) } }
+        when (worker.status) {
+            WorkerStatus.RESTING_IN_PLACE -> if (entity.position() != before) worker.restSpot = entity.position()
+
+            WorkerStatus.SLEEPING -> if (inBlock) {
+                if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
+                t.machine.onRestTick(worker, t.now, atBed = false, bedPresent = false)
+                worker.restSpot = entity.position()
+            }
+
+            else -> {}
+        }
+    }
+
+    /** Runs [block], and logs a throw from another mod's block once, as a worker that stays in its tree (CD-ASG-25). */
+    private inline fun safely(block: () -> Unit) {
         try {
-            free(slot.entity, slot.worker.spot, site.area(t.settings)) { LandClaims.ownerMayUse(owner, t.level, it) }
+            block()
         } catch (e: Exception) {
             unfreed.warn(e.javaClass.name) { "A worker stays in a tree, because a block's check fails: $e" }
         } catch (e: LinkageError) {
@@ -1544,10 +1571,18 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             }
         }
 
-        /** A block of a grown tree, which [free]'s fill may pass: a log, a leaf or a mangrove root. */
-        private fun isTreeBlock(state: BlockState): Boolean =
-            state.`is`(BlockTags.LOGS) || state.`is`(BlockTags.LEAVES) || state.`is`(Blocks.MANGROVE_ROOTS) ||
-                state.`is`(Blocks.MUDDY_MANGROVE_ROOTS)
+        /** A leaf that a tree grew, which [free]'s fill may pass. A leaf with no `persistent` property counts as placed. */
+        private fun isNaturalLeaf(state: BlockState): Boolean =
+            state.`is`(BlockTags.LEAVES) && !state.getOptionalValue(LeavesBlock.PERSISTENT).orElse(true)
+
+        private fun isRoot(state: BlockState): Boolean = state.`is`(Blocks.MANGROVE_ROOTS) || state.`is`(Blocks.MUDDY_MANGROVE_ROOTS)
+
+        /** A log or a mangrove root, which may be a cell of a tree's trunk. */
+        private fun isTrunkBlock(state: BlockState): Boolean = state.`is`(BlockTags.LOGS) || isRoot(state)
+
+        /** A cell of the trunk of a tree whose base block is [base]: a log of that block, or a mangrove root of a tree of logs. */
+        private fun isTrunkOf(base: BlockState, state: BlockState): Boolean =
+            (state.`is`(BlockTags.LOGS) && state.block === base.block) || (base.`is`(BlockTags.LOGS) && isRoot(state))
 
         /** A sapling or a log, so that the net of CD-ASG-25 runs for the change of a tree target and not for a crop's age. */
         private fun isTree(state: BlockState): Boolean = state.`is`(BlockTags.SAPLINGS) || state.`is`(BlockTags.LOGS)
@@ -1555,13 +1590,20 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         /**
          * CD-ASG-25: a worker whose body overlaps a block goes to the nearest cell of [Unstick.reachableCells] with a sturdy floor, no
          * fluid, a walkable path type, room for its body out of every sapling's column, inside [area], and on land that [mayUse]
-         * allows. It stays when no cell passes.
+         * allows. It stays when no cell passes. The fill passes natural leaves and the trunk joined to [tree] only ([TreeWay]).
          */
-        private fun free(entity: PokemonEntity, spot: BlockPos?, area: WorkArea, mayUse: (BlockPos) -> Boolean) {
+        private fun free(entity: PokemonEntity, spot: BlockPos?, area: WorkArea, tree: BlockPos, mayUse: (BlockPos) -> Boolean) {
             val level = entity.level()
             if (level.noBlockCollision(entity, entity.boundingBox.deflate(TOUCH))) return
+            val trunk by lazy {
+                val base = if (level.isLoaded(tree)) level.getBlockState(tree) else Blocks.AIR.defaultBlockState()
+                TreeWay.trunk(tree, { level.isLoaded(it) && isTrunkOf(base, level.getBlockState(it)) })
+            }
             val passable = { pos: BlockPos ->
-                level.isLoaded(pos) && level.getBlockState(pos).let { it.getCollisionShape(level, pos).isEmpty || isTreeBlock(it) }
+                level.isLoaded(pos) &&
+                    level.getBlockState(pos).let {
+                        TreeWay.passes(it.getCollisionShape(level, pos).isEmpty, isNaturalLeaf(it)) { isTrunkBlock(it) && pos in trunk }
+                    }
             }
             val width = entity.bbWidth.toDouble()
             val height = entity.bbHeight.toDouble()

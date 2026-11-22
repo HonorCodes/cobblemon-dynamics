@@ -12,6 +12,12 @@ object ReplantRule {
     /** [item] goes into each of [cells]. [taken] of them come from the drops, and the rest are created. */
     data class Replant<K>(val item: K, val cells: List<BlockPos>, val taken: Int) {
         val created: Int get() = cells.size - taken
+
+        /**
+         * CD-LUM-29: the items of the drops that [planted] of the cells used. The held items go first, so a cell whose planting failed
+         * leaves a created sapling out, and then a held one, which pops with the other drops.
+         */
+        fun takenFor(planted: Int): Int = minOf(taken, planted.coerceAtLeast(0))
     }
 
     /**

@@ -149,4 +149,18 @@ class ReplantRuleTest {
         assertTrue(ReplantRule.warnStump(rl("ns:big_sapling"), base, warnings))
         assertEquals(2, lines.size)
     }
+
+    /**
+     * CD-LUM-29: a replant whose planting fails in some cells takes from the drops only what the planted cells used, held items first, so
+     * the drops of the failed cells still pop (hardening audit, finding 9).
+     */
+    @Test
+    fun `CD-LUM-29 a failed planting takes no drop`() {
+        val square = ReplantRule.Replant("sapling", TreeRules.square(base), taken = 3)
+        assertEquals(3, square.takenFor(4))
+        assertEquals(3, square.takenFor(3))
+        assertEquals(1, square.takenFor(1))
+        assertEquals(0, square.takenFor(0))
+        assertEquals(0, ReplantRule.Replant("sapling", listOf(base), taken = 0).takenFor(1))
+    }
 }

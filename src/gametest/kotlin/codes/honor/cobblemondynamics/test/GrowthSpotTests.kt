@@ -244,4 +244,64 @@ class GrowthSpotTests {
             }
         }
     }
+
+    /**
+     * CD-ASG-27: a level 50 Caterpie bound as the Lumberjack to an oak sapling waits beside it, tires and rests in place, and its owner
+     * grows an oak with bone meal in the Caterpie's cell. The net moves it out, and its rest holds it at the new place: 40 ticks later its
+     * body still overlaps no block. Before the fix, the rest order put it back into the trunk on the next tick.
+     */
+    @GameTest(template = "floor_23x17x23", timeoutTicks = 1_200)
+    fun cdAsg27ARestingWorkerStaysOutOfTheTreeThatGrewOnIt(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 15), owner)
+        TestKit.workMode(pasture, true)
+        TestKit.standBeside(owner, pasture)
+        val bound = BlockPos(6, 2, 9)
+        helper.setBlock(bound.below(), Blocks.DIRT)
+        helper.setBlock(bound, Blocks.OAK_SAPLING)
+        val caterpie = TestKit.tether(helper, pasture, owner, "caterpie level=50")
+        val binding = TestKit.bind(helper, owner, caterpie, bound)
+        helper.assertTrue(binding?.roleId == id("lumberjack"), "CD-LSH-16: the Caterpie bound to the sapling as ${binding?.roleId}")
+        var held = true
+        var phase = 0
+        var grownAt = -1L
+        var cell: BlockPos? = null
+        helper.onEachTick {
+            if (held && TestKit.claimOf(helper, caterpie) == null) TestKit.moveTo(helper, caterpie, BlockPos(11, 2, 9)) else held = false
+            val worker = TestKit.workerOf(helper, caterpie) ?: return@onEachTick
+            when (phase) {
+                0 -> if (worker.status == WorkerStatus.STANDBY) {
+                    worker.stamina.spend(1.0)
+                    phase = 1
+                }
+
+                1 -> if (worker.status == WorkerStatus.RESTING_IN_PLACE) {
+                    val at = caterpie.blockPosition()
+                    cell = TestKit.relative(helper, at)
+                    helper.level.setBlockAndUpdate(at.below(), Blocks.DIRT.defaultBlockState())
+                    helper.level.setBlockAndUpdate(at, Blocks.OAK_SAPLING.defaultBlockState())
+                    var uses = 0
+                    while (!helper.level.getBlockState(at).`is`(Blocks.OAK_LOG) && uses++ < 200) {
+                        BoneMealItem.applyBonemeal(ItemStack(Items.BONE_MEAL), helper.level, at, owner)
+                    }
+                    helper.assertTrue(helper.level.getBlockState(at).`is`(Blocks.OAK_LOG), "the owner's oak did not grow in $uses uses")
+                    grownAt = helper.tick
+                    phase = 2
+                }
+
+                2 -> if (helper.tick >= grownAt + 2) {
+                    assertFree(helper, caterpie, cell!!, "CD-ASG-26")
+                    val off = worker.restSpot?.distanceTo(caterpie.position())
+                    helper.assertTrue(off != null && off <= 0.25, "CD-ASG-27: the rest spot lies $off blocks from the moved Caterpie")
+                    phase = 3
+                }
+
+                else -> if (helper.tick >= grownAt + 40) {
+                    helper.assertTrue(worker.status == WorkerStatus.RESTING_IN_PLACE, "CD-ASG-27: the Caterpie is ${worker.status}")
+                    assertFree(helper, caterpie, cell!!, "CD-ASG-27")
+                    helper.succeed()
+                }
+            }
+        }
+    }
 }

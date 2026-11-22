@@ -379,8 +379,9 @@ object LumberjackHandler : TargetHandler {
                 }
             }
             val sapling = replant?.let { saplingOf(it.item) }?.defaultBlockState()
-            if (replant != null && sapling != null) for (cell in replant.cells) level.setBlock(cell, sapling, Block.UPDATE_ALL)
-            val taken = listOfNotNull(replant?.takeIf { sapling != null }?.let { it.item to it.taken })
+            // CD-LUM-29: each cell plants in its own try, so a throw from another mod's neighbour update loses no drop.
+            val planted = if (replant != null && sapling != null) replant.cells.count { plant(level, it, sapling) } else 0
+            val taken = listOfNotNull(replant?.takeIf { sapling != null }?.let { it.item to it.takenFor(planted) })
             val face = DropFace.toward(plan.base, ctx.spot ?: plan.base)
             for ((stack, count) in FellPlan.merged(
                 drops,
@@ -412,6 +413,24 @@ object LumberjackHandler : TargetHandler {
             }
             left -= size
         }
+    }
+
+    /**
+     * Plants [sapling] in [cell]. A throw, as from another mod's block that hears the change, logs once, and the cell counts as planted
+     * when it holds the sapling after all.
+     */
+    private fun plant(level: ServerLevel, cell: BlockPos, sapling: BlockState): Boolean = try {
+        level.setBlock(cell, sapling, Block.UPDATE_ALL)
+        true
+    } catch (e: Exception) {
+        failedPlant(level, cell, sapling, e)
+    } catch (e: LinkageError) {
+        failedPlant(level, cell, sapling, e)
+    }
+
+    private fun failedPlant(level: ServerLevel, cell: BlockPos, sapling: BlockState, e: Throwable): Boolean {
+        warnings.warn("plant:${e.javaClass.name}") { "The Lumberjack's replant at $cell fails: $e" }
+        return TreeFactsReader.stateOf(level, cell)?.`is`(sapling.block) == true
     }
 
     /** The sapling that [stack] places, if its block is in `#minecraft:saplings`. */
