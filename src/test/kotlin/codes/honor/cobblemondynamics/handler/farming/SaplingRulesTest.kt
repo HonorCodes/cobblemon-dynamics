@@ -54,17 +54,18 @@ class SaplingRulesTest {
     }
 
     /**
-     * CD-CUL-13, CD-LSH-36: in two overlapping squares, as in a 3 x 2 of saplings, a middle sapling lies in both and names itself, and an
-     * end sapling names the corner of its one square.
+     * CD-CUL-13, CD-LSH-36, CD-LSH-37: in two overlapping squares, as in a 3 x 2 of saplings, a middle sapling that is the least corner of
+     * a square names itself, a middle sapling that is the least corner of none names the first square in vanilla's order, and an end
+     * sapling names the corner of its one square.
      */
     @Test
-    fun `CD-CUL-13 a sapling in two squares resolves to itself, and one in exactly one square to that square's corner`() {
+    fun `CD-CUL-13 a sapling in two squares resolves to itself or to its base, and one in exactly one square to that square's corner`() {
         val start = BlockPos(0, 64, 0)
         val cells = (0..2).flatMap { x -> (0..1).map { z -> start.offset(x, 0, z) } }.toSet()
         assertEquals(start, SaplingRules.corner(start) { it in cells })
         assertEquals(start, SaplingRules.corner(start.offset(0, 0, 1)) { it in cells })
         assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(1, 0, 0)) { it in cells })
-        assertEquals(start.offset(1, 0, 1), SaplingRules.corner(start.offset(1, 0, 1)) { it in cells })
+        assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(1, 0, 1)) { it in cells })
         assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(2, 0, 0)) { it in cells })
         assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(2, 0, 1)) { it in cells })
     }
@@ -94,10 +95,11 @@ class SaplingRulesTest {
                 assertEquals(corner, SaplingRules.corner(corner, same), "$name: the corner $corner of $cell moves on")
             }
         }
-        // In a row 2 wide, only the two cells at each end move, and the two ends name different corners.
+        // In a row 2 wide, the whole second row and the last sapling of the first move, each to a least corner of the first row.
         val row = field(9, 2)
         val moved = row.filter { SaplingRules.corner(it) { pos -> pos in row } != it }.toSet()
-        assertEquals(setOf(origin.offset(0, 0, 1), origin.offset(8, 0, 0), origin.offset(8, 0, 1)), moved)
+        assertEquals((0..8).map { origin.offset(it, 0, 1) }.toSet() + origin.offset(8, 0, 0), moved)
+        for (cell in moved) assertEquals(0, SaplingRules.corner(cell) { pos -> pos in row }.z - origin.z, "the base of $cell")
     }
 
     @Test

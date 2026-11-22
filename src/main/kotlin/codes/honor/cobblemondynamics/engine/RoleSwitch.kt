@@ -99,23 +99,26 @@ object RoleSwitch {
 /**
  * One cached answer of the switch checks, which can search a whole tree: [get] computes again when its key changes or the answer is
  * [lifetime] ticks old. The key holds the block state at the target, and the lifetime bounds an answer that a change next to the target
- * made stale, at one computation for each [lifetime] ticks. An unknown answer (null) is never held.
+ * made stale, at one computation for each [lifetime] ticks. An unknown answer (null) lasts [unknownLifetime] ticks.
  */
-class SwitchCache<T : Any>(private val lifetime: Long = LIFETIME_TICKS) {
-    private var held: Pair<Any, T>? = null
+class SwitchCache<T : Any>(private val lifetime: Long = LIFETIME_TICKS, private val unknownLifetime: Long = UNKNOWN_TICKS) {
+    private var held: Pair<Any, T?>? = null
     private var until = Long.MIN_VALUE
 
     fun get(key: Any, now: Long, compute: () -> T?): T? {
         held?.takeIf { it.first == key && now < until }?.let { return it.second }
         val answer = compute()
-        held = answer?.let { key to it }
-        until = now + lifetime
+        held = key to answer
+        until = now + if (answer == null) unknownLifetime else lifetime
         return answer
     }
 
     companion object {
         /** CD-LSH-33: how long an answer lasts, in ticks. */
         const val LIFETIME_TICKS = 200L
+
+        /** CD-LSH-35: how long an unknown answer lasts, in ticks, so a search that meets an unloaded chunk does not repeat every poll. */
+        const val UNKNOWN_TICKS = 100L
     }
 }
 

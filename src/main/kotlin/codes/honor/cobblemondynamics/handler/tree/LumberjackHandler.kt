@@ -82,10 +82,14 @@ object LumberjackHandler : TargetHandler {
     override fun resolvesToItself(level: ServerLevel, pos: BlockPos): Boolean =
         TreeRules.resolvesToItself(TreeFactsReader(level)::facts, pos, maxLogs())
 
-    /** CD-LUM-19, CD-LSH-08: the binding keeps its base cell through the fell and the regrowth. */
+    /**
+     * CD-LUM-19, CD-LSH-08: the binding keeps its base cell through the fell and the regrowth. CD-LSH-37: a log whose trunk base is another
+     * cell of its 2 × 2 is no base, so the binding lets it go.
+     */
     override fun bindingHolds(level: ServerLevel, canonical: BlockPos): Boolean {
         val reader = TreeFactsReader(level)
-        return TreeRules.bindingHolds(reader.facts(canonical), reader.facts(canonical.below()))
+        return TreeRules.bindingHolds(reader.facts(canonical), reader.facts(canonical.below())) &&
+            !TreeRules.besideBase(reader::facts, canonical)
     }
 
     /** CD-ASG-24: the trunk base cells of the tree, or of the saplings that grow it. */
@@ -108,8 +112,17 @@ object LumberjackHandler : TargetHandler {
 
     private fun squareKey(level: ServerLevel, base: BlockPos): String = "${level.dimension().location()}@${base.asLong()}"
 
-    /** Forgets every square when the server stops. */
-    fun reset() = squares.clear()
+    /**
+     * CD-LSH-35: the bases of the fells that run now, each until its run ends or its tickets lapse, so a switch answer holds through a fell
+     * also when its cache expires.
+     */
+    private val activeRuns: MutableMap<String, Long> = java.util.Collections.synchronizedMap(HashMap())
+
+    /** Forgets every square and run when the server stops. */
+    fun reset() {
+        squares.clear()
+        activeRuns.clear()
+    }
 
     /** CD-ASG-25: the fell and the replant change the base cell. */
     override val growsTrees: Boolean = true
@@ -130,6 +143,7 @@ object LumberjackHandler : TargetHandler {
      * until the tree's chunks load.
      */
     override fun switchAnswer(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): Boolean? {
+        activeRuns[squareKey(level, canonical)]?.let { until -> if (level.gameTime < until) return true }
         val params = LumberjackParams.of(role.params)
         val reader = TreeFactsReader(level)
         if (TreeRules.refusesBind(reader::facts, canonical, params.maxLogs, params.maxLeaves, dynamicTrees != null)) {
@@ -175,6 +189,7 @@ object LumberjackHandler : TargetHandler {
         }
         val run = FellRun(fell.plan, params.blocksPerTick, tickets(ctx.level))
         memo.run = run
+        activeRuns[squareKey(ctx.level, fell.plan.base)] = ctx.now + TICKET_TICKS
         if (fell.plan.twoByTwo) squares += squareKey(ctx.level, fell.plan.base)
         // CD-LUM-30: the item frames and paintings come off first, silently, and their items pop with the drops. They never count for
         // the replant: a sapling in a frame is no sapling of the tree.
@@ -394,6 +409,7 @@ object LumberjackHandler : TargetHandler {
                 pop(level, plan.base, face, stack, count)
             }
         } finally {
+            activeRuns.remove(squareKey(level, plan.base))
             memo.run = null
             memo.loot.clear()
             memo.hanging.clear()
@@ -416,12 +432,11 @@ object LumberjackHandler : TargetHandler {
     }
 
     /**
-     * Plants [sapling] in [cell]. A throw, as from another mod's block that hears the change, logs once, and the cell counts as planted
-     * when it holds the sapling after all.
+     * Plants [sapling] in [cell], and tells whether the cell holds it. A throw, as from another mod's block that hears the change, logs
+     * once, and the cell counts as planted when it holds the sapling after all.
      */
     private fun plant(level: ServerLevel, cell: BlockPos, sapling: BlockState): Boolean = try {
-        level.setBlock(cell, sapling, Block.UPDATE_ALL)
-        true
+        level.setBlock(cell, sapling, Block.UPDATE_ALL) || TreeFactsReader.stateOf(level, cell)?.`is`(sapling.block) == true
     } catch (e: Exception) {
         failedPlant(level, cell, sapling, e)
     } catch (e: LinkageError) {

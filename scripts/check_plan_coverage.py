@@ -113,7 +113,7 @@ PLANS["1.2.2"] = ("2026-11-22-v1.2.2-*.md",)
 # The coordinator's hardening pass: docs/plans/2026-11-22-v1.2.2-hardening.md.
 V122_HARDENING_ROWS = ("CD-ASG-27",)
 # The audit fixes: docs/plans/2026-11-22-v1.2.2-audit-fixes.md.
-V122_AUDIT_ROWS = ("CD-LSH-35", "CD-LSH-36", "CD-ASG-28")
+V122_AUDIT_ROWS = ("CD-LSH-35", "CD-LSH-36", "CD-LSH-37", "CD-ASG-28")
 V122_AUDIT_PARTS = ("CD-LSH-31", "CD-LSH-30", "CD-CUL-13", "CD-CRP-24", "CD-ASG-25", "CD-LUM-29")
 # The lists of 1.2.2, from both plans.
 V122_ROWS = V122_HARDENING_ROWS + V122_AUDIT_ROWS

@@ -256,49 +256,67 @@ class LeashResetTests {
         const val INDEX_CHECK_TICKS = 10L
     }
 
-    /**
-     * CD-LSH-36, CD-CUL-13: two Diglett bindings of 1.2.0 on the two east saplings of a row of spruce saplings 3 long and 2 wide. Each lies
-     * in one square only, whose corner is the middle sapling of the north row. The first check moves one binding there, and the other
-     * stays on its own sapling, because the corner is reserved in the Cultivator's lane. Neither walks on along the row later. The pasture
-     * is not in Work Mode, so no worker grows the saplings.
-     */
-    @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
-    fun cdLsh36OldBindingsInARowOfSaplingsNeitherWalkNorMerge(helper: GameTestHelper) {
-        val owner = TestKit.owner(helper)
-        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 11), owner)
-        TestKit.standBeside(owner, pasture)
-        for (x in 3..5) {
-            for (z in 3..4) {
+    /** Spruce saplings on dirt at the cells x in [xs] and z in [zs], at y = 2. */
+    private fun saplings(helper: GameTestHelper, xs: IntRange, zs: IntRange) {
+        for (x in xs) {
+            for (z in zs) {
                 helper.setBlock(BlockPos(x, 1, z), Blocks.DIRT)
                 helper.setBlock(BlockPos(x, 2, z), Blocks.SPRUCE_SAPLING)
             }
         }
-        val corner = helper.absolutePos(BlockPos(4, 2, 3))
-        val ends = listOf(BlockPos(5, 2, 3), BlockPos(5, 2, 4)).map(helper::absolutePos)
-        val digletts = ends.map { TestKit.tether(helper, pasture, owner, "diglett level=20") }
+    }
+
+    /**
+     * CD-LSH-36, CD-CUL-13: Diglett bindings of 1.2.0, each on a clicked sapling of a row of spruce saplings 2 wide. In the first row, 4
+     * long, the bindings on the south-west and the south-east saplings each lie in one square only, and each moves to its square's corner.
+     * In the second row, 3 long, the bindings on the two east saplings share the one square of both, so neither moves. No binding walks on
+     * later. The pasture is not in Work Mode, so no worker grows the saplings.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
+    fun cdLsh36OldBindingsInARowOfSaplingsNeitherWalkNorMerge(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 11), owner)
+        TestKit.standBeside(owner, pasture)
+        saplings(helper, 2..5, 2..3)
+        saplings(helper, 3..5, 6..7)
+        val cells = listOf(BlockPos(2, 2, 3), BlockPos(5, 2, 3), BlockPos(5, 2, 6), BlockPos(5, 2, 7)).map(helper::absolutePos)
+        val expected = listOf(BlockPos(2, 2, 2), BlockPos(4, 2, 2), BlockPos(5, 2, 6), BlockPos(5, 2, 7)).map(helper::absolutePos)
+        val digletts = cells.map { TestKit.tether(helper, pasture, owner, "diglett level=20") }
         val dimension = helper.level.dimension().location()
         val index = helper.level.getData(DynamicsAttachments.LEASH_INDEX)
-        for ((entity, cell) in digletts.zip(ends)) {
+        for ((entity, cell) in digletts.zip(cells)) {
             // A binding of 1.2.0: on the clicked sapling, not on the corner of its square.
             BindingStore.write(entity.pokemon, Binding(id("cultivator"), dimension, pasture.blockPos, cell, Direction.UP, owner.uuid))
             index.put(cell, LeashIndex.Ref(entity.pokemon.uuid, owner.uuid, pasture.blockPos, id("cultivator")))
         }
         helper.level.setData(DynamicsAttachments.LEASH_INDEX, index)
         val targets = { digletts.map { BindingStore.read(it.pokemon)?.target } }
-        var first: List<BlockPos?> = emptyList()
         helper.runAtTickTime(40) {
-            first = targets()
-            helper.assertTrue(first.all { it != null }, "CD-LSH-36: a binding cleared: $first")
-            helper.assertTrue(first.count { it == corner } == 1, "CD-LSH-36: not one binding moved to the corner $corner: $first")
-            val stayed = first.zip(ends).filter { (target, _) -> target != corner }
-            helper.assertTrue(stayed.all { (target, end) -> target == end }, "CD-LSH-36: the other binding left its sapling: $first")
+            helper.assertTrue(targets() == expected, "CD-LSH-36: the bindings name ${targets()}, not $expected")
             val at = helper.level.getData(DynamicsAttachments.LEASH_INDEX)
-            val refs = (ends + corner).associateWith { at.at(it).size }
-            helper.assertTrue(refs.values.sum() == 2 && refs.getValue(corner) == 1, "CD-LSH-36: the index holds $refs")
+            val refs = expected.map { at.at(it).size }
+            helper.assertTrue(refs.all { it == 1 }, "CD-LSH-36: the index holds $refs at $expected")
         }
         helper.runAtTickTime(120) {
-            helper.assertTrue(targets() == first, "CD-LSH-36: a binding walked on from $first to ${targets()}")
+            helper.assertTrue(targets() == expected, "CD-LSH-36: a binding walked on from $expected to ${targets()}")
             helper.succeed()
         }
+    }
+
+    /**
+     * CD-LSH-37, CD-CUL-13: a Work Leash click binds a level 50 Caterpie as the Lumberjack on a sapling of the second row of a row of
+     * spruce saplings 2 wide and 4 long. That sapling is the least corner of no square, so the giant spruce never has its base there, and
+     * the binding names the base in the first row, where vanilla grows the tree.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 100)
+    fun cdLsh37ALumberjackBindOnASaplingThatIsNoBaseNamesTheBase(helper: GameTestHelper) {
+        val scene = pasture(helper, BlockPos(8, 1, 7))
+        saplings(helper, 2..5, 2..3)
+        val caterpie = TestKit.tether(helper, scene.pasture, scene.owner, "caterpie level=50")
+        val binding = TestKit.bind(helper, scene.owner, caterpie, BlockPos(3, 2, 3))
+        helper.assertTrue(binding?.roleId == id("lumberjack"), "the Caterpie bound as ${binding?.roleId}")
+        val base = helper.absolutePos(BlockPos(3, 2, 2))
+        helper.assertTrue(binding?.target == base, "CD-LSH-37: the binding names ${binding?.target}, not the base $base")
+        helper.succeed()
     }
 }

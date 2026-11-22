@@ -22,6 +22,7 @@ import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.handler.tree.TreeFactsReader
 import codes.honor.cobblemondynamics.heal.AllyView
 import codes.honor.cobblemondynamics.heal.HealTargets
 import codes.honor.cobblemondynamics.heal.HealTransaction
@@ -943,8 +944,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /**
      * CD-ASG-25: [free] for one worker of [site] from the tree at [tree], within its work area and the land that its owner may use.
-     * CD-ASG-27: a worker that rests in place rests where the net put it, and a sleeper whose body the tree reached lets its bed go and
-     * rests in place where the net put it, so no rest order puts it back into the tree.
+     * CD-ASG-27: a worker that rests in place rests where the net put it. A sleeper lets its bed go, rests in place and is freed only when
+     * its body overlaps a block of the changed tree (a natural leaf or a cell of its trunk) or its bed's sleep point lies in a tree, so no
+     * rest order puts it back into the tree and no other block takes its bed. A throw from another mod's block skips this worker only.
      */
     private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot, tree: BlockPos) {
         val owner = when (site) {
@@ -953,20 +955,33 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
         val entity = slot.entity
         val worker = slot.worker
+        val level = t.level
         val before = entity.position()
-        val inBlock = worker.status == WorkerStatus.SLEEPING && !entity.level().noBlockCollision(entity, entity.boundingBox.deflate(TOUCH))
-        safely { free(entity, worker.spot, site.area(t.settings), tree) { LandClaims.ownerMayUse(owner, t.level, it) } }
+        val trunk = lazy { TreeWay.treeTrunk(TreeFactsReader(level)::facts, tree, entity.blockPosition()) }
+        var bedLost = false
+        safely {
+            if (worker.status == WorkerStatus.SLEEPING) {
+                val inChangedTree = overlaps(entity, entity.boundingBox.deflate(TOUCH)) { pos, state ->
+                    isNaturalLeaf(state) || (isTrunkBlock(state) && pos in trunk.value)
+                }
+                bedLost = inChangedTree || worker.bed?.let { sleepsInTree(entity, it.center) } == true
+                if (!bedLost) return@safely
+            }
+            free(entity, worker.spot, site.area(t.settings), trunk) { LandClaims.ownerMayUse(owner, level, it) }
+        }
         when (worker.status) {
             WorkerStatus.RESTING_IN_PLACE -> if (entity.position() != before) worker.restSpot = entity.position()
-
-            WorkerStatus.SLEEPING -> if (inBlock) {
-                if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
-                t.machine.onRestTick(worker, t.now, atBed = false, bedPresent = false)
-                worker.restSpot = entity.position()
-            }
-
+            WorkerStatus.SLEEPING -> if (bedLost) restInPlace(t, slot)
             else -> {}
         }
+    }
+
+    /** CD-ASG-27, CD-BED-11: the worker of [slot] lets its bed go and rests in place where it stands. */
+    private fun restInPlace(t: Tick, slot: WorkerSlot) {
+        val worker = slot.worker
+        if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
+        t.machine.onRestTick(worker, t.now, atBed = false, bedPresent = false)
+        worker.restSpot = slot.entity.position()
     }
 
     /** Runs [block], and logs a throw from another mod's block once, as a worker that stays in its tree (CD-ASG-25). */
@@ -1033,6 +1048,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val bed = blockEntity as? BedBlockEntity ?: return@mapNotNull null
             // CD-LND-04: a bed that the placer may not use is no candidate.
             if (!LandClaims.ownerMayUse(runtime.placer, t.level, pos)) return@mapNotNull null
+            // CD-ASG-27: a bed whose sleep point lies in a tree is no candidate.
+            if (sleepsInTree(slot.entity, BedCandidate.sleepPoint(pos))) return@mapNotNull null
             BedCandidate(TargetKey.block(t.dimension, pos), BedCandidate.sleepPoint(pos), bed.tier.tier)
         }.toList()
         return BedSelector.pick(slot.entity.position(), beds) { claims.isFree(it, slot.worker.pokemonId) }
@@ -1049,7 +1066,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val present = held && isBed(t.level, bed.key)
         val atBed = present && BedSelector.isAt(entity.position(), entity.bbWidth.toDouble(), bed.center)
         when (t.machine.onRestTick(worker, t.now, atBed, present)) {
-            MachineEvent.FellAsleep -> lieDown(entity, bed.center)
+            // CD-ASG-27: a bed whose sleep point a tree filled since the claim gives no rest.
+            MachineEvent.FellAsleep -> if (sleepsInTree(entity, bed.center)) restInPlace(t, slot) else lieDown(entity, bed.center)
 
             MachineEvent.LostBed -> {
                 if (held) claims.release(worker.pokemonId)
@@ -1580,9 +1598,28 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         /** A log or a mangrove root, which may be a cell of a tree's trunk. */
         private fun isTrunkBlock(state: BlockState): Boolean = state.`is`(BlockTags.LOGS) || isRoot(state)
 
-        /** A cell of the trunk of a tree whose base block is [base]: a log of that block, or a mangrove root of a tree of logs. */
-        private fun isTrunkOf(base: BlockState, state: BlockState): Boolean =
-            (state.`is`(BlockTags.LOGS) && state.block === base.block) || (base.`is`(BlockTags.LOGS) && isRoot(state))
+        /** Whether a block in [box] that [test] accepts has a collision shape that meets [box]. */
+        private fun overlaps(entity: PokemonEntity, box: AABB, test: (BlockPos, BlockState) -> Boolean): Boolean {
+            val level = entity.level()
+            val min = BlockPos.containing(box.minX, box.minY, box.minZ)
+            val max = BlockPos.containing(box.maxX, box.maxY, box.maxZ)
+            for (pos in BlockPos.betweenClosed(min, max)) {
+                if (!level.isLoaded(pos)) continue
+                val state = level.getBlockState(pos)
+                if (!test(pos, state)) continue
+                if (state.getCollisionShape(level, pos).toAabbs().any { it.move(pos).intersects(box) }) return true
+            }
+            return false
+        }
+
+        /**
+         * CD-ASG-27: whether the body of [entity] on [point], a bed's sleep point, overlaps a log, a leaf or a mangrove root. Any other block
+         * keeps the bed, so a Cobblemon of any size still sleeps on it (CD-BED-09).
+         */
+        private fun sleepsInTree(entity: PokemonEntity, point: Vec3): Boolean {
+            val box = entity.boundingBox.move(point.x - entity.x, point.y - entity.y, point.z - entity.z).deflate(TOUCH)
+            return overlaps(entity, box) { _, state -> isTrunkBlock(state) || state.`is`(BlockTags.LEAVES) }
+        }
 
         /** A sapling or a log, so that the net of CD-ASG-25 runs for the change of a tree target and not for a crop's age. */
         private fun isTree(state: BlockState): Boolean = state.`is`(BlockTags.SAPLINGS) || state.`is`(BlockTags.LOGS)
@@ -1590,19 +1627,23 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         /**
          * CD-ASG-25: a worker whose body overlaps a block goes to the nearest cell of [Unstick.reachableCells] with a sturdy floor, no
          * fluid, a walkable path type, room for its body out of every sapling's column, inside [area], and on land that [mayUse]
-         * allows. It stays when no cell passes. The fill passes natural leaves and the trunk joined to [tree] only ([TreeWay]).
+         * allows. It stays when no cell passes. The fill passes natural leaves and the changed tree's [trunk] only ([TreeWay]).
          */
-        private fun free(entity: PokemonEntity, spot: BlockPos?, area: WorkArea, tree: BlockPos, mayUse: (BlockPos) -> Boolean) {
+        private fun free(
+            entity: PokemonEntity,
+            spot: BlockPos?,
+            area: WorkArea,
+            trunk: Lazy<Set<BlockPos>>,
+            mayUse: (BlockPos) -> Boolean,
+        ) {
             val level = entity.level()
             if (level.noBlockCollision(entity, entity.boundingBox.deflate(TOUCH))) return
-            val trunk by lazy {
-                val base = if (level.isLoaded(tree)) level.getBlockState(tree) else Blocks.AIR.defaultBlockState()
-                TreeWay.trunk(tree, { level.isLoaded(it) && isTrunkOf(base, level.getBlockState(it)) })
-            }
             val passable = { pos: BlockPos ->
                 level.isLoaded(pos) &&
                     level.getBlockState(pos).let {
-                        TreeWay.passes(it.getCollisionShape(level, pos).isEmpty, isNaturalLeaf(it)) { isTrunkBlock(it) && pos in trunk }
+                        TreeWay.passes(it.getCollisionShape(level, pos).isEmpty, isNaturalLeaf(it)) {
+                            isTrunkBlock(it) && pos in trunk.value
+                        }
                     }
             }
             val width = entity.bbWidth.toDouble()

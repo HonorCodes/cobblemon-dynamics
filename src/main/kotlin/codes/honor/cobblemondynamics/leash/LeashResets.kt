@@ -11,6 +11,9 @@ import codes.honor.cobblemondynamics.engine.neighboursLoaded
 import codes.honor.cobblemondynamics.engine.switchRolesOn
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.farming.CultivatorHandler
+import codes.honor.cobblemondynamics.handler.farming.SaplingRules
+import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
+import codes.honor.cobblemondynamics.handler.tree.TreeRules
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.role.RoleRegistry
@@ -59,6 +62,12 @@ object LeashResets {
 
     /** CD-LSH-36: the Pokémon whose binding this server run has checked for the move of CD-CUL-13 already. */
     private val migrated = HashSet<UUID>()
+
+    /** CD-LSH-35: the first tick at which the owner's PC and party held no Pokémon of an entry whose pasture is not loaded. */
+    private val missing = HashMap<UUID, Long>()
+
+    /** CD-LSH-35: how long an entry whose Pokémon is found nowhere, with its pasture not loaded, keeps its reservation. */
+    const val MISSING_TICKS = 6_000L
     private const val LOST = "cobblemon_dynamics.binding.lost"
     private const val REASON = "cobblemon_dynamics.binding.reason"
 
@@ -165,6 +174,7 @@ object LeashResets {
     /** Removes the index entry of [pokemonId] at [target]. */
     fun unindex(level: ServerLevel, target: BlockPos, pokemonId: UUID) {
         switchHolds.remove(pokemonId)
+        missing.remove(pokemonId)
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX) ?: return
         if (index.remove(target, pokemonId)) level.setData(DynamicsAttachments.LEASH_INDEX, index)
     }
@@ -179,6 +189,7 @@ object LeashResets {
     fun reset() {
         switchHolds.clear()
         migrated.clear()
+        missing.clear()
     }
 
     fun levelOf(server: MinecraftServer, dimension: ResourceLocation): ServerLevel? =
@@ -233,26 +244,70 @@ object LeashResets {
         }
         // CD-CRP-09: a farming binding keeps the empty cell of a harvested crop.
         if (guarded(handler, true) { handler.bindingHolds(level, target) }) return
+        // CD-LSH-37: a log of a 2 × 2 trunk whose base is another cell of the square moves its binding to the base.
+        if ((handler === LumberjackHandler || handler === CultivatorHandler) && state.`is`(BlockTags.LOGS)) {
+            if (!neighboursLoaded(level, target)) return
+            val base = guarded(LumberjackHandler, target) { LumberjackHandler.canonical(level, target) }
+            if (base != target && TreeRules.inSquareOf(target, base)) return moveToBase(level, target, ref, checked, base)
+        }
         // CD-LSH-31: a switch role that finds a target of its own on the cell, and would fell or work it, keeps the binding, as the
         // Lumberjack on the oak that grew from a Cultivator's sapling. The Pokémon is the one that this check read, or the one that its
         // owner's PC or party holds when its pasture is not loaded. The answer lasts until the block at the target changes, or for
         // `SwitchCache.LIFETIME_TICKS`.
         // CD-LSH-35: an unknown answer, from a chunk that is not loaded or a Pokémon found nowhere, keeps the binding, is not cached,
         // and is asked again at a later check.
+        // CD-LSH-35: an entry whose Pokémon's binding names another target, or whose Pokémon stays missing, goes.
+        var stale = false
         val key = listOf(target, ref.roleId, state, roles, checked?.types?.map { it.showdownId })
         val holds = switchHolds.getOrPut(ref.pokemonId) { SwitchCache() }.get(key, level.gameTime) compute@{
-            val pokemon = checked ?: find(level.server, ref) ?: return@compute null
+            val pokemon = checked ?: found(level, target, ref) { stale = true } ?: return@compute null
             val types = pokemon.types.map { it.showdownId }
             RoleSwitch.holdsOrUnknown(ownHolds = false) {
                 switchRolesOn(level, target, bound, roles, types, bound = true)?.map { it.definition }
             }
         }
+        if (stale) return unindex(level, target, ref.pokemonId)
         if (holds == false) lost(level, target, ref, TARGET_GONE, checked ?: find(level.server, ref))
     }
 
     /**
+     * CD-LSH-35: the Pokémon of [ref] from its owner's PC or party, while its pasture is not loaded, when its binding still names [target]
+     * in [level]. A binding that names another place, or a Pokémon that stays missing for [MISSING_TICKS], calls [stale]. Null keeps the
+     * entry for now.
+     */
+    private fun found(level: ServerLevel, target: BlockPos, ref: LeashIndex.Ref, stale: () -> Unit): Pokemon? {
+        val pokemon = find(level.server, ref)
+        if (pokemon == null) {
+            val since = missing.getOrPut(ref.pokemonId) { level.gameTime }
+            if (level.gameTime - since >= MISSING_TICKS) stale()
+            return null
+        }
+        missing.remove(ref.pokemonId)
+        val binding = BindingStore.read(pokemon)
+        if (binding == null || binding.dimension != level.dimension().location() || binding.target != target) {
+            stale()
+            return null
+        }
+        return pokemon
+    }
+
+    /**
+     * CD-LSH-37: moves the binding of [ref] from [target] to [base], the trunk base in its 2 × 2, unless an exclusive binding of another
+     * Pokémon in the same lane reserves [base], when the binding clears and tells its binder. With no Pokémon read or found, it waits.
+     */
+    private fun moveToBase(level: ServerLevel, target: BlockPos, ref: LeashIndex.Ref, checked: Pokemon?, base: BlockPos) {
+        val pokemon = checked ?: find(level.server, ref) ?: return
+        if (BindingStore.read(pokemon)?.target != target) return unindex(level, target, ref.pokemonId)
+        val lane = RoleRegistry.laneOf(ref.roleId)
+        val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)
+        val holder = index?.exclusiveAt(base, lane, RoleRegistry::sharesTargets, RoleRegistry::laneOf)
+        if (holder != null && holder.pokemonId != ref.pokemonId) return lost(level, target, ref, TARGET_GONE, pokemon)
+        moveTarget(level, target, ref, pokemon, base)
+    }
+
+    /**
      * CD-CUL-13, CD-LSH-36: moves a Cultivator binding on a sapling to the corner that the handler names now, unless an exclusive binding
-     * of another Pokémon in the same lane reserves that corner. True when it moved, false when it stays, and null, to ask again at a later
+     * of another Pokémon in the same lane reserves a cell of that corner's square. True when it moved, false when it stays, and null, to ask again at a later
      * check, while a cell that the corner reads is in a chunk that is not loaded.
      */
     private fun migrate(
@@ -267,10 +322,15 @@ object LeashResets {
         if (!neighboursLoaded(level, target)) return null
         val corner = guarded(handler, target) { handler.canonical(level, target) }
         if (corner == target) return false
+        // A binding of another Pokémon on any cell of the corner's square keeps this one where it is, so no two bindings share a square.
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)
         val lane = RoleRegistry.laneOf(ref.roleId)
-        val holder = index?.exclusiveAt(corner, lane, RoleRegistry::sharesTargets, RoleRegistry::laneOf)
-        if (holder != null && holder.pokemonId != ref.pokemonId) return false
+        val taken = SaplingRules.square(corner).any { cell ->
+            index?.at(cell).orEmpty().any {
+                it.pokemonId != ref.pokemonId && !RoleRegistry.sharesTargets(it.roleId) && RoleRegistry.laneOf(it.roleId) == lane
+            }
+        }
+        if (taken) return false
         moveTarget(level, target, ref, pokemon, corner)
         return true
     }

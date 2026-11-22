@@ -201,17 +201,18 @@ class RoleSwitchTest {
         assertEquals(3, computed)
     }
 
-    /** CD-LSH-35: an unknown answer is never held, so the next check asks again. */
+    /** CD-LSH-35: an unknown answer lasts 100 ticks, so a search that meets an unloaded chunk does not repeat at every poll. */
     @Test
-    fun `CD-LSH-35 an unknown switch answer is not cached`() {
+    fun `CD-LSH-35 an unknown switch answer lasts 100 ticks`() {
         val cache = SwitchCache<Boolean>()
         var computed = 0
         val key = listOf(BlockPos.ZERO, Any())
         assertNull(cache.get(key, 0L) { computed++.let { null } })
-        assertNull(cache.get(key, 10L) { computed++.let { null } })
-        assertEquals(false, cache.get(key, 20L) { computed++.let { false } })
-        assertEquals(false, cache.get(key, 30L) { computed++.let { true } })
-        assertEquals(3, computed)
+        assertNull(cache.get(key, 99L) { computed++.let { false } })
+        assertEquals(1, computed)
+        assertEquals(false, cache.get(key, 100L) { computed++.let { false } }, "the unknown answer outlived 100 ticks")
+        assertEquals(false, cache.get(key, 299L) { computed++.let { true } })
+        assertEquals(2, computed)
     }
 
     /**
