@@ -8,13 +8,15 @@ and MUST NOT row of the sheet to pass on one commit. The 1.1 gate holds every ro
 areas, CD-BAL-08, CD-BAL-09 and CD-REL-16), and every earlier row, which CD-REL-16 needs to still pass. The 1.2 gate holds
 every row as well: the rows of 1.2, and every earlier row, which CD-REL-17 needs to still pass beside the test pack's case
 mods. The 1.2.1 gate holds every row too: the rows of 1.2.1, and every earlier row, which CD-REL-18 needs to still pass beside
-the test pack's cases smoke, crops and mods. The script reads the spec sheet, the JUnit XML reports of `./gradlew build`, the
+the test pack's cases smoke, crops and mods. The 1.2.2 gate holds every row too: the rows of 1.2.2, and every earlier row,
+which CD-REL-19 needs to pass with every GameTest run, every test pack command and the art checks. The script reads the spec sheet, the JUnit XML reports of `./gradlew build`, the
 GameTest sources with the log of each GameTest run of the gate, the deferred lists of the gate's plans, the manual
-checklist, the test pack's README and the output of each test pack command of the gate. The 1.2 and 1.2.1 gates also read
-the lists of the GameTests that the 1.2 and 1.2.1 plans deferred by the approver's test rulings. The 1.2.1 gate runs only
+checklist, the test pack's README and the output of each test pack command of the gate. The 1.2, 1.2.1 and 1.2.2 gates also
+read the lists of the GameTests that the 1.2 and 1.2.1 plans deferred by the approver's test rulings. The 1.2.1 gate runs only
 the full run, the perf run and the test pack commands smoke, crops and mods, and marks the tests of the other checks
-`left out`. The Phase 2, 1.2 and 1.2.1 gates read the output of `py scripts/art.py check`, and each gate after Phase 1
-reads the play-test notes of the reports of earlier gates. The script rewrites only the generated blocks of the gate's report,
+`left out`. The Phase 2, 1.2, 1.2.1 and 1.2.2 gates read the output of `py scripts/art.py check`, and each gate after
+Phase 1 reads the record of each earlier gate: the play-test note of its report, or, for a gate that records no note, the
+commit of its generated blocks with no row that lacks a passing test. The script rewrites only the generated blocks of the gate's report,
 docs/testing/phase-N-gate.md or docs/testing/vN-gate.md, and keeps the text around them.
 
 Usage: py scripts/gate_report.py [--phase 1] --gradle-log FILE --testpack-log FILE [--testpack-log FILE ...] [--allow-dirty]
@@ -22,6 +24,7 @@ Usage: py scripts/gate_report.py [--phase 1] --gradle-log FILE --testpack-log FI
        py scripts/gate_report.py --phase 1.1 --gradle-log FILE --testpack-log FILE [...] [--allow-dirty]
        py scripts/gate_report.py --phase 1.2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
        py scripts/gate_report.py --phase 1.2.1 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
+       py scripts/gate_report.py --phase 1.2.2 --gradle-log FILE --testpack-log FILE [...] --art-log FILE [--allow-dirty]
        py scripts/gate_report.py --self-check
 Exit code 0 when every automated row has a passing test, 1 when a row has not or an input disagrees with another, and 2
 when an input is missing or unreadable.
@@ -55,6 +58,7 @@ V12_REPORT = ROOT / "docs/testing/v1.2-gate.md"
 V12_PLAN = ROOT / "docs/plans/2026-11-15-v1.2-new-roles-and-compat.md"
 V121_REPORT = ROOT / "docs/testing/v1.2.1-gate.md"
 V121_PLAN = ROOT / "docs/plans/2026-11-18-v1.2.1-replant-area-dual-type.md"
+V122_REPORT = ROOT / "docs/testing/v1.2.2-gate.md"
 # The task of each plan whose end-of-phase pass wrote the tests of its deferred list.
 DEFERRED_TASKS = {M5_PLAN: "M5 Task 9", M8_PLAN: "M8 Task 7"}
 CHECKLIST = ROOT / "docs/testing/manual-checklist.md"
@@ -217,6 +221,18 @@ PHASES = {
                                  "CD-REL-17": V12_REPORT},
                    ART_REVIEW, ruled_plans=(V12_PLAN, V121_PLAN), record_pack=("smoke", "crops", "mods"), client=False,
                    note=False, runs=("full", "perf"), pack=("smoke", "crops", "mods")),
+    # CD-REL-19 (R96): every row passes on the release commit. The v1.2.2 tag and its jar (the 1.2.2 parts of CD-REL-04 and
+    # CD-REL-05) and the next pack release (CD-REL-15) come after the gate, by Task 2 of the 1.2.2 hardening plan. The hardening
+    # touched the engine broadly, so the gate runs every GameTest run, every test pack command and the art checks, as the 1.2
+    # gate did, and the record needs the result of each command. CD-REL-18 completes with the generated blocks of the 1.2.1
+    # report, which records no play-test note. The COHO players test 1.2.2 after the deploy, so the gate records no play-test
+    # note and runs no play-test client.
+    "1.2.2": Phase("1.2.2", V122_REPORT, lambda row, area: True, (M5_PLAN, M8_PLAN),
+                   {"CD-REL-04": "the v1.2.2 tag", "CD-REL-05": "the v1.2.2 tag", "CD-REL-15": "the next pack release"},
+                   "CD-REL-19", {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT,
+                                 "CD-REL-17": V12_REPORT, "CD-REL-18": V121_REPORT},
+                   ART_REVIEW, ruled_plans=(V12_PLAN, V121_PLAN), record_pack=tuple(PACK_ORDER), client=False,
+                   note=False),
 }
 
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|")
@@ -261,6 +277,9 @@ ART_VERDICT = re.compile(r"^ART CHECK (PASS|FAIL)\b", re.MULTILINE)
 ART_CASE = re.compile(r'"(cd-art-\d{2})"')
 # The date line of a gate report's play-test note.
 NOTE_DATE = re.compile(r"^- Date: (\d{4}-\d{2}-\d{2})\b", re.MULTILINE)
+# The commit of a gate report's run summary, and the generated line of a report whose rows all have a passing test.
+RECORD_COMMIT = re.compile(r"Every check below ran on commit `([0-9a-f]{40})`")
+NO_FAILING_ROW = "\n### Rows without a passing test\n\nNone.\n"
 BEGIN = "<!-- gate-report {}: written by scripts/gate_report.py; edits inside this block are lost -->"
 END = "<!-- gate-report {} end -->"
 
@@ -292,9 +311,10 @@ class Sheet(NamedTuple):
 
 
 class Ref(NamedTuple):
-    """A test of a row. kind is unit, gametest, testpack, gradle, art or report. group is the test class, the test pack
-    command, the Gradle task, the art case or the path of an earlier gate's report. name is the name of the test, a test
-    pack case, the date of a report's play-test note, or empty."""
+    """A test of a row. kind is unit, gametest, testpack, gradle, art, report (an earlier gate's play-test note) or record
+    (an earlier gate's generated blocks). group is the test class, the test pack command, the Gradle task, the art case or
+    the path of an earlier gate's report. name is the name of the test, a test pack case, the date of a report's play-test
+    note, the commit of a report's generated blocks, or empty."""
 
     kind: str
     group: str
@@ -871,6 +891,29 @@ def note_date(text: str) -> str:
     return match.group(1) if match else ""
 
 
+def record_commit(text: str) -> str:
+    """The short commit of a gate report's generated blocks when they list no row without a passing test, or an empty
+    string."""
+    match = RECORD_COMMIT.search(text)
+    return match.group(1)[:7] if match and NO_FAILING_ROW in text else ""
+
+
+def records_note(report: pathlib.Path) -> bool:
+    """The gate of the report records a play-test note. A report of no gate of PHASES (Phase 3) has one."""
+    return all(phase.note for phase in PHASES.values() if phase.report == report)
+
+
+def earlier_record(report: pathlib.Path, text: str) -> tuple[Ref, tuple[str, str]]:
+    """The record of an earlier gate and its result: the dated play-test note of its report, or the commit of the report's
+    generated blocks when its gate records no note."""
+    if records_note(report):
+        date = note_date(text)
+        return Ref("report", rel(report), date), (PASS, "") if date else ("fail", "the note has no date")
+    commit = record_commit(text)
+    return Ref("record", rel(report), commit), (PASS, "") if commit else (
+        "fail", "the generated blocks name no commit on which every row passes")
+
+
 # Play-test client
 
 
@@ -1004,10 +1047,9 @@ def collect(args: argparse.Namespace, phase: Phase) -> Gate:
         for row, case in phase.art_review.items():
             row_refs[row].add(Ref("art", case))
     for row, report in phase.earlier.items():
-        date = note_date(read(report))
-        note = Ref("report", rel(report), date)
-        results[note] = (PASS, "") if date else ("fail", "the note has no date")
-        row_refs[row].add(note)
+        record, result = earlier_record(report, read(report))
+        results[record] = result
+        row_refs[row].add(record)
     gate = Gate(phase, git("rev-parse", "HEAD").strip(), git("rev-parse", "--short=7", "HEAD").strip(),
                 git("show", "-s", "--format=%cs", "HEAD").strip(), git("show", "-s", "--format=%s", "HEAD").strip(),
                 rows, checks, unit_cites, tests, run_logs, results, pack_logs, tasks, outcomes, build_result, row_refs,
@@ -1155,6 +1197,8 @@ def ref_labels(refs: set[Ref], checks: list[Check]) -> str:
     labels += [f"art check `{ref.group}`" for ref in sorted(ref for ref in refs if ref.kind == "art")]
     labels += [f"the play-test note of `{ref.group}`" + (f", dated {ref.name}" if ref.name else "")
                for ref in sorted(ref for ref in refs if ref.kind == "report")]
+    labels += [f"the gate report `{ref.group}`" + (f", on `{ref.name}`" if ref.name else "")
+               for ref in sorted(ref for ref in refs if ref.kind == "record")]
     labels += [f"checklist {check.number}" for check in checks]
     return "; ".join(labels)
 
@@ -1170,6 +1214,8 @@ def ref_name(ref: Ref) -> str:
         return f"art check {ref.group}"
     if ref.kind == "report":
         return f"the play-test note of {ref.group}"
+    if ref.kind == "record":
+        return f"the gate report {ref.group}"
     return f"Gradle task {ref.group}"
 
 
@@ -1197,6 +1243,9 @@ def render_rows(gate: Gate) -> str:
         legend_tests += f"Art check names a case of `{ART_COMMAND}`. "
     if phase.earlier:
         legend_tests += "The play-test note of a report is the record of an earlier gate. "
+    if any(not records_note(report) for report in phase.earlier.values()):
+        legend_tests += ("The gate report on a commit is the record of an earlier gate that records no play-test note: its "
+                         "generated blocks name the commit and no row without a passing test. ")
     legend_tests += "Checklist n is check n of `docs/testing/manual-checklist.md`."
     legend_result = (
         "- Result: `pass` means that every test of the row passed. `play-test` means that the row's evidence is a "
@@ -1346,6 +1395,16 @@ def self_check() -> int:
     assert v121.earlier == {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT,
                             "CD-REL-17": V12_REPORT}, v121.earlier
     assert v121.deferred_plans == (M5_PLAN, M8_PLAN) and v121.ruled_plans == (V12_PLAN, V121_PLAN) and v121.art_review == ART_REVIEW
+    v122 = PHASES["1.2.2"]
+    assert v122.holds("CD-ASG-27", "ASG") and v122.holds("CD-PCK-01", "PCK"), "the 1.2.2 gate holds every row"
+    assert v122.record == "CD-REL-19" and v122.checks_art and not v122.client and not v122.note, v122
+    assert v122.record_pack == ("smoke", "deps", "compat", "reload", "restart", "crops", "mods"), v122.record_pack
+    assert v122.gate_runs == RUNS and len(RUNS) == 7 and not v122.leaves_out, v122.gate_runs
+    assert v122.gate_pack(set(PACK_ORDER)) == set(v122.record_pack), "the 1.2.2 gate runs every test pack command"
+    assert v122.later == {"CD-REL-04": "the v1.2.2 tag", "CD-REL-05": "the v1.2.2 tag", "CD-REL-15": "the next pack release"}
+    assert v122.earlier == {"CD-REL-13": PHASE_1_REPORT, "CD-REL-14": PHASE_3_REPORT, "CD-REL-16": V11_REPORT,
+                            "CD-REL-17": V12_REPORT, "CD-REL-18": V121_REPORT}, v122.earlier
+    assert v122.deferred_plans == (M5_PLAN, M8_PLAN) and v122.ruled_plans == (V12_PLAN, V121_PLAN) and v122.art_review == ART_REVIEW
     demo = SpecRow("CD-UI-01", frozenset({"Demo"}))
     assert evaluate(demo, set(), checks[1:], {}, first) == ("play-test", [])
     unit = Ref("unit", "UiTest", "CD-UI-01 a button")
@@ -1465,6 +1524,31 @@ def self_check() -> int:
     assert evaluate(SpecRow("CD-REL-17", frozenset({"Inspect"})), {note}, [], {note: ("fail", "the note has no date")},
                     v121)[0] == "fail", "CD-REL-17 rests on the dated play-test note of the 1.2 report"
 
+    # The marks of the 1.2.2 gate (evaluate): the record needs every test pack command, and CD-REL-18 completes with the
+    # generated blocks of the 1.2.1 report, which records no play-test note (earlier_record).
+    every = {Ref("testpack", command): (PASS, "") for command in PACK_ORDER}
+    hardening = SpecRow("CD-REL-19", frozenset({"Inspect"}))
+    assert evaluate(hardening, set(every), [], every, v122) == ("pass", []), "the 1.2.2 gate records no note"
+    deps_failed = {**every, Ref("testpack", "deps"): ("fail", "a dependency is missing")}
+    assert evaluate(hardening, set(every), [], deps_failed, v122)[0] == "fail"
+    assert evaluate(hardening, set(every), [], {}, v122)[0] == "fail", "the record fails while a command has no result"
+    assert not records_note(V121_REPORT) and records_note(V12_REPORT) and records_note(PHASE_3_REPORT)
+    sha = "4111a6f33f8f1f62912ab6938e98753f6002665a"
+    passed = (f"# 1.2.1 gate report\n\n## Play-test note\n\n- Date: pending\n\n## Run summary\n\nEvery check below ran on "
+              f"commit `{sha}` (2026-11-19, \"a commit\").\n\n## Rows\n\n### Rows without a passing test\n\nNone.\n\n"
+              "<!-- gate-report rows end -->\n")
+    assert record_commit(passed) == "4111a6f", record_commit(passed)
+    assert record_commit(passed.replace("\nNone.\n", "\n- CD-PCK-01: fail. No test cites the row.\n")) == ""
+    assert record_commit(passed.replace(f"commit `{sha}`", "commit `4111a6f`")) == ""
+    patch_record, patch_result = earlier_record(V121_REPORT, passed)
+    assert (patch_record, patch_result) == (Ref("record", rel(V121_REPORT), "4111a6f"), (PASS, "")), patch_record
+    assert evaluate(patch, {patch_record}, [], {patch_record: patch_result}, v122) == ("pass", [])
+    _, patch_result = earlier_record(V121_REPORT, passed.replace("\nNone.\n", "\n- CD-PCK-01: fail.\n"))
+    assert evaluate(patch, {patch_record}, [], {patch_record: patch_result}, v122)[0] == "fail"
+    note_record, note_result = earlier_record(V12_REPORT, "# R\n\n## Play-test note\n\n- Date: 2026-11-18\n")
+    assert (note_record, note_result) == (Ref("report", rel(V12_REPORT), "2026-11-18"), (PASS, "")), note_record
+    assert "the gate report `docs/testing/v1.2.1-gate.md`, on `4111a6f`" in ref_labels({patch_record}, [])
+
     # The run summary's art line, and the totals that name the phase (art_summary, totals).
     rows = {"CD-ART-10": ("art review", [], []), "CD-REL-04": ("open (M9)", [], []),
             "CD-UI-01": ("pass, play-test", [], [])}
@@ -1504,6 +1588,16 @@ def self_check() -> int:
     assert ("The 1.2.1 gate leaves out `./gradlew runGameTestServerCore` and `py scripts/testpack/testpack.py deps`. "
             "The section \"Deferred\" of this report gives the reason.") in summary, summary
     assert "runGameTestServerCompat" not in summary and "| Art checks |" in summary and "Play-test client" not in summary
+    gate = sample_gate(v122, {"CD-REL-19": ("pass", [], []), "CD-REL-04": ("open (the v1.2.2 tag)", [], [])}, {}, whole=True)
+    assert totals(gate) == (
+        "The spec sheet has 2 `MUST` and `MUST NOT` rows. 1 of the 1 rows with automated tests pass. 0 rows have a "
+        "play-test part, and 0 of them have no automated test. 0 rows wait for the approver's art review. "
+        "0 rows have a GameTest that the approver's test rulings deferred, and 0 of them have no other test. "
+        "1 rows stay open after Phase 1.2.2 (CD-REL-04). 0 automated rows have no passing test."), totals(gate)
+    gate.run_logs = {run.name: RunLog("not run", "no log", 0, frozenset(), "") for run in v122.gate_runs}
+    summary = render_summary(gate)
+    assert all(f"`./gradlew {run.task}`" in summary for run in RUNS) and "leaves out" not in summary, summary
+    assert "| Art checks |" in summary and "Play-test client" not in summary, summary
 
     # The list of the GameTests that the 1.2.1 plan deferred by the rulings: a group line for each task, as in the 1.2 plan.
     ruling = ("a\nGameTests deferred by the rulings (the marks).\n\n- Task B:\n  - CD-HRV-24: `CropAreaTest`.\n"
@@ -1520,7 +1614,8 @@ def self_check() -> int:
     assert arguments().parse_args(["--phase", "1.1"]).phase == "1.1"
     assert arguments().parse_args(["--phase", "1.2", "--art-log", "art.txt"]).phase == "1.2"
     assert arguments().parse_args(["--phase", "1.2.1", "--art-log", "art.txt"]).phase == "1.2.1"
-    assert sorted(PHASES) == ["1", "1.1", "1.2", "1.2.1", "2"], sorted(PHASES)
+    assert arguments().parse_args(["--phase", "1.2.2", "--art-log", "art.txt"]).phase == "1.2.2"
+    assert sorted(PHASES) == ["1", "1.1", "1.2", "1.2.1", "1.2.2", "2"], sorted(PHASES)
     print("self-check passed")
     return 0
 
@@ -1548,13 +1643,13 @@ def sample_gate(phase: Phase, evaluated: dict[str, tuple[str, list, list[Check]]
 def arguments() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--phase", choices=sorted(PHASES), default="1",
-                        help="the gate whose report the script writes: 1, 2, 1.1, 1.2 or 1.2.1 (default 1)")
+                        help="the gate whose report the script writes: 1, 2, 1.1, 1.2, 1.2.1 or 1.2.2 (default 1)")
     parser.add_argument("--gradle-log", action="append", default=[], type=pathlib.Path,
                         help="the console output of ./gradlew build and the GameTest runs, with --console=plain")
     parser.add_argument("--testpack-log", action="append", default=[], type=pathlib.Path,
                         help="the output of one test pack command, such as smoke or mods; give one for each command")
     parser.add_argument("--art-log", type=pathlib.Path,
-                        help=f"the output of {ART_COMMAND}, for the Phase 2, 1.2 and 1.2.1 gates")
+                        help=f"the output of {ART_COMMAND}, for the Phase 2, 1.2, 1.2.1 and 1.2.2 gates")
     parser.add_argument("--allow-dirty", action="store_true",
                         help="write the report although tracked files differ from the commit")
     parser.add_argument("--self-check", action="store_true", help="check the parsers on built-in samples")
