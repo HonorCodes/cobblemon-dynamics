@@ -48,13 +48,13 @@ object CultivatorHandler : TargetHandler {
         return FarmCells.lower(level, pos, state)
     }
 
-    /** CD-CUL-13: each cell of the 2 × 2 whose corner is [canonical] is part of that target. */
+    /** CD-CUL-13: each cell of the 2 × 2 whose corner is [canonical] is part of that target, when that square is the only one there. */
     override fun isPartOfTarget(level: ServerLevel, canonical: BlockPos, pos: BlockPos): Boolean {
         if (pos == canonical) return true
         val state = level.getBlockState(canonical)
         if (!state.`is`(BlockTags.SAPLINGS)) return FarmCells.isPart(level, canonical, pos)
-        val square = SaplingRules.square(canonical)
-        return pos in square && square.all { sameSapling(level, it, state) }
+        if (pos !in SaplingRules.square(canonical)) return false
+        return SaplingRules.onlySquare(canonical) { sameSapling(level, it, state) } == canonical
     }
 
     /** CD-ASG-24: a sapling's tree fills its cell, or each cell of its 2 × 2. A crop grows in place. */

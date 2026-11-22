@@ -495,7 +495,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /**
      * CD-ASG-21, CD-LSH-30: a worker in Standby on its target, with no missed arrival, whose role has no demand there, takes the first
-     * switch role with demand on the same target in this tick. A Quick Worker has no poll, so it keeps its role (decision 13).
+     * switch role with demand on the same target in this tick. A Quick Worker has no poll, so it keeps its role (decision 13). The switch
+     * roles of a bound worker are those of its bound role, also while it works in a switch role (CD-LSH-33).
      */
     private fun switchInStandby(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, taken: MutableSet<Long>) {
         val worker = slot.worker
@@ -504,22 +505,34 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val target = worker.target ?: return
         if (!RoleSwitch.maySwitch(slot.binding != null, hasFairyType(slot.pokemon)) || !t.level.isLoaded(target)) return
         if (claims.claimOf(worker.pokemonId)?.kind != ClaimKind.WORK || !BrainBridge.canHoldOrder(slot.entity)) return
-        val next = switchFor(t, slot, target, role) {
+        val binding = slot.binding
+        val own = if (binding == null) role else t.roles.get(binding.roleId) ?: return
+        val next = switchFor(t, slot, target, own, current = role) {
             guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target, role, slot.memo)) }
         } ?: return
         claimSwitch(t, runtime, slot, target, next, taken, moving = true)
     }
 
     /**
-     * CD-LSH-30, CD-LSH-32, CD-ASG-21: the switch role that the worker of [slot] takes on [target] in place of [own], or null to keep
-     * [own]. [ownDemand] asks [own]'s demand, and each switch role asks through its memo of the slot (CD-LSH-34). A worker with no
-     * switch role asks no demand, so a worker of one type costs only the cheap checks of `RoleSwitch.rolesOf`.
+     * CD-LSH-30, CD-LSH-32, CD-ASG-21: the switch role that the worker of [slot] takes on [target] in place of [current], or null to keep
+     * [current]. [own] is the bound role, or the claimed role of an auto worker, whose switch roles the worker may take. [currentDemand]
+     * asks [current]'s demand, and each other switch role asks through its memo of the slot (CD-LSH-34). A worker with no switch role
+     * asks no demand, so a worker of one type costs only the cheap checks of `RoleSwitch.rolesOf`. Unknown switch roles keep [current]
+     * (CD-LSH-35).
      */
-    private fun switchFor(t: Tick, slot: WorkerSlot, target: BlockPos, own: ActiveRole, ownDemand: () -> Boolean): ActiveRole? {
+    private fun switchFor(
+        t: Tick,
+        slot: WorkerSlot,
+        target: BlockPos,
+        own: ActiveRole,
+        current: ActiveRole = own,
+        currentDemand: () -> Boolean,
+    ): ActiveRole? {
         val types = typesOf(slot.pokemon)
-        val roles = switchRolesOn(t.level, target, own, t.roles, types, bound = slot.binding != null, cache = slot.switchRoles)
+        val bound = slot.binding != null
+        val roles = switchRolesOn(t.level, target, own, t.roles, types, bound, cache = slot.switchRoles, now = t.now) ?: return null
         if (roles.size < 2) return null
-        val byId = roles.associateBy { it.definition.id }
+        val byId = roles.associateBy { it.definition.id } + (current.definition.id to current)
         val me = slot.worker.pokemonId
         val keyOf = { def: RoleDefinition -> TargetKey.block(t.dimension, target, byId.getValue(def.id).handler.claimLane) }
         val demandOf = { def: RoleDefinition ->
@@ -527,16 +540,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target, role, slot.probes.memo(def.id))) }
         }
         val pick = RoleSwitch.choose(
-            own.definition,
+            current.definition,
             roles.map { it.definition },
             types.toList(),
-            hasDemand = { def -> if (def.id == own.definition.id) ownDemand() else demandOf(def) },
+            hasDemand = { def -> if (def.id == current.definition.id) currentDemand() else demandOf(def) },
             // CD-LSH-32: a free lane, or one that this worker holds itself, as the two roles of a brewing stand share theirs.
             laneFree = { def -> keyOf(def).let { claims.isFree(it, me) || claims.holderOf(it)?.worker == me } },
             skipped = { def -> slot.worker.isSkipped(keyOf(def), t.now) },
             sameGroup = RoleRegistry::sameGroup,
         )
-        return pick?.takeIf { it.id != own.definition.id }?.let { byId.getValue(it.id) }
+        return pick?.takeIf { it.id != current.definition.id }?.let { byId.getValue(it.id) }
     }
 
     /**
@@ -1617,7 +1630,10 @@ internal fun isSingle(role: ActiveRole): Boolean = role.handler.bindingShape == 
  * CD-LSH-33: the switch roles of [own] on [target] among the enabled roles of [roleSet] for [types], [own] first. A handler that throws
  * counts as no match. A worker with no binding ([bound] false) gets auto-assign roles only (CD-ASG-22). A switch role's handler must
  * not refuse a bind on the cell and must hold it valid (CD-LSH-31). [cache] keeps the answer until the block at [target], the role set,
- * [own] or [types] change, because the Lumberjack's checks can search a whole tree.
+ * [own] or [types] change, or for `SwitchCache.LIFETIME_TICKS` from [now], because the Lumberjack's checks can search a whole tree.
+ *
+ * CD-LSH-35: null, unknown and never cached, while a cell next to [target] or a cell of a switch role's tree search is in a chunk that
+ * is not loaded.
  */
 internal fun switchRolesOn(
     level: ServerLevel,
@@ -1627,28 +1643,33 @@ internal fun switchRolesOn(
     types: Collection<String>,
     bound: Boolean,
     cache: SwitchCache<List<ActiveRole>>? = null,
-): List<ActiveRole> {
+    now: Long = 0,
+): List<ActiveRole>? {
     val state = level.getBlockState(target)
-    val compute = {
+    val compute: () -> List<ActiveRole>? = compute@{
+        if (!neighboursLoaded(level, target)) return@compute null
         val enabled = roleSet.forTypes(types)
         val byId = enabled.associateBy { it.definition.id } + (own.definition.id to own)
         val blockEntity by lazy { level.getBlockEntity(target) }
         val handlerOf = { def: RoleDefinition -> byId.getValue(def.id).handler }
-        val roles = RoleSwitch.rolesOf(
+        val roles = RoleSwitch.rolesOrUnknown(
             own.definition,
             enabled.map { it.definition },
             bound,
             single = { def -> isSingle(byId.getValue(def.id)) },
             matches = { def -> handlerOf(def).let { h -> guarded(h, false) { h.matches(level, target, state, blockEntity) } } },
             resolvesToItself = { def -> handlerOf(def).let { h -> guarded(h, false) { h.resolvesToItself(level, target) } } },
-            accepts = { def ->
-                handlerOf(def).let { h -> guarded(h, false) { h.bindRefusal(level, target, def) == null && h.stillValid(level, target) } }
-            },
+            accepts = { def -> handlerOf(def).let { h -> guarded<Boolean?>(h, false) { h.switchAnswer(level, target, def) } } },
         )
-        roles.map { byId.getValue(it.id) }
+        roles?.map { byId.getValue(it.id) }
     }
-    return cache?.get(listOf(target, own.definition.id, bound, state, roleSet, types.toList()), compute) ?: compute()
+    if (cache == null) return compute()
+    return cache.get(listOf(target, own.definition.id, bound, state, roleSet, types.toList()), now, compute)
 }
+
+/** CD-LSH-35: the cells of [pos]'s column and of the 8 columns around it are loaded, which the switch checks of a cell read. */
+internal fun neighboursLoaded(level: ServerLevel, pos: BlockPos): Boolean =
+    (-1..1).all { dx -> (-1..1).all { dz -> level.isLoaded(pos.offset(dx, 0, dz)) } }
 
 /**
  * A handler that throws is turned off with one warning (CD-PERF-05). A `LinkageError` counts too, as when a later version of an

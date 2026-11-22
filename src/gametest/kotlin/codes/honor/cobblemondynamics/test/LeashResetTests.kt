@@ -2,7 +2,9 @@ package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.MOD_ID
+import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.id
+import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import com.cobblemon.mod.common.Cobblemon
@@ -252,5 +254,51 @@ class LeashResetTests {
     private companion object {
         /** `LeashResets` checks the leash index on each tick whose game time is a multiple of this. */
         const val INDEX_CHECK_TICKS = 10L
+    }
+
+    /**
+     * CD-LSH-36, CD-CUL-13: two Diglett bindings of 1.2.0 on the two east saplings of a row of spruce saplings 3 long and 2 wide. Each lies
+     * in one square only, whose corner is the middle sapling of the north row. The first check moves one binding there, and the other
+     * stays on its own sapling, because the corner is reserved in the Cultivator's lane. Neither walks on along the row later. The pasture
+     * is not in Work Mode, so no worker grows the saplings.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 200)
+    fun cdLsh36OldBindingsInARowOfSaplingsNeitherWalkNorMerge(helper: GameTestHelper) {
+        val owner = TestKit.owner(helper)
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 11), owner)
+        TestKit.standBeside(owner, pasture)
+        for (x in 3..5) {
+            for (z in 3..4) {
+                helper.setBlock(BlockPos(x, 1, z), Blocks.DIRT)
+                helper.setBlock(BlockPos(x, 2, z), Blocks.SPRUCE_SAPLING)
+            }
+        }
+        val corner = helper.absolutePos(BlockPos(4, 2, 3))
+        val ends = listOf(BlockPos(5, 2, 3), BlockPos(5, 2, 4)).map(helper::absolutePos)
+        val digletts = ends.map { TestKit.tether(helper, pasture, owner, "diglett level=20") }
+        val dimension = helper.level.dimension().location()
+        val index = helper.level.getData(DynamicsAttachments.LEASH_INDEX)
+        for ((entity, cell) in digletts.zip(ends)) {
+            // A binding of 1.2.0: on the clicked sapling, not on the corner of its square.
+            BindingStore.write(entity.pokemon, Binding(id("cultivator"), dimension, pasture.blockPos, cell, Direction.UP, owner.uuid))
+            index.put(cell, LeashIndex.Ref(entity.pokemon.uuid, owner.uuid, pasture.blockPos, id("cultivator")))
+        }
+        helper.level.setData(DynamicsAttachments.LEASH_INDEX, index)
+        val targets = { digletts.map { BindingStore.read(it.pokemon)?.target } }
+        var first: List<BlockPos?> = emptyList()
+        helper.runAtTickTime(40) {
+            first = targets()
+            helper.assertTrue(first.all { it != null }, "CD-LSH-36: a binding cleared: $first")
+            helper.assertTrue(first.count { it == corner } == 1, "CD-LSH-36: not one binding moved to the corner $corner: $first")
+            val stayed = first.zip(ends).filter { (target, _) -> target != corner }
+            helper.assertTrue(stayed.all { (target, end) -> target == end }, "CD-LSH-36: the other binding left its sapling: $first")
+            val at = helper.level.getData(DynamicsAttachments.LEASH_INDEX)
+            val refs = (ends + corner).associateWith { at.at(it).size }
+            helper.assertTrue(refs.values.sum() == 2 && refs.getValue(corner) == 1, "CD-LSH-36: the index holds $refs")
+        }
+        helper.runAtTickTime(120) {
+            helper.assertTrue(targets() == first, "CD-LSH-36: a binding walked on from $first to ${targets()}")
+            helper.succeed()
+        }
     }
 }

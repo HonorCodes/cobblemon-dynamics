@@ -53,14 +53,51 @@ class SaplingRulesTest {
         for (cell in three) assertEquals(cell, SaplingRules.corner(cell) { it in three })
     }
 
-    /** Two squares that overlap, as in a 3 x 2 of saplings: the corner with the least x and z is tried first, as the Lumberjack does. */
+    /**
+     * CD-CUL-13, CD-LSH-36: in two overlapping squares, as in a 3 x 2 of saplings, a middle sapling lies in both and names itself, and an
+     * end sapling names the corner of its one square.
+     */
     @Test
-    fun `CD-CUL-13 in two overlapping squares the middle saplings resolve to the first square`() {
+    fun `CD-CUL-13 a sapling in two squares resolves to itself, and one in exactly one square to that square's corner`() {
         val start = BlockPos(0, 64, 0)
         val cells = (0..2).flatMap { x -> (0..1).map { z -> start.offset(x, 0, z) } }.toSet()
-        assertEquals(start, SaplingRules.corner(start.offset(1, 0, 0)) { it in cells })
-        assertEquals(start, SaplingRules.corner(start.offset(1, 0, 1)) { it in cells })
+        assertEquals(start, SaplingRules.corner(start) { it in cells })
+        assertEquals(start, SaplingRules.corner(start.offset(0, 0, 1)) { it in cells })
+        assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(1, 0, 0)) { it in cells })
+        assertEquals(start.offset(1, 0, 1), SaplingRules.corner(start.offset(1, 0, 1)) { it in cells })
         assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(2, 0, 0)) { it in cells })
+        assertEquals(start.offset(1, 0, 0), SaplingRules.corner(start.offset(2, 0, 1)) { it in cells })
+    }
+
+    /**
+     * CD-LSH-36: the corner is a fixed point over rows 2 wide, rows 1 wide, fields and scattered squares. A binding moved to the corner
+     * of its cell is at its own corner, so it never walks on along a row of saplings.
+     */
+    @Test
+    fun `CD-LSH-36 the corner of every sapling of a row or a field resolves to itself`() {
+        val origin = BlockPos(-8, 70, 13)
+        fun field(width: Int, depth: Int) = (0 until width).flatMap { x -> (0 until depth).map { z -> origin.offset(x, 0, z) } }.toSet()
+        val layouts = mapOf(
+            "a row 2 wide" to field(9, 2),
+            "a row 2 deep" to field(2, 9),
+            "a row 1 wide" to field(9, 1),
+            "a field 5 x 5" to field(5, 5),
+            "a field 3 x 4" to field(3, 4),
+            "an L" to field(4, 2) + field(2, 4),
+            "a checkerboard of squares" to (field(6, 6).filter { (it.x - origin.x) / 2 % 2 == (it.z - origin.z) / 2 % 2 }).toSet(),
+        )
+        for ((name, cells) in layouts) {
+            val same = { pos: BlockPos -> pos in cells }
+            for (cell in cells) {
+                val corner = SaplingRules.corner(cell, same)
+                assertTrue(corner in cells, "$name: $cell resolves to $corner, which holds no sapling")
+                assertEquals(corner, SaplingRules.corner(corner, same), "$name: the corner $corner of $cell moves on")
+            }
+        }
+        // In a row 2 wide, only the two cells at each end move, and the two ends name different corners.
+        val row = field(9, 2)
+        val moved = row.filter { SaplingRules.corner(it) { pos -> pos in row } != it }.toSet()
+        assertEquals(setOf(origin.offset(0, 0, 1), origin.offset(8, 0, 0), origin.offset(8, 0, 1)), moved)
     }
 
     @Test

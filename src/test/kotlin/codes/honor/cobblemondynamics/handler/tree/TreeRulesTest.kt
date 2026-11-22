@@ -63,7 +63,9 @@ class TreeRulesTest {
             val same: (BlockPos) -> Boolean = { grid.read(it).sapling && grid.read(it).blockId == grid.read(cell).blockId }
             assertEquals(SaplingRules.corner(cell, same), TreeRules.canonical(grid.read, cell, MAX_LOGS), "the sapling at $cell")
         }
-        assertEquals(start, TreeRules.canonical(grid.read, start.offset(1, 0, 1), MAX_LOGS))
+        // CD-LSH-36: a middle sapling lies in two squares and names itself, and an end sapling names the corner of its one square.
+        assertEquals(start.offset(1, 0, 1), TreeRules.canonical(grid.read, start.offset(1, 0, 1), MAX_LOGS))
+        assertEquals(start.offset(1, 0, 0), TreeRules.canonical(grid.read, start.offset(2, 0, 1), MAX_LOGS))
         assertEquals(lone, TreeRules.canonical(grid.read, lone, MAX_LOGS))
     }
 

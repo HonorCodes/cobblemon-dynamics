@@ -125,6 +125,19 @@ object LumberjackHandler : TargetHandler {
         return TreeRules.CANNOT_FELL.takeIf { refused }
     }
 
+    /**
+     * CD-LSH-35: a refusal whose search read a cell of a chunk that is not loaded is unknown (null), so a switch role keeps its binding
+     * until the tree's chunks load.
+     */
+    override fun switchAnswer(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): Boolean? {
+        val params = LumberjackParams.of(role.params)
+        val reader = TreeFactsReader(level)
+        if (TreeRules.refusesBind(reader::facts, canonical, params.maxLogs, params.maxLeaves, dynamicTrees != null)) {
+            return if (reader.metUnloaded) null else false
+        }
+        return stillValid(level, canonical)
+    }
+
     /** CD-LUM-10, CD-LUM-13: a tree stands on the base cell, and no claim check refused its fell lately. A started fell completes. */
     override fun hasDemand(ctx: WorkContext): Boolean {
         val memo = memoOf(ctx)

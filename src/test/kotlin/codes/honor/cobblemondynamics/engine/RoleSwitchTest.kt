@@ -182,18 +182,62 @@ class RoleSwitchTest {
         assertTrue(RoleSwitch.maySwitch(bound = false, hasFairyType = false))
     }
 
-    /** Review: the Lumberjack's checks search the whole tree, so their answer lasts until the block at the target changes. */
+    /**
+     * Review: the Lumberjack's checks search the whole tree, so their answer lasts until the block at the target changes, and for 200
+     * ticks at most, so a change next to the target counts within 200 ticks (hardening audit, finding 5).
+     */
     @Test
-    fun `CD-LSH-33 the switch answer is computed again only when its key changes`() {
+    fun `CD-LSH-33 the switch answer is computed again when its key changes or it is 200 ticks old`() {
         val cache = SwitchCache<Boolean>()
         var computed = 0
         val log = Any()
-        for (check in 0 until 100) assertTrue(cache.get(listOf(BlockPos.ZERO, log)) { computed++.let { true } })
+        for (tick in 0L until 200L) assertEquals(true, cache.get(listOf(BlockPos.ZERO, log), tick) { computed++.let { true } })
         assertEquals(1, computed)
-        val sapling = Any()
-        assertFalse(cache.get(listOf(BlockPos.ZERO, sapling)) { computed++.let { false } })
-        assertFalse(cache.get(listOf(BlockPos.ZERO, sapling)) { computed++.let { true } })
+        assertEquals(false, cache.get(listOf(BlockPos.ZERO, log), 200L) { computed++.let { false } }, "the answer outlived 200 ticks")
         assertEquals(2, computed)
+        val sapling = Any()
+        assertEquals(true, cache.get(listOf(BlockPos.ZERO, sapling), 201L) { computed++.let { true } })
+        assertEquals(true, cache.get(listOf(BlockPos.ZERO, sapling), 202L) { computed++.let { false } })
+        assertEquals(3, computed)
+    }
+
+    /** CD-LSH-35: an unknown answer is never held, so the next check asks again. */
+    @Test
+    fun `CD-LSH-35 an unknown switch answer is not cached`() {
+        val cache = SwitchCache<Boolean>()
+        var computed = 0
+        val key = listOf(BlockPos.ZERO, Any())
+        assertNull(cache.get(key, 0L) { computed++.let { null } })
+        assertNull(cache.get(key, 10L) { computed++.let { null } })
+        assertEquals(false, cache.get(key, 20L) { computed++.let { false } })
+        assertEquals(false, cache.get(key, 30L) { computed++.let { true } })
+        assertEquals(3, computed)
+    }
+
+    /**
+     * CD-LSH-35: a switch role whose tree search meets a chunk that is not loaded answers null. The list of switch roles is then unknown,
+     * and so is the hold of the binding, which the caller keeps. A known refusal still clears it, and a binding that its own handler keeps
+     * asks nothing.
+     */
+    @Test
+    fun `CD-LSH-35 a switch answer that reads an unloaded cell keeps the binding as unknown`() {
+        val oak = cell("lumberjack")
+        val types = enabled("bug", "ground")
+        val unknown = RoleSwitch.rolesOrUnknown(cultivator, types, true, single, oak, { true }) { null }
+        assertNull(unknown, "a list with an unknown answer")
+        assertNull(RoleSwitch.holdsOrUnknown(ownHolds = false) { unknown }, "the hold of an unknown list")
+        val refused = RoleSwitch.rolesOrUnknown(cultivator, types, true, single, oak, { true }) { false }
+        assertEquals(listOf(cultivator), refused)
+        assertEquals(false, RoleSwitch.holdsOrUnknown(ownHolds = false) { refused })
+        val felled = RoleSwitch.rolesOrUnknown(cultivator, types, true, single, oak, { true }) { true }
+        assertEquals(listOf(cultivator, lumberjack), felled)
+        assertEquals(true, RoleSwitch.holdsOrUnknown(ownHolds = false) { felled })
+        var asked = false
+        assertEquals(true, RoleSwitch.holdsOrUnknown(ownHolds = true) { null.also { asked = true } })
+        assertFalse(asked, "a binding that its own handler keeps asks no switch role")
+        // A role that no cheap check passes is never asked, so an unknown answer of another cell does not count.
+        val furnace = RoleSwitch.rolesOrUnknown(cultivator, types, true, single, cell("stoker"), { true }) { null }
+        assertEquals(listOf(cultivator), furnace)
     }
 
     @Test
