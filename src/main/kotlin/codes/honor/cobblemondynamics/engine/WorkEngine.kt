@@ -944,7 +944,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /**
      * CD-ASG-25: [free] for one worker of [site] from the tree at [tree], within its work area and the land that its owner may use.
-     * CD-ASG-27: a worker that rests in place rests where the net put it. A sleeper lets its bed go, rests in place and is freed only when
+     * CD-ASG-28: a worker that rests in place rests where the net put it. A sleeper lets its bed go, rests in place and is freed only when
      * its body overlaps a block of the changed tree (a natural leaf or a cell of its trunk) or its bed's sleep point lies in a tree, so no
      * rest order puts it back into the tree and no other block takes its bed. A throw from another mod's block skips this worker only.
      */
@@ -976,7 +976,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** CD-ASG-27, CD-BED-11: the worker of [slot] lets its bed go and rests in place where it stands. */
+    /** CD-ASG-28, CD-BED-11: the worker of [slot] lets its bed go and rests in place where it stands. */
     private fun restInPlace(t: Tick, slot: WorkerSlot) {
         val worker = slot.worker
         if (claims.claimOf(worker.pokemonId)?.kind == ClaimKind.BED) claims.release(worker.pokemonId)
@@ -1048,7 +1048,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val bed = blockEntity as? BedBlockEntity ?: return@mapNotNull null
             // CD-LND-04: a bed that the placer may not use is no candidate.
             if (!LandClaims.ownerMayUse(runtime.placer, t.level, pos)) return@mapNotNull null
-            // CD-ASG-27: a bed whose sleep point lies in a tree is no candidate.
+            // CD-ASG-28: a bed whose sleep point lies in a tree is no candidate.
             if (sleepsInTree(slot.entity, BedCandidate.sleepPoint(pos))) return@mapNotNull null
             BedCandidate(TargetKey.block(t.dimension, pos), BedCandidate.sleepPoint(pos), bed.tier.tier)
         }.toList()
@@ -1066,7 +1066,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val present = held && isBed(t.level, bed.key)
         val atBed = present && BedSelector.isAt(entity.position(), entity.bbWidth.toDouble(), bed.center)
         when (t.machine.onRestTick(worker, t.now, atBed, present)) {
-            // CD-ASG-27: a bed whose sleep point a tree filled since the claim gives no rest.
+            // CD-ASG-28: a bed whose sleep point a tree filled since the claim gives no rest.
             MachineEvent.FellAsleep -> if (sleepsInTree(entity, bed.center)) restInPlace(t, slot) else lieDown(entity, bed.center)
 
             MachineEvent.LostBed -> {
@@ -1613,7 +1613,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
 
         /**
-         * CD-ASG-27: whether the body of [entity] on [point], a bed's sleep point, overlaps a log, a leaf or a mangrove root. Any other block
+         * CD-ASG-28: whether the body of [entity] on [point], a bed's sleep point, overlaps a log, a leaf or a mangrove root. Any other block
          * keeps the bed, so a Cobblemon of any size still sleeps on it (CD-BED-09).
          */
         private fun sleepsInTree(entity: PokemonEntity, point: Vec3): Boolean {

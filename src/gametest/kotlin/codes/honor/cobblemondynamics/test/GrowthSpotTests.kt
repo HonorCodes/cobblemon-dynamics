@@ -246,12 +246,12 @@ class GrowthSpotTests {
     }
 
     /**
-     * CD-ASG-27: a level 50 Caterpie bound as the Lumberjack to an oak sapling waits beside it, tires and rests in place, and its owner
+     * CD-ASG-28: a level 50 Caterpie bound as the Lumberjack to an oak sapling waits beside it, tires and rests in place, and its owner
      * grows an oak with bone meal in the Caterpie's cell. The net moves it out, and its rest holds it at the new place: 40 ticks later its
      * body still overlaps no block. Before the fix, the rest order put it back into the trunk on the next tick.
      */
     @GameTest(template = "floor_23x17x23", timeoutTicks = 1_200)
-    fun cdAsg27ARestingWorkerStaysOutOfTheTreeThatGrewOnIt(helper: GameTestHelper) {
+    fun cdAsg28ARestingWorkerStaysOutOfTheTreeThatGrewOnIt(helper: GameTestHelper) {
         val owner = TestKit.owner(helper)
         val pasture = TestKit.placePasture(helper, BlockPos(11, 1, 15), owner)
         TestKit.workMode(pasture, true)
@@ -292,13 +292,13 @@ class GrowthSpotTests {
                 2 -> if (helper.tick >= grownAt + 2) {
                     assertFree(helper, caterpie, cell!!, "CD-ASG-26")
                     val off = worker.restSpot?.distanceTo(caterpie.position())
-                    helper.assertTrue(off != null && off <= 0.25, "CD-ASG-27: the rest spot lies $off blocks from the moved Caterpie")
+                    helper.assertTrue(off != null && off <= 0.25, "CD-ASG-28: the rest spot lies $off blocks from the moved Caterpie")
                     phase = 3
                 }
 
                 else -> if (helper.tick >= grownAt + 40) {
-                    helper.assertTrue(worker.status == WorkerStatus.RESTING_IN_PLACE, "CD-ASG-27: the Caterpie is ${worker.status}")
-                    assertFree(helper, caterpie, cell!!, "CD-ASG-27")
+                    helper.assertTrue(worker.status == WorkerStatus.RESTING_IN_PLACE, "CD-ASG-28: the Caterpie is ${worker.status}")
+                    assertFree(helper, caterpie, cell!!, "CD-ASG-28")
                     helper.succeed()
                 }
             }
