@@ -407,7 +407,14 @@ Cobblemon ticks each Cobblemon's Brain in `customServerAiStep`. Our part of that
    and the middle of its cell is inside the screen. A worker is stuck when its navigation reports it
    stuck, or when it stays within 0.25 blocks of one point for 100 ticks. Cobblemon's navigation never
    reports a stuck worker in flight or in water, because Cobblemon sets the mob's speed to 0 there, and
-   vanilla's check scales with that speed.
+   vanilla's check scales with that speed. Cobblemon's pathfinder checks at most 2 cells across for a
+   mob, but navigation steers a mob 2 to 3 blocks wide to 1.5 blocks from the corner of each path cell,
+   so its body reaches 0.625 into a third row of cells that no path checks. A path beside the pasture
+   block can then take the body straight into the block's face. A stuck worker 1 block wide or wider
+   steps sideways by the shortest distance, at most half its width, that clears the blocks on the face
+   that leads toward its path's next point, if its body fits there on a floor (CD-ASG-27). Such a worker
+   also counts as stuck when it pushes against a block and stays within 0.1 blocks of one point for 20
+   ticks.
 3. Our own look task sets `LOOK_TARGET` to the target's center and turns the Cobblemon toward it.
    Cobblemon's `look_at_target` runs only in the idle activity, which the work activity replaces.
 4. At the work spot, a hold task keeps `PATH_COOLDOWN` set. Cobblemon's wander task needs both

@@ -17,6 +17,12 @@ import kotlin.math.abs
  *   at the screen's height pushes into the recess, where the frame's top bar stops it from rising and the screen from going on.
  * From the middle of the cell that holds its center, the first two end, and its next path starts in that cell. In the third, that middle
  * lies inside the screen, so the worker goes on top of the block in its cell, where its path goes on.
+ *
+ * A worker 1 block wide or wider has no cell that holds its body, so it steps sideways instead ([sideShifts], CD-ASG-27). Cobblemon's
+ * pathfinder checks at most 2 cells on x and z for a mob (`OmniPathNodeMaker.getPathTypeOfMob`), but navigation steers a mob 2 to 3
+ * blocks wide to `node + 1.5` (`Path.getEntityPosAtNode`), so its body reaches 0.625 into a third row of cells that no path checks. A
+ * path that runs beside the pasture block can then take the body straight into the block's face, where no sideways part of the move
+ * lets it slide past, and every new path from there is the same.
  */
 object Unstick {
     private const val EPSILON = 1e-6
@@ -38,6 +44,20 @@ object Unstick {
         if (!(shapeTop > 0.0 && shapeTop <= 1.0)) return null
         val top = cellY + shapeTop
         return if (top > feetY + EPSILON) top else null
+    }
+
+    /** CD-ASG-27: how far beyond the blocks a sideways step takes the body. */
+    const val SIDESTEP_GAP = 0.01
+
+    /**
+     * CD-ASG-27: the sideways shifts on one axis that take a body from [bodyMin] to [bodyMax] clear of blocks that span [blockMin] to
+     * [blockMax] on that axis, the shorter first, each at most [maxShift] long. None when the blocks do not overlap the body on that axis.
+     */
+    fun sideShifts(bodyMin: Double, bodyMax: Double, blockMin: Double, blockMax: Double, maxShift: Double): List<Double> {
+        if (blockMin >= bodyMax || blockMax <= bodyMin) return emptyList()
+        val down = blockMin - bodyMax - SIDESTEP_GAP
+        val up = blockMax - bodyMin + SIDESTEP_GAP
+        return listOf(down, up).filter { abs(it) <= maxShift }.sortedBy { abs(it) }
     }
 
     /** CD-ASG-25: how far, on x and z, a worker whose body a grown tree filled may move to a free cell. */
@@ -68,36 +88,41 @@ object Unstick {
 }
 
 /**
- * Whether a Traveling worker's travel has stalled: it stayed within a quarter block of one point for 100 ticks, the interval of
- * vanilla's own stuck check. That check compares the progress with a distance that scales with the mob's speed, and Cobblemon's move
- * control sets that speed to 0 in flight and in water (`PokemonMoveControl`), so the navigation never reports a stuck worker there.
+ * Whether a Traveling worker's travel has stalled: by default, it stayed within a quarter block of one point for 100 ticks, the
+ * interval of vanilla's own stuck check. That check compares the progress with a distance that scales with the mob's speed, and
+ * Cobblemon's move control sets that speed to 0 in flight and in water (`PokemonMoveControl`), so the navigation never reports a stuck
+ * worker there. The short watch of CD-ASG-27 takes [PRESS_TICKS] and [PRESS_RADIUS].
  */
-class TravelStall {
+class TravelStall(private val ticks: Long = TICKS, private val radius: Double = RADIUS) {
     private var x = 0.0
     private var y = 0.0
     private var z = 0.0
     private var since = 0L
     private var last = Long.MIN_VALUE
 
-    /** Takes each Traveling tick. True once per 100 ticks while the worker stays near one point. A tick without a call starts anew. */
+    /** Takes each Traveling tick. True once per [ticks] while the worker stays within [radius] of one point. A tick without a call starts anew. */
     fun stalled(now: Long, x: Double, y: Double, z: Double): Boolean {
         val dx = x - this.x
         val dy = y - this.y
         val dz = z - this.z
-        if (now != last + 1 || dx * dx + dy * dy + dz * dz > RADIUS * RADIUS) {
+        if (now != last + 1 || dx * dx + dy * dy + dz * dz > radius * radius) {
             this.x = x
             this.y = y
             this.z = z
             since = now
         }
         last = now
-        if (now - since < TICKS) return false
+        if (now - since < ticks) return false
         since = now
         return true
     }
 
-    private companion object {
-        const val TICKS = 100L
-        const val RADIUS = 0.25
+    companion object {
+        private const val TICKS = 100L
+        private const val RADIUS = 0.25
+
+        /** CD-ASG-27: a pushing worker 1 block wide or wider steps sideways after 20 ticks within 0.1 blocks of one point. */
+        const val PRESS_TICKS = 20L
+        const val PRESS_RADIUS = 0.1
     }
 }

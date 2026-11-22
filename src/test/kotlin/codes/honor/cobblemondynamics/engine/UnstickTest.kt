@@ -75,6 +75,21 @@ class UnstickTest {
         assertTrue(stall.stalled(180, 0.0, 0.0, 0.0))
     }
 
+    /** The Torterra of the scene below creeps along the pasture block at about 0.002 blocks a tick after it meets its face. */
+    @Test
+    fun `CD-ASG-27 the short watch reports a worker that creeps less than a tenth of a block in 20 ticks`() {
+        val press = TravelStall(TravelStall.PRESS_TICKS, TravelStall.PRESS_RADIUS)
+        for (now in 0L..19L) assertFalse(press.stalled(now, 10.21 + now * 0.002, 2.0, 9.94), "pressed at tick $now")
+        assertTrue(press.stalled(20, 10.25, 2.0, 9.94))
+    }
+
+    /** The slowest walk of the GameTests, a Torterra at about half its size, covers 0.012 blocks a tick. */
+    @Test
+    fun `CD-ASG-27 the short watch never reports a worker that walks`() {
+        val press = TravelStall(TravelStall.PRESS_TICKS, TravelStall.PRESS_RADIUS)
+        for (now in 0L..200L) assertFalse(press.stalled(now, now * 0.012, 2.0, 0.0), "pressed at tick $now")
+    }
+
     @Test
     fun `CD-ASG-25 a worker in a grown tree reaches the open cells nearest first, within 3 blocks`() {
         val at = BlockPos(10, 64, 10)
@@ -107,5 +122,36 @@ class UnstickTest {
         assertEquals(listOf(at, at.south(), at.south(2), at.south(3)), cells)
         val open = Unstick.reachableCells(at, at.south()) { true }
         assertEquals(at.south(), open[1])
+    }
+
+    /**
+     * A Torterra 2.25 wide walks west along z = 10.51 and presses its west face against the pasture block's east face. Its body spans
+     * z 9.385 to 11.635, and the block's top half spans z 11.0625 to 11.625.
+     */
+    @Test
+    fun `CD-ASG-27 a worker pressed head-on against a block steps sideways by the least distance that clears it`() {
+        val shifts = Unstick.sideShifts(9.385, 11.635, 11.0625, 11.625, 1.125)
+        assertEquals(1, shifts.size)
+        assertEquals(11.0625 - 11.635 - Unstick.SIDESTEP_GAP, shifts[0], 1e-9)
+    }
+
+    @Test
+    fun `CD-ASG-27 both ways clear a small block, the shorter first`() {
+        val shifts = Unstick.sideShifts(4.0, 6.25, 5.5, 5.75, 2.0)
+        assertEquals(listOf(5.75 - 4.0 + Unstick.SIDESTEP_GAP, 5.5 - 6.25 - Unstick.SIDESTEP_GAP).sortedBy { abs(it) }, shifts)
+        assertTrue(abs(shifts[0]) <= abs(shifts[1]))
+    }
+
+    @Test
+    fun `CD-ASG-27 no step clears a wall, and a block beside the body needs none`() {
+        assertTrue(Unstick.sideShifts(9.385, 11.635, -20.0, 40.0, 1.125).isEmpty())
+        assertTrue(Unstick.sideShifts(9.385, 11.635, 11.635, 12.0, 1.125).isEmpty())
+        assertTrue(Unstick.sideShifts(9.385, 11.635, 8.0, 9.385, 1.125).isEmpty())
+    }
+
+    @Test
+    fun `CD-ASG-27 a step never takes the center beyond half the body's width`() {
+        assertTrue(Unstick.sideShifts(0.0, 1.0, 0.1, 0.9, 0.5).isEmpty())
+        assertEquals(listOf(-0.5 - Unstick.SIDESTEP_GAP), Unstick.sideShifts(0.0, 1.0, 0.5, 2.0, 0.6))
     }
 }
