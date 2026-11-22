@@ -16,8 +16,8 @@ of V12_ROWS, which Phase 1 leaves out too, and each earlier row with a 1.2 part 
 inside a task section of the 1.2 plan. Every other mode leaves out the rows of V121_ROWS, V121_AREAS and V122_ROWS.
 1.2.1: the rows of V121_ROWS, new rows in earlier areas, the rows of the PCK area (V121_AREAS), and each earlier row with a
 1.2.1 part (the split-row table of the 1.2.1 plan), cited inside a task section of the 1.2.1 plan.
-1.2.2: the new rows of the 1.2.2 plans, which every other mode leaves out, and each earlier row that they amend, cited inside a
-task section of a 1.2.2 plan.
+1.2.2: the new rows of the 1.2.2 plans, which every other mode leaves out, and each earlier row that they amend or that has a
+1.2.2 part (CD-REL-04 and CD-REL-05), cited inside a task section of a 1.2.2 plan.
 Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2,1.2.1,1.2.2}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
@@ -110,14 +110,16 @@ V121_PARTS = (
 # 1.2.2, under the approver's delegation (R81): two plans, docs/plans/2026-11-22-v1.2.2-*.md. The new rows lie in earlier
 # areas, so every other mode leaves them out, and the amended rows keep their own phase too.
 PLANS["1.2.2"] = ("2026-11-22-v1.2.2-*.md",)
-# The coordinator's hardening pass: docs/plans/2026-11-22-v1.2.2-hardening.md.
-V122_HARDENING_ROWS = ("CD-ASG-27",)
+# The coordinator's hardening pass and the gate of 1.2.2 (R96): docs/plans/2026-11-22-v1.2.2-hardening.md.
+V122_HARDENING_ROWS = ("CD-ASG-27", "CD-REL-19")
+# Earlier rows with a 1.2.2 part: the v1.2.2 tag and the version of its jar (Task 2 of the hardening plan).
+V122_HARDENING_PARTS = ("CD-REL-04", "CD-REL-05")
 # The audit fixes: docs/plans/2026-11-22-v1.2.2-audit-fixes.md.
 V122_AUDIT_ROWS = ("CD-LSH-35", "CD-LSH-36", "CD-LSH-37", "CD-ASG-28")
 V122_AUDIT_PARTS = ("CD-LSH-31", "CD-LSH-30", "CD-CUL-13", "CD-CRP-24", "CD-ASG-25", "CD-LUM-29")
 # The lists of 1.2.2, from both plans.
 V122_ROWS = V122_HARDENING_ROWS + V122_AUDIT_ROWS
-V122_PARTS = V122_AUDIT_PARTS
+V122_PARTS = V122_HARDENING_PARTS + V122_AUDIT_PARTS
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")
 HEADING = re.compile(r"^#{1,3} ", re.MULTILINE)
