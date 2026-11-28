@@ -7,8 +7,10 @@ import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.handler.farming.CropFactsReader
 import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
+import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
+import codes.honor.cobblemondynamics.role.RoleRegistry
 import codes.honor.cobblemondynamics.stamina.StaminaMath
 import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
@@ -465,12 +467,14 @@ class PastureClaimTests {
         val grainsLowerAbs = helper.absolutePos(grainsLowerRel)
         val grainsUpperAbs = refuse(helper, helper.absolutePos(grainsUpperRel), TestLandClaims.refusedBreak)
 
+        val harvesterRole = RoleRegistry.current.get(id("harvester"))!!.definition
         helper.assertTrue(
-            HarvesterHandler.breakTargets(helper.level, helper.absolutePos(stem1Rel)) == listOf(helper.absolutePos(pumpkin1Rel)),
+            HarvesterHandler.breakTargets(helper.level, helper.absolutePos(stem1Rel), harvesterRole) ==
+                listOf(helper.absolutePos(pumpkin1Rel)),
             "gourd breakTargets did not return only the fruit cell",
         )
         helper.assertTrue(
-            HarvesterHandler.breakTargets(helper.level, grainsLowerAbs) == listOf(grainsUpperAbs),
+            HarvesterHandler.breakTargets(helper.level, grainsLowerAbs, harvesterRole) == listOf(grainsUpperAbs),
             "upper-half two-block crop breakTargets did not return canonical.above()",
         )
 

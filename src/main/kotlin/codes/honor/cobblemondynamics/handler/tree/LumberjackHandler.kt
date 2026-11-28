@@ -130,10 +130,41 @@ object LumberjackHandler : TargetHandler {
 
     override val breaksBlocks: Boolean = true
 
-    override fun breakTargets(level: ServerLevel, canonical: BlockPos): List<BlockPos> {
-        val base = TreeFactsReader.stateOf(level, canonical) ?: return emptyList()
-        if (!base.`is`(TreeFactsReader.TARGETS)) return emptyList()
-        return fell(level, canonical, maxRoleParams())?.breakCells ?: listOf(canonical)
+    override fun breakTargets(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): List<BlockPos> {
+        val reader = TreeFactsReader(level)
+        val failed: (Throwable) -> Unit = { e ->
+            warnings.warn("shell:${e.javaClass.name}") { "The Lumberjack plans no fell at $canonical, because a block's check fails: $e" }
+        }
+        return breakTargets(
+            cells = reader::facts,
+            canonical = canonical,
+            role = role,
+            dynamicTrees = dynamicTrees != null,
+            shellOf = { tree ->
+                ShellRule.shell(tree, { pos -> standing(level, pos) }, failed) { pos, gone -> stands(level, tree, gone, pos) }
+            },
+            hangingOf = { tree, shell ->
+                hangingOn(level, tree.cells + shell).map { it.pos to BuiltInRegistries.ENTITY_TYPE.getKey(it.type) }
+            },
+        )
+    }
+
+    internal fun breakTargets(
+        cells: (BlockPos) -> CellFacts,
+        canonical: BlockPos,
+        role: RoleDefinition,
+        dynamicTrees: Boolean = false,
+        shellOf: (Tree) -> Set<BlockPos>? = { emptySet() },
+        hangingOf: (Tree, Set<BlockPos>) -> List<Pair<BlockPos, ResourceLocation>> = { _, _ -> emptyList() },
+    ): List<BlockPos> {
+        val baseFacts = cells(canonical)
+        if (!baseFacts.logTarget) return emptyList()
+        val params = LumberjackParams.from(role)
+        val tree = TreeRules.treeOn(cells, canonical, params.maxLogs, params.maxLeaves, dynamicTrees) ?: return listOf(canonical)
+        if (TreeRules.feller(baseFacts, dynamicTrees) == null) return listOf(canonical)
+        val shell = shellOf(tree) ?: return listOf(canonical)
+        val hanging = hangingOf(tree, shell)
+        return FellPlan.of(tree, shell, hanging) { cells(it).blockId }.breakCells(hanging.map { it.first })
     }
 
     internal fun hasActiveRun(memo: ClaimMemo): Boolean = (memo.value as? Memo)?.run != null
@@ -170,7 +201,7 @@ object LumberjackHandler : TargetHandler {
         if (memo.clock.isRefused(ctx.now)) return false
         if (memo.tree(ctx) == null) return false
         if (memo.clock.isCountingDown) return true
-        val planned = fell(ctx.level, ctx.target, LumberjackParams.of(ctx.role.params))
+        val planned = fell(ctx.level, ctx.target, LumberjackParams.from(ctx.role))
         if (planned == null || !FellPlan.allowed(planned.plan, ctx.mayChange, ctx.mayBreak) || !planned.breakCells.all(ctx.mayBreak)) {
             memo.clock.refuse(ctx.now, ctx.stalled)
             return false
@@ -194,7 +225,7 @@ object LumberjackHandler : TargetHandler {
         }
         if (!memo.clock.isFellTick(ctx.now)) return
         memo.wait.forget()
-        val params = LumberjackParams.of(ctx.role.params)
+        val params = LumberjackParams.from(ctx.role)
         // CD-LUM-12, CD-LUM-13, CD-LUM-29: every question in this tick, before any block changes. A refusal, or a tree that gets no
         // plan, changes nothing and waits.
         val fell = fell(ctx.level, ctx.target, params)
@@ -252,13 +283,9 @@ object LumberjackHandler : TargetHandler {
         val hanging = hangingOn(level, tree.cells + shell)
         val cells = hanging.map { it.pos to BuiltInRegistries.ENTITY_TYPE.getKey(it.type) }
         val fPlan = FellPlan.of(tree, shell, cells) { reader.facts(it).blockId }
-        val breakCells = (fPlan.questions + tree.logs + shell).distinct()
+        val breakCells = fPlan.breakCells(hanging.map { it.pos })
         return Fell(fPlan, breakCells, hanging, feller)
     }
-
-    private fun maxRoleParams(): LumberjackParams = RoleRegistry.current.active.filter { it.handler === this }
-        .map { LumberjackParams.of(it.definition.params) }
-        .maxByOrNull { it.maxLogs } ?: LumberjackParams.DEFAULT
 
     /**
      * CD-LUM-25: once every claim question allowed the fell, Dynamic Trees fells the tree for the worker by its own rules, which may play
@@ -524,7 +551,7 @@ object LumberjackHandler : TargetHandler {
         fun tree(ctx: WorkContext): Tree? {
             val base = TreeFactsReader.stateOf(ctx.level, ctx.target)
             return wait.tree(ctx.now, baseIsLog = base != null && base.`is`(TreeFactsReader.TARGETS)) {
-                val params = LumberjackParams.of(ctx.role.params)
+                val params = LumberjackParams.from(ctx.role)
                 TreeRules.treeOn(TreeFactsReader(ctx.level)::facts, ctx.target, params.maxLogs, params.maxLeaves, dynamicTrees != null)
             }
         }

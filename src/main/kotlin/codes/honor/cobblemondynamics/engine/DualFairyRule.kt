@@ -18,10 +18,14 @@ object DualFairyRule {
         staminaFraction: Double,
         allyNeedsHeal: Boolean,
         settings: EngineSettings,
+        healMultiplier: Double = 1.0,
+        isMajestic: Boolean = false,
     ): Set<String> {
         if (leashed || tired) return emptySet()
         if (!hasFairyType) return types
-        if (allyNeedsHeal && HealTargets.canStart(staminaFraction, healerTired = false, settings)) return emptySet()
+        if (allyNeedsHeal && HealTargets.canStart(staminaFraction, healerTired = false, settings, healMultiplier, isMajestic)) {
+            return emptySet()
+        }
         val nonFairy = LinkedHashSet<String>(types.size)
         for (type in types) if (type != FAIRY_TYPE) nonFairy += type
         return nonFairy
@@ -35,9 +39,11 @@ object DualFairyRule {
         staminaFraction: Double,
         allyNeedsHeal: Boolean,
         settings: EngineSettings,
+        healMultiplier: Double = 1.0,
+        isMajestic: Boolean = false,
     ): Boolean = hasFairyType &&
         !leashed &&
         holdsWorkClaim &&
         allyNeedsHeal &&
-        HealTargets.canStart(staminaFraction, tired, settings)
+        HealTargets.canStart(staminaFraction, tired, settings, healMultiplier, isMajestic)
 }

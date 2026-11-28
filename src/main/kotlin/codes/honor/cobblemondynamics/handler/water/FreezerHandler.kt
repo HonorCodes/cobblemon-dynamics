@@ -8,6 +8,7 @@ import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
+import codes.honor.cobblemondynamics.role.RoleDefinition
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
@@ -43,7 +44,7 @@ object FreezerHandler : TargetHandler {
 
     override val breaksBlocks: Boolean = true
 
-    override fun breakTargets(level: ServerLevel, canonical: BlockPos): List<BlockPos> = listOf(canonical)
+    override fun breakTargets(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): List<BlockPos> = listOf(canonical)
 
     /** CD-FRZ-03: the cell and the cell above it. */
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =

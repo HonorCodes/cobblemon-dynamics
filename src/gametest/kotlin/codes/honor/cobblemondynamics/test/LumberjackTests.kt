@@ -7,6 +7,7 @@ import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
 import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
+import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -192,12 +193,19 @@ class LumberjackTests {
     @GameTest(template = "floor_23x17x23", timeoutTicks = 1_400)
     fun cdTeam08EditableBaseProtectedUpperTrunkPreflightAndPollRevalidates(helper: GameTestHelper) {
         val (owner, pasture) = scene(helper)
-        oak(helper)
+        val built = oak(helper)
         val baseAbs = helper.absolutePos(base)
         val upperTrunk = helper.absolutePos(base.above(3)).immutable()
-        helper.assertTrue(upperTrunk in LumberjackHandler.breakTargets(helper.level, baseAbs), "upper trunk missing from breakTargets")
-        TestLandClaims.refusedBreak += upperTrunk
-        TestKit.afterTest(helper) { TestLandClaims.refusedBreak -= upperTrunk }
+        val role = RoleRegistry.current.get(id("lumberjack"))!!.definition
+        val targets = LumberjackHandler.breakTargets(helper.level, baseAbs, role)
+        val questions = plan(helper).questions.toSet()
+        val secondLeaf = built.leaves.map(helper::absolutePos).first { it !in questions }.immutable()
+        helper.assertTrue(upperTrunk in targets && secondLeaf in targets, "upper trunk or second leaf missing from breakTargets")
+        TestLandClaims.refusedBreak += secondLeaf
+        TestKit.afterTest(helper) {
+            TestLandClaims.refusedBreak -= upperTrunk
+            TestLandClaims.refusedBreak -= secondLeaf
+        }
 
         val hold = BlockPos(11, 2, 20)
         val scyther = TestKit.tether(helper, pasture, owner, "scyther level=100")
@@ -205,12 +213,22 @@ class LumberjackTests {
         val binding = TestKit.bind(helper, owner, scyther, base)
         helper.assertTrue(binding?.target == baseAbs, "Scyther did not bind to base: $binding")
 
-        var step = "preflight"
+        var step = "preflight_leaf"
         var revokedAt = -1L
         helper.onEachTick {
             val worker = TestKit.workerOf(helper, scyther)
             val claim = TestKit.claimOf(helper, scyther)
             when (step) {
+                "preflight_leaf" -> {
+                    helper.assertTrue(claim == null, "CD-TEAM-08: Scyther claimed oak with protected second leaf: $claim")
+                    helper.assertFalse(worker?.status == WorkerStatus.TRAVELING, "CD-TEAM-08: Scyther traveled with protected second leaf")
+                    if (helper.tick < 50) return@onEachTick
+                    TestLandClaims.refusedBreak -= secondLeaf
+                    TestLandClaims.refusedBreak += upperTrunk
+                    worker?.skipUntil?.clear()
+                    step = "preflight"
+                }
+
                 "preflight" -> {
                     helper.assertTrue(claim == null, "CD-TEAM-08: Scyther claimed oak with protected upper trunk: $claim")
                     helper.assertFalse(worker?.status == WorkerStatus.TRAVELING, "CD-TEAM-08: Scyther traveled to protected oak")

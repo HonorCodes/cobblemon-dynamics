@@ -5,11 +5,19 @@ import codes.honor.cobblemondynamics.handler.farming.HarvestKind
 import codes.honor.cobblemondynamics.handler.farming.HarvestPlans
 import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
 import codes.honor.cobblemondynamics.handler.farming.PickerHandler
+import codes.honor.cobblemondynamics.handler.tree.FellPlan
 import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
+import codes.honor.cobblemondynamics.handler.tree.TreeGrid
+import codes.honor.cobblemondynamics.handler.tree.TreeSearch
 import codes.honor.cobblemondynamics.handler.vanilla.FurnaceHandler
 import codes.honor.cobblemondynamics.handler.water.FreezerHandler
+import codes.honor.cobblemondynamics.id
+import codes.honor.cobblemondynamics.role.EffectDefinition
+import codes.honor.cobblemondynamics.role.RoleDefinition
+import com.google.gson.JsonObject
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -88,4 +96,83 @@ class BreakingClaimGateTest {
         assertFalse(BreakingClaimGate.mayClaimCells(mayUse = true, twoCells) { it != base.above() })
         assertTrue(BreakingClaimGate.mayClaimCells(mayUse = true, emptyList()) { error("empty breakTargets asks nothing") })
     }
+
+    @Test
+    fun `CD-TEAM-08 FellPlan_breakCells and LumberjackHandler_breakTargets include every felled leaf so a second-leaf denial refuses`() {
+        val grid = TreeGrid()
+        val base = BlockPos(8, 64, 8)
+        val oak = grid.oak(base)
+        val torch = grid.block(base.above().west(), "minecraft:wall_torch")
+        val frameA = base.above(2).east()
+        val frameB = base.above(3).east()
+        val frameType = ResourceLocation.parse("minecraft:item_frame")
+        val role = lumberjackRole(maxLogs = 256, maxLeaves = 1_024)
+
+        val tree = TreeSearch.find(grid.read, base, 256, 1_024) ?: error("missing tree")
+        val plan = FellPlan.of(tree, setOf(torch), listOf(frameA to frameType, frameB to frameType)) { grid.read(it).blockId }
+        val secondLeafInSameChunk = oak.leaves.first { it !in plan.questions }
+        assertTrue(FellPlan.allowed(plan, { true }, { it != secondLeafInSameChunk }), "questions deduplicates same-chunk leaves")
+
+        val targets = LumberjackHandler.breakTargets(
+            cells = grid.read,
+            canonical = base,
+            role = role,
+            shellOf = { setOf(torch) },
+            hangingOf = { _, _ -> listOf(frameA to frameType, frameB to frameType) },
+        )
+        assertEquals((oak.logs + oak.leaves + torch + frameA + frameB).toSet(), targets.toSet())
+        assertTrue(secondLeafInSameChunk in targets, "second leaf in same chunk missing from breakTargets")
+        assertTrue(frameB in targets, "second item frame in same chunk missing from breakTargets")
+        assertFalse(
+            BreakingClaimGate.mayClaimCells(mayUse = true, targets) { it != secondLeafInSameChunk },
+            "break-denied second leaf in same chunk must refuse claim",
+        )
+        assertFalse(
+            BreakingClaimGate.mayClaimCells(mayUse = true, targets) { it != frameB },
+            "break-denied second hanging entity in same chunk must refuse claim",
+        )
+    }
+
+    @Test
+    fun `CD-TEAM-08 LumberjackHandler_breakTargets reads max_logs and max_leaves from the passed RoleDefinition`() {
+        val grid = TreeGrid()
+        val base = BlockPos(8, 64, 8)
+        val oak = grid.oak(base)
+        val saplingPos = grid.sapling(BlockPos(2, 64, 2))
+
+        val highLogsTightLeaves = lumberjackRole(maxLogs = 512, maxLeaves = 20)
+        val workerRole = lumberjackRole(maxLogs = 16, maxLeaves = 64)
+        val tightLogsRole = lumberjackRole(maxLogs = 3, maxLeaves = 256)
+
+        assertEquals(emptyList<BlockPos>(), LumberjackHandler.breakTargets(grid.read, saplingPos, workerRole))
+        assertEquals(
+            (oak.logs + oak.leaves).toSet(),
+            LumberjackHandler.breakTargets(grid.read, base, workerRole).toSet(),
+            "passed workerRole with max_leaves=64 should plan all 58 cells of the 5-log, 53-leaf oak",
+        )
+        assertEquals(
+            listOf(base),
+            LumberjackHandler.breakTargets(grid.read, base, highLogsTightLeaves),
+            "role with max_leaves=20 cannot fell 53-leaf oak even when max_logs=512",
+        )
+        assertEquals(
+            listOf(base),
+            LumberjackHandler.breakTargets(grid.read, base, tightLogsRole),
+            "role with max_logs=3 cannot fell 5-log oak",
+        )
+    }
+
+    private fun lumberjackRole(maxLogs: Int, maxLeaves: Int): RoleDefinition = RoleDefinition(
+        id = id("lumberjack"),
+        handler = LumberjackHandler.id,
+        types = setOf("bug"),
+        autoAssign = false,
+        priority = 10,
+        range = 4.0,
+        params = JsonObject().apply {
+            addProperty("max_logs", maxLogs)
+            addProperty("max_leaves", maxLeaves)
+        },
+        effect = EffectDefinition(20, 10, emptyList(), emptyList(), emptyList()),
+    )
 }

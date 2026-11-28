@@ -17,6 +17,8 @@ data class WorkerView(
     val staminaFraction: Double = 1.0,
     val allyNeedsHeal: Boolean = false,
     val settings: EngineSettings = EngineSettings.DEFAULT,
+    val healMultiplier: Double = 1.0,
+    val isMajestic: Boolean = false,
     val isSkipped: (TargetKey) -> Boolean,
 )
 
@@ -74,6 +76,8 @@ object Assigner {
         staminaFraction = w.staminaFraction,
         allyNeedsHeal = w.allyNeedsHeal,
         settings = w.settings,
+        healMultiplier = w.healMultiplier,
+        isMajestic = w.isMajestic,
     )
 
     /** The free targets nearest first, each with its role. The role of a candidate is asked only when the walk reaches it. */

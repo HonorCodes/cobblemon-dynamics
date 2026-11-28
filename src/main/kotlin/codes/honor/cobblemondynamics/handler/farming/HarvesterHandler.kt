@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.id
+import codes.honor.cobblemondynamics.role.RoleDefinition
 import com.cobblemon.mod.common.block.ApricornBlock
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
@@ -39,7 +40,7 @@ object HarvesterHandler : TargetHandler {
 
     override val breaksBlocks: Boolean = true
 
-    override fun breakTargets(level: ServerLevel, canonical: BlockPos): List<BlockPos> {
+    override fun breakTargets(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): List<BlockPos> {
         val state = level.getBlockState(canonical)
         val facts = CropFactsReader.read(level, canonical, state)
         val kind = CropAdapters.harvestKind(facts)

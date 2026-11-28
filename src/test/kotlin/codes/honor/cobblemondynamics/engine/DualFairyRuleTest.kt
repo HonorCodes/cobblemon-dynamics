@@ -137,4 +137,36 @@ class DualFairyRuleTest {
             ),
         )
     }
+
+    @Test
+    fun `CD-TEAM-09 CD-TEAM-10 trait-scaled healCost governs dual-Fairy auto-assign and heal preemption`() {
+        val types = linkedSetOf("psychic", "fairy")
+        assertEquals(
+            emptySet<String>(),
+            DualFairyRule.autoAssignTypes(
+                types = types,
+                hasFairyType = true,
+                leashed = false,
+                tired = false,
+                staminaFraction = 0.21,
+                allyNeedsHeal = true,
+                settings = settings,
+                healMultiplier = 1.25,
+                isMajestic = false,
+            ),
+        )
+        assertTrue(
+            DualFairyRule.shouldPreemptForHeal(
+                hasFairyType = true,
+                leashed = false,
+                holdsWorkClaim = true,
+                tired = false,
+                staminaFraction = 0.21,
+                allyNeedsHeal = true,
+                settings = settings,
+                healMultiplier = 1.25,
+                isMajestic = false,
+            ),
+        )
+    }
 }

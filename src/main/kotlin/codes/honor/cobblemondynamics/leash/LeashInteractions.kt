@@ -276,7 +276,6 @@ object LeashInteractions {
     private fun matches(level: ServerLevel, role: ActiveRole, pos: BlockPos): Boolean =
         guarded(role.handler, false) { role.handler.matches(level, pos, level.getBlockState(pos), level.getBlockEntity(pos)) }
 
-    /** A Pokémon bound to a target, and the store id that holds it. */
     private class OtherBound(val pokemon: Pokemon, val owner: UUID) {
         fun seenBy(player: ServerPlayer): BindRules.Bound {
             val owned = owner == player.uuid || pokemon.getOwnerUUID() == player.uuid || Cobblemon.storage.getPC(player).uuid == owner
@@ -322,7 +321,6 @@ object LeashInteractions {
     private fun containerName(player: ServerPlayer, pos: BlockPos?): Any =
         pos?.let { player.serverLevel().getBlockState(it).block.name } ?: ""
 
-    /** CD-LSH-11, CD-TEAM-05: the new binding replaces the old one, and [refOwner] stores the Pokémon's PC store id. */
     private fun bind(player: ServerPlayer, level: ServerLevel, pokemon: Pokemon, binding: Binding, refOwner: UUID) {
         val old = BindingStore.read(pokemon)
         if (old != null) LeashResets.levelOf(player.server, old.dimension)?.let { LeashResets.unindex(it, old.target, pokemon.uuid) }

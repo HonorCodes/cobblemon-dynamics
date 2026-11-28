@@ -50,8 +50,8 @@ interface TargetHandler {
     /** True for a handler whose primary action breaks or replaces target cells (CD-TEAM-08). */
     val breaksBlocks: Boolean get() = false
 
-    /** The cells whose break permission must pass before claiming or continuing to work [canonical] (CD-TEAM-08). */
-    fun breakTargets(level: ServerLevel, canonical: BlockPos): List<BlockPos> = emptyList()
+    /** The cells whose break permission must pass before claiming or continuing to work [canonical] as [role] (CD-TEAM-08). */
+    fun breakTargets(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): List<BlockPos> = emptyList()
 
     fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean
 

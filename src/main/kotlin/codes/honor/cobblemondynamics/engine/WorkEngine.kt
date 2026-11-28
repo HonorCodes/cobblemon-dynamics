@@ -481,7 +481,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (role.handler === LumberjackHandler && LumberjackHandler.hasActiveRun(slot.memo)) return true
         val pos = BlockPos.of(block.pos)
         if (!t.level.isLoaded(pos)) return true
-        val cells = guarded(role.handler, emptyList()) { role.handler.breakTargets(t.level, pos) }
+        val cells = guarded(role.handler, emptyList()) { role.handler.breakTargets(t.level, pos, role.definition) }
         if (cells.isEmpty()) return true
         val actors = actorsOf(runtime, slot)
         return BreakingClaimGate.mayClaimCells(mayUse = true, cells) { cell -> LandClaims.actorsMayBreak(actors, t.level, cell) }
@@ -629,14 +629,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun takenSpots(t: Tick): MutableSet<Long> =
         slots.values.filter { dimensionOf(it) == t.dimension }.mapNotNullTo(HashSet()) { it.worker.spot?.asLong() }
 
-    /** CD-LSH-21: the binder or owner of a leashed worker learns why its machine waits. */
     private fun cannotReach(t: Tick, slot: WorkerSlot, target: BlockPos) {
         val owner = slot.binding?.binder ?: slot.ownerId ?: slot.pokemon.getOwnerUUID() ?: return
         val name = t.level.getBlockState(target).block.name
         Feedback.actionBar(owner, server, Component.translatable(CANNOT_REACH, slot.pokemon.getDisplayName(), name))
     }
 
-    /** Owned, not fainted, no battle clone, in this level, and tethered by its owner (CD-TEAM-04). */
     private fun canWork(level: ServerLevel, tethered: TetheredPokemon, pokemon: Pokemon, entity: PokemonEntity): Boolean =
         PastureOwnerRules.canWork(
             tetheredOwnerId = tethered.ownerId,
@@ -707,10 +705,6 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         assign(t, runtime, pass.found)
     }
 
-    /**
-     * After each scan pass, every eligible healer of the pasture picks an ally of the same pasture and takes a heal claim on it
-     * (CD-HEAL-01, CD-TEAM-10). An unbound dual-type Fairy worker holding an auto work claim releases it first when an ally qualifies.
-     */
     private fun assignHeals(t: Tick, runtime: PastureRuntime) {
         val allies = runtime.slots.values.filterNot { it.entity.isRemoved }.map(::allyView)
         for (slot in runtime.slots.values) {
@@ -740,9 +734,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                     staminaFraction = worker.stamina.fraction,
                     allyNeedsHeal = true,
                     settings = t.settings,
+                    healMultiplier = traits.combinedMultiplier,
+                    isMajestic = traits.isMajestic,
                 )
                 if (!shouldPreempt) continue
                 release(t, slot)
+                refreshTraits(t, slot)
             }
             val granted = claims.tryClaim(worker.pokemonId, TargetKey.Entity(ally.id), ClaimKind.HEAL, runtime.key, t.now)
             if (granted is ClaimResult.Granted) t.machine.onHeal(worker, t.now)
@@ -796,6 +793,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val moving = current?.kind == ClaimKind.WORK && t.machine.canMoveFromStandby(worker, t.now)
             if ((!idle && !moving) || !BrainBridge.canHoldOrder(slot.entity)) continue
             val fairy = hasFairyType(slot.pokemon)
+            val healTraits = if (fairy) healerTraits(t, slot) else EvaluatedTraits.NONE
             val allyNeedsHeal = fairy && HealTargets.pick(
                 worker.pokemonId,
                 slot.entity.position(),
@@ -815,6 +813,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 staminaFraction = worker.stamina.fraction,
                 allyNeedsHeal = allyNeedsHeal,
                 settings = t.settings,
+                healMultiplier = healTraits.combinedMultiplier,
+                isMajestic = healTraits.isMajestic,
             )
             if (autoTypes.isEmpty()) continue
             val actors = actorsOf(runtime, slot)
@@ -839,12 +839,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 staminaFraction = worker.stamina.fraction,
                 allyNeedsHeal = allyNeedsHeal,
                 settings = t.settings,
+                healMultiplier = healTraits.combinedMultiplier,
+                isMajestic = healTraits.isMajestic,
             ) { worker.isSkipped(it, t.now) }
             val candidates = byKey.map { (key, target) ->
                 val mayClaimRole = { def: RoleDefinition ->
                     val active = target.roles.first { it.definition.id == def.id }
                     val cells = if (active.handler.breaksBlocks) {
-                        guarded(active.handler, listOf(target.pos)) { active.handler.breakTargets(t.level, target.pos) }
+                        guarded(active.handler, listOf(target.pos)) {
+                            active.handler.breakTargets(t.level, target.pos, active.definition)
+                        }
                     } else {
                         emptyList()
                     }
@@ -912,7 +916,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val shared = role.handler.sharesTargets
         if (shared && !claims.hasPlace(key)) return Attempt.REFUSED
         if (site is PastureRuntime && role.handler.breaksBlocks) {
-            val cells = guarded(role.handler, listOf(target)) { role.handler.breakTargets(t.level, target) }
+            val cells = guarded(role.handler, listOf(target)) { role.handler.breakTargets(t.level, target, role.definition) }
             val actors = actorsOf(site, slot)
             if (!BreakingClaimGate.mayClaimCells(mayUse = true, cells) { cell -> LandClaims.actorsMayBreak(actors, t.level, cell) }) {
                 worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
@@ -1258,7 +1262,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             slot.pokemon.addExperience(WorkProgression.EXPERIENCE_SOURCE, xpStep.xpAwarded)
             refreshTraits(t, slot)
         }
-        val owner = slot.pokemon.getOwnerUUID()?.let(server.playerList::getPlayer)?.takeIf { it.level() === t.level }
+        val owner = (slot.ownerId ?: slot.pokemon.getOwnerUUID())?.let(server.playerList::getPlayer)?.takeIf { it.level() === t.level }
         val distSqr = owner?.position()?.distanceToSqr(slot.entity.position()) ?: Double.MAX_VALUE
         val friendshipStep = WorkProgression.advanceFriendshipTicks(
             currentTicks = slot.friendshipTicks,
@@ -1783,7 +1787,6 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         return owner.level() === t.level && mayUse(owner, t.level, pos)
     }
 
-    /** CD-HRV-16, CD-TEAM-07: the break question of each claim mod about [pos], across the worker's actors or for the online Quick Worker owner. */
     private fun mayBreak(t: Tick, slot: WorkerSlot, pos: BlockPos): Boolean {
         slot.worker.pasture?.let { key ->
             return pastures[key]?.let { LandClaims.actorsMayBreak(actorsOf(it, slot), t.level, pos) } == true
