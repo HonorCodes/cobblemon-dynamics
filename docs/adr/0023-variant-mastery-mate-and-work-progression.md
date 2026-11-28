@@ -60,9 +60,12 @@ logistics role.
      `mateMultiplier` (`1.15` default) and raises passive Friendship gain by `×1.5` (yielding `+2` per interval). Quick
      Workers have no pasture and receive no Mate bonus.
 3. **Legendary and Mythical `rare_multiplier`.** A worker carrying a label in `rare_labels` (default `legendary`,
-   `mythical`) multiplies its combined multiplier by `rare_multiplier` (default `2.0`) on every output- or pace-scaled
-   role (`Generator`, `Pump`, `Telekinesis`, `Magnet`, `Cultivator`, `Harvester`, `Picker`, `Lumberjack`, `Soul
-   Collector`, `Freezer`, `Crystal Tender`, `Heater`, and `Muse`).
+   `mythical`) multiplies its combined multiplier by `rare_multiplier` (default `2.0`) **once** on every output- or
+   pace-scaled role (`Generator`, `Pump`, `Telekinesis`, `Magnet`, `Cultivator`, `Harvester`, `Picker`, `Lumberjack`,
+   `Soul Collector`, `Freezer`, `Crystal Tender`, `Heater`, and `Muse`). Because `FeCurve` already incorporates
+   `rareMultiplier` on `Generator`, `FePushHandler` applies `rare_multiplier` once rather than twice — a plain Lv 100
+   Legendary `Generator` with no variant, mastery, or mate traits produces `10,000` FE/t (`5,000 * 2.0`), never `20,000`
+   FE/t.
 4. **Output/pace roles vs machine-capped/fixed roles.** Let `M` be the product of all active multipliers for the worker
    on its active role:
    - **Output- and pace-scaled roles** (`Generator`, `Pump`, `Telekinesis`, `Magnet`, `Cultivator`, `Harvester`,
@@ -83,8 +86,11 @@ logistics role.
    - Every `12,000` Working ticks (`10` minutes) accumulated while `friendshipEnabled` is `true`, the engine increments
      `pokemon.incrementFriendship` by `+1`, or by `+2` when the worker has an active Mate bonus (`ceil(1 * 1.5) = 2`) or
      its owner is online in the same level within `16.0` blocks.
-6. **`Slacking` (`"Slacking Off..."`) worker state.**
-   - `WorkerStatus` adds `SLACKING`. While a pasture worker (never a Quick Worker) is `Working` and `baseSlackChance >
+6. **`Slacking` (`"Slacking Off..."`) worker state and handler lifecycle.**
+   - `WorkerStatus` adds `SLACKING`, and `TargetHandler` adds `fun canSlack(ctx: WorkContext): Boolean = true`.
+     `LumberjackHandler` overrides `canSlack` to return `false` while a fell is mid-run (`FellRun` active on `ctx.memo`)
+     so a Lumberjack never aborts or instant-finishes a tree mid-fell to slack off.
+   - While a pasture worker (never a Quick Worker) is `Working`, `handler.canSlack(ctx)` is `true`, and `baseSlackChance >
      0.0`, every `slackCheckTicks` (`1,200` Working ticks = `60 s`) the engine rolls
      `p = clamp(baseChance * natureFactor * bedFactor * friendshipFactor, 0.0, 1.0)`:
      - **`natureFactor`** from `pokemon.effectiveNature` (falling back to `pokemon.nature`):
@@ -97,12 +103,18 @@ logistics role.
        worker: `No Bed = 1.00`, `Hay Bed = 0.85`, `Wool Bed = 0.70`, `Plush Bed = 0.55`, `Starlit Bed = 0.35`.
      - **`friendshipFactor`** from `pokemon.friendship`: `1.0 - 0.75 * (friendship.coerceIn(0, 255) / 255.0)` (`1.0` at
        `0` Friendship down to `0.25` at `255` Friendship).
-   - On a hit, the worker enters `SLACKING` for `slackDurationTicks` (`300` ticks = `15 s`). During `SLACKING`, the
-     worker retains its work claim and leash binding without releasing or skipping the target, pauses `applyWork` and
-     drains `0` Work Stamina, wanders locally inside `workArea`, displays `"Slacking Off..."` in the pasture panel,
-     Pasture Shelf, Work Leash head-bar, and Jade tooltip while sharing `StateIcons.STANDBY` (just as `TO_BED` and
-     `RESTING_IN_PLACE` share `StateIcons.TIRED`, so `StateIconsTest` and `art.py check --release` need no new PNG
-     assets), and resumes `Traveling` / `Working` on its target as soon as the `300` ticks expire.
+   - On a hit, the worker transitions `WORKING -> SLACKING` for `slackDurationTicks` (`300` ticks = `15 s`). Entering
+     `SLACKING` immediately calls `handler.onStop(ctx)` — so `SentryHandler` removes its `SentryWatch` entry (CD-SNT-04)
+     and `WheelDriver`, `Cranker`, `FanCatalyst`, and `Superheater` stop driving their machines — while **retaining** the
+     worker's `ClaimKind.WORK` claim in `ClaimRegistry` and any leash binding without blacklisting the target. During
+     `SLACKING`, the engine skips `applyWork`, drains `0` Work Stamina, lets the worker wander locally inside `workArea`,
+     and displays `"Slacking Off..."` in the pasture panel, Pasture Shelf, Work Leash head-bar, and Jade tooltip while
+     sharing `StateIcons.STANDBY` (just as `TO_BED` and `RESTING_IN_PLACE` share `StateIcons.TIRED`, so `StateIconsTest`
+     and `art.py check --release` need no new PNG assets).
+   - When `slackDurationTicks` expires, the worker transitions `SLACKING -> TRAVELING` toward its retained target spot,
+     revalidating `stillValid`, land claims, and `hasDemand`: if valid with demand, arrival runs `handler.onStart(ctx)`
+     and enters `WORKING`; if valid without demand, arrival enters `STANDBY`; if no longer valid or claim-denied, the
+     engine releases the claim cleanly.
 7. **No auto-deposit into pasture chests.** Farm and tree roles keep popping drops on the ground beside the crop or trunk
    (R73, R97) so the Steel-type `Magnet` retains its dedicated collection role.
 

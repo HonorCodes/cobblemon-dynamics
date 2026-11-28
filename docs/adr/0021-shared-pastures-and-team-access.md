@@ -40,12 +40,15 @@ Fairy auto-assignment when no ally needs healing.
    - While `locked` is `true`, pasture controls are restricted to `placer`, FTB Teams teammates of `placer`, Open
      Parties and Claims party members of `placer`, and operators. A non-teammate player who owns a Cobblemon in a locked
      pasture may still sneak-right-click their own Cobblemon with the Work Leash to clear its binding.
-   - Only `placer`, an FTB/OPAC teammate of `placer`, or an operator may change `locked`. A pasture with `ownerId == null`
-     accepts control and lock changes from operators only.
+   - Only `placer`, an FTB/OPAC teammate of `placer`, or an operator may change `locked` (`mayLock`). When `ownerId ==
+     null` (for example, an unowned or structure-generated pasture), operators always have both `mayControl` and
+     `mayLock`; while `locked` is `false`, any player who currently has a Cobblemon tethered in that pasture also has
+     `mayControl`, whereas `mayLock` requires an operator so a non-operator cannot lock an ownerless pasture.
 2. **Optional team APIs.** Team membership checks sit behind `ModList.isLoaded("ftbteams")` and
-   `ModList.isLoaded("openpartiesandclaims")` in `compat/ftbchunks/` (or `compat/ftbteams/`) and `compat/opac/`. Where
-   either mod is absent, no class of it loads and two distinct UUIDs are not teammates for that mod. Any `Exception` or
-   `LinkageError` from a team query returns `false` and logs one warning per cause.
+   `ModList.isLoaded("openpartiesandclaims")` inside `compat/ftbchunks/` (matching `CompatImportsTest`'s `dev.ftb.`
+   package boundary) and `compat/opac/`. Where either mod is absent, no class of it loads and two distinct UUIDs are not
+   teammates for that mod. Any `Exception` or `LinkageError` from a team query returns `false` and logs one warning per
+   cause.
 3. **Offline-safe worker ownership and `LeashIndex.Ref.owner`.** `PastureAdapter` and `LeashResets` resolve a pastured
    Cobblemon's owner and `Pokemon` through `tethering.pcId` (`Cobblemon.storage.getPC(tethering.pcId)`) and
    `tethering.playerId`, never requiring `entity.pokemon.getOwnerUUID()` to be non-null. `WorkEngine.canWork` accepts a

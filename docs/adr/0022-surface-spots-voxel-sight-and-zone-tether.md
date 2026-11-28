@@ -66,9 +66,11 @@ Field play on decorated bases exposed four navigation and spot-selection defects
      entity's `FOLLOW_RANGE`), the Brain walk order steps to an intermediate standable waypoint `16` to `24` blocks
      toward the goal until the goal lies within `FOLLOW_RANGE`.
 5. **Distance-scaled travel timeout and progressive retry backoff.**
-   - Travel timeout for `Traveling` and `ToBed` is
-     `max(settings.travelTimeoutTicks, ceil(distance / max(0.05, blocksPerTickSpeed) * 2.5))` ticks (minimum `600` ticks
-     with default config).
+   - Effective walk speed is `effSpeed = if (speed.isFinite() && speed > 0.0) speed.coerceAtLeast(0.005) else 0.10`.
+     Travel timeout for `Traveling` and `ToBed` is
+     `max(settings.travelTimeoutTicks, ceil(distance / effSpeed * 2.5).toInt()).coerceAtMost(6000)` ticks (minimum `600`
+     ticks with default config, `3,334` ticks for a `0.012`-blocks/tick Torterra crossing `16.0` blocks, and capped at
+     `6,000` ticks).
    - Consecutive travel timeouts or `NO_SPOT` misses on one `(worker, target)` key back off progressively at `200`,
      `600`, and `2,400` ticks (clamped to `settings.retryWaitTicks` when configured lower), resetting to the first step
      whenever the worker arrives at that target.

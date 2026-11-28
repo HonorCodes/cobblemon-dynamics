@@ -56,10 +56,16 @@ badges, and optional **Jade** (`15.10.6`) tooltips.
      `Access Lock` (`Unlocked`/`Locked`).
    - `WorkModeData` persists `enabled: Boolean`, `locked: Boolean` (default `false`), and `radius: Optional<Int>` on
      `PokemonPastureBlockEntity`. Server config adds `workArea.maxHorizontalRadius` (`4..32`, default `16`).
-5. **Persistent 3D `workArea` wireframe.** Enabling `Show Work Area` registers the pasture's `(dimension, pos, workArea)`
-   in client state (`WorkAreaOverlay`) and draws its 3D line box in `RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS`
-   relative to the camera. The wireframe stays visible after closing `PCGUI` until toggled off, the pasture turns Work
-   Mode off or breaks, or the client changes level or disconnects.
+5. **Persistent 3D `workArea` wireframe and post-close watch sync.**
+   - Closing `PCGUI` removes the player from `PanelViewers`, so the wireframe uses its own lightweight watch channel:
+     toggling `Show Work Area` sends `AreaWatchPayload(pos, watching: Boolean)` to the server.
+   - `AreaWatchers` tracks watching players per `(dimension, pasturePos)` (cleared on player disconnect or dimension
+     change) and pushes `AreaBoundsPayload(pos, active: Boolean, minX, minY, minZ, maxX, maxY, maxZ)` immediately on
+     watch registration, whenever `WorkModeService` changes `enabled` or `radius`, and with `active = false` whenever Work
+     Mode turns off or the pasture leaves `WorkPastureIndex` / breaks.
+   - `WorkAreaOverlay` draws active watched boxes in `RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS` relative to
+     the camera across `PCGUI` close, and also drops any watched `pos` in a loaded client chunk whose block is no longer a
+     Cobblemon `PastureBlock`, or when the client changes level or disconnects.
 6. **Synced `IdleReason`, trait badges, and Jade (`15.10.6`).**
    - `IdleReason` (`NONE`, `NO_TARGET`, `NEEDS_LEASH`, `TARGET_TAKEN`, `CANNOT_REACH`, `CLAIM_DENIED`, `LEVEL_TOO_LOW`,
      `RESTING`), `WorkerStatus.SLACKING` (`"Slacking Off..."`), and the 5-bit active trait mask (`SHINY`, `ALPHA`,
