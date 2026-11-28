@@ -172,6 +172,9 @@ object LumberjackHandler : TargetHandler {
     /** The claim follows the binding, so a claim on a sapling stays while the worker waits for the tree. */
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = bindingHolds(level, canonical)
 
+    override fun allowsSpot(level: ServerLevel, canonical: BlockPos, spot: BlockPos, bodyHeight: Double): Boolean =
+        TreeFactsReader.stateOf(level, spot.below())?.let { TreeRules.allowsSpotBelow(TreeFactsReader.factsOf(it)) } ?: false
+
     /** CD-LUM-20: a player never leashes a worker to a tree that it will not fell. */
     override fun bindRefusal(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): String? {
         val params = LumberjackParams.of(role.params)

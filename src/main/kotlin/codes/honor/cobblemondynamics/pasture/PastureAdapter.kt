@@ -14,8 +14,7 @@ import net.minecraft.world.phys.AABB
 import java.util.UUID
 
 /**
- * One tethered Pokémon of a pasture. [entity] is found in the level by `entity.pokemon.uuid`, because `Pokemon.entity` is null
- * for pastured Pokémon (it reads `ActivePokemonState` only), and `Tethering.entityId` goes stale when the entity reloads.
+ * One tethered Pokémon of a pasture.
  */
 data class TetheredPokemon(
     val pokemonId: UUID,
@@ -31,6 +30,35 @@ data class TetheredContext(val pasture: PokemonPastureBlockEntity, val tethered:
 /** The one package that reads Cobblemon pasture internals. */
 object PastureAdapter {
     private const val PERMISSION_OPERATOR = 2
+
+    data class EntityCandidate<E>(
+        val entity: E,
+        val alive: Boolean,
+        val pokemonId: UUID,
+        val tetheringId: UUID?,
+        val pasturePos: BlockPos?,
+    )
+
+    fun <E> resolveTetheredEntity(
+        pokemonId: UUID,
+        tetheringId: UUID,
+        pasturePos: BlockPos,
+        byId: () -> EntityCandidate<E>?,
+        inRoamBox: () -> List<EntityCandidate<E>>,
+    ): E? {
+        val direct = byId()
+        if (direct != null &&
+            direct.alive &&
+            direct.pasturePos == pasturePos &&
+            direct.pokemonId == pokemonId &&
+            direct.tetheringId == tetheringId
+        ) {
+            return direct.entity
+        }
+        return inRoamBox().firstOrNull {
+            it.alive && it.pasturePos == pasturePos && it.pokemonId == pokemonId && it.tetheringId == tetheringId
+        }?.entity
+    }
 
     /** The pasture block entity at [pos], which is the bottom half. Never loads a chunk. */
     fun pastureAt(level: ServerLevel, pos: BlockPos): PokemonPastureBlockEntity? =
@@ -59,17 +87,31 @@ object PastureAdapter {
     fun tethered(be: PokemonPastureBlockEntity): List<TetheredPokemon> {
         val level = be.level as? ServerLevel ?: return emptyList()
         if (be.tetheredPokemon.isEmpty()) return emptyList()
-        val entities = level.getEntitiesOfClass(PokemonEntity::class.java, AABB(be.minRoamPos.center, be.maxRoamPos.center).inflate(1.0)) {
-            it.tethering?.pasturePos == be.blockPos
+        val roamCandidates by lazy {
+            level.getEntitiesOfClass(PokemonEntity::class.java, AABB(be.minRoamPos.center, be.maxRoamPos.center).inflate(1.0)) {
+                it.tethering?.pasturePos == be.blockPos
+            }.map(::candidateOf)
         }
         return be.tetheredPokemon.map { tethering ->
-            val entity = entities.firstOrNull {
-                it.pokemon.uuid == tethering.pokemonId && it.tethering?.tetheringId == tethering.tetheringId
-            }
+            val entity = resolveTetheredEntity(
+                pokemonId = tethering.pokemonId,
+                tetheringId = tethering.tetheringId,
+                pasturePos = be.blockPos,
+                byId = { (level.getEntity(tethering.entityId) as? PokemonEntity)?.let(::candidateOf) },
+                inRoamBox = { roamCandidates },
+            )
             val refOwner = PastureOwnerRules.refOwner(tethering.pcId, tethering.playerId) ?: tethering.playerId
             TetheredPokemon(tethering.pokemonId, tethering.playerId, resolvePokemon(level, tethering), entity, refOwner)
         }
     }
+
+    private fun candidateOf(entity: PokemonEntity): EntityCandidate<PokemonEntity> = EntityCandidate(
+        entity = entity,
+        alive = !entity.isRemoved && entity.isAlive,
+        pokemonId = entity.pokemon.uuid,
+        tetheringId = entity.tethering?.tetheringId,
+        pasturePos = entity.tethering?.pasturePos,
+    )
 
     /** The Pokémon of the pasture list, in Cobblemon's order. */
     fun tetheredIds(be: PokemonPastureBlockEntity): List<UUID> = be.tetheredPokemon.map { it.pokemonId }

@@ -6,25 +6,23 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * When a walking worker has reached its work spot (CD-ASG-11). Navigation steers a mob to `node + (int)(bbWidth + 1) / 2` on x
- * and z (`Path.getEntityPosAtNode`), and takes a node as reached within `bbWidth / 2`, at least 0.75 − `bbWidth / 2`, on each
- * axis (`maxDistanceToWaypoint`, the same in Cobblemon's `OmniPathNavigation`). That point is the spot's center for a mob
- * narrower than a block, and the spot's corner for one 1 to 2 blocks wide, so the check centres there too. Cobblemon's walk to the
- * spot also ends as soon as the mob stands in the spot's cell (`FollowWalkTargetTask`, with the work order's close-enough distance of
- * 0). A mob 1 block wide or wider that enters the cell from the side away from the corner stops there, up to 1 block from the corner,
- * so a mob in the spot's cell has arrived too. Without that, it would wait for its travel timeout.
+ * When a walking worker has reached its work spot (CD-ASG-11, CD-NAV-02).
  */
 object Arrival {
+    const val SURFACE_OFFSET = 0.001
+    private const val FOOT_TOLERANCE = 1e-4
     private const val MIN_REACH = 0.75
     private const val MAX_DY = 1.5
+
+    fun snapY(supportTopY: Double): Double = supportTopY + SURFACE_OFFSET
 
     /** How far from the spot's lowest corner, on x and z, navigation stops a mob [bbWidth] blocks wide. */
     fun stopOffset(bbWidth: Double): Double = (bbWidth + 1.0).toInt() * 0.5
 
-    fun isAt(x: Double, y: Double, z: Double, bbWidth: Double, spot: BlockPos): Boolean {
-        if (Mth.floor(x) == spot.x && Mth.floor(y) == spot.y && Mth.floor(z) == spot.z) return true
+    fun isAt(x: Double, y: Double, z: Double, bbWidth: Double, spot: BlockPos, supportTopY: Double = spot.y.toDouble()): Boolean {
+        if (Mth.floor(x) == spot.x && Mth.floor(z) == spot.z && y >= supportTopY - FOOT_TOLERANCE && y < supportTopY + 1.0) return true
         val stop = stopOffset(bbWidth)
         val reach = max(MIN_REACH, bbWidth / 2.0)
-        return abs(x - (spot.x + stop)) <= reach && abs(z - (spot.z + stop)) <= reach && abs(y - spot.y) < MAX_DY
+        return abs(x - (spot.x + stop)) <= reach && abs(z - (spot.z + stop)) <= reach && abs(y - supportTopY) < MAX_DY
     }
 }

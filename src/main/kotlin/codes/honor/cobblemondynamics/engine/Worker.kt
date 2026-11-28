@@ -16,53 +16,52 @@ class Worker(val pokemonId: UUID, var pasture: PastureKey?) {
     var status: WorkerStatus = WorkerStatus.IDLE
     var leashed: Boolean = false
 
-    /** The live Work Stamina. The engine loads it when the worker joins and flushes it to the Pokémon's saved data. */
     var stamina: Stamina = Stamina()
 
-    /** [stamina] holds every tick before this one, so no tick counts twice and a flush saves this tick as `last_game_time`. */
     var staminaUntil: Long = 0
 
-    /** Tired is the Work Stamina's flag: set at 0% and cleared at 100% (CD-STA-08, CD-STA-10). */
     var tired: Boolean
         get() = stamina.tired
         set(value) {
             stamina.tired = value
         }
 
-    /** The tick of the current work or bed claim. */
     var claimTick: Long = -1
+    var travelTimeoutTicks: Int = 0
 
-    /** The canonical target of the current work claim, and the standable cell that the worker works it from. */
     var target: BlockPos? = null
     var spot: BlockPos? = null
+    var spotTopY: Double = 0.0
 
-    /** The bed that a worker in ToBed or Sleeping holds a bed claim on. */
     var bed: BedCandidate? = null
 
-    /** Where a worker in RestingInPlace lies, which is where it stood when it got Tired or lost its bed. */
     var restSpot: Vec3? = null
 
-    /** The tick of the last status change. */
     var statusSince: Long = 0
 
-    /** The leashed retry after a missed arrival, or -1 when the worker is not waiting. */
     var retryAt: Long = -1
     var missedArrival: Boolean = false
 
-    /** Targets that this worker skips until a tick, after a travel timeout (CD-ASG-14). */
     val skipUntil: MutableMap<TargetKey, Long> = HashMap()
 
-    /**
-     * Cells whose demand a handler stopped for this worker until a tick (CD-CUL-09, CD-FRZ-11). The worker skips them as targets too.
-     * An area job, such as the Freezer's, works none of them, but it still works a cell of [skipUntil], which it needs no spot at.
-     */
     val stalledUntil: MutableMap<TargetKey, Long> = HashMap()
+
+    val retryMisses: MutableMap<TargetKey, Int> = HashMap()
 
     fun isSkipped(key: TargetKey, now: Long): Boolean = now < (skipUntil[key] ?: Long.MIN_VALUE) || isStalled(key, now)
 
     fun isStalled(key: TargetKey, now: Long): Boolean = now < (stalledUntil[key] ?: Long.MIN_VALUE)
 
-    /** Drops the skips and stalls that end by [now], so that neither map grows for the worker's whole life. The engine calls it at each claim's end. */
+    fun recordMiss(key: TargetKey, maxRetryWaitTicks: Int): Int {
+        val count = (retryMisses[key] ?: 0) + 1
+        retryMisses[key] = count
+        return TravelTiming.retryTicks(count, maxRetryWaitTicks)
+    }
+
+    fun recordArrival(key: TargetKey?) {
+        if (key != null) retryMisses.remove(key)
+    }
+
     fun dropExpired(now: Long) {
         skipUntil.values.removeIf { it <= now }
         stalledUntil.values.removeIf { it <= now }

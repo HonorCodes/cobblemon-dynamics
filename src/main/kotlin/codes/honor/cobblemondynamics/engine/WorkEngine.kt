@@ -59,7 +59,9 @@ import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore
 import com.cobblemon.mod.common.api.types.ElementalTypes
 import com.cobblemon.mod.common.battles.BattleRegistry
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
+import com.cobblemon.mod.common.entity.pokemon.ai.PokemonMoveControl
 import com.cobblemon.mod.common.pokemon.Pokemon
+import com.cobblemon.mod.common.util.resolveFloat
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.SectionPos
@@ -71,7 +73,9 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
+import net.minecraft.util.Mth
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.level.ChunkPos
@@ -79,11 +83,12 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeavesBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.pathfinder.PathType
 import net.minecraft.world.level.pathfinder.WalkNodeEvaluator
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
+import kotlin.math.max
+import kotlin.math.sqrt
 
 /**
  * The server's work engine: the workers of every pasture in Work Mode and of every Quick Work order, their claims and their
@@ -312,7 +317,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val others = takenSpots(t).also { taken -> slots[pokemonId]?.worker?.spot?.let { taken.remove(it.asLong()) } }
         val area = WorkArea.of(pasture, t.settings, PastureAdapter.maxWanderDistance())
         // At bind time only room counts: a missing path shows later as the "cannot reach" message (CD-LSH-21).
-        return guarded(role.handler, true) { spotFor(level, area, entity, role, canonical, others) { true } != null }
+        return guarded(role.handler, true) { spotFor(level, area, entity, role, canonical, others) { true }.spot != null }
     }
 
     /**
@@ -526,7 +531,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val attempt = claim(t, runtime, slot, binding.target, role, taken, moving = false)
             if (attempt == Attempt.NO_SPOT) cannotReach(t, slot, binding.target)
         } else if (guarded(role.handler, false) { role.handler.bindingHolds(t.level, binding.target) }) {
-            // Each poll renews the pause before it lapses. Until the first poll, the hold of the released order pauses the wander.
+            slot.chainingUntil = t.now + WAIT_PAUSE_TICKS
             BrainBridge.pauseWander(slot.entity, WAIT_PAUSE_TICKS)
         }
     }
@@ -617,13 +622,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         role: ActiveRole,
         taken: MutableSet<Long>,
         moving: Boolean,
-    ): Boolean {
-        val attempt = claim(t, runtime, slot, target, role, taken, moving)
-        if (attempt == Attempt.GRANTED) return true
-        if (attempt == Attempt.NOT_NOW) return false
-        slot.worker.skipUntil[TargetKey.block(t.dimension, target, role.handler.claimLane)] = t.now + t.settings.retryWaitTicks
-        return false
-    }
+    ): Boolean = claim(t, runtime, slot, target, role, taken, moving) == Attempt.GRANTED
 
     /** The work spots that workers of this level hold, as `BlockPos.asLong()`, Quick Workers' included. */
     private fun takenSpots(t: Tick): MutableSet<Long> =
@@ -636,15 +635,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     private fun canWork(level: ServerLevel, tethered: TetheredPokemon, pokemon: Pokemon, entity: PokemonEntity): Boolean =
-        PastureOwnerRules.canWork(
-            tetheredOwnerId = tethered.ownerId,
-            tetheredPcId = tethered.pcId,
-            liveOwnerId = pokemon.getOwnerUUID(),
-            fainted = pokemon.isFainted(),
-            battleClone = pokemon.isBattleClone(),
-            removed = entity.isRemoved,
-            sameLevel = entity.level() === level,
-        )
+        !entity.isBattling &&
+            PastureOwnerRules.canWork(
+                tetheredOwnerId = tethered.ownerId,
+                tetheredPcId = tethered.pcId,
+                liveOwnerId = pokemon.getOwnerUUID(),
+                fainted = pokemon.isFainted(),
+                battleClone = pokemon.isBattleClone(),
+                removed = entity.isRemoved,
+                sameLevel = entity.level() === level,
+            )
 
     /**
      * Step 2: a claim of any kind ends when no worker holds it. A work claim also ends when its target is gone or invalid
@@ -688,6 +688,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     /** Steps 3 and 4: the pasture's scan pass, and the assignment when the pass completes. */
     private fun scan(t: Tick, runtime: PastureRuntime) {
         var pass = runtime.scan
+        var started = false
         if (pass == null) {
             runtime.syncScanInterval(t.settings.scanIntervalTicks, t.now)
             if (!runtime.scheduler.shouldStart(t.now)) return
@@ -697,17 +698,25 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             runtime.scheduler.start(t.now)
             runtime.scan = pass
             pass.startPass(t.world)
+            started = true
         }
-        if (!pass.stepBlocks(t.world)) return
+        if (!pass.stepBlocks(t.world)) {
+            if (started) assignHeals(t, runtime)
+            return
+        }
         runtime.scheduler.complete(t.now)
         runtime.scan = null
         assignHeals(t, runtime)
         assign(t, runtime, pass.found)
+        if (!runtime.scheduler.shouldStart(t.now)) {
+            for (slot in runtime.slots.values) slot.awaitingChainedScan = false
+        }
     }
 
     private fun assignHeals(t: Tick, runtime: PastureRuntime) {
-        val allies = runtime.slots.values.filterNot { it.entity.isRemoved }.map(::allyView)
+        val allies = runtime.slots.values.filterNot { it.entity.isRemoved || it.entity.isBattling }.map(::allyView)
         for (slot in runtime.slots.values) {
+            if (slot.entity.isRemoved || slot.entity.isBattling) continue
             val worker = slot.worker
             if (slot.rule != RecoveryRule.HEALER) continue
             val current = claims.claimOf(worker.pokemonId)
@@ -766,7 +775,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     private fun scanTypesOf(t: Tick, slot: WorkerSlot): Set<String> {
-        if (slot.worker.leashed || slot.worker.tired || !BrainBridge.canHoldOrder(slot.entity)) return emptySet()
+        if (slot.entity.isRemoved ||
+            slot.entity.isBattling ||
+            slot.worker.leashed ||
+            slot.worker.tired ||
+            !BrainBridge.canHoldOrder(slot.entity)
+        ) {
+            return emptySet()
+        }
         return DualFairyRule.autoAssignTypes(
             types = typesOf(slot.pokemon),
             hasFairyType = hasFairyType(slot.pokemon),
@@ -780,14 +796,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     private fun assign(t: Tick, runtime: PastureRuntime, found: List<FoundTarget>) {
         if (found.isEmpty()) return
-        val allies by lazy { runtime.slots.values.filterNot { it.entity.isRemoved }.map(::allyView) }
+        val allies by lazy { runtime.slots.values.filterNot { it.entity.isRemoved || it.entity.isBattling }.map(::allyView) }
         val allowedByActors = HashMap<List<UUID>, List<FoundTarget>>()
         val byKeyByActors = HashMap<List<UUID>, Map<TargetKey, FoundTarget>>()
         val breakByActors = HashMap<Pair<List<UUID>, BlockPos>, Boolean>()
         val taken = takenSpots(t)
         for (slot in runtime.slots.values) {
             val worker = slot.worker
-            if (worker.leashed) continue
+            if (worker.leashed || slot.entity.isRemoved || slot.entity.isBattling) continue
             val current = claims.claimOf(worker.pokemonId)
             val idle = current == null && worker.status == WorkerStatus.IDLE
             val moving = current?.kind == ClaimKind.WORK && t.machine.canMoveFromStandby(worker, t.now)
@@ -927,10 +943,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val entity = slot.entity
         val others = if (own == null) taken else taken - own
         val reach = Reach.of(entity)
-        val spot = guarded(role.handler, null) { spotFor(t.level, site.area(t.settings), entity, role, target, others, reach) }
+        val area = site.area(t.settings)
+        val search = guarded(role.handler, WorkSpots.SpotSearch(null)) {
+            spotFor(t.level, area, entity, role, target, others, reach)
+        }
+        val spot = search.spot
         if (spot == null) {
-            if (reach.cannotPlan) return Attempt.NOT_NOW
-            worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
+            if (reach.cannotPlan || search.contended) return Attempt.NOT_NOW
+            worker.skipUntil[key] = t.now + worker.recordMiss(key, t.settings.retryWaitTicks)
             return Attempt.NO_SPOT
         }
         if (moving) {
@@ -940,11 +960,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val granted = claims.tryClaim(worker.pokemonId, key, ClaimKind.WORK, site.pastureKey, t.now, shared)
         if (granted !is ClaimResult.Granted) return Attempt.REFUSED
         taken += spot.asLong()
+        val topY = SurfaceGrid.floorTopY(t.level, spot) ?: spot.y.toDouble()
+        val goal = Vec3(spot.x + 0.5, Arrival.snapY(topY), spot.z + 0.5)
+        val timeout = TravelTiming.timeoutTicks(t.settings.travelTimeoutTicks, entity.position().distanceTo(goal), walkSpeedOf(entity))
         worker.target = target
         worker.spot = spot
+        worker.spotTopY = topY
         slot.role = role
         slot.memo = ClaimMemo()
-        t.machine.onClaim(worker, t.now)
+        slot.awaitingChainedScan = false
+        t.machine.onClaim(worker, t.now, timeout)
         guarded(role.handler, Unit) { role.handler.onClaim(context(t, slot, target, role, slot.memo)) }
         return Attempt.GRANTED
     }
@@ -958,31 +983,31 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         target: BlockPos,
         others: Set<Long>,
         reachable: (BlockPos) -> Boolean,
-    ): BlockPos? {
-        val height = entity.bbHeight.toDouble()
-        val grid = LevelSpotGrid(level, role.handler, target, others, entity.bbWidth.toDouble(), height)
-        // A cell in an unloaded chunk is not read, as LevelSpotGrid does not read one.
-        val shape = TargetShape.around(target) { level.isLoaded(it) && role.handler.isPartOfTarget(level, target, it) }
-        // CD-ASG-24: no spot puts the body where the target's tree grows, or in the column of any other sapling.
-        val columns = GrowthColumns(role.handler.growthCells(level, target))
+    ): WorkSpots.SpotSearch {
         val width = entity.bbWidth.toDouble()
+        val height = entity.bbHeight.toDouble()
+        val grid = LevelSpotGrid(level, role.handler, target, emptySet(), width, height)
+        val shape = TargetShape.around(target) { level.isLoaded(it) && role.handler.isPartOfTarget(level, target, it) }
+        val columns = GrowthColumns(role.handler.growthCells(level, target))
         val sapling = BlockPos.MutableBlockPos()
         val isSapling = { x: Int, y: Int, z: Int ->
             level.isLoaded(sapling.set(x, y, z)) && level.getBlockState(sapling).`is`(BlockTags.SAPLINGS)
         }
         val allowed: (BlockPos) -> Boolean = {
-            columns.allows(it, width, height) &&
-                GrowthColumns.clearOfSaplings(it, width, height, isSapling) &&
+            val topY = grid.supportTopY(it.x, it.y, it.z) ?: it.y.toDouble()
+            columns.allows(it, width, height, topY) &&
+                GrowthColumns.clearOfSaplings(it, width, height, isSapling, topY) &&
                 role.handler.allowsSpot(level, target, it, height)
         }
         val center = role.handler.targetCenter(target)
-        return WorkSpots.findReachable(grid, area, shape, center, role.definition.range, entity.position(), reachable, allowed = allowed)
+        val range = Reach.effectiveRange(role.definition.range, width, Reach.isAlpha(entity.pokemon))
+        return WorkSpots.searchReachable(grid, area, shape, center, range, entity.position(), others, reachable, allowed = allowed)
     }
 
     /** Step 5: arrival, the worker's state, and the handler calls of that state. Returns the event that the worker's machine gave. */
     private fun tickWorker(t: Tick, site: WorkSite, slot: WorkerSlot): MachineEvent? {
         val worker = slot.worker
-        if (slot.entity.isRemoved) {
+        if (slot.entity.isRemoved || (slot.entity.isBattling && site is PastureRuntime)) {
             drop(t, site, slot)
             return null
         }
@@ -996,7 +1021,6 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
         val claim = claims.claimOf(worker.pokemonId)
         if (claim == null) {
-            // Another part of the mod released the claim, so the worker follows.
             if (worker.status != WorkerStatus.IDLE || worker.target != null) release(t, slot)
             return null
         }
@@ -1015,13 +1039,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val handler = role.handler
         val ctx = context(t, slot, target, role, slot.memo)
         val before = worker.status
+        val beforeMissed = worker.missedArrival
         var event: MachineEvent? = null
-        // CD-ASG-25: one read before and one after the handler's calls, for a handler that grows, fells or replants a tree.
         val stateBefore = if (handler.growsTrees && t.level.isLoaded(target)) t.level.getBlockState(target) else null
         var misplaced = false
         val ok = guarded(handler, false) {
-            // The machine reads arrival only while Traveling, so the handler is asked only then, after the engine's own rule.
-            val arrived = isArrived(slot.entity, spot) || (before == WorkerStatus.TRAVELING && handler.acceptsArrival(ctx))
+            val arrived = isArrived(slot.entity, spot) ||
+                ((before == WorkerStatus.TRAVELING || beforeMissed) && handler.acceptsArrival(ctx))
             event = t.machine.onTick(worker, t.now, arrived, { handler.hasDemand(ctx) }, claim.key, handler.releasesWhenDone)
             when (val e = event) {
                 MachineEvent.StartedWorking -> {
@@ -1040,11 +1064,19 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 }
 
                 is MachineEvent.ReleaseClaim -> {
-                    // CD-CRP-10: a farming worker lets its crop go while Working, so the handler hears of the end of its work.
                     if (before == WorkerStatus.WORKING) handler.onStop(ctx)
+                    val chaining = e.skip == null && site is PastureRuntime && !worker.leashed && !worker.tired
                     claims.release(worker.pokemonId)
+                    if (slot.binding == null) slot.probes.clear()
                     e.skip?.let { worker.skipUntil[it] = e.until }
                     clear(t, slot)
+                    if (chaining) {
+                        val runtime = site as PastureRuntime
+                        slot.awaitingChainedScan = true
+                        slot.chainingUntil = t.now + WAIT_PAUSE_TICKS
+                        BrainBridge.pauseWander(slot.entity, WAIT_PAUSE_TICKS)
+                        runtime.requestScan()
+                    }
                 }
 
                 MachineEvent.MissedArrival -> cannotReach(t, slot, target)
@@ -1056,12 +1088,33 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                         claims.release(worker.pokemonId)
                         t.machine.onRelease(worker, t.now)
                         clear(t, slot)
-                    } else if (site is PastureRuntime) {
-                        site.requestPoll()
+                    } else {
+                        val goal = Vec3(spot.x + 0.5, Arrival.snapY(worker.spotTopY), spot.z + 0.5)
+                        worker.travelTimeoutTicks = TravelTiming.timeoutTicks(
+                            t.settings.travelTimeoutTicks,
+                            slot.entity.position().distanceTo(goal),
+                            walkSpeedOf(slot.entity),
+                        )
+                        if (site is PastureRuntime) {
+                            site.requestPoll()
+                        }
                     }
                 }
 
-                else -> {}
+                MachineEvent.Retry -> {
+                    val goal = Vec3(spot.x + 0.5, Arrival.snapY(worker.spotTopY), spot.z + 0.5)
+                    worker.travelTimeoutTicks = TravelTiming.timeoutTicks(
+                        t.settings.travelTimeoutTicks,
+                        slot.entity.position().distanceTo(goal),
+                        walkSpeedOf(slot.entity),
+                    )
+                }
+
+                else -> {
+                    if (beforeMissed && !worker.missedArrival && worker.status == WorkerStatus.STANDBY) {
+                        misplaced = !snap(slot.entity, spot, handler.targetCenter(target))
+                    }
+                }
             }
             if (worker.status == WorkerStatus.WORKING) handler.applyWork(ctx)
             true
@@ -1322,7 +1375,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         release(t, slot)
         val bed = nearestFreeBed(t, runtime, slot)
         val granted = bed != null && claims.tryClaim(worker.pokemonId, bed.key, ClaimKind.BED, runtime.key, t.now) is ClaimResult.Granted
-        t.machine.onTired(worker, t.now, bed.takeIf { granted })
+        val chosen = bed.takeIf { granted }
+        val timeout = if (chosen != null) {
+            TravelTiming.timeoutTicks(
+                t.settings.travelTimeoutTicks,
+                slot.entity.position().distanceTo(chosen.center),
+                walkSpeedOf(slot.entity),
+            )
+        } else {
+            t.settings.travelTimeoutTicks
+        }
+        t.machine.onTired(worker, t.now, chosen, timeout)
         worker.restSpot = if (granted) null else slot.entity.position()
     }
 
@@ -1433,9 +1496,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      */
     private fun direct(t: Tick, site: WorkSite, slot: WorkerSlot) {
         val worker = slot.worker
+        val entity = slot.entity
+        if (entity.isRemoved || entity.isBattling) {
+            removeFocus(slot)
+            return
+        }
         if (worker.status.isResting) {
             removeFocus(slot)
-            directRest(t, slot)
+            directRest(t, site, slot)
             return
         }
         if (worker.status == WorkerStatus.HEALING) {
@@ -1447,11 +1515,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val role = slot.role
         val target = worker.target
         val spot = worker.spot
-        val entity = slot.entity
-        if (claim?.kind != ClaimKind.WORK || role == null || target == null || spot == null || entity.isRemoved) {
+        if (claim?.kind != ClaimKind.WORK || role == null || target == null || spot == null) {
             removeFocus(slot)
+            if (site is PastureRuntime && worker.status == WorkerStatus.IDLE) directIdle(t, site, slot)
             return
         }
+        slot.returningToZone = false
         if (worker.status == WorkerStatus.SLACKING) {
             removeFocus(slot)
             val area = site.area(t.settings)
@@ -1459,15 +1528,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 BrainBridge.clear(entity)
                 constrainSlackWander(entity, area)
             } else {
-                BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), null, hold = false))
+                val topY = SurfaceGrid.floorTopY(t.level, spot) ?: worker.spotTopY.takeIf { it != 0.0 } ?: spot.y.toDouble()
+                worker.spotTopY = topY
+                val goal = Vec3(spot.x + 0.5, Arrival.snapY(topY), spot.z + 0.5)
+                BrainBridge.write(entity, WorkOrder(goal, null, hold = false, maxY = area.maxY + 1.0, spotCell = spot))
             }
             return
         }
         val center = guarded(role.handler, null) { role.handler.targetCenter(target) }
+        val area = site.area(t.settings)
         if (worker.status == WorkerStatus.TRAVELING) {
-            // The watch takes every Traveling tick, because the navigation reports no stuck worker in flight or in water.
             val stalled = slot.stall.stalled(t.now, entity.x, entity.y, entity.z)
-            // CD-ASG-27: a worker 1 block wide or wider that pushes against a block on each of 20 ticks steps without the full stall.
             val wide = entity.bbWidth >= 1f
             val pushing = entity.horizontalCollision
             val pressed = wide && slot.press.stalled(t.now, entity.x, entity.y, entity.z, pushing)
@@ -1476,15 +1547,21 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                     unstick(entity)
                 } else if (pushing && Unstick.sidestepDue(t.now, slot.lastSidestepTick)) {
                     slot.lastSidestepTick = t.now
-                    sidestepSafely(entity, spot, site.area(t.settings))
+                    sidestepSafely(entity, spot, area)
                 }
             }
         }
-        BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), center, hold = isArrived(entity, spot)))
+        val topY = SurfaceGrid.floorTopY(t.level, spot) ?: worker.spotTopY.takeIf { it != 0.0 } ?: spot.y.toDouble()
+        worker.spotTopY = topY
+        val goal = Vec3(spot.x + 0.5, Arrival.snapY(topY), spot.z + 0.5)
+        BrainBridge.write(
+            entity,
+            WorkOrder(goal, center, hold = isArrived(entity, spot), maxY = area.maxY + 1.0, spotCell = spot),
+        )
         if (!BrainBridge.holdsOrder(entity)) {
             val species = slot.pokemon.species.resourceIdentifier
             unbridged.warn(species) { "$species has a baseAI that skips Cobblemon's auto behaviours, so it cannot work" }
-            worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
+            worker.skipUntil[claim.key] = t.now + worker.recordMiss(claim.key, t.settings.retryWaitTicks)
             release(t, slot)
             return
         }
@@ -1496,18 +1573,55 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         EffectPlayer.tickWorking(t.level, entity, focus, role.definition, worker.statusSince, t.now, slot.traits.masteryMoves)
     }
 
+    private fun directIdle(t: Tick, runtime: PastureRuntime, slot: WorkerSlot) {
+        val entity = slot.entity
+        val area = runtime.area(t.settings)
+        val pos = entity.position()
+        slot.returningToZone = if (slot.returningToZone) {
+            !ZoneTether.isInsideArea(pos, area)
+        } else {
+            !ZoneTether.isInsideMargin(pos, area)
+        }
+        if (slot.returningToZone) {
+            BrainBridge.write(entity, WorkOrder(returnSpotIn(t.level, entity, area), null, hold = false, maxY = area.maxY + 1.0))
+            return
+        }
+        if (BrainBridge.holdsOrder(entity)) BrainBridge.clear(entity)
+        val holdChaining = runtime.scheduler.holdsChainingPause(slot.awaitingChainedScan, t.now, slot.chainingUntil)
+        if (holdChaining) BrainBridge.pauseWander(entity, WAIT_PAUSE_TICKS)
+        BrainBridge.anchorIdle(entity, area, suppressSleep = holdChaining)
+    }
+
     /**
      * A worker in ToBed walks to its bed. One that sleeps or rests in place holds its sleep point with the sleep pose and never
      * Cobblemon's battle sleep status (CD-BED-10, CD-AI-07), and loops the sleep effect (CD-FX-10).
      */
-    private fun directRest(t: Tick, slot: WorkerSlot) {
+    private fun directRest(t: Tick, site: WorkSite, slot: WorkerSlot) {
         val worker = slot.worker
         val entity = slot.entity
         if (entity.isRemoved) return
+        val maxY = site.area(t.settings).maxY + 1.0
+        if (worker.status == WorkerStatus.RESTING_IN_PLACE && site is PastureRuntime) {
+            val area = site.area(t.settings)
+            val rest = worker.restSpot ?: entity.position()
+            slot.returningToZone = if (slot.returningToZone) {
+                !ZoneTether.isInsideArea(entity.position(), area)
+            } else {
+                !ZoneTether.isInsideMargin(rest, area) || !ZoneTether.isInsideMargin(entity.position(), area)
+            }
+            if (slot.returningToZone) {
+                BrainBridge.wake(entity)
+                BrainBridge.write(entity, WorkOrder(returnSpotIn(t.level, entity, area), null, hold = false, maxY = maxY))
+                return
+            }
+            if (worker.restSpot == null || !ZoneTether.isInsideMargin(rest, area)) worker.restSpot = entity.position()
+        } else {
+            slot.returningToZone = false
+        }
         val order = when (worker.status) {
-            WorkerStatus.TO_BED -> worker.bed?.let { WorkOrder(it.center, null, hold = false) }
-            WorkerStatus.SLEEPING -> worker.bed?.let { WorkOrder(it.center, null, hold = true, sleep = true) }
-            else -> worker.restSpot?.let { WorkOrder(it, null, hold = true, sleep = true) }
+            WorkerStatus.TO_BED -> worker.bed?.let { WorkOrder(it.center, null, hold = false, maxY = maxY) }
+            WorkerStatus.SLEEPING -> worker.bed?.let { WorkOrder(it.center, null, hold = true, sleep = true, maxY = maxY) }
+            else -> worker.restSpot?.let { WorkOrder(it, null, hold = true, sleep = true, maxY = maxY) }
         } ?: return
         BrainBridge.write(entity, order)
         if (order.sleep) EffectPlayer.tickSleeping(t.level, entity, worker.statusSince, t.now)
@@ -1518,7 +1632,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val entity = slot.entity
         val allyId = (claims.claimOf(slot.worker.pokemonId)?.key as? TargetKey.Entity)?.uuid ?: return
         val ally = slots[allyId]?.entity?.takeUnless { it.isRemoved } ?: return
-        if (!entity.isRemoved) BrainBridge.write(entity, WorkOrder(ally.position(), ally.boundingBox.center, hold = false))
+        val maxY = siteOf(slot)?.area(WorkEngineSettings.current)?.let { it.maxY + 1.0 } ?: Double.POSITIVE_INFINITY
+        if (!entity.isRemoved) BrainBridge.write(entity, WorkOrder(ally.position(), ally.boundingBox.center, hold = false, maxY = maxY))
     }
 
     private fun constrainSlackWander(entity: PokemonEntity, area: WorkArea) {
@@ -1585,7 +1700,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         worker.staminaUntil = t.now
         val slot = WorkerSlot(worker, entity, pokemon)
         val center = guarded(role.handler, Vec3.atCenterOf(canonical)) { role.handler.targetCenter(canonical) }
-        val area = QuickRuntime.areaAround(center, role.definition.range)
+        val range = Reach.effectiveRange(role.definition.range, entity.bbWidth.toDouble(), Reach.isAlpha(pokemon))
+        val area = QuickRuntime.areaAround(center, range)
         val order = QuickRuntime(t.level, aim.owner, aim.pos, canonical, t.now, name, slot, area)
         // CD-QWK-32: a refusal goes out through tell after the claim mods' checks, so the engine's message is the last one in this tick.
         val refusal = QuickWorkRules.refusal(
@@ -1701,10 +1817,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         unclaim(t, slot, slot.entity)
         slot.worker.target = null
         slot.worker.spot = null
+        slot.worker.spotTopY = 0.0
         slot.worker.dropExpired(t.now)
         slot.role = null
         slot.memo = ClaimMemo()
         slot.slackTicks = 0
+        slot.returningToZone = false
+        slot.chainingUntil = 0
+        slot.awaitingChainedScan = false
         BrainBridge.clear(slot.entity)
         BrainBridge.wake(slot.entity)
         removeFocus(slot)
@@ -1843,8 +1963,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         fun require(server: MinecraftServer): WorkEngine =
             instance?.takeIf { it.server === server } ?: error("The work engine is not running")
 
+        private const val FRICTION_SPEED_FACTOR = 2.1586
+
         /** Where navigation stops [entity] for [spot], by the rule of [Arrival]. */
-        fun isArrived(entity: Entity, spot: BlockPos): Boolean = Arrival.isAt(entity.x, entity.y, entity.z, entity.bbWidth.toDouble(), spot)
+        fun isArrived(entity: Entity, spot: BlockPos): Boolean {
+            val topY = SurfaceGrid.floorTopY(entity.level(), spot) ?: spot.y.toDouble()
+            return Arrival.isAt(entity.x, entity.y, entity.z, entity.bbWidth.toDouble(), spot, topY)
+        }
 
         /**
          * A stuck traveler narrower than a block goes to the middle of its cell when its body fits there, or else to that middle on top
@@ -1900,38 +2025,41 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 )
                 for (shift in shifts) {
                     val move = if (side == Direction.Axis.X) Vec3(shift, 0.0, 0.0) else Vec3(0.0, 0.0, shift)
-                    if (canSidestep(entity, ahead.move(move), move, area)) {
-                        entity.teleportTo(entity.x + move.x, entity.y, entity.z + move.z)
-                        entity.deltaMovement = Vec3.ZERO
-                        return
-                    }
+                    val destY = sidestepY(entity, ahead.move(move), move, area) ?: continue
+                    entity.teleportTo(entity.x + move.x, destY, entity.z + move.z)
+                    entity.deltaMovement = Vec3.ZERO
+                    return
                 }
             }
         }
 
-        /**
-         * A body moved by [move] fits and has no block in [ahead]. Its center lies inside [area] in a walkable or open cell over a
-         * sturdy floor ([Unstick.isOpenFoot]), and each cell under the body at its feet holds no open fluid ([Unstick.isDryFoot]) and no
-         * hazard ([Unstick.isSafeFoot]).
-         */
-        private fun canSidestep(entity: PokemonEntity, ahead: AABB, move: Vec3, area: WorkArea): Boolean {
+        private fun sidestepY(entity: PokemonEntity, ahead: AABB, move: Vec3, area: WorkArea): Double? {
             val level = entity.level()
             val x = entity.x + move.x
             val z = entity.z + move.z
-            val center = BlockPos.containing(x, entity.y, z)
-            if (!area.contains(center)) return false
-            if (!fits(entity, x, entity.y, z) || !level.noBlockCollision(entity, ahead)) return false
-            val below = center.below()
-            if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) return false
-            val moved = entity.boundingBox.move(move)
-            if (!Unstick.isOpenFoot(WalkNodeEvaluator.getPathTypeStatic(entity, center))) return false
-            return Unstick.footCells(moved.minX + TOUCH, moved.minZ + TOUCH, moved.maxX - TOUCH, moved.maxZ - TOUCH, center.y).all { cell ->
-                val dry = Unstick.isDryFoot(
-                    !level.getFluidState(cell).isEmpty,
-                    !level.getBlockState(cell).getCollisionShape(level, cell).isEmpty,
-                )
-                dry && Unstick.isSafeFoot(WalkNodeEvaluator.getPathTypeStatic(entity, cell))
+            val headroom = max(SurfaceGrid.DEFAULT_HEADROOM, entity.bbHeight.toDouble())
+            val baseCell = BlockPos.containing(x, entity.y, z)
+            val center = if (SurfaceGrid.supportTopY(level, baseCell, headroom) != null) {
+                baseCell
+            } else {
+                baseCell.above().takeIf { SurfaceGrid.supportTopY(level, it, headroom) != null } ?: return null
             }
+            if (!area.contains(center)) return null
+            val topY = SurfaceGrid.supportTopY(level, center, headroom) ?: return null
+            val destY = Arrival.snapY(topY)
+            val dy = destY - entity.y
+            if (!fits(entity, x, destY, z) || !level.noBlockCollision(entity, ahead.move(0.0, dy, 0.0))) return null
+            val moved = entity.boundingBox.move(move.x, dy, move.z)
+            if (!Unstick.isOpenFoot(WalkNodeEvaluator.getPathTypeStatic(entity, center))) return null
+            val safe = Unstick.footCells(moved.minX + TOUCH, moved.minZ + TOUCH, moved.maxX - TOUCH, moved.maxZ - TOUCH, center.y)
+                .all { cell ->
+                    val dry = Unstick.isDryFoot(
+                        !level.getFluidState(cell).isEmpty,
+                        !level.getBlockState(cell).getCollisionShape(level, cell).isEmpty,
+                    )
+                    dry && Unstick.isSafeFoot(WalkNodeEvaluator.getPathTypeStatic(entity, cell))
+                }
+            return if (safe) destY else null
         }
 
         /** A leaf that a tree grew, which [free]'s fill may pass. A leaf with no `persistent` property counts as placed. */
@@ -1993,23 +2121,28 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             }
             val width = entity.bbWidth.toDouble()
             val height = entity.bbHeight.toDouble()
+            val headroom = max(SurfaceGrid.DEFAULT_HEADROOM, height)
             val isSapling = { x: Int, y: Int, z: Int -> level.getBlockState(BlockPos(x, y, z)).`is`(BlockTags.SAPLINGS) }
             var asks = 0
             for (cell in Unstick.reachableCells(entity.blockPosition(), spot, passable)) {
-                if (!area.contains(cell)) continue
                 val below = cell.below()
-                if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) continue
+                if (!area.contains(cell) ||
+                    !TreeWay.canLandAbove(TreeFactsReader.factsOf(level.getBlockState(below)), below in trunk.value)
+                ) {
+                    continue
+                }
+                val topY = SurfaceGrid.supportTopY(level, cell, headroom) ?: continue
                 if (!level.getFluidState(cell).isEmpty) continue
                 val type = WalkNodeEvaluator.getPathTypeStatic(entity, cell)
                 if (!Unstick.isOpenFoot(type)) continue
                 val x = cell.x + 0.5
+                val y = Arrival.snapY(topY)
                 val z = cell.z + 0.5
-                if (!fits(entity, x, cell.y.toDouble(), z) || !GrowthColumns.clearOfSaplings(cell, width, height, isSapling)) continue
-                // CD-LND-12: at most MAX_CLAIM_ASKS checks of the claim mods for one worker.
+                if (!fits(entity, x, y, z) || !GrowthColumns.clearOfSaplings(cell, width, height, isSapling, topY)) continue
                 if (asks++ >= MAX_CLAIM_ASKS) return
                 if (!mayUse(cell)) continue
                 entity.navigation.stop()
-                entity.teleportTo(x, cell.y.toDouble(), z)
+                entity.teleportTo(x, y, z)
                 entity.deltaMovement = Vec3.ZERO
                 return
             }
@@ -2019,8 +2152,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             entity.level().noBlockCollision(entity, entity.boundingBox.move(x - entity.x, y - entity.y, z - entity.z).deflate(TOUCH))
 
         /** Whether the body of [entity] fits on [spot]'s center, where [snap] puts it, as the spot rule measures it ([WorkerBody]). */
-        private fun centerFits(entity: PokemonEntity, spot: BlockPos): Boolean =
-            entity.level().noBlockCollision(entity, WorkerBody.boxes(spot, entity.bbWidth.toDouble(), entity.bbHeight.toDouble()).first())
+        private fun centerFits(entity: PokemonEntity, spot: BlockPos): Boolean {
+            val headroom = max(SurfaceGrid.DEFAULT_HEADROOM, entity.bbHeight.toDouble())
+            val topY = SurfaceGrid.supportTopY(entity.level(), spot, headroom) ?: return false
+            return centerFits(entity, spot, topY)
+        }
+
+        private fun centerFits(entity: PokemonEntity, spot: BlockPos, topY: Double): Boolean = entity.level().noBlockCollision(
+            entity,
+            WorkerBody.boxes(spot, entity.bbWidth.toDouble(), entity.bbHeight.toDouble(), topY).first(),
+        )
 
         /** Primary first, which [RoleSelection.best] reads between the roles of one handler. */
         private fun typesOf(pokemon: Pokemon): Set<String> = pokemon.types.mapTo(LinkedHashSet()) { it.showdownId }
@@ -2034,13 +2175,62 @@ class WorkEngine private constructor(val server: MinecraftServer) {
          * body no longer fits, because a tree grew there since the claim, gets no snap, and the result is false (CD-ASG-25).
          */
         private fun snap(entity: PokemonEntity, spot: BlockPos, lookAt: Vec3): Boolean {
-            if (!centerFits(entity, spot)) return false
+            val headroom = max(SurfaceGrid.DEFAULT_HEADROOM, entity.bbHeight.toDouble())
+            val topY = SurfaceGrid.supportTopY(entity.level(), spot, headroom) ?: return false
+            if (!centerFits(entity, spot, topY)) return false
             entity.navigation.stop()
             entity.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
-            entity.teleportTo(spot.x + 0.5, spot.y.toDouble(), spot.z + 0.5)
+            entity.teleportTo(spot.x + 0.5, Arrival.snapY(topY), spot.z + 0.5)
             entity.deltaMovement = Vec3.ZERO
             BrainBridge.face(entity, lookAt)
             return true
+        }
+
+        private fun walkSpeedOf(entity: PokemonEntity): Double {
+            val base = entity.getAttributeValue(Attributes.MOVEMENT_SPEED)
+            val moving = entity.behaviour.moving
+            val expr = when {
+                entity.isFlying() && moving.fly.canFly -> moving.fly.flySpeedHorizontal
+                entity.isInLiquid -> moving.swim.swimSpeed
+                else -> moving.walk.walkSpeed
+            }
+            val factor = try {
+                (entity.moveControl as? PokemonMoveControl)?.runtime?.resolveFloat(expr)?.toDouble()
+            } catch (_: Exception) {
+                null
+            } ?: TravelTiming.DEFAULT_SPEED
+            val scale = sqrt(entity.pokemon.effectiveScale.toDouble().coerceAtLeast(0.01))
+            val friction = if (!entity.isFlying() && !entity.isInLiquid) FRICTION_SPEED_FACTOR else 1.0
+            return base * factor * scale * friction
+        }
+
+        private fun returnSpotIn(level: ServerLevel, entity: PokemonEntity, area: WorkArea): Vec3 {
+            val ideal = ZoneTether.returnGoal(entity.position(), area)
+            val bx = Mth.floor(ideal.x)
+            val by = Mth.floor(ideal.y)
+            val bz = Mth.floor(ideal.z)
+            val headroom = max(SurfaceGrid.DEFAULT_HEADROOM, entity.bbHeight.toDouble())
+            for (r in 0..4) {
+                for (dx in -r..r) {
+                    for (dz in -r..r) {
+                        if (r > 0 && kotlin.math.abs(dx) != r && kotlin.math.abs(dz) != r) continue
+                        val cx = bx + dx
+                        val cz = bz + dz
+                        if (cx == area.center.x && cz == area.center.z) continue
+                        for (dy in 0..2) {
+                            for (sign in intArrayOf(1, -1)) {
+                                if (dy == 0 && sign == -1) continue
+                                val cy = by + dy * sign
+                                val cell = BlockPos(cx, cy, cz)
+                                if (!area.contains(cell)) continue
+                                val topY = SurfaceGrid.supportTopY(level, cx, cy, cz, headroom) ?: continue
+                                return Vec3(cx + 0.5, Arrival.snapY(topY), cz + 0.5)
+                            }
+                        }
+                    }
+                }
+            }
+            return ideal
         }
 
         /** On reaching a bed: the sleep point, at rest. The Brain's work activity holds it there from the next tick (CD-BED-10). */

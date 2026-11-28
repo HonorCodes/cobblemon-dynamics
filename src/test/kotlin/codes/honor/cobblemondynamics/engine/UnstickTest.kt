@@ -1,7 +1,9 @@
 package codes.honor.cobblemondynamics.engine
 
+import codes.honor.cobblemondynamics.handler.tree.CellFacts
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.level.pathfinder.PathType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -217,5 +219,25 @@ class UnstickTest {
         assertFalse(press.stalled(10, 10.0, 2.0, 9.94, pushing = false))
         for (now in 11L..29L) assertFalse(press.stalled(now, 10.0, 2.0, 9.94, pushing = true), "pressed at tick $now")
         assertTrue(press.stalled(30, 10.0, 2.0, 9.94, pushing = true))
+    }
+
+    @Test
+    fun `CD-ASG-25 free landing excludes changed trunk, nearby tagged logs, roots and natural leaves`() {
+        val stone = CellFacts(ResourceLocation.withDefaultNamespace("stone"))
+        val placedLeaf = CellFacts(ResourceLocation.withDefaultNamespace("oak_leaves"), leaves = true, persistent = true)
+        val naturalLeaf = CellFacts(ResourceLocation.withDefaultNamespace("oak_leaves"), leaves = true, persistent = false)
+        val nearbyTargetLog = CellFacts(ResourceLocation.withDefaultNamespace("oak_log"), logTarget = true, anyLog = true)
+        val customTargetLog = CellFacts(ResourceLocation.parse("example:magic_log"), logTarget = true, anyLog = false)
+        val strippedLog = CellFacts(ResourceLocation.withDefaultNamespace("stripped_oak_log"), logTarget = false, anyLog = true)
+        val mangroveRoot = CellFacts(ResourceLocation.withDefaultNamespace("mangrove_roots"))
+
+        assertTrue(TreeWay.canLandAbove(stone, inChangedTrunk = false))
+        assertTrue(TreeWay.canLandAbove(placedLeaf, inChangedTrunk = false))
+        assertFalse(TreeWay.canLandAbove(stone, inChangedTrunk = true))
+        assertFalse(TreeWay.canLandAbove(nearbyTargetLog, inChangedTrunk = false))
+        assertFalse(TreeWay.canLandAbove(customTargetLog, inChangedTrunk = false))
+        assertFalse(TreeWay.canLandAbove(strippedLog, inChangedTrunk = false))
+        assertFalse(TreeWay.canLandAbove(mangroveRoot, inChangedTrunk = false))
+        assertFalse(TreeWay.canLandAbove(naturalLeaf, inChangedTrunk = false))
     }
 }

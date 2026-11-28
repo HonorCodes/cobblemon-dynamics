@@ -3,6 +3,8 @@ package codes.honor.cobblemondynamics.engine
 import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.phys.shapes.VoxelShape
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -310,6 +312,78 @@ class WorkSpotsTest {
         assertTrue(center.maxX < 0.0)
         assertTrue(stop.maxX > 0.0)
         assertFalse(columns.allows(sapling.west(2), 2.25, 2.4))
+    }
+
+    @Test
+    fun `CD-NAV-03 voxel line of sight passes over carpet and fails through a wall or closed trapdoor`() {
+        val shapes = HashMap<BlockPos, VoxelShape>()
+        val voxelGrid = object : SpotGrid {
+            override fun isStandable(x: Int, y: Int, z: Int): Boolean = y == 1 && BlockPos(x, y, z) != target
+            override fun blocksSight(x: Int, y: Int, z: Int): Boolean = (shapes[BlockPos(x, y, z)] ?: Shapes.empty()).isEmpty.not()
+            override fun clipSight(x: Int, y: Int, z: Int, from: Vec3, to: Vec3): Boolean {
+                val shape = shapes[BlockPos(x, y, z)] ?: return false
+                return !shape.isEmpty && shape.clip(from, to, BlockPos(x, y, z)) != null
+            }
+        }
+        val spotCenter = Vec3(2.5, 1.5, 0.5)
+        shapes[BlockPos(1, 1, 0)] = Shapes.box(0.0, 0.0, 0.0, 1.0, 0.0625, 1.0)
+        assertTrue(WorkSpots.hasLineOfSight(voxelGrid, spotCenter, center))
+
+        shapes[BlockPos(1, 1, 0)] = Shapes.block()
+        assertFalse(WorkSpots.hasLineOfSight(voxelGrid, spotCenter, center))
+
+        shapes[BlockPos(1, 1, 0)] = Shapes.box(0.0, 0.0, 0.0, 0.1875, 1.0, 1.0)
+        assertFalse(WorkSpots.hasLineOfSight(voxelGrid, spotCenter, center))
+    }
+
+    @Test
+    fun `CD-NAV-04 a 2_0-wide Alpha Cranker reaches a spot at 3_7 blocks and rejects 3_9`() {
+        val effective = Reach.effectiveRange(2.0, bbWidth = 2.0, isAlpha = true)
+        assertTrue(WorkSpots.inRange(center.add(3.7, 0.0, 0.0), center, effective))
+        assertFalse(WorkSpots.inRange(center.add(3.9, 0.0, 0.0), center, effective))
+    }
+
+    @Test
+    fun `searchReachable uses a single 8-check budget across contended spots`() {
+        val grid = GridFixture(emptySet(), target)
+        val shape = TargetShape.of(target)
+        val occupied = BlockPos(1, 1, 0)
+        val checked = ArrayList<BlockPos>()
+        val res = WorkSpots.searchReachable(
+            grid = grid,
+            area = area,
+            target = shape,
+            targetCenter = center,
+            range = 6.0,
+            from = from,
+            others = setOf(occupied.asLong()),
+            reachable = {
+                checked += it
+                false
+            },
+        )
+        assertNull(res.spot)
+        assertTrue(res.contended, "budget exhaustion while a closer spot was occupied must report contended")
+        assertEquals(WorkSpots.MAX_PATH_CHECKS, checked.size, "must never exceed a single 8-check budget: $checked")
+
+        val singleSpotGrid = OpenGrid(setOf(occupied))
+        val unreachableChecks = ArrayList<BlockPos>()
+        val sealed = WorkSpots.searchReachable(
+            grid = singleSpotGrid,
+            area = area,
+            target = shape,
+            targetCenter = center,
+            range = 6.0,
+            from = from,
+            others = setOf(occupied.asLong()),
+            reachable = {
+                unreachableChecks += it
+                false
+            },
+        )
+        assertNull(sealed.spot)
+        assertFalse(sealed.contended, "an unreachable single occupied spot with remaining budget is not contended")
+        assertEquals(1, unreachableChecks.size)
     }
 }
 

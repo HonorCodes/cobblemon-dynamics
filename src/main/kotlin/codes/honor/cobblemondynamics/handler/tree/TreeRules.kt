@@ -27,6 +27,8 @@ object TreeRules {
     /** CD-LUM-02: a log of `#cobblemon_dynamics:lumberjack_targets`, or a block of `#minecraft:saplings`. */
     fun matches(cell: CellFacts): Boolean = cell.logTarget || cell.sapling
 
+    fun allowsSpotBelow(below: CellFacts): Boolean = !below.logTarget && !(below.leaves && !below.persistent)
+
     /**
      * CD-LUM-25, R89: a block of Dynamic Trees: a branch by the tag or by the hook ([CellFacts.dynamicBranch]), or any block of the
      * namespace `dynamictrees`, whatever its tags. The logs of a tree all have its base's block id ([TreeSearch.logs]), so the base

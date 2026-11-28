@@ -49,4 +49,12 @@ class ArrivalTest {
         assertFalse(Arrival.isAt(6.5, 3.5, 10.5, 0.6, spot))
         assertFalse(Arrival.isAt(6.5, 0.5, 10.5, 0.6, spot))
     }
+
+    @Test
+    fun `CD-NAV-02 Arrival recognizes carpet, farmland and slab supportTopY`() {
+        assertTrue(Arrival.isAt(6.5, 2.0635, 10.5, 0.6, spot, supportTopY = 2.0625))
+        assertTrue(Arrival.isAt(6.05, 1.9375, 10.05, 1.1, spot, supportTopY = 1.9375))
+        assertTrue(Arrival.isAt(6.5, 2.501, 10.5, 0.6, spot, supportTopY = 2.5))
+        assertFalse(Arrival.isAt(6.05, 2.95, 10.05, 1.1, spot, supportTopY = 1.9375))
+    }
 }
