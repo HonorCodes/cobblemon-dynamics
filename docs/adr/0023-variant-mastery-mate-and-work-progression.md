@@ -62,10 +62,10 @@ logistics role.
 3. **Legendary and Mythical `rare_multiplier`.** A worker carrying a label in `rare_labels` (default `legendary`,
    `mythical`) multiplies its combined multiplier by `rare_multiplier` (default `2.0`) **once** on every output- or
    pace-scaled role (`Generator`, `Pump`, `Telekinesis`, `Magnet`, `Cultivator`, `Harvester`, `Picker`, `Lumberjack`,
-   `Soul Collector`, `Freezer`, `Crystal Tender`, `Heater`, and `Muse`). Because `FeCurve` already incorporates
-   `rareMultiplier` on `Generator`, `FePushHandler` applies `rare_multiplier` once rather than twice — a plain Lv 100
-   Legendary `Generator` with no variant, mastery, or mate traits produces `10,000` FE/t (`5,000 * 2.0`), never `20,000`
-   FE/t.
+   `Soul Collector`, `Freezer`, `Crystal Tender`, `Heater`, and `Muse`). On `Generator` (`FeCurve` / `FePushHandler`), the
+   unrounded curve value is multiplied by `rare_multiplier` (once) and by the non-rare trait product `M` **before**
+   rounding once at the end, keeping a plain Lv 50 Legendary `Generator` at `433` FE/t and a plain Lv 100 Legendary
+   `Generator` at `10,000` FE/t (`5,000 * 2.0`), never `20,000` FE/t.
 4. **Output/pace roles vs machine-capped/fixed roles.** Let `M` be the product of all active multipliers for the worker
    on its active role:
    - **Output- and pace-scaled roles** (`Generator`, `Pump`, `Telekinesis`, `Magnet`, `Cultivator`, `Harvester`,
