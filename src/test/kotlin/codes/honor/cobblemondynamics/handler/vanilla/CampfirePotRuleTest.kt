@@ -50,4 +50,44 @@ class CampfirePotRuleTest {
         }
         assertEquals(51, ticks)
     }
+
+    @Test
+    fun `CD-SNT-06 rejects full or incompatible seasoned output stacks`() {
+        assertTrue(
+            CampfirePotRule.canAcceptOutput(
+                currentEmpty = true,
+                sameItemAndComponents = false,
+                currentCount = 0,
+                resultCount = 1,
+                maxStackSize = 64,
+            ),
+        )
+        assertTrue(
+            CampfirePotRule.canAcceptOutput(
+                currentEmpty = false,
+                sameItemAndComponents = true,
+                currentCount = 63,
+                resultCount = 1,
+                maxStackSize = 64,
+            ),
+        )
+        assertFalse(
+            CampfirePotRule.canAcceptOutput(
+                currentEmpty = false,
+                sameItemAndComponents = true,
+                currentCount = 64,
+                resultCount = 1,
+                maxStackSize = 64,
+            ),
+        )
+        assertFalse(
+            CampfirePotRule.canAcceptOutput(
+                currentEmpty = false,
+                sameItemAndComponents = false,
+                currentCount = 1,
+                resultCount = 1,
+                maxStackSize = 64,
+            ),
+        )
+    }
 }

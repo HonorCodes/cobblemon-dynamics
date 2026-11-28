@@ -115,8 +115,13 @@ object FurnaceHandler : TargetHandler {
         val seasonings = pot.getSeasonings().filter { it.`is`(recipe.seasoningTag) }
         recipe.applySeasoning(result, seasonings)
         val current = pot.getItem(CampfireBlockEntity.RESULT_SLOT)
-        return current.isEmpty ||
-            (ItemStack.isSameItemSameComponents(current, result) && current.count + result.count <= current.maxStackSize)
+        return CampfirePotRule.canAcceptOutput(
+            currentEmpty = current.isEmpty,
+            sameItemAndComponents = !current.isEmpty && ItemStack.isSameItemSameComponents(current, result),
+            currentCount = current.count,
+            resultCount = result.count,
+            maxStackSize = minOf(current.maxStackSize, result.maxStackSize),
+        )
     }
 
     private fun stokePot(ctx: WorkContext, state: BlockState, pot: CampfireBlockEntity) {

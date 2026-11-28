@@ -21,4 +21,13 @@ object CampfirePotRule {
         val aligned = progress - (progress % step)
         return minOf(aligned + step, maxProgress)
     }
+
+    fun canAcceptOutput(
+        currentEmpty: Boolean,
+        sameItemAndComponents: Boolean,
+        currentCount: Int,
+        resultCount: Int,
+        maxStackSize: Int,
+    ): Boolean = resultCount > 0 &&
+        (currentEmpty || (sameItemAndComponents && currentCount + resultCount <= maxStackSize))
 }

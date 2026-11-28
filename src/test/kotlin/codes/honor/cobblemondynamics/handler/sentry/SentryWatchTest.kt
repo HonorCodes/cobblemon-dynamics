@@ -32,31 +32,47 @@ class SentryWatchTest {
         val overlap = BlockPos(5, 64, 0)
         val onlySecond = BlockPos(15, 64, 0)
 
-        SentryWatch.watch(firstKey, firstArea)
-        SentryWatch.watch(secondKey, secondArea)
+        SentryWatch.watch(firstKey, firstArea, now = 100L)
+        SentryWatch.watch(secondKey, secondArea, now = 100L)
 
-        assertTrue(SentryWatch.shouldCancel(overworld, onlyFirst, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
-        assertTrue(SentryWatch.shouldCancel(overworld, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
-        assertTrue(SentryWatch.shouldCancel(overworld, onlySecond, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
-        assertFalse(SentryWatch.shouldCancel(nether, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
+        assertTrue(
+            SentryWatch.shouldCancel(overworld, onlyFirst, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L),
+        )
+        assertTrue(SentryWatch.shouldCancel(overworld, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 101L))
+        assertTrue(
+            SentryWatch.shouldCancel(overworld, onlySecond, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L),
+        )
+        assertFalse(SentryWatch.shouldCancel(nether, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L))
 
         SentryWatch.unwatch(firstKey)
-        assertFalse(SentryWatch.shouldCancel(overworld, onlyFirst, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
-        assertTrue(SentryWatch.shouldCancel(overworld, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
-        assertTrue(SentryWatch.shouldCancel(overworld, onlySecond, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
+        assertFalse(
+            SentryWatch.shouldCancel(overworld, onlyFirst, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L),
+        )
+        assertTrue(SentryWatch.shouldCancel(overworld, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L))
+        assertTrue(
+            SentryWatch.shouldCancel(overworld, onlySecond, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L),
+        )
 
         SentryWatch.unwatch(secondKey)
-        assertFalse(SentryWatch.shouldCancel(overworld, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
-        assertFalse(SentryWatch.shouldCancel(overworld, onlySecond, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
+        assertFalse(
+            SentryWatch.shouldCancel(overworld, overlap, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L),
+        )
+        assertFalse(
+            SentryWatch.shouldCancel(overworld, onlySecond, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 100L),
+        )
     }
 
     @Test
-    fun `CD-SNT-04 reset clears every active watch`() {
-        val key = PastureKey(overworld, BlockPos(0, 64, 0).asLong())
-        SentryWatch.watch(key, WorkArea(BlockPos(0, 64, 0), horizontal = 8, vertical = 6))
-        assertTrue(SentryWatch.shouldCancel(overworld, BlockPos(0, 64, 0), MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
+    fun `CD-SNT-04 unrenewed watch lapses after 1 tick if teardown is bypassed and reset clears immediately`() {
+        val pos = BlockPos(0, 64, 0)
+        val key = PastureKey(overworld, pos.asLong())
+        SentryWatch.watch(key, WorkArea(pos, horizontal = 8, vertical = 6), now = 50L)
+        assertTrue(SentryWatch.shouldCancel(overworld, pos, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 50L))
+        assertTrue(SentryWatch.shouldCancel(overworld, pos, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 51L))
+        assertFalse(SentryWatch.shouldCancel(overworld, pos, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 52L))
 
+        SentryWatch.watch(key, WorkArea(pos, horizontal = 8, vertical = 6), now = 60L)
         SentryWatch.reset()
-        assertFalse(SentryWatch.shouldCancel(overworld, BlockPos(0, 64, 0), MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false))
+        assertFalse(SentryWatch.shouldCancel(overworld, pos, MobSpawnType.NATURAL, MobCategory.MONSTER, isCobblemon = false, now = 60L))
     }
 }

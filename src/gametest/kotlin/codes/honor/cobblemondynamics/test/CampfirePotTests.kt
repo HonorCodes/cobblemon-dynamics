@@ -40,10 +40,18 @@ class CampfirePotTests {
         TestKit.workMode(pasture, true)
         val emptyClosed = placePot(helper, BlockPos(7, 2, 4), lidClosed = true, recipeCount = 0)
         val openCooking = placePot(helper, BlockPos(4, 2, 5), lidClosed = false, recipeCount = 32)
+        val fullOutput = placePot(helper, BlockPos(9, 2, 5), lidClosed = true, recipeCount = 32).also {
+            it.setItem(CampfireBlockEntity.RESULT_SLOT, ItemStack(CobblemonItems.CANDIED_APPLE, 64))
+        }
+        val mismatchedOutput = placePot(helper, BlockPos(5, 2, 9), lidClosed = true, recipeCount = 32).also {
+            it.setItem(CampfireBlockEntity.RESULT_SLOT, ItemStack(Items.APPLE, 1))
+        }
         val activePot = placePot(helper, BlockPos(11, 2, 2), lidClosed = true, recipeCount = 32)
         val charmander = TestKit.tether(helper, pasture, owner, "charmander level=10")
         val emptyKey = TestKit.keyOf(helper, emptyClosed.blockPos)
         val openKey = TestKit.keyOf(helper, openCooking.blockPos)
+        val fullKey = TestKit.keyOf(helper, fullOutput.blockPos)
+        val mismatchKey = TestKit.keyOf(helper, mismatchedOutput.blockPos)
         val activeKey = TestKit.keyOf(helper, activePot.blockPos)
         var activeWorkingTicks = 0
         helper.onEachTick {
@@ -52,6 +60,8 @@ class CampfirePotTests {
             if (worker.status == WorkerStatus.WORKING) {
                 helper.assertFalse(claim?.key == emptyKey, "CD-SNT-06: Charmander entered Working on empty closed pot")
                 helper.assertFalse(claim?.key == openKey, "CD-SNT-06: Charmander entered Working on open-lid pot")
+                helper.assertFalse(claim?.key == fullKey, "CD-SNT-06: Charmander entered Working on full-output pot")
+                helper.assertFalse(claim?.key == mismatchKey, "CD-SNT-06: Charmander entered Working on mismatched-output pot")
                 helper.assertTrue(
                     claim?.kind == ClaimKind.WORK &&
                         claim.key == activeKey &&

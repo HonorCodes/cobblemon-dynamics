@@ -22,6 +22,7 @@ import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.handler.sentry.SentryHandler
 import codes.honor.cobblemondynamics.handler.sentry.SentryWatch
 import codes.honor.cobblemondynamics.handler.tree.TreeFactsReader
 import codes.honor.cobblemondynamics.heal.AllyView
@@ -1378,6 +1379,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * here: a release, a drop, a timeout, a Tired worker and a failed handler. So the handler hears of each end once.
      */
     private fun clear(t: Tick, slot: WorkerSlot) {
+        if (slot.role?.handler === SentryHandler) {
+            val pasture = slot.worker.pasture ?: slot.worker.target?.let { PastureKey(t.dimension, it.asLong()) }
+            if (pasture != null) SentryWatch.unwatch(pasture)
+        }
         unclaim(t, slot, slot.entity)
         slot.worker.target = null
         slot.worker.spot = null

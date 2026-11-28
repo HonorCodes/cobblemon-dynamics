@@ -36,23 +36,23 @@ object SentryHandler : TargetHandler {
             PastureAdapter.tetheredPokemon(pasture, ctx.pokemon.uuid) != null
     }
 
-    override fun onStart(ctx: WorkContext) {
-        syncWatch(ctx)
-    }
-
     override fun applyWork(ctx: WorkContext) {
-        syncWatch(ctx)
-    }
-
-    override fun onStop(ctx: WorkContext) {
-        val pasture = ctx.pasture ?: ctx.target
-        SentryWatch.unwatch(PastureKey(ctx.level.dimension().location(), pasture.asLong()))
-    }
-
-    private fun syncWatch(ctx: WorkContext) {
         val pasture = ctx.pasture ?: return
         val area = ctx.area ?: return
         if (pasture != ctx.target) return
-        SentryWatch.watch(PastureKey(ctx.level.dimension().location(), pasture.asLong()), area)
+        SentryWatch.watch(PastureKey(ctx.level.dimension().location(), pasture.asLong()), area, ctx.now)
+    }
+
+    override fun onStop(ctx: WorkContext) {
+        clearWatch(ctx)
+    }
+
+    override fun onUnclaim(ctx: WorkContext) {
+        clearWatch(ctx)
+    }
+
+    private fun clearWatch(ctx: WorkContext) {
+        val pasture = ctx.pasture ?: ctx.target
+        SentryWatch.unwatch(PastureKey(ctx.level.dimension().location(), pasture.asLong()))
     }
 }

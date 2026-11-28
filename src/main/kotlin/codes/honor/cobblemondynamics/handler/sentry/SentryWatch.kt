@@ -12,22 +12,25 @@ import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent
 import java.util.concurrent.ConcurrentHashMap
 
 object SentryWatch {
-    private val watched = ConcurrentHashMap<ResourceLocation, ConcurrentHashMap<Long, WorkArea>>()
+    private class Entry(val area: WorkArea, val until: Long)
+
+    private val watched = ConcurrentHashMap<ResourceLocation, ConcurrentHashMap<Long, Entry>>()
 
     fun register() {
         NeoForge.EVENT_BUS.addListener(::onFinalizeSpawn)
     }
 
     private fun onFinalizeSpawn(event: FinalizeSpawnEvent) {
-        val dimension = event.level.level.dimension().location()
+        val level = event.level.level
+        val dimension = level.dimension().location()
         val pos = BlockPos.containing(event.x, event.y, event.z)
-        if (shouldCancel(dimension, pos, event.spawnType, event.entity.type.category, event.entity is PokemonEntity)) {
+        if (shouldCancel(dimension, pos, event.spawnType, event.entity.type.category, event.entity is PokemonEntity, level.gameTime)) {
             event.setSpawnCancelled(true)
         }
     }
 
-    fun watch(pasture: PastureKey, area: WorkArea) {
-        watched.computeIfAbsent(pasture.dimension) { ConcurrentHashMap() }[pasture.pos] = area
+    fun watch(pasture: PastureKey, area: WorkArea, now: Long) {
+        watched.computeIfAbsent(pasture.dimension) { ConcurrentHashMap() }[pasture.pos] = Entry(area, now + 1L)
     }
 
     fun unwatch(pasture: PastureKey) {
@@ -44,9 +47,19 @@ object SentryWatch {
         spawnType: MobSpawnType,
         category: MobCategory,
         isCobblemon: Boolean,
+        now: Long,
     ): Boolean {
         val byPasture = watched[dimension] ?: return false
         if (byPasture.isEmpty()) return false
-        return SentryRules.shouldCancel(spawnType, category, isCobblemon, pos, byPasture.values)
+        val activeAreas = ArrayList<WorkArea>(byPasture.size)
+        for ((key, entry) in byPasture.entries) {
+            if (now <= entry.until) {
+                activeAreas.add(entry.area)
+            } else {
+                byPasture.remove(key, entry)
+            }
+        }
+        if (activeAreas.isEmpty()) return false
+        return SentryRules.shouldCancel(spawnType, category, isCobblemon, pos, activeAreas)
     }
 }
