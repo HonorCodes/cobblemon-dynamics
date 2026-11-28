@@ -34,4 +34,11 @@ data class RoleDefinition(
     val quickWork: Boolean? = null,
     val allTypes: Boolean = false,
     val leash: Boolean = true,
-)
+    val masteryMoves: Set<String> = emptySet(),
+    val rareMultiplier: Double = 2.0,
+    val rareLabels: Set<String> = DEFAULT_RARE_LABELS,
+) {
+    companion object {
+        val DEFAULT_RARE_LABELS: Set<String> = setOf("legendary", "mythical")
+    }
+}

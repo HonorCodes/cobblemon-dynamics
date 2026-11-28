@@ -108,14 +108,15 @@ object CultivatorHandler : TargetHandler {
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
         val params = CultivatorParams.of(ctx.role.params)
-        if (!TickClock.every(GrowthPace.intervalTicks(ctx.pokemon.level, params.usesPerMinuteAt100), memo.since, ctx.now)) return
+        val interval = GrowthPace.intervalTicks(ctx.pokemon.level, params.usesPerMinuteAt100, ctx.multiplier)
+        if (!TickClock.every(interval, memo.since, ctx.now)) return
         val before = FarmCells.states(ctx.level, ctx.target)
         val target = before.first()
         var grew = CropArea.attempt({ e -> AreaGuard.targetFailed(ROLE, target.block, ctx.target, e) }) {
             grow(ctx.level, ctx.target, target)
         } == true
         val changed = FarmCells.states(ctx.level, ctx.target) != before
-        val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params))
+        val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params), ctx.isAlpha)
         CropArea.walk(ctx.target, extra, { cell -> areaCrop(ctx, cell) }, { cell, state ->
             if (!AreaGuard.take(ctx.level, LANE, cell)) return@walk false
             val cellBefore = FarmCells.states(ctx.level, cell)

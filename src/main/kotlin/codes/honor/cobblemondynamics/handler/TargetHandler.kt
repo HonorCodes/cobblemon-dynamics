@@ -124,6 +124,9 @@ interface TargetHandler {
     /** The work claim of the context's worker ends, by any path, or leaves that entity for the Pokémon's new entity. */
     fun onUnclaim(ctx: WorkContext) {}
 
+    /** Whether a pasture worker on this claim may enter Slacking on a periodic roll (CD-PRG-14). */
+    fun canSlack(ctx: WorkContext): Boolean = true
+
     /** The action-bar message after a [flip] that changed the target, or null for none. */
     fun flipMessage(level: ServerLevel, canonical: BlockPos): Component? = null
 }
@@ -183,6 +186,8 @@ class WorkContext(
      * (CD-CRP-24, CD-CLM-11). False for a context with no claim registry.
      */
     val laneFree: (BlockPos) -> Boolean = { false },
+    val multiplier: Double = 1.0,
+    val isAlpha: Boolean = false,
 )
 
 /**

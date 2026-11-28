@@ -128,4 +128,22 @@ class RoleCodecTest {
         assertTrue(parse(withKeys("\"auto_assign\": true, \"type_match\": \"ALL\",", "[\"bug\", \"flying\"]")).getOrThrow().allTypes)
         assertFalse(parse(withKeys("\"auto_assign\": true, \"type_match\": \"Any\",")).getOrThrow().allTypes)
     }
+
+    @Test
+    fun `CD-PRG-05 CD-PRG-08 mastery_moves rare_multiplier and rare_labels parse with clean defaults`() {
+        val plain = parse(waterGun).getOrThrow()
+        assertEquals(emptySet<String>(), plain.masteryMoves)
+        assertEquals(2.0, plain.rareMultiplier, 1e-9)
+        assertEquals(setOf("legendary", "mythical"), plain.rareLabels)
+
+        val custom = parse(
+            withKeys(
+                "\"auto_assign\": true, \"mastery_moves\": [\"Rain Dance\", \"cobblemon:aqua_ring\"], " +
+                    "\"rare_multiplier\": 2.5, \"rare_labels\": [\"Legendary\"],",
+            ),
+        ).getOrThrow()
+        assertEquals(setOf("raindance", "aquaring"), custom.masteryMoves)
+        assertEquals(2.5, custom.rareMultiplier, 1e-9)
+        assertEquals(setOf("legendary"), custom.rareLabels)
+    }
 }

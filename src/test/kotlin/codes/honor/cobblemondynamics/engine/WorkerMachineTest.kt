@@ -183,4 +183,49 @@ class WorkerMachineTest {
         machine.onTick(w, 10, arrived = true, demand = { false }, key = key, releasesWhenDone = true)
         assertEquals(WorkerStatus.STANDBY, w.status)
     }
+
+    @Test
+    fun `CD-PRG-16 Working enters Slacking, holds for slackDurationTicks, and expires to Traveling to resume or Standby or release`() {
+        val m = WorkerMachine(EngineSettings.DEFAULT.copy(slackDurationTicks = 300))
+        val w = worker()
+        m.onClaim(w, 0)
+        assertEquals(MachineEvent.StartedWorking, m.onTick(w, 10, arrived = true, demand = { true }, key = key))
+        assertEquals(WorkerStatus.WORKING, w.status)
+
+        m.onSlack(w, 100)
+        assertEquals(WorkerStatus.SLACKING, w.status)
+        assertEquals(100L, w.statusSince)
+        for (t in 101L..399L) {
+            assertEquals(null, m.onTick(w, t, arrived = false, demand = { true }, key = key), "tick $t")
+            assertEquals(WorkerStatus.SLACKING, w.status)
+        }
+        assertEquals(MachineEvent.SlackEnded, m.onTick(w, 400, arrived = false, demand = { true }, key = key))
+        assertEquals(WorkerStatus.TRAVELING, w.status)
+        assertEquals(400L, w.claimTick)
+
+        assertEquals(MachineEvent.StartedWorking, m.onTick(w, 420, arrived = true, demand = { true }, key = key))
+        assertEquals(WorkerStatus.WORKING, w.status)
+
+        m.onSlack(w, 500)
+        assertEquals(MachineEvent.SlackEnded, m.onTick(w, 800, arrived = true, demand = { false }, key = key))
+        assertEquals(WorkerStatus.TRAVELING, w.status)
+        assertEquals(MachineEvent.EnteredStandby, m.onTick(w, 801, arrived = true, demand = { false }, key = key))
+        assertEquals(WorkerStatus.STANDBY, w.status)
+
+        val relWorker = worker()
+        m.onClaim(relWorker, 0)
+        m.onTick(relWorker, 10, arrived = true, demand = { true }, key = key, releasesWhenDone = true)
+        m.onSlack(relWorker, 50)
+        assertEquals(
+            MachineEvent.SlackEnded,
+            m.onTick(relWorker, 350, arrived = true, demand = {
+                false
+            }, key = key, releasesWhenDone = true),
+        )
+        assertInstanceOf(
+            MachineEvent.ReleaseClaim::class.java,
+            m.onTick(relWorker, 351, arrived = true, demand = { false }, key = key, releasesWhenDone = true),
+        )
+        assertEquals(WorkerStatus.IDLE, relWorker.status)
+    }
 }

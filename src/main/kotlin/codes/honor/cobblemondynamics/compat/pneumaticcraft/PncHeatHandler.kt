@@ -46,7 +46,7 @@ object PncHeatHandler : TargetHandler {
     }
 
     private fun heat(ctx: WorkContext, exchanger: IHeatExchangerLogic): Double =
-        PncHeatMath.heatPerTick(PncHeaterParams.of(ctx.role.params), exchanger.temperature, ctx.pokemon.level)
+        PncHeatMath.heatPerTick(PncHeaterParams.of(ctx.role.params), exchanger.temperature, ctx.pokemon.level, ctx.multiplier)
 
     /** The face that a claim heats through, in a cache that NeoForge clears when the block or its capabilities change. */
     private class Face(val cache: BlockCapabilityCache<IHeatExchangerLogic, Direction?>)

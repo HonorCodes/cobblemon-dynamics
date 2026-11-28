@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.fx.WorkFocusEntity
 import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.role.ActiveRole
+import codes.honor.cobblemondynamics.stamina.EvaluatedTraits
 import codes.honor.cobblemondynamics.stamina.RecoveryRule
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
@@ -45,4 +46,11 @@ class WorkerSlot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pok
     var viewEntity: PokemonEntity? = null
     var viewPercent: Double = 0.0
     var viewStatus: WorkerStatus = WorkerStatus.IDLE
+
+    var hasMate: Boolean = false
+    var traits: EvaluatedTraits = EvaluatedTraits.NONE
+    var xpTicks: Long = 0
+    var friendshipTicks: Long = 0
+    var slackTicks: Long = 0
+    var lastBedTier: Int = 0
 }

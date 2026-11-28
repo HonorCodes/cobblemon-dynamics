@@ -54,7 +54,8 @@ object PotCultivatorHandler : TargetHandler {
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
         val params = CultivatorParams.of(ctx.role.params)
-        if (!TickClock.every(GrowthPace.intervalTicks(ctx.pokemon.level, params.usesPerMinuteAt100), memo.since, ctx.now)) return
+        val interval = GrowthPace.intervalTicks(ctx.pokemon.level, params.usesPerMinuteAt100, ctx.multiplier)
+        if (!TickClock.every(interval, memo.since, ctx.now)) return
         val pot = ctx.level.getBlockEntity(ctx.target) ?: return
         val facts = PotAdapter.facts(pot) ?: return
         if (!PotRules.cultivatorDemand(facts)) return

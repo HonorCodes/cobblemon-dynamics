@@ -38,10 +38,17 @@ sealed interface MachineEvent {
 
     /** The heal ends at no cost: the ally stopped needing it, or the healer did not reach it in time ([timedOut]). */
     data class HealCancelled(val timedOut: Boolean) : MachineEvent
+
+    /** A Slacking worker's break ended, and it travels back to revalidate its retained claim (CD-PRG-16). */
+    data object SlackEnded : MachineEvent
 }
 
 /** The states of one worker, on the tick that the caller passes in. */
 class WorkerMachine(private val settings: EngineSettings) {
+    fun onSlack(w: Worker, now: Long) {
+        if (w.status == WorkerStatus.WORKING) set(w, WorkerStatus.SLACKING, now)
+    }
+
     fun onClaim(w: Worker, now: Long) {
         set(w, WorkerStatus.TRAVELING, now)
         w.claimTick = now
@@ -93,6 +100,13 @@ class WorkerMachine(private val settings: EngineSettings) {
                 demand() -> null
                 release -> done(w, now)
                 else -> enterStandby(w, now)
+            }
+
+            WorkerStatus.SLACKING -> if (now - w.statusSince >= settings.slackDurationTicks) {
+                onClaim(w, now)
+                MachineEvent.SlackEnded
+            } else {
+                null
             }
 
             else -> null

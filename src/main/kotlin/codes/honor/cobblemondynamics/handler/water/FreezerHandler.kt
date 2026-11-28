@@ -78,24 +78,27 @@ object FreezerHandler : TargetHandler {
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
         val params = FreezerParams.of(ctx.role.params)
-        if (!FreezePace.isFreezeTick(memo.since, ctx.now, FreezePace.intervalTicks(ctx.pokemon.level, params.cellsPerMinuteAt100))) return
+        val interval = FreezePace.intervalTicks(ctx.pokemon.level, params.cellsPerMinuteAt100, ctx.multiplier)
+        if (!FreezePace.isFreezeTick(memo.since, ctx.now, interval)) return
         val area = area(ctx) ?: return
-        // On arrival the engine puts the worker on its spot, which it holds while it Works.
         val from = ctx.spot ?: ctx.worker.blockPosition()
         val cells = matchesInReach(ctx.level, area, from, params.reach)
-        val cell = FreezeRules.next(Vec3.atCenterOf(from), ctx.target, cells, params.reach) {
-            !ctx.isStalled(it) && freezable(ctx.level, it, area)
+        var acted = false
+        repeat(FreezePace.cellsPerCycle(ctx.isAlpha)) {
+            val cell = FreezeRules.next(Vec3.atCenterOf(from), ctx.target, cells, params.reach) {
+                !ctx.isStalled(it) && freezable(ctx.level, it, area)
+            }
+            if (cell == null) {
+                if (!acted) memo.done = true
+                return
+            }
+            acted = true
+            if (!ctx.mayChange(cell) || !ctx.mayBreak(cell)) {
+                ctx.stalledAt(cell, FreezeRules.REFUSED_WAIT_TICKS)
+                return
+            }
+            ctx.level.setBlock(cell, Blocks.ICE.defaultBlockState(), Block.UPDATE_ALL)
         }
-        if (cell == null) {
-            // The claimed cell failed the whole test, so the next demand check lets the claim go.
-            memo.done = true
-            return
-        }
-        if (!ctx.mayChange(cell) || !ctx.mayBreak(cell)) {
-            ctx.stalledAt(cell, FreezeRules.REFUSED_WAIT_TICKS)
-            return
-        }
-        ctx.level.setBlock(cell, Blocks.ICE.defaultBlockState(), Block.UPDATE_ALL)
     }
 
     /** The cells in the work area and within [reach] of [from], between block centres, that the scan would match. Two reads each. */

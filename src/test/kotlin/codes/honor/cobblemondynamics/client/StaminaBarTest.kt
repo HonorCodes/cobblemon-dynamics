@@ -80,9 +80,10 @@ class StaminaBarTest {
     }
 
     @Test
-    fun `CD-UI-10 CD-UI-11 the tooltip of a bar at 42 percent shows 42% Work Stamina and the state name`() {
+    fun `CD-UI-10 CD-UI-11 the tooltip of a bar at 42 percent shows Work Stamina and the state name`() {
         val lines = StaminaBar.tooltip(42, WorkerStatus.WORKING)
         assertEquals(listOf("42% Work Stamina", "Working"), lines.map(::text))
+        assertEquals("Slacking Off...", text(StaminaBar.tooltip(80, WorkerStatus.SLACKING)[1]))
         assertEquals("Resting in Place", text(StaminaBar.tooltip(0, WorkerStatus.RESTING_IN_PLACE)[1]))
         for (status in WorkerStatus.entries) {
             val key = StaminaBar.tooltip(100, status)[1].key

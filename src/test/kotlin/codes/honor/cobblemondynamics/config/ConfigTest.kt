@@ -87,6 +87,55 @@ class ConfigTest {
     fun `CD-QWK-35 CD-LND-15 the server config holds the keys of CD-CFG-01 and no claim key`() =
         assertEquals(CFG_01_KEYS.toSet(), keys(ServerConfig.SPEC.spec).toSet())
 
+    @Test
+    fun `CD-PRG-01 progression keys defaults and exact bounds`() {
+        val s = EngineSettings.DEFAULT
+        assertEquals(1.15, s.shinyMultiplier, 1e-9)
+        assertEquals(1.25, s.alphaMultiplier, 1e-9)
+        assertEquals(1.35, s.majesticMultiplier, 1e-9)
+        assertEquals(1.20, s.moveMasteryMultiplier, 1e-9)
+        assertEquals(1.15, s.mateMultiplier, 1e-9)
+        assertTrue(s.workXpEnabled)
+        assertTrue(s.friendshipEnabled)
+        assertEquals(0.12, s.baseSlackChance, 1e-9)
+        assertEquals(1_200, s.slackCheckTicks)
+        assertEquals(300, s.slackDurationTicks)
+
+        val multipliers = listOf(
+            "progression.shinyMultiplier",
+            "progression.alphaMultiplier",
+            "progression.majesticMultiplier",
+            "progression.moveMasteryMultiplier",
+            "progression.mateMultiplier",
+        )
+        for (key in multipliers) {
+            assertTrue(ServerConfig.hasKey(key), key)
+            assertTrue(ServerConfig.isValid(key, 1.0), "$key at 1.0")
+            assertTrue(ServerConfig.isValid(key, 5.0), "$key at 5.0")
+            assertFalse(ServerConfig.isValid(key, 0.99), "$key at 0.99")
+            assertFalse(ServerConfig.isValid(key, 5.01), "$key at 5.01")
+        }
+        for (key in listOf("progression.workXpEnabled", "progression.friendshipEnabled")) {
+            assertTrue(ServerConfig.hasKey(key), key)
+            assertTrue(ServerConfig.isValid(key, true), key)
+            assertTrue(ServerConfig.isValid(key, false), key)
+        }
+        assertTrue(ServerConfig.isValid("progression.baseSlackChance", 0.0))
+        assertTrue(ServerConfig.isValid("progression.baseSlackChance", 1.0))
+        assertFalse(ServerConfig.isValid("progression.baseSlackChance", -0.01))
+        assertFalse(ServerConfig.isValid("progression.baseSlackChance", 1.01))
+
+        assertTrue(ServerConfig.isValid("progression.slackCheckTicks", 100))
+        assertTrue(ServerConfig.isValid("progression.slackCheckTicks", 72_000))
+        assertFalse(ServerConfig.isValid("progression.slackCheckTicks", 99))
+        assertFalse(ServerConfig.isValid("progression.slackCheckTicks", 72_001))
+
+        assertTrue(ServerConfig.isValid("progression.slackDurationTicks", 20))
+        assertTrue(ServerConfig.isValid("progression.slackDurationTicks", 6_000))
+        assertFalse(ServerConfig.isValid("progression.slackDurationTicks", 19))
+        assertFalse(ServerConfig.isValid("progression.slackDurationTicks", 6_001))
+    }
+
     /** The full path of every value, as PlayerGuideTest reads it. */
     private fun keys(config: UnmodifiableConfig, prefix: String = ""): List<String> = config.valueMap().flatMap { (name, value) ->
         val path = if (prefix.isEmpty()) name else "$prefix.$name"
@@ -106,6 +155,10 @@ class ConfigTest {
             "stamina.ticksPerLevel", "stamina.healerRecoveryMinutesAtLevel1", "stamina.healerRecoveryMinutesAtLevel100",
             "stamina.flushIntervalTicks", "beds.speedFactors", "heal.cost", "heal.lowStaminaThreshold", "roles.disabled",
             "compat.cobbleworkers", "compat.cobblebase", COLLECTOR_CAPACITY,
+            "progression.shinyMultiplier", "progression.alphaMultiplier", "progression.majesticMultiplier",
+            "progression.moveMasteryMultiplier", "progression.mateMultiplier", "progression.workXpEnabled",
+            "progression.friendshipEnabled", "progression.baseSlackChance", "progression.slackCheckTicks",
+            "progression.slackDurationTicks",
         )
     }
 }

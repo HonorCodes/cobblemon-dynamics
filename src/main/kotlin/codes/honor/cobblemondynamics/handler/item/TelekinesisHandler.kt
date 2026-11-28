@@ -63,7 +63,7 @@ object TelekinesisHandler : TargetHandler {
         ItemBatch.move(source, sink, itemsPerBatch(ctx)) { lot -> spill(ctx, lot) }
     }
 
-    private fun itemsPerBatch(ctx: WorkContext): Int = TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level)
+    private fun itemsPerBatch(ctx: WorkContext): Int = TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level, ctx.multiplier)
 
     /** The claim's batch start and the faces of its two ends. */
     private class Memo(var startedAt: Long) {

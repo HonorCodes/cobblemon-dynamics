@@ -40,12 +40,18 @@ import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import codes.honor.cobblemondynamics.role.RoleSelection
 import codes.honor.cobblemondynamics.role.RoleSet
+import codes.honor.cobblemondynamics.stamina.EvaluatedTraits
 import codes.honor.cobblemondynamics.stamina.FlushRule
+import codes.honor.cobblemondynamics.stamina.MateCandidate
 import codes.honor.cobblemondynamics.stamina.RecoveryRule
+import codes.honor.cobblemondynamics.stamina.SlackMath
 import codes.honor.cobblemondynamics.stamina.StaminaMath
 import codes.honor.cobblemondynamics.stamina.StaminaStore
 import codes.honor.cobblemondynamics.stamina.StaminaView
 import codes.honor.cobblemondynamics.stamina.ViewSync
+import codes.honor.cobblemondynamics.stamina.WorkProgression
+import codes.honor.cobblemondynamics.stamina.WorkTraits
+import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore
 import com.cobblemon.mod.common.api.types.ElementalTypes
 import com.cobblemon.mod.common.battles.BattleRegistry
@@ -64,6 +70,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
+import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeavesBlock
@@ -114,6 +121,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /** The role of a worker's work claim, while it holds one. */
     fun roleOf(pokemonId: UUID): ActiveRole? = slots[pokemonId]?.role
+
+    fun traitsOf(pokemonId: UUID): Int = slots[pokemonId]?.traits?.flags ?: 0
+
+    fun multiplierOf(pokemonId: UUID): Double = slots[pokemonId]?.traits?.combinedMultiplier ?: 1.0
 
     /**
      * True while [entity] is the entity of a worker that the engine directs: any state but Idle, in which the worker walks to or holds
@@ -394,8 +405,14 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             }
         }
         for (slot in runtime.slots.values.toList()) if (slot.worker.pokemonId !in present) drop(t, runtime, slot)
+        val mated = WorkTraits.matedWorkers(
+            runtime.slots.values.map { slot ->
+                MateCandidate(slot.worker.pokemonId, slot.pokemon.species.resourceIdentifier, slot.pokemon.gender)
+            },
+        )
         val taken = takenSpots(t)
         for (slot in runtime.slots.values.toList()) {
+            slot.hasMate = slot.worker.pokemonId in mated
             // A binding counts only for the pasture that it names. LeashResets clears one that names another.
             slot.binding = BindingStore.read(slot.pokemon)?.takeIf { it.dimension == t.dimension && it.pasture == runtime.pos }
             // CD-LND-03: a binding whose target or destination the placer may not use clears, and the binder learns why.
@@ -424,7 +441,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             slot.probes.follow(slot.binding?.let { it.target to it.roleId } ?: slot.worker.target)
             claimBound(t, runtime, slot, taken)
             switchInStandby(t, runtime, slot, taken)
-            // CD-CMP-01: the Cobbleworkers shim marks each worker within one poll of Work Mode turning on.
+            refreshTraits(t, slot)
             WorkerEvents.polled(slot.pokemon)
         }
     }
@@ -661,7 +678,12 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         for (slot in runtime.slots.values) {
             val worker = slot.worker
             if (slot.rule != RecoveryRule.HEALER || worker.status != WorkerStatus.IDLE || claims.claimOf(worker.pokemonId) != null) continue
-            if (!HealTargets.canStart(worker.stamina.fraction, worker.tired, t.settings) || !BrainBridge.canHoldOrder(slot.entity)) continue
+            val traits = refreshTraits(t, slot)
+            if (!HealTargets.canStart(worker.stamina.fraction, worker.tired, t.settings, traits.combinedMultiplier, traits.isMajestic) ||
+                !BrainBridge.canHoldOrder(slot.entity)
+            ) {
+                continue
+            }
             val isFree: (UUID) -> Boolean = {
                 val key = TargetKey.Entity(it)
                 claims.isFree(key, worker.pokemonId) && !worker.isSkipped(key, t.now)
@@ -845,6 +867,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             return null
         }
         if (claim.kind != ClaimKind.WORK) return null
+        if (site is PastureRuntime && !site.isPolled && !t.level.isLoaded(site.pos)) {
+            release(t, slot)
+            return null
+        }
         val role = slot.role
         val target = worker.target
         val spot = worker.spot
@@ -888,6 +914,18 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 }
 
                 MachineEvent.MissedArrival -> cannotReach(t, slot, target)
+
+                MachineEvent.SlackEnded -> {
+                    val siteLoaded = site !is PastureRuntime || t.level.isLoaded(site.pos)
+                    val valid = siteLoaded && t.level.isLoaded(target) && handler.stillValid(t.level, target)
+                    if (!valid) {
+                        claims.release(worker.pokemonId)
+                        t.machine.onRelease(worker, t.now)
+                        clear(t, slot)
+                    } else if (site is PastureRuntime) {
+                        site.requestPoll()
+                    }
+                }
 
                 else -> {}
             }
@@ -1007,31 +1045,130 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      */
     private fun tickStamina(t: Tick, site: WorkSite, slot: WorkerSlot) {
         val worker = slot.worker
+        val traits = refreshTraits(t, slot)
+        if (worker.status == WorkerStatus.SLEEPING) {
+            worker.bed?.tier?.let { slot.lastBedTier = it }
+        }
         val ticks = t.now + 1 - worker.staminaUntil
+        val workedThisTick = worker.status == WorkerStatus.WORKING && ticks > 0
+        if (!t.settings.workXpEnabled || slot.pokemon.level >= Cobblemon.config.maxPokemonLevel) slot.xpTicks = 0L
+        if (!t.settings.friendshipEnabled) slot.friendshipTicks = 0L
         if (ticks > 0) {
             val level = slot.pokemon.level
-            if (worker.status == WorkerStatus.WORKING) {
-                val drainFactor = StaminaMath.nocturnalDrainFactor(hasDarkType(slot.pokemon), t.level.isNight)
-                worker.stamina.work(ticks, level, t.settings, drainFactor)
-            } else {
-                val bedTier = if (worker.status == WorkerStatus.SLEEPING) worker.bed?.tier else null
-                worker.stamina.rest(ticks, level, slot.rule, bedTier, t.settings)
+            when (worker.status) {
+                WorkerStatus.WORKING -> {
+                    val role = slot.role
+                    val machineCapped = role == null || !WorkTraits.isOutputOrPace(role.definition.handler)
+                    val scale = StaminaMath.drainScale(
+                        isMajestic = traits.isMajestic,
+                        roleMultiplier = traits.combinedMultiplier,
+                        machineCapped = machineCapped,
+                        hasDarkType = hasDarkType(slot.pokemon),
+                        isNight = t.level.isNight,
+                    )
+                    worker.stamina.work(ticks, level, t.settings, drainFactor = scale, isAlpha = traits.isAlpha)
+                }
+
+                WorkerStatus.SLACKING -> {}
+
+                else -> {
+                    val bedTier = if (worker.status == WorkerStatus.SLEEPING) worker.bed?.tier else null
+                    worker.stamina.rest(ticks, level, slot.rule, bedTier, t.settings)
+                }
             }
             worker.staminaUntil = t.now + 1
         }
-        // A worker that joins Tired, after a restart for example, takes a bed on its first tick too (CD-BED-14).
+        if (workedThisTick) {
+            tickXpAndFriendship(t, slot, ticks)
+        }
         if (worker.tired && !worker.status.isResting) {
             when (site) {
                 is PastureRuntime -> goToRest(t, site, slot)
-
-                // CD-QWK-17: no pasture holds a Quick Worker, so it takes no bed. The end flushes its Work Stamina.
                 is QuickRuntime -> return endOrder(t, site, QuickEnd.TIRED)
             }
         } else if (!worker.tired && worker.status.isResting && site is PastureRuntime) {
             wake(t, site, slot)
         }
+        if (worker.status == WorkerStatus.WORKING && !worker.tired) {
+            tickSlack(t, site, slot, ticks.coerceAtLeast(1L))
+        }
         if (FlushRule.isDue(slot.flushedStatus, worker.status, slot.flushedAt, t.now, t.settings)) flush(slot, t.now)
         syncView(slot)
+    }
+
+    private fun refreshTraits(t: Tick, slot: WorkerSlot): EvaluatedTraits {
+        val fallbackTypes = if (slot.role == null) typesOf(slot.pokemon) else emptySet()
+        return WorkTraits.ofPokemon(
+            pokemon = slot.pokemon,
+            role = slot.role?.definition,
+            hasMate = slot.hasMate,
+            fallbackTypes = fallbackTypes,
+            settings = t.settings,
+        ).also { slot.traits = it }
+    }
+
+    private fun tickXpAndFriendship(t: Tick, slot: WorkerSlot, workingTicks: Long) {
+        val xpStep = WorkProgression.advanceXpTicks(
+            currentTicks = slot.xpTicks,
+            workingTicks = workingTicks,
+            level = slot.pokemon.level,
+            maxPokemonLevel = Cobblemon.config.maxPokemonLevel,
+            s = t.settings,
+        )
+        slot.xpTicks = xpStep.nextTicks
+        if (xpStep.xpAwarded > 0) {
+            slot.pokemon.addExperience(WorkProgression.EXPERIENCE_SOURCE, xpStep.xpAwarded)
+            refreshTraits(t, slot)
+        }
+        val owner = slot.pokemon.getOwnerUUID()?.let(server.playerList::getPlayer)?.takeIf { it.level() === t.level }
+        val distSqr = owner?.position()?.distanceToSqr(slot.entity.position()) ?: Double.MAX_VALUE
+        val friendshipStep = WorkProgression.advanceFriendshipTicks(
+            currentTicks = slot.friendshipTicks,
+            workingTicks = workingTicks,
+            hasMate = slot.hasMate,
+            ownerSameLevel = owner != null,
+            ownerDistanceSqr = distSqr,
+            s = t.settings,
+        )
+        slot.friendshipTicks = friendshipStep.nextTicks
+        if (friendshipStep.friendshipAwarded > 0) {
+            slot.pokemon.incrementFriendship(friendshipStep.friendshipAwarded, true)
+        }
+    }
+
+    private fun tickSlack(t: Tick, site: WorkSite, slot: WorkerSlot, workingTicks: Long) {
+        if (site !is PastureRuntime) return
+        slot.slackTicks += workingTicks
+        if (slot.slackTicks < t.settings.slackCheckTicks) return
+        val role = slot.role ?: return
+        val target = slot.worker.target ?: return
+        val ctx = context(t, slot, target, role, slot.memo)
+        if (!guarded(role.handler, true) { role.handler.canSlack(ctx) }) return
+        slot.slackTicks = 0
+        val prob = SlackMath.probability(
+            baseChance = t.settings.baseSlackChance,
+            effectiveNature = slot.pokemon.effectiveNature.name,
+            baseNature = slot.pokemon.nature.name,
+            areaMaxBedTier = maxBedTierInArea(t, site),
+            lastSleptBedTier = slot.lastBedTier,
+            friendship = slot.pokemon.friendship,
+        )
+        if (SlackMath.shouldSlack(prob, t.level.random.nextDouble())) {
+            t.machine.onSlack(slot.worker, t.now)
+            guarded(role.handler, Unit) { role.handler.onStop(ctx) }
+            BrainBridge.clear(slot.entity)
+            BrainBridge.endHold(slot.entity)
+            removeFocus(slot)
+        }
+    }
+
+    private fun maxBedTierInArea(t: Tick, runtime: PastureRuntime): Int {
+        var best = 0
+        for ((_, blockEntity) in t.world.blockEntitiesIn(runtime.area(t.settings))) {
+            val bed = blockEntity as? BedBlockEntity ?: continue
+            if (bed.tier.tier > best) best = bed.tier.tier
+        }
+        return best
     }
 
     /**
@@ -1102,7 +1239,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         claims.release(worker.pokemonId)
         clear(t, slot)
         if (event == MachineEvent.Healed && ally != null) {
-            HealTransaction.complete(worker.stamina, ally.worker.stamina, t.settings)
+            val traits = refreshTraits(t, slot)
+            HealTransaction.complete(worker.stamina, ally.worker.stamina, t.settings, traits.combinedMultiplier, traits.isMajestic)
             EffectPlayer.playHeal(t.level, slot.entity, ally.entity)
         } else if (event is MachineEvent.HealCancelled && event.timedOut && allyId != null) {
             worker.skipUntil[TargetKey.Entity(allyId)] = t.now + t.settings.retryWaitTicks
@@ -1173,6 +1311,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             removeFocus(slot)
             return
         }
+        if (worker.status == WorkerStatus.SLACKING) {
+            removeFocus(slot)
+            val area = site.area(t.settings)
+            if (area.contains(entity.blockPosition())) {
+                BrainBridge.clear(entity)
+                constrainSlackWander(entity, area)
+            } else {
+                BrainBridge.write(entity, WorkOrder(Vec3.atBottomCenterOf(spot), null, hold = false))
+            }
+            return
+        }
         val center = guarded(role.handler, null) { role.handler.targetCenter(target) }
         if (worker.status == WorkerStatus.TRAVELING) {
             // The watch takes every Traveling tick, because the navigation reports no stuck worker in flight or in water.
@@ -1203,7 +1352,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             return
         }
         val focus = slot.focus?.takeUnless { it.isRemoved } ?: EffectPlayer.spawnFocus(t.level, center).also { slot.focus = it }
-        EffectPlayer.tickWorking(t.level, entity, focus, role.definition, worker.statusSince, t.now)
+        EffectPlayer.tickWorking(t.level, entity, focus, role.definition, worker.statusSince, t.now, slot.traits.masteryMoves)
     }
 
     /**
@@ -1229,6 +1378,31 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val allyId = (claims.claimOf(slot.worker.pokemonId)?.key as? TargetKey.Entity)?.uuid ?: return
         val ally = slots[allyId]?.entity?.takeUnless { it.isRemoved } ?: return
         if (!entity.isRemoved) BrainBridge.write(entity, WorkOrder(ally.position(), ally.boundingBox.center, hold = false))
+    }
+
+    private fun constrainSlackWander(entity: PokemonEntity, area: WorkArea) {
+        val brain = entity.brain
+        val walk = brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null)
+        if (walk != null) {
+            val goal = walk.target.currentBlockPosition()
+            if (!area.contains(goal)) {
+                entity.navigation.stop()
+                val clamped = SlackMath.clampWanderTarget(goal, area)
+                if (clamped == entity.blockPosition()) {
+                    brain.eraseMemory(MemoryModuleType.WALK_TARGET)
+                } else {
+                    brain.setMemory(
+                        MemoryModuleType.WALK_TARGET,
+                        WalkTarget(Vec3.atBottomCenterOf(clamped), walk.speedModifier, walk.closeEnoughDist),
+                    )
+                }
+                return
+            }
+        }
+        val navTarget = entity.navigation.targetPos
+        if (navTarget != null && !area.contains(navTarget)) {
+            entity.navigation.stop()
+        }
     }
 
     /** CD-PERF-04: a focus entity lives only while its worker is Working. */
@@ -1389,6 +1563,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         slot.worker.dropExpired(t.now)
         slot.role = null
         slot.memo = ClaimMemo()
+        slot.slackTicks = 0
         BrainBridge.clear(slot.entity)
         BrainBridge.wake(slot.entity)
         removeFocus(slot)
@@ -1417,6 +1592,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val binding = slot.binding?.takeIf { it.target == target && it.roleId == role.definition.id }
         val stalls = slot.worker.stalledUntil
         val key = { pos: BlockPos -> TargetKey.block(t.dimension, pos, role.handler.claimLane) }
+        val eval = WorkTraits.ofPokemon(slot.pokemon, role.definition, slot.hasMate, settings = t.settings)
+        if (slot.role === role) slot.traits = eval
+        val machineCapped = !WorkTraits.isOutputOrPace(role.definition.handler)
+        val drainScale = StaminaMath.drainScale(
+            isMajestic = eval.isMajestic,
+            roleMultiplier = eval.combinedMultiplier,
+            machineCapped = machineCapped,
+            hasDarkType = hasDarkType(slot.pokemon),
+            isNight = t.level.isNight,
+        )
         return WorkContext(
             t.level,
             target,
@@ -1427,13 +1612,17 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             destination = binding?.destination,
             sourceFace = binding?.face,
             destinationFace = binding?.destinationFace,
-            // The Magnet and the Freezer read it. The Magnet is leash only and the Freezer takes no Quick Work, so no Quick Worker needs it.
             pasture = slot.worker.pasture?.let { BlockPos.of(it.pos) },
             memo = memo,
             spot = slot.worker.spot,
             spend = { ticks ->
-                val drainFactor = StaminaMath.nocturnalDrainFactor(hasDarkType(slot.pokemon), t.level.isNight)
-                slot.worker.stamina.work(ticks.toLong(), slot.pokemon.level, t.settings, drainFactor)
+                slot.worker.stamina.work(
+                    ticks.toLong(),
+                    slot.pokemon.level,
+                    t.settings,
+                    drainFactor = drainScale,
+                    isAlpha = eval.isAlpha,
+                )
             },
             mayChange = { pos -> mayChange(t, slot, pos) },
             mayBreak = { pos -> mayBreak(t, slot, pos) },
@@ -1442,6 +1631,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             isStalled = { pos -> slot.worker.isStalled(key(pos), t.now) },
             area = siteOf(slot)?.area(t.settings),
             laneFree = { pos -> claims.isFree(key(pos), slot.worker.pokemonId) },
+            multiplier = eval.combinedMultiplier,
+            isAlpha = eval.isAlpha,
         )
     }
 

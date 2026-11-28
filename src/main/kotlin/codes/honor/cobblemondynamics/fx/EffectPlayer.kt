@@ -31,6 +31,8 @@ object EffectPlayer {
     private val particles = CheckedParticles(JarParticleCatalog, OnceLogger())
 
     private val animations: AnimationCatalog = JarAnimationCatalog
+    private val moveTimelines: MoveTimelineCatalog = JarMoveTimelineCatalog
+    private val silentParticles: ParticleCatalog = JarSilentParticleCatalog
 
     /** Cobblemon's move timelines emit actor particles from `special`, else `target`. Every model has `root`. */
     private val actorLocators = listOf("special", "target", "root")
@@ -48,11 +50,26 @@ object EffectPlayer {
         role: RoleDefinition,
         workingSince: Long,
         now: Long,
+        masteryMoves: List<String> = emptyList(),
     ) {
-        val animation = animationOf(entity, role.effect.animations)
-        if (!EffectClock.shouldPlay(workingSince, now, EffectClock.periodTicks(animation, role.effect))) return
+        val (effect, animation) = if (masteryMoves.isEmpty()) {
+            role.effect to animationOf(entity, role.effect.animations)
+        } else {
+            val pokemon = entity.pokemon
+            val resolved = MasteryEffect.resolve(
+                species = pokemon.species.resourceIdentifier,
+                aspects = pokemon.aspects,
+                masteryMoves = masteryMoves,
+                fallback = role.effect,
+                animations = animations,
+                timelines = moveTimelines,
+                silentParticles = silentParticles,
+            )
+            resolved.effect to resolved.animation
+        }
+        if (!EffectClock.shouldPlay(workingSince, now, EffectClock.periodTicks(animation, effect))) return
         val players = recipients(level, entity)
-        if (players.isNotEmpty()) play(entity, focus, role.effect, animation, players)
+        if (players.isNotEmpty()) play(entity, focus, effect, animation, players)
     }
 
     /** The first of [names] that the model of [entity] plays with no sound, from Cobblemon's own animation files (CD-FX-03, CD-FX-09). */

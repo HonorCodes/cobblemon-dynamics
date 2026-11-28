@@ -43,10 +43,11 @@ class FellClock {
          * CD-LUM-11: T = round(A + (B - A) × (L - 1) ÷ 99) for a worker of level L, from `ticks_per_log_at_level_1` (A) to
          * `ticks_per_log_at_level_100` (B). The level is clamped to 1 to 100, and T is at least 1.
          */
-        fun ticksPerLog(level: Int, params: LumberjackParams): Int {
+        fun ticksPerLog(level: Int, params: LumberjackParams, multiplier: Double = 1.0): Int {
             val a = params.ticksPerLogAt1
             val b = params.ticksPerLogAt100
-            return (a + (b - a) * (level.coerceIn(1, 100) - 1) / 99.0).roundToInt().coerceAtLeast(1)
+            val base = (a + (b - a) * (level.coerceIn(1, 100) - 1) / 99.0).roundToInt().coerceAtLeast(1)
+            return if (multiplier <= 0.0 || multiplier == 1.0) base else maxOf(1, (base / multiplier).roundToInt())
         }
     }
 }

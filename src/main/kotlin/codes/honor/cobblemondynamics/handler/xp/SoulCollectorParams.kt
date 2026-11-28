@@ -1,13 +1,20 @@
 package codes.honor.cobblemondynamics.handler.xp
 
 import com.google.gson.JsonObject
+import kotlin.math.roundToLong
 
 /** The numbers of the Soul Collector, from its role file's `params` (CD-SOU-10, ARCHITECTURE section 9). */
 data class SoulCollectorParams(val orbUnitsPerSecondAtLevel100: Int, val playerDistance: Double) {
     /** CD-SOU-06: ceil(U × L ÷ 100) orb units per 20-tick batch, with L clamped to 1..100, so level 100 takes as a player does (BM7). */
-    fun unitsPerBatch(level: Int): Int {
+    fun unitsPerBatch(level: Int): Int = unitsPerBatch(level, 1.0)
+
+    fun unitsPerBatch(level: Int, multiplier: Double): Int {
         val rate = orbUnitsPerSecondAtLevel100.coerceAtLeast(0).toLong()
-        return ((rate * level.coerceIn(1, 100) + 99) / 100).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val base = (rate * level.coerceIn(1, 100) + 99) / 100
+        if (multiplier == 1.0) return base.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val scaled = base * multiplier
+        if (scaled.isNaN() || scaled <= 0.0) return 0
+        return scaled.roundToLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
     companion object {

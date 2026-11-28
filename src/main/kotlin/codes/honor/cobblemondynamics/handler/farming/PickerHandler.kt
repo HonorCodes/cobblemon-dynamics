@@ -51,7 +51,12 @@ object PickerHandler : TargetHandler {
     /** The pick counts from the tick that this stretch of work started. */
     override fun onStart(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo
-        if (memo == null) ctx.memo.value = Memo(ctx.now) else memo.since = ctx.now
+        if (memo == null) {
+            ctx.memo.value = Memo(ctx.now)
+        } else {
+            memo.since = ctx.now
+            memo.harvested = false
+        }
     }
 
     /**
@@ -61,7 +66,9 @@ object PickerHandler : TargetHandler {
      */
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
-        if (!HarvestClock.isHarvestTick(memo.since, ctx.now, HarvestClock.ticksOf(ctx.role.params))) return
+        val delay = HarvestClock.ticksOf(ctx.role.params, ctx.multiplier)
+        if (!HarvestClock.shouldHarvest(memo.since, ctx.now, delay, memo.harvested)) return
+        memo.harvested = true
         val state = ctx.level.getBlockState(ctx.target)
         if (!isRipe(ctx.level, ctx.target, state)) return
         val picked = CropArea.attempt({ e -> warnFailed(state.block, ctx.target, e) }) { pick(ctx, ctx.target, state) }
@@ -70,7 +77,7 @@ object PickerHandler : TargetHandler {
             ctx.stalled(REFUSED_WAIT_TICKS)
             return
         }
-        val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params))
+        val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params), ctx.isAlpha)
         CropArea.walk(ctx.target, extra, { cell -> ripeCell(ctx, cell) }, { cell, cellState ->
             if (!AreaGuard.take(ctx.level, AREA_LANE, cell)) return@walk false
             val done = pick(ctx, cell, cellState)
@@ -161,6 +168,7 @@ object PickerHandler : TargetHandler {
     }
 
     private class Memo(var since: Long) {
+        var harvested = false
         var refusedUntil = Long.MIN_VALUE
     }
 }

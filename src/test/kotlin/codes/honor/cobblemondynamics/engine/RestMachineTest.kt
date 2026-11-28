@@ -142,7 +142,7 @@ class RestMachineTest {
         machine.onClaim(w, 0)
         for (t in 0L until 24_000L) {
             when (w.status) {
-                WorkerStatus.TRAVELING, WorkerStatus.WORKING, WorkerStatus.STANDBY ->
+                WorkerStatus.TRAVELING, WorkerStatus.WORKING, WorkerStatus.SLACKING, WorkerStatus.STANDBY ->
                     machine.onTick(w, t, arrived = t >= arriveAt, demand = { true }, key = furnace)
 
                 WorkerStatus.TO_BED, WorkerStatus.SLEEPING, WorkerStatus.RESTING_IN_PLACE ->
@@ -238,7 +238,7 @@ class RestMachineTest {
         machine.onClaim(w, 0)
         for (t in 0L until 24_000L) {
             when (w.status) {
-                WorkerStatus.TRAVELING, WorkerStatus.WORKING, WorkerStatus.STANDBY ->
+                WorkerStatus.TRAVELING, WorkerStatus.WORKING, WorkerStatus.SLACKING, WorkerStatus.STANDBY ->
                     machine.onTick(w, t, arrived = t >= arriveAt, demand = { true }, key = furnace)
 
                 WorkerStatus.IDLE -> if (t - idleSince >= 40) {

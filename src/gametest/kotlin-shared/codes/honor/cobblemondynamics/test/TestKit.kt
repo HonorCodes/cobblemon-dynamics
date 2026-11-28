@@ -13,11 +13,13 @@ import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.registry.DynamicsItems
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.CobblemonBlocks
+import com.cobblemon.mod.common.api.moves.Moves
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.net.messages.server.SendOutPokemonPacket
 import com.cobblemon.mod.common.net.serverhandling.storage.SendOutPokemonHandler
+import com.cobblemon.mod.common.pokemon.Gender
 import com.cobblemon.mod.common.pokemon.Pokemon
 import com.mojang.authlib.GameProfile
 import net.minecraft.commands.arguments.EntityAnchorArgument
@@ -241,7 +243,18 @@ object TestKit {
             ?: throw GameTestAssertException("no pasture block entity at $pos")
     }
 
-    fun pokemon(spec: String): Pokemon = PokemonProperties.parse(spec).create()
+    fun pokemon(spec: String): Pokemon = PokemonProperties.parse(spec).create().also { pokemon ->
+        val lower = spec.lowercase()
+        if ("shiny" !in lower) pokemon.shiny = false
+        if ("gender" !in lower && pokemon.gender != Gender.GENDERLESS) {
+            val ratio = pokemon.form.maleRatio
+            pokemon.gender = if (ratio < 0f || ratio > 0f) Gender.MALE else Gender.FEMALE
+        }
+        if ("moves" !in lower) {
+            pokemon.moveSet.clear()
+            pokemon.moveSet.add(Moves.getByNameOrDummy("growl").create())
+        }
+    }
 
     /**
      * A fake owner at [rel] that `PlayerList.getPlayer` finds, as Cobblemon's owner lookup and Quick Work need. It joins only the player

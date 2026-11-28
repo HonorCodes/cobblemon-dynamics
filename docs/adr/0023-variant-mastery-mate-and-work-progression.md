@@ -50,9 +50,10 @@ logistics role.
    - **Move Mastery (`MASTERY`).** Active when `pokemon.moveSet` contains a damaging move (`PHYSICAL` or `SPECIAL` with
      `power >= 60.0`) whose elemental type matches one of the active role's eligible `types`, or a move named in the role
      file's optional `mastery_moves` list. Multiplies by `moveMasteryMultiplier` (`1.20` default). While Working,
-     `EffectPlayer` plays that mastery move's silent Cobblemon animation and particles when available in the loaded
-     Cobblemon catalog, falling back to the role's configured `effect` when absent or when the move's timeline plays a
-     sound (CD-FX-09).
+     `EffectPlayer` (`MasteryEffect`) extracts animation names and Snowstorm particle ids from the move's action-effect
+     timeline without executing `entity_molang` sound steps (ADR-0007), filters out any animation clip
+     (`BedrockAnimations`) or particle file (`SilentParticleCatalog`) that plays a sound (CD-FX-09), and falls back to the
+     role's configured `effect` when the move provides neither a silent animation nor silent particles.
    - **Mate Bonus (`MATE`).** Evaluated per Work Mode pasture poll: active for a tethered worker when the same Work Mode
      pasture tethers at least one `Gender.MALE` and at least one `Gender.FEMALE` Cobblemon of the same species
      (`species.resourceIdentifier`), or of a canon gendered counterpart family (`nidoranm`/`nidorino`/`nidoking` with

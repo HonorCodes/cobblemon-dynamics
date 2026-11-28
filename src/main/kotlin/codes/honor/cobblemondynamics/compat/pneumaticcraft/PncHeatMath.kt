@@ -27,9 +27,9 @@ object PncHeatMath {
      * CD-HTR-07: max(0, (S − T) ÷ R) × L ÷ 100 heat per tick into an exchanger at T kelvin, with L clamped to 1..100. Level 100 copies
      * one lava block, so the Heater never warms a machine past the lava's temperature (CD-BAL-13).
      */
-    fun heatPerTick(params: PncHeaterParams, temperature: Double, level: Int): Double {
-        if (params.resistance <= 0.0) return 0.0
-        return maxOf(0.0, (params.sourceTemperature - temperature) / params.resistance) * level.coerceIn(1, 100) / 100.0
+    fun heatPerTick(params: PncHeaterParams, temperature: Double, level: Int, multiplier: Double = 1.0): Double {
+        if (params.resistance <= 0.0 || multiplier <= 0.0) return 0.0
+        return maxOf(0.0, (params.sourceTemperature - temperature) / params.resistance) * level.coerceIn(1, 100) / 100.0 * multiplier
     }
 
     /** CD-HTR-07: an exchanger colder than the source. */

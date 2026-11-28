@@ -71,7 +71,12 @@ object HarvesterHandler : TargetHandler {
     /** The harvest counts from the tick that this stretch of work started. */
     override fun onStart(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo
-        if (memo == null) ctx.memo.value = Memo(ctx.now) else memo.since = ctx.now
+        if (memo == null) {
+            ctx.memo.value = Memo(ctx.now)
+        } else {
+            memo.since = ctx.now
+            memo.harvested = false
+        }
     }
 
     /**
@@ -81,7 +86,9 @@ object HarvesterHandler : TargetHandler {
      */
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
-        if (!HarvestClock.isHarvestTick(memo.since, ctx.now, HarvestClock.ticksOf(ctx.role.params))) return
+        val delay = HarvestClock.ticksOf(ctx.role.params, ctx.multiplier)
+        if (!HarvestClock.shouldHarvest(memo.since, ctx.now, delay, memo.harvested)) return
+        memo.harvested = true
         val facts = CropFactsReader.read(ctx.level, ctx.target, ctx.level.getBlockState(ctx.target))
         val kind = CropAdapters.harvestKind(facts) ?: return
         if (!CropRules.isFullyGrown(kind, facts)) return
@@ -91,7 +98,7 @@ object HarvesterHandler : TargetHandler {
             ctx.stalled(REFUSED_WAIT_TICKS)
             return
         }
-        val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params))
+        val extra = CropArea.count(ctx.pokemon.level, AreaParams.of(ctx.role.params), ctx.isAlpha)
         CropArea.walk(ctx.target, extra, { cell -> ripeCrop(ctx, cell) }, { cell, crop ->
             if (!AreaGuard.take(ctx.level, LANE, cell)) return@walk false
             val harvested = HarvestApply.apply(ctx.level, cell, crop.kind, crop.facts, spot, ctx.mayChange, ctx.mayBreak)
@@ -128,6 +135,7 @@ object HarvesterHandler : TargetHandler {
         CropAdapters.harvestKind(CropFactsReader.read(level, pos, state))
 
     private class Memo(var since: Long) {
+        var harvested = false
         var refusedUntil = Long.MIN_VALUE
     }
 }

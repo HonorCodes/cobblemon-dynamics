@@ -22,4 +22,9 @@ object ConfigRanges {
 
     /** CD-CFG-20: 1,000,000 XP at 20 mB per XP stays inside the `int` of a fluid stack. */
     val COLLECTOR_CAPACITY = 1_000..1_000_000
+
+    val PROGRESSION_MULTIPLIER = 1.0..5.0
+    val SLACK_CHANCE = 0.0..1.0
+    val SLACK_CHECK_TICKS = 100..72_000
+    val SLACK_DURATION_TICKS = 20..6_000
 }

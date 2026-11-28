@@ -5,6 +5,7 @@ enum class WorkerStatus {
     IDLE,
     TRAVELING,
     WORKING,
+    SLACKING,
     STANDBY,
     TO_BED,
     SLEEPING,

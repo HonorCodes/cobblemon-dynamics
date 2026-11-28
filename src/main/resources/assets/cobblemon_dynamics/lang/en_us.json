@@ -66,6 +66,7 @@
   "cobblemon_dynamics.state.idle": "Idle",
   "cobblemon_dynamics.state.traveling": "Traveling",
   "cobblemon_dynamics.state.working": "Working",
+  "cobblemon_dynamics.state.slacking": "Slacking Off...",
   "cobblemon_dynamics.state.standby": "Standby",
   "cobblemon_dynamics.state.to_bed": "To Bed",
   "cobblemon_dynamics.state.sleeping": "Sleeping",

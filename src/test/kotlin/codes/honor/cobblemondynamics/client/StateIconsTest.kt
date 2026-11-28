@@ -22,13 +22,14 @@ class StateIconsTest {
     }
 
     @Test
-    fun `CD-UI-07 the eight states show seven icons, and ToBed and RestingInPlace share Tired`() {
+    fun `CD-UI-07 CD-PRG-16 the nine states show seven icons, Slacking shares Standby, and ToBed and RestingInPlace share Tired`() {
         val icons = WorkerStatus.entries.associateWith(StateIcons::iconFor)
-        assertEquals(8, icons.size)
+        assertEquals(9, icons.size)
         assertEquals(7, icons.values.toSet().size)
+        assertEquals(StateIcons.STANDBY, icons[WorkerStatus.SLACKING])
         assertEquals(StateIcons.TIRED, icons[WorkerStatus.TO_BED])
         assertEquals(StateIcons.TIRED, icons[WorkerStatus.RESTING_IN_PLACE])
-        val others = WorkerStatus.entries - setOf(WorkerStatus.TO_BED, WorkerStatus.RESTING_IN_PLACE)
+        val others = WorkerStatus.entries - setOf(WorkerStatus.SLACKING, WorkerStatus.TO_BED, WorkerStatus.RESTING_IN_PLACE)
         assertEquals(others.size, others.map(StateIcons::iconFor).toSet().size, "every other state has its own icon")
         assertEquals(icons.values.toSet(), StateIcons.ALL.toSet())
     }
@@ -38,6 +39,7 @@ class StateIconsTest {
         assertEquals("textures/gui/state/idle.png", StateIcons.iconFor(WorkerStatus.IDLE).path)
         assertEquals("textures/gui/state/traveling.png", StateIcons.iconFor(WorkerStatus.TRAVELING).path)
         assertEquals("textures/gui/state/working.png", StateIcons.iconFor(WorkerStatus.WORKING).path)
+        assertEquals("textures/gui/state/standby.png", StateIcons.iconFor(WorkerStatus.SLACKING).path)
         assertEquals("textures/gui/state/standby.png", StateIcons.iconFor(WorkerStatus.STANDBY).path)
         assertEquals("textures/gui/state/tired.png", StateIcons.iconFor(WorkerStatus.TO_BED).path)
         assertEquals("textures/gui/state/sleeping.png", StateIcons.iconFor(WorkerStatus.SLEEPING).path)
