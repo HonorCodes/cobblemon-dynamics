@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.net
 
+import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
+import codes.honor.cobblemondynamics.engine.IdleReason
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
@@ -8,6 +10,7 @@ import codes.honor.cobblemondynamics.stamina.PanelCadence
 import codes.honor.cobblemondynamics.stamina.Stamina
 import codes.honor.cobblemondynamics.stamina.StaminaStore
 import codes.honor.cobblemondynamics.stamina.StaminaView
+import codes.honor.cobblemondynamics.stamina.WorkTraits
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
@@ -80,19 +83,41 @@ object PanelViewers {
     }
 
     private fun stateFor(player: ServerPlayer, be: PokemonPastureBlockEntity): PasturePanelStatePayload {
+        val level = player.serverLevel()
+        val settings = WorkEngineSettings.current
         val engine = WorkEngine.get()
+        val data = PastureAdapter.workModeData(be)
         val canToggle = PastureAdapter.mayControl(player, be)
+        val canLock = PastureAdapter.mayLock(player, be)
+        val maxHorizontal = EngineSettings.effectiveRadius(settings.maxHorizontalRadius, PastureAdapter.maxWanderDistance())
+        val area = PastureAdapter.workArea(level, be.blockPos, settings)
         val entries = PastureAdapter.tetheredIds(be).map { id ->
             val worker = engine?.worker(id)
-            val stamina = worker?.stamina ?: savedStamina(player.serverLevel(), be, id)
-            PanelEntry(id, StaminaView.displayPercent(stamina.percent), worker?.status ?: WorkerStatus.IDLE)
+            val pokemon = PastureAdapter.tetheredPokemon(be, id)?.pokemon
+            val stamina = worker?.stamina ?: pokemon?.let { StaminaStore.load(it, level.gameTime, settings) } ?: Stamina()
+            val idleReason = if (worker != null) engine.idleReasonOf(id) else IdleReason.NONE
+            val traitFlags = when {
+                worker != null -> engine.traitsOf(id)
+                pokemon != null -> WorkTraits.ofPokemon(pokemon, role = null, hasMate = false, settings = settings).flags
+                else -> 0
+            }
+            PanelEntry(
+                pokemonId = id,
+                percent = StaminaView.displayPercent(stamina.percent),
+                state = worker?.status ?: WorkerStatus.IDLE,
+                idleReason = idleReason,
+                traitFlags = traitFlags,
+            )
         }
-        return PasturePanelStatePayload(PastureAdapter.isWorkMode(be), canToggle, entries)
-    }
-
-    /** A Pokémon that is not a worker shows its saved Work Stamina with the recovery of its time away, or 100% with none. */
-    private fun savedStamina(level: ServerLevel, be: PokemonPastureBlockEntity, pokemonId: UUID): Stamina {
-        val pokemon = PastureAdapter.tetheredPokemon(be, pokemonId)?.pokemon ?: return Stamina()
-        return StaminaStore.load(pokemon, level.gameTime, WorkEngineSettings.current)
+        return PasturePanelStatePayload(
+            workMode = data.enabled,
+            canToggle = canToggle,
+            entries = entries,
+            pos = be.blockPos.immutable(),
+            locked = data.locked,
+            radius = area.horizontal,
+            maxHorizontalRadius = maxHorizontal,
+            canLock = canLock,
+        )
     }
 }

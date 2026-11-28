@@ -7,6 +7,7 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.Font
 import net.minecraft.client.renderer.LightTexture
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
@@ -27,6 +28,10 @@ object HeadBars {
 
     /** The frame sits this far behind the fill, as vanilla puts a name tag's background 0.01 behind its text. */
     private const val BEHIND = 0.01f
+    private const val TEXT_SCALE = 0.65f
+    private const val LINE_STEP = 11f
+    private const val TEXT_BG = 0x55000000
+    private const val TEXT_COLOR = 0xFFFFFFFF.toInt()
 
     fun register() {
         NeoForge.EVENT_BUS.addListener(RenderLivingEvent.Post::class.java) { onRender(it) }
@@ -57,6 +62,31 @@ object HeadBars {
             texturedQuad(consumer, matrix, fill, maxU = crop, color = StaminaBar.color(view.percent))
         }
         texturedQuad(buffers.getBuffer(RenderType.text(StateIcons.iconFor(view.state))), matrix, HeadBarRange.ICON)
+        val extraLines = WorkerTooltipLines.headBarLines(view.state, view.idleReason, view.traitFlags)
+        if (extraLines.isNotEmpty()) {
+            val font = Minecraft.getInstance().font
+            pose.pushPose()
+            pose.scale(TEXT_SCALE, TEXT_SCALE, 1f)
+            val textMatrix = pose.last().pose()
+            extraLines.forEachIndexed { index, spec ->
+                val text = spec.toComponent()
+                val textX = -font.width(text) / 2f
+                val textY = -16f - (extraLines.size - 1 - index) * LINE_STEP
+                font.drawInBatch(
+                    text,
+                    textX,
+                    textY,
+                    TEXT_COLOR,
+                    false,
+                    textMatrix,
+                    buffers,
+                    Font.DisplayMode.NORMAL,
+                    TEXT_BG,
+                    LightTexture.FULL_BRIGHT,
+                )
+            }
+            pose.popPose()
+        }
         pose.popPose()
     }
 

@@ -48,6 +48,8 @@ class WorkerSlot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pok
     var viewEntity: PokemonEntity? = null
     var viewPercent: Double = 0.0
     var viewStatus: WorkerStatus = WorkerStatus.IDLE
+    var viewIdleReason: IdleReason = IdleReason.NONE
+    var viewTraitFlags: Int = 0
 
     var hasMate: Boolean = false
     var traits: EvaluatedTraits = EvaluatedTraits.NONE

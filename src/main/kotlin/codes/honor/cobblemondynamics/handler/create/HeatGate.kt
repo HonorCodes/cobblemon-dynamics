@@ -19,8 +19,15 @@ object HeatGate {
 
     /** Null when the params give no heat at [level]. */
     fun heatFor(params: JsonObject, level: Int): String? {
-        val minLevel = params.get(MIN_LEVEL)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt ?: 0
-        return string(params, if (level >= minLevel) HEAT else BELOW_MIN_LEVEL_HEAT)
+        val min = minLevel(params)
+        return string(params, if (level >= min) HEAT else BELOW_MIN_LEVEL_HEAT)
+    }
+
+    fun minLevel(params: JsonObject): Int = params.get(MIN_LEVEL)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt ?: 0
+
+    fun requiredMinLevel(params: JsonObject): Int {
+        if (string(params, BELOW_MIN_LEVEL_HEAT) != null || string(params, HEAT) == null) return 1
+        return minLevel(params).coerceAtLeast(1)
     }
 
     private fun string(params: JsonObject, key: String): String? =

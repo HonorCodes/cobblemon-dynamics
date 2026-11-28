@@ -48,6 +48,19 @@ object LiquidBurnerHandler : TargetHandler {
         return LiquidBurnerRule.adds(worker = heat.serializedName, own = own.serializedName)
     }
 
+    override fun minLevelFor(ctx: WorkContext): Int {
+        val burner = burnerAt(ctx.level, ctx.target) ?: return 1
+        if (burner.isCreative) return 1
+        val heatUserAbove = ctx.level.getBlockState(ctx.target.above()).`is`(HEAT_USERS)
+        if (!HeatGate.hasConsumer(burner.isValidBlockAbove, heatUserAbove)) return 1
+        val own = (burner as? LiquidBurnerAccess)?.`cobblemon_dynamics$ownHeat`()?.serializedName ?: return 1
+        val low = HeatGate.heatFor(ctx.role.params, 1)
+        if (low != null && LiquidBurnerRule.adds(worker = low, own = own)) return 1
+        val min = HeatGate.minLevel(ctx.role.params).coerceAtLeast(1)
+        val high = HeatGate.heatFor(ctx.role.params, min)
+        return if (high != null && LiquidBurnerRule.adds(worker = high, own = own)) min else 1
+    }
+
     /**
      * The heat follows the worker's level on every tick. The burner writes its block state, which basins read, only when its fuel
      * changes, so the handler asks it to write the heat again, which it does only when the heat changed.

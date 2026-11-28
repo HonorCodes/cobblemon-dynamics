@@ -9,6 +9,7 @@ import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
 import codes.honor.cobblemondynamics.leash.LeashResets
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.net.PanelViewers
+import codes.honor.cobblemondynamics.pasture.AreaWatchers
 import codes.honor.cobblemondynamics.pasture.WorkModeService
 import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
@@ -43,6 +44,7 @@ object EngineEvents {
             WorkEngine.stop()
             WorkModeService.reset()
             PanelViewers.reset()
+            AreaWatchers.reset()
             DynamicsPayloads.reset()
             RoleRegistry.reset()
             Feedback.reset()
@@ -58,8 +60,12 @@ object EngineEvents {
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { event ->
             val player = event.entity as? ServerPlayer ?: return@addListener
             PanelViewers.forget(player)
+            AreaWatchers.forget(player.uuid)
             DynamicsPayloads.forget(player.uuid)
             WorkModeService.forget(player.uuid)
+        }
+        NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerChangedDimensionEvent> { event ->
+            (event.entity as? ServerPlayer)?.let(AreaWatchers::onDimensionChanged)
         }
         // CD-ASG-26: a tree, a huge fungus or a huge mushroom grows, by a random tick, bone meal or a worker. The event comes before the
         // feature places its blocks, so the engine frees the workers that it filled on its next tick of that level.

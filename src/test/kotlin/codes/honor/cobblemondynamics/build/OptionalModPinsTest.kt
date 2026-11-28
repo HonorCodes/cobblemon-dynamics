@@ -77,6 +77,7 @@ class OptionalModPinsTest {
             "maven.modrinth:enchanting-infuser" to "enchantinginfuser",
             "maven.modrinth:experiencelib" to "experiencelib",
             "maven.modrinth:dynamictrees" to "dynamictrees",
+            "maven.modrinth:jade" to "jade",
         )
 
         /** The other compile-only dependencies: Create, the claim mods, and the libraries of the mods above. */

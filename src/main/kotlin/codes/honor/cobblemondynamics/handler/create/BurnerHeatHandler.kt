@@ -43,6 +43,13 @@ object BurnerHeatHandler : TargetHandler {
         return !burner.isCreative() && HeatGate.hasConsumer(burner.isValidBlockAbove, heatUserAbove) && heatOf(ctx) != null
     }
 
+    override fun minLevelFor(ctx: WorkContext): Int {
+        val burner = burnerAt(ctx.level, ctx.target) ?: return 1
+        val heatUserAbove = ctx.level.getBlockState(ctx.target.above()).`is`(HEAT_USERS)
+        if (burner.isCreative() || !HeatGate.hasConsumer(burner.isValidBlockAbove, heatUserAbove)) return 1
+        return HeatGate.requiredMinLevel(ctx.role.params)
+    }
+
     override fun onStart(ctx: WorkContext) = applyWork(ctx)
 
     /** CD-BRN-01, CD-SUP-01, CD-SUP-04: the heat follows the worker's level on every tick, so a level-up applies at once. */

@@ -15,11 +15,13 @@ object DynamicsClient {
         HeldLeash.register()
         HeadBars.register()
         TargetOutlines.register()
+        WorkAreaOverlay.register()
         // CD-XPC-04: the Experience Collector's screen.
         modBus.addListener<RegisterMenuScreensEvent> { it.register(DynamicsMenus.EXPERIENCE_COLLECTOR.get(), ::ExperienceCollectorScreen) }
         NeoForge.EVENT_BUS.addListener<ClientPlayerNetworkEvent.LoggingOut> {
             ClientState.reset()
             PastureScreenHooks.reset()
+            WorkAreaOverlay.reset()
         }
     }
 }

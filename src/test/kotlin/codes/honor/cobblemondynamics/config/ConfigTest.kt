@@ -13,10 +13,17 @@ class ConfigTest {
     fun `CD-CFG-02 work radii accept 2 to 32 and default to 8 and 6`() {
         for (r in listOf(2, 32)) assertTrue(r in ConfigRanges.WORK_RADIUS)
         for (r in listOf(1, 33)) assertFalse(r in ConfigRanges.WORK_RADIUS)
+        for (r in listOf(4, 32)) assertTrue(r in ConfigRanges.MAX_HORIZONTAL_RADIUS)
+        for (r in listOf(3, 33)) assertFalse(r in ConfigRanges.MAX_HORIZONTAL_RADIUS)
         assertTrue(ServerConfig.isValid("workArea.horizontalRadius", 2))
         assertFalse(ServerConfig.isValid("workArea.horizontalRadius", 33))
+        assertTrue(ServerConfig.isValid("workArea.maxHorizontalRadius", 4))
+        assertTrue(ServerConfig.isValid("workArea.maxHorizontalRadius", 32))
+        assertFalse(ServerConfig.isValid("workArea.maxHorizontalRadius", 3))
+        assertFalse(ServerConfig.isValid("workArea.maxHorizontalRadius", 33))
         assertFalse(ServerConfig.isValid("workArea.verticalRadius", 1))
         assertEquals(8, EngineSettings.DEFAULT.horizontalRadius)
+        assertEquals(16, EngineSettings.DEFAULT.maxHorizontalRadius)
         assertEquals(6, EngineSettings.DEFAULT.verticalRadius)
     }
 
@@ -148,7 +155,7 @@ class ConfigTest {
 
         /** The keys of the spec's Config section, in the order that the config file writes them. The test pack looks for the same keys. */
         val CFG_01_KEYS = listOf(
-            "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
+            "workArea.horizontalRadius", "workArea.maxHorizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
             "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
             "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
             "leash.pendingSelectionTicks", WORKERS_PER_CONTAINER, "quickWork.enabled", "quickWork.targetRange", "quickWork.leashRange",

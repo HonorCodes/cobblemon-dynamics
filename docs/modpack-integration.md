@@ -287,6 +287,7 @@ condition. A pack changes a default with its own data pack. The versions are tho
 | Sophisticated Core | 1.5.33.2470 | none | Its XP fluid `sophisticatedcore:xp_still`, a fluid of `#c:experience`, on the outputs of the Experience Collector while CEI is absent. |
 | Better Archeology | 1.3.9 | none | Its rotten log keeps the Lumberjack off a tree, through `#cobblemon_dynamics:lumberjack/never`. |
 | Just Dire Things | 1.5.7 (unverified) | none | Its XP machines take the `c:experience` fluid of the outputs of the Experience Collector. |
+| Jade | 15.10.6 | none | HUD tooltips on workers, pastures, worked machines and beds (`jade_plugin`). |
 | Cobblemon | 1.8.4 | `generator_healing_machine` (auto, no condition) | The Healing Machine. |
 
 The crop mods of 1.2 are in [Farming roles](#farming-roles). The ids that ADR-0020 marks "unverified" stay optional
@@ -363,6 +364,7 @@ Each server log of 1.2 holds these lines beside the roles line, the mixins line 
 | Dynamic Trees | `lumberjack_fell` |
 | Apothic Enchanting | `muse_quanta` |
 | Applied Energistics 2 | `ae2_crank` |
+| Jade | `jade_plugin` |
 
 ### `quick_work: false`
 
@@ -466,13 +468,15 @@ All payloads use the namespace `cobblemon_dynamics`.
 
 | Direction | Payloads |
 | --- | --- |
-| To the client | `pasture_panel_state`, `leash_overview` |
-| To the server | `work_mode_toggle`, `pasture_panel_open`, `pasture_panel_close`, `leash_overview_request` |
+| To the client | `pasture_panel_state`, `leash_overview`, `area_bounds` |
+| To the server | `work_mode_toggle`, `pasture_settings`, `pasture_panel_open`, `pasture_panel_close`, `leash_overview_request`, `area_watch` |
 
 The server checks each request against its own state: the sender's permission, distance, dimension and ownership, as
 the request needs them. Rate limits apply to each player. Quick Work adds no payload. The button of the Experience
-Collector sends vanilla's container button packet, which the server checks as for any menu, so 1.2 adds no payload
-either. When the payloads register, the log holds one INFO line that starts with `Payloads, version 3:` and names each
+Collector sends vanilla's container button packet, which the server checks as for any menu. Version 2.0 adds
+`pasture_settings` (per-pasture radius steps and Access Lock), `area_watch` and `area_bounds` (live 3D work-area
+wireframe boxes across screen closes), and synced idle reasons and trait flags in `pasture_panel_state`. When the
+payloads register, the log holds one INFO line that starts with `Payloads, version 4:` and names each
 payload by direction.
 
 ## Files and saved data

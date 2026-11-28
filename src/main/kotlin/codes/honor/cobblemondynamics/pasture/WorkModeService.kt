@@ -75,6 +75,76 @@ object WorkModeService {
         return decision
     }
 
+    fun requestSettings(
+        player: ServerPlayer,
+        pasturePos: BlockPos,
+        radius: Int?,
+        locked: Boolean?,
+        level: ServerLevel = player.serverLevel(),
+    ): WorkModePolicy.Decision {
+        if (radius == null && locked == null) return WorkModePolicy.Decision.Reject("empty")
+        val be = PastureAdapter.pastureAt(level, pasturePos) ?: return WorkModePolicy.Decision.Reject("no_pasture")
+        val now = level.gameTime
+        val settings = WorkEngineSettings.current
+        val isOperator = player.hasPermissions(PLAYER_PERMISSION_OPERATOR)
+        val placer = PastureAdapter.placer(be)
+        val distance = player.position().distanceTo(Vec3.atCenterOf(be.blockPos))
+        val sameDimension = player.level() === level
+        val prevAccepted = lastAccepted[player.uuid]
+        if (locked != null) {
+            val lockDecision = WorkModePolicy.decideLock(
+                requester = player.uuid,
+                isOperator = isOperator,
+                placer = placer,
+                distance = distance,
+                sameDimension = sameDimension,
+                now = now,
+                lastAccepted = prevAccepted,
+                cooldownTicks = settings.toggleCooldownTicks,
+            ) { a, b -> TeamAllies.areTeammates(level.server, a, b) }
+            if (lockDecision != WorkModePolicy.Decision.Apply) return lockDecision
+        }
+        if (radius != null) {
+            val maxHorizontal = minOf(settings.maxHorizontalRadius, PastureAdapter.maxWanderDistance())
+            val radiusDecision = WorkModePolicy.decideRadius(
+                requester = player.uuid,
+                isOperator = isOperator,
+                placer = placer,
+                radius = radius,
+                maxHorizontalRadius = maxHorizontal,
+                distance = distance,
+                sameDimension = sameDimension,
+                now = now,
+                lastAccepted = prevAccepted,
+                cooldownTicks = settings.toggleCooldownTicks,
+                locked = locked ?: PastureAdapter.isLocked(be),
+                tetheredOwners = PastureAdapter.contributorIds(be),
+            ) { a, b -> TeamAllies.areTeammates(level.server, a, b) }
+            if (radiusDecision != WorkModePolicy.Decision.Apply) return radiusDecision
+        }
+        lastAccepted[player.uuid] = now
+        if (locked != null && radius != null) {
+            val current = PastureAdapter.workModeData(be)
+            be.setData(DynamicsAttachments.WORK_MODE, current.copy(locked = locked, radius = radius))
+            be.setChanged()
+            WorkEngine.get()?.onPastureRadiusChanged(level, be.blockPos)
+            PanelViewers.broadcast(level, be.blockPos)
+            AreaWatchers.broadcast(level, be.blockPos)
+        } else if (locked != null) {
+            applyLock(level, be.blockPos, locked)
+        } else if (radius != null) {
+            applyRadius(level, be.blockPos, radius)
+        }
+        return WorkModePolicy.Decision.Apply
+    }
+
+    fun requestRadius(
+        player: ServerPlayer,
+        pasturePos: BlockPos,
+        radius: Int,
+        level: ServerLevel = player.serverLevel(),
+    ): WorkModePolicy.Decision = requestSettings(player, pasturePos, radius = radius, locked = null, level = level)
+
     /** Sets Work Mode with no checks while keeping the pasture's [WorkModeData.locked] flag. [request] and the tests use it. */
     fun apply(level: ServerLevel, pasturePos: BlockPos, enabled: Boolean) {
         val be = PastureAdapter.pastureAt(level, pasturePos) ?: return
@@ -86,6 +156,7 @@ object WorkModeService {
         level.setData(DynamicsAttachments.WORK_PASTURES, index)
         WorkEngine.get()?.onWorkModeChanged(level, pasturePos, enabled)
         PanelViewers.broadcast(level, pasturePos)
+        AreaWatchers.broadcast(level, pasturePos)
     }
 
     /** Sets Access Lock with no checks while keeping [WorkModeData.enabled]. [requestLock] and the tests use it. */
@@ -95,6 +166,16 @@ object WorkModeService {
         be.setData(DynamicsAttachments.WORK_MODE, current.copy(locked = locked))
         be.setChanged()
         PanelViewers.broadcast(level, pasturePos)
+    }
+
+    fun applyRadius(level: ServerLevel, pasturePos: BlockPos, radius: Int?) {
+        val be = PastureAdapter.pastureAt(level, pasturePos) ?: return
+        val current = PastureAdapter.workModeData(be)
+        be.setData(DynamicsAttachments.WORK_MODE, current.copy(radius = radius))
+        be.setChanged()
+        WorkEngine.get()?.onPastureRadiusChanged(level, pasturePos)
+        PanelViewers.broadcast(level, pasturePos)
+        AreaWatchers.broadcast(level, pasturePos)
     }
 
     /** Forgets the last request of a player who logged out, so the map holds only players on the server. */

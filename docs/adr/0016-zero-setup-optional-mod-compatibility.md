@@ -124,6 +124,7 @@ The coordinator's rulings on the two compatibility audits (R80):
 | Create: New Age | `create_new_age` (unverified) | 1.2.0+mc1.21.1 | Modrinth API | BSD 3-Clause | Modrinth |
 | Mystical Agriculture, with Cucumber | `mysticalagriculture` (unverified) | 8.0.29 | Modrinth API | MIT | Modrinth |
 | Actually Additions | `actuallyadditions` (unverified) | 1.3.26 | Modrinth API | MIT | Modrinth |
+| Jade | `jade` | 15.10.6 | Modrinth API | CC BY-NC-SA 4.0 | Modrinth |
 
 Downloads by the test pack. The test pack fetches each pin from its official Modrinth CDN address, checks its SHA-512, and
 keeps it under `run/testpack/`, which git and CI artifacts never hold. That is a local test install, not a redistribution.

@@ -60,4 +60,31 @@ object WorkModePolicy {
         lastAccepted != null && now - lastAccepted < cooldownTicks -> Decision.Ignore
         else -> Decision.Apply
     }
+
+    fun isValidRadiusStep(radius: Int, maxHorizontalRadius: Int): Boolean =
+        radius in WorkModeData.RADIUS_STEPS && radius <= maxHorizontalRadius
+
+    fun allowedRadiusSteps(maxHorizontalRadius: Int): List<Int> = WorkModeData.RADIUS_STEPS.filter { it <= maxHorizontalRadius }
+
+    fun decideRadius(
+        requester: UUID,
+        isOperator: Boolean,
+        placer: UUID?,
+        radius: Int,
+        maxHorizontalRadius: Int,
+        distance: Double,
+        sameDimension: Boolean,
+        now: Long,
+        lastAccepted: Long?,
+        cooldownTicks: Int,
+        locked: Boolean = false,
+        tetheredOwners: Set<UUID> = emptySet(),
+        areTeammates: (UUID, UUID) -> Boolean = { _, _ -> false },
+    ): Decision = when {
+        !isValidRadiusStep(radius, maxHorizontalRadius) -> Decision.Reject("invalid_radius")
+        !mayToggle(requester, isOperator, placer, locked, tetheredOwners, areTeammates) -> Decision.Reject("not_owner")
+        !sameDimension || distance > MAX_DISTANCE -> Decision.Reject("too_far")
+        lastAccepted != null && now - lastAccepted < cooldownTicks -> Decision.Ignore
+        else -> Decision.Apply
+    }
 }

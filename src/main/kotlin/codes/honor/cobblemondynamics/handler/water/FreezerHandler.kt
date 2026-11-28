@@ -188,7 +188,7 @@ object FreezerHandler : TargetHandler {
 
     /** CD-FRZ-03: the work area of the worker's own pasture. A Freezer takes no Quick Work, so a worker always has one. */
     private fun area(ctx: WorkContext): WorkArea? =
-        ctx.pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
+        ctx.area ?: ctx.pasture?.let { PastureAdapter.workArea(ctx.level, it, WorkEngineSettings.current) }
 
     /** [done]: a freeze tick found nothing left to freeze, so the claim ends. */
     private class Memo(val since: Long) {

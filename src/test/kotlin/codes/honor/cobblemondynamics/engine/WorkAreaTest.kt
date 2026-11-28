@@ -23,10 +23,29 @@ class WorkAreaTest {
 
     @Test
     fun `CD-CFG-14 a radius above the roam limit acts as the roam limit`() {
-        val wide = WorkArea.of(pasture, EngineSettings.DEFAULT.copy(horizontalRadius = 32), maxWander = 20)
+        val wide = WorkArea.of(pasture, EngineSettings.DEFAULT.copy(horizontalRadius = 32, maxHorizontalRadius = 32), maxWander = 20)
         assertEquals(20, wide.horizontal)
         assertTrue(wide.contains(pasture.offset(20, 0, 0)))
         assertFalse(wide.contains(pasture.offset(21, 0, 0)))
+    }
+
+    @Test
+    fun `CD-SHF-02 per-pasture radius overrides default and clamps to maxHorizontalRadius and maxWander`() {
+        val tight = WorkArea.of(pasture, EngineSettings.DEFAULT, maxWander = 32, pastureRadius = 4)
+        assertEquals(4, tight.horizontal)
+        assertTrue(tight.contains(pasture.offset(4, 0, 0)))
+        assertFalse(tight.contains(pasture.offset(5, 0, 0)))
+
+        val expanded = WorkArea.of(pasture, EngineSettings.DEFAULT, maxWander = 32, pastureRadius = 12)
+        assertEquals(12, expanded.horizontal)
+        assertTrue(expanded.contains(pasture.offset(12, 0, 0)))
+        assertFalse(expanded.contains(pasture.offset(13, 0, 0)))
+
+        val cappedByConfig = WorkArea.of(pasture, EngineSettings.DEFAULT.copy(maxHorizontalRadius = 12), maxWander = 32, pastureRadius = 16)
+        assertEquals(12, cappedByConfig.horizontal)
+
+        val cappedByWander = WorkArea.of(pasture, EngineSettings.DEFAULT.copy(maxHorizontalRadius = 16), maxWander = 10, pastureRadius = 16)
+        assertEquals(10, cappedByWander.horizontal)
     }
 
     @Test

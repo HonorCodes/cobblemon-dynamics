@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.net
 import codes.honor.cobblemondynamics.CobblemonDynamics
 import codes.honor.cobblemondynamics.LoadLines
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
+import codes.honor.cobblemondynamics.pasture.AreaWatchers
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.WorkModePolicy
 import codes.honor.cobblemondynamics.pasture.WorkModeService
@@ -17,9 +18,10 @@ import java.util.UUID
 object DynamicsPayloads {
     /**
      * 2: no `work_sound` payload, because work is silent (CD-FX-09). 3: the Work Leash's synced pending source carries its dimension,
-     * so a client of an older build is refused at login instead of failing to read the item.
+     * so a client of an older build is refused at login instead of failing to read the item. 4: Pasture Shelf settings, persistent
+     * work-area watch/bounds payloads, and synced idle reasons and trait flags.
      */
-    private const val VERSION = "3"
+    private const val VERSION = "4"
 
     /** The cooldown per player of `leash_overview_request` and of `pasture_panel_open`. */
     private const val REQUEST_COOLDOWN_TICKS = 10
@@ -33,6 +35,8 @@ object DynamicsPayloads {
         fun onPanelState(payload: PasturePanelStatePayload)
 
         fun onLeashOverview(payload: LeashOverviewPayload)
+
+        fun onAreaBounds(payload: AreaBoundsPayload)
     }
 
     /**
@@ -45,15 +49,20 @@ object DynamicsPayloads {
     fun register(modBus: IEventBus) {
         modBus.addListener<RegisterPayloadHandlersEvent> { event ->
             val registrar = event.registrar(VERSION)
-            // Both sides register every payload, so the server can encode what it sends. Only a client has handlers for these two.
             registrar.playToClient(PasturePanelStatePayload.TYPE, PasturePanelStatePayload.STREAM_CODEC) { payload, _ ->
                 clientHandlers?.onPanelState(payload)
             }
             registrar.playToClient(LeashOverviewPayload.TYPE, LeashOverviewPayload.STREAM_CODEC) { payload, _ ->
                 clientHandlers?.onLeashOverview(payload)
             }
+            registrar.playToClient(AreaBoundsPayload.TYPE, AreaBoundsPayload.STREAM_CODEC) { payload, _ ->
+                clientHandlers?.onAreaBounds(payload)
+            }
             registrar.playToServer(WorkModeTogglePayload.TYPE, WorkModeTogglePayload.STREAM_CODEC) { payload, context ->
                 serverPlayer(context)?.let { onToggle(it, payload) }
+            }
+            registrar.playToServer(PastureSettingsPayload.TYPE, PastureSettingsPayload.STREAM_CODEC) { payload, context ->
+                serverPlayer(context)?.let { onSettings(it, payload) }
             }
             registrar.playToServer(PasturePanelOpenPayload.TYPE, PasturePanelOpenPayload.STREAM_CODEC) { _, context ->
                 serverPlayer(context)?.let(::onPanelOpen)
@@ -64,33 +73,51 @@ object DynamicsPayloads {
             registrar.playToServer(LeashOverviewRequestPayload.TYPE, LeashOverviewRequestPayload.STREAM_CODEC) { _, context ->
                 serverPlayer(context)?.let(::onOverviewRequest)
             }
-            // CD-CMP-09: the ids of the payloads above, by direction, in the order of registration.
-            val toClient = listOf(PasturePanelStatePayload.TYPE, LeashOverviewPayload.TYPE).map { it.id() }
+            registrar.playToServer(AreaWatchPayload.TYPE, AreaWatchPayload.STREAM_CODEC) { payload, context ->
+                serverPlayer(context)?.let { onAreaWatch(it, payload) }
+            }
+            val toClient = listOf(PasturePanelStatePayload.TYPE, LeashOverviewPayload.TYPE, AreaBoundsPayload.TYPE).map { it.id() }
             val toServer = listOf(
                 WorkModeTogglePayload.TYPE,
+                PastureSettingsPayload.TYPE,
                 PasturePanelOpenPayload.TYPE,
                 PasturePanelClosePayload.TYPE,
                 LeashOverviewRequestPayload.TYPE,
+                AreaWatchPayload.TYPE,
             ).map { it.id() }
             CobblemonDynamics.LOGGER.info(LoadLines.payloads(VERSION, toClient, toServer))
         }
     }
 
     /**
-     * The pasture is the one whose panel the player has open, as Cobblemon's own panel finds it. Cobblemon keeps that link only
-     * while the player is closer than 10.0 blocks, so a toggle from exactly 10.0 blocks finds no pasture (CD-SEC-04). It also keeps
-     * the link in another level of the same dimension type, so the pasture is looked up in the player's own level. A refused or
-     * ignored request sends the player the current state, so the panel shows the truth. It does so at most once per toggle cooldown,
-     * so a flood of refused requests cannot rebuild the panel state on every packet.
+     * Resolves the pasture from the player's Cobblemon pasture link in its actual dimension level, then validates authorization,
+     * same-dimension presence, and inclusive 10.0-block distance through [WorkModeService] (CD-SEC-04). A refused or ignored request in
+     * the player's current level sends back the pasture's current state at most once per toggle cooldown.
      */
     fun onToggle(player: ServerPlayer, payload: WorkModeTogglePayload) {
-        val pos = PastureAdapter.linkedPasture(player) ?: return
-        val level = player.serverLevel()
-        val decision = WorkModeService.request(player, pos, payload.enabled)
+        val target = PastureAdapter.linkedPastureTarget(player) ?: return
+        val decision = WorkModeService.request(player, target.pos, payload.enabled, target.level)
         if (decision == WorkModePolicy.Decision.Apply) return
-        if (toggleReplies.tryAcquire(player.uuid, level.gameTime, WorkEngineSettings.current.toggleCooldownTicks)) {
-            PanelViewers.send(player, level, pos)
+        if (player.serverLevel() === target.level &&
+            toggleReplies.tryAcquire(player.uuid, target.level.gameTime, WorkEngineSettings.current.toggleCooldownTicks)
+        ) {
+            PanelViewers.send(player, target.level, target.pos)
         }
+    }
+
+    fun onSettings(player: ServerPlayer, payload: PastureSettingsPayload) {
+        val target = PastureAdapter.linkedPastureTarget(player) ?: return
+        val decision = WorkModeService.requestSettings(player, target.pos, payload.radius, payload.locked, target.level)
+        if (decision == WorkModePolicy.Decision.Apply) return
+        if (player.serverLevel() === target.level &&
+            toggleReplies.tryAcquire(player.uuid, target.level.gameTime, WorkEngineSettings.current.toggleCooldownTicks)
+        ) {
+            PanelViewers.send(player, target.level, target.pos)
+        }
+    }
+
+    fun onAreaWatch(player: ServerPlayer, payload: AreaWatchPayload) {
+        AreaWatchers.onWatch(player, payload.pos, payload.watching)
     }
 
     /**

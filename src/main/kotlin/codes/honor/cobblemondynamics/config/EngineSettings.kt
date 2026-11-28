@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceLocation
 /** An immutable snapshot of the server config. Pure engine code takes this instead of reading the config. */
 data class EngineSettings(
     val horizontalRadius: Int = 8,
+    val maxHorizontalRadius: Int = 16,
     val verticalRadius: Int = 6,
     val scanIntervalTicks: Int = 40,
     val maxBlockChecksPerTick: Int = 512,
@@ -45,5 +46,8 @@ data class EngineSettings(
 
         /** CD-CFG-14: Cobblemon teleports or recalls a pastured Pokémon outside its roam box. */
         fun effectiveRadius(configured: Int, maxWander: Int): Int = minOf(configured, maxWander)
+
+        fun effectiveHorizontalRadius(requested: Int, maxHorizontal: Int, maxWander: Int): Int =
+            minOf(requested.coerceAtLeast(ConfigRanges.WORK_RADIUS.first), maxHorizontal, maxWander)
     }
 }

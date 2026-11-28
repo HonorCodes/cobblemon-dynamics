@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.stamina
 
+import codes.honor.cobblemondynamics.engine.IdleReason
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import kotlin.math.abs
 
@@ -8,9 +9,20 @@ object ViewSync {
     /** One point, read back through one-tick rounding error, still counts as one point. */
     private const val STEP = 1.0 - 1e-9
 
-    /** CD-STA-15: a change of 1 point or more since the last sync, or any state change. */
-    fun shouldSync(lastSyncedPercent: Double, nowPercent: Double, lastState: WorkerStatus, nowState: WorkerStatus): Boolean =
-        lastState != nowState || abs(nowPercent - lastSyncedPercent) >= STEP
+    /** CD-STA-15, CD-SHF-06: a change of 1 point or more since the last sync, or any state, idle-reason or trait change. */
+    fun shouldSync(
+        lastSyncedPercent: Double,
+        nowPercent: Double,
+        lastState: WorkerStatus,
+        nowState: WorkerStatus,
+        lastIdleReason: IdleReason = IdleReason.NONE,
+        nowIdleReason: IdleReason = IdleReason.NONE,
+        lastTraitFlags: Int = 0,
+        nowTraitFlags: Int = 0,
+    ): Boolean = lastState != nowState ||
+        lastIdleReason != nowIdleReason ||
+        lastTraitFlags != nowTraitFlags ||
+        abs(nowPercent - lastSyncedPercent) >= STEP
 }
 
 /** When the server sends an open pasture panel its Work Stamina values. */

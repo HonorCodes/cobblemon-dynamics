@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.stamina
 
+import codes.honor.cobblemondynamics.engine.IdleReason
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -39,11 +40,37 @@ class ViewSyncTest {
     @Test
     fun `CD-STA-15 the view codec keeps the percent and every state`() {
         for (state in WorkerStatus.entries) {
-            val view = StaminaView(42, state)
-            val buffer = Unpooled.buffer()
-            StaminaView.STREAM_CODEC.encode(buffer, view)
-            assertEquals(view, StaminaView.STREAM_CODEC.decode(buffer))
-            assertEquals(0, buffer.readableBytes(), "bytes left after decoding $view")
+            for (reason in IdleReason.entries) {
+                val view = StaminaView(42, state, reason, TraitFlags.SHINY or TraitFlags.MASTERY or TraitFlags.MATE)
+                val buffer = Unpooled.buffer()
+                StaminaView.STREAM_CODEC.encode(buffer, view)
+                assertEquals(view, StaminaView.STREAM_CODEC.decode(buffer))
+                assertEquals(0, buffer.readableBytes(), "bytes left after decoding $view")
+            }
         }
+        assertTrue(
+            ViewSync.shouldSync(
+                50.0,
+                50.0,
+                WorkerStatus.IDLE,
+                WorkerStatus.IDLE,
+                IdleReason.NO_TARGET,
+                IdleReason.NEEDS_LEASH,
+                0,
+                0,
+            ),
+        )
+        assertTrue(
+            ViewSync.shouldSync(
+                50.0,
+                50.0,
+                WorkerStatus.IDLE,
+                WorkerStatus.IDLE,
+                IdleReason.NO_TARGET,
+                IdleReason.NO_TARGET,
+                0,
+                TraitFlags.ALPHA,
+            ),
+        )
     }
 }

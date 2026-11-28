@@ -8,6 +8,7 @@ object ServerConfig {
     private const val BED_TIERS = 4
 
     private val horizontalRadius: ModConfigSpec.IntValue
+    private val maxHorizontalRadius: ModConfigSpec.IntValue
     private val verticalRadius: ModConfigSpec.IntValue
     private val scanIntervalTicks: ModConfigSpec.IntValue
     private val maxBlockChecksPerTick: ModConfigSpec.IntValue
@@ -54,7 +55,13 @@ object ServerConfig {
             "horizontalRadius",
             d.horizontalRadius,
             ConfigRanges.WORK_RADIUS,
-            "Horizontal work radius in blocks. Never above Cobblemon's pastureMaxWanderDistance.",
+            "Horizontal work radius in blocks. Never above maxHorizontalRadius or Cobblemon's pastureMaxWanderDistance.",
+        )
+        maxHorizontalRadius = b.int(
+            "maxHorizontalRadius",
+            d.maxHorizontalRadius,
+            ConfigRanges.MAX_HORIZONTAL_RADIUS,
+            "Maximum horizontal work radius in blocks for any pasture or Pasture Shelf step.",
         )
         verticalRadius = b.int(
             "verticalRadius",
@@ -285,6 +292,7 @@ object ServerConfig {
     /** Reads every value. Call it only while the server config is loaded. */
     fun snapshot(): EngineSettings = EngineSettings(
         horizontalRadius = horizontalRadius.get(),
+        maxHorizontalRadius = maxHorizontalRadius.get(),
         verticalRadius = verticalRadius.get(),
         scanIntervalTicks = scanIntervalTicks.get(),
         maxBlockChecksPerTick = maxBlockChecksPerTick.get(),

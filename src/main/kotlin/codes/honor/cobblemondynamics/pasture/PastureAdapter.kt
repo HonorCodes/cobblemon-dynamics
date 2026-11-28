@@ -1,6 +1,8 @@
 package codes.honor.cobblemondynamics.pasture
 
 import codes.honor.cobblemondynamics.compat.TeamAllies
+import codes.honor.cobblemondynamics.config.EngineSettings
+import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.api.pasture.PastureLinkManager
@@ -11,6 +13,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 /**
@@ -71,6 +74,11 @@ object PastureAdapter {
 
     fun isLocked(be: PokemonPastureBlockEntity): Boolean = workModeData(be).locked
 
+    fun radius(be: PokemonPastureBlockEntity): Int? = workModeData(be).radius
+
+    fun workArea(level: ServerLevel, pos: BlockPos, settings: EngineSettings): WorkArea =
+        WorkArea.of(pos, settings, maxWanderDistance(), pastureAt(level, pos)?.let(::radius))
+
     fun placer(be: PokemonPastureBlockEntity): UUID? = be.ownerId
 
     /** The player UUIDs with at least one Cobblemon currently tethered in [be] (CD-TEAM-01). */
@@ -82,6 +90,12 @@ object PastureAdapter {
         ownerId = placer(be),
         locked = isLocked(be),
         tetheredOwners = contributorIds(be),
+    ) { a, b -> TeamAllies.areTeammates(player.server, a, b) }
+
+    fun mayLock(player: ServerPlayer, be: PokemonPastureBlockEntity): Boolean = PastureAccessPolicy.mayLock(
+        actor = player.uuid,
+        isOperator = player.hasPermissions(PERMISSION_OPERATOR),
+        ownerId = placer(be),
     ) { a, b -> TeamAllies.areTeammates(player.server, a, b) }
 
     fun tethered(be: PokemonPastureBlockEntity): List<TetheredPokemon> {
@@ -181,8 +195,21 @@ object PastureAdapter {
         }
     }
 
-    /** The pasture whose panel [player] has open. Cobblemon drops the link in another dimension or beyond 10 blocks. */
-    fun linkedPasture(player: ServerPlayer): BlockPos? = PastureLinkManager.getLinkByPlayer(player)?.pos
+    data class LinkedPasture(val level: ServerLevel, val pos: BlockPos)
+
+    fun linkedPastureTarget(player: ServerPlayer): LinkedPasture? {
+        val link = PastureLinkManager.getLinkByPlayerId(player.uuid) ?: return null
+        val linkLevel = player.server.allLevels.firstOrNull { it.dimension().location() == link.dimension } ?: return null
+        return LinkedPasture(linkLevel, link.pos)
+    }
+
+    /** The pasture whose panel [player] has open in the same dimension within 10.0 blocks (CD-SEC-04). */
+    fun linkedPasture(player: ServerPlayer): BlockPos? {
+        val target = linkedPastureTarget(player) ?: return null
+        if (target.level !== player.serverLevel()) return null
+        val distance = player.position().distanceTo(Vec3.atCenterOf(target.pos))
+        return target.pos.takeIf { distance <= WorkModePolicy.MAX_DISTANCE }
+    }
 
     fun maxWanderDistance(): Int = Cobblemon.config.pastureMaxWanderDistance
 

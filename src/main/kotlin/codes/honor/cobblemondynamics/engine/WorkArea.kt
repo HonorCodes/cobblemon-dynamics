@@ -27,9 +27,9 @@ data class WorkArea(val center: BlockPos, val horizontal: Int, val vertical: Int
         ChunkPos(SectionPos.blockToSectionCoord(maxX), SectionPos.blockToSectionCoord(maxZ))
 
     companion object {
-        fun of(pasture: BlockPos, settings: EngineSettings, maxWander: Int): WorkArea = WorkArea(
+        fun of(pasture: BlockPos, settings: EngineSettings, maxWander: Int, pastureRadius: Int? = null): WorkArea = WorkArea(
             pasture,
-            EngineSettings.effectiveRadius(settings.horizontalRadius, maxWander),
+            EngineSettings.effectiveHorizontalRadius(pastureRadius ?: settings.horizontalRadius, settings.maxHorizontalRadius, maxWander),
             EngineSettings.effectiveRadius(settings.verticalRadius, maxWander),
         )
     }

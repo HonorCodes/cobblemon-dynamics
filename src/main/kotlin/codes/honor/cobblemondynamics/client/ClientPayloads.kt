@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.client
 
+import codes.honor.cobblemondynamics.net.AreaBoundsPayload
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
 import codes.honor.cobblemondynamics.net.LeashOverviewPayload
 import codes.honor.cobblemondynamics.net.PasturePanelStatePayload
@@ -13,4 +14,6 @@ object ClientPayloads : DynamicsPayloads.ClientHandlers {
     override fun onPanelState(payload: PasturePanelStatePayload) = ClientState.onPanelState(payload)
 
     override fun onLeashOverview(payload: LeashOverviewPayload) = ClientState.onLeashOverview(payload)
+
+    override fun onAreaBounds(payload: AreaBoundsPayload) = WorkAreaOverlay.onBounds(payload)
 }

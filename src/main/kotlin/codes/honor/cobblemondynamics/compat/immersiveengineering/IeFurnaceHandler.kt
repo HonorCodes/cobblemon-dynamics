@@ -71,6 +71,12 @@ object IeFurnaceHandler : TargetHandler {
         return IeFurnaceRule.admits(furnace.kind, ctx.pokemon.level, minLevel) && recipeFits(furnace)
     }
 
+    override fun minLevelFor(ctx: WorkContext): Int {
+        val furnace = furnaceOf(ctx.level.getBlockEntity(ctx.target)) ?: return 1
+        if (furnace.kind == Kind.ALLOY_KILN || !recipeFits(furnace)) return 1
+        return IeFurnaceParams.of(ctx.role.params).blastFurnaceMinLevel
+    }
+
     /**
      * Keeps `BURN_TIME` and `LAST_BURN_TIME` at the furnace's highest process speed + 1, so the flame gauge stays full and IE never
      * takes a fuel item (CD-FUEL-13). A furnace that still burns fuel of its own keeps its own values. IE sets the furnace's active

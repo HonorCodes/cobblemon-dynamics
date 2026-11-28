@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.test
 
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
+import codes.honor.cobblemondynamics.engine.IdleReason
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
@@ -65,7 +66,10 @@ class StaminaStoreTests {
                     val live = engine.worker(id)?.stamina ?: return@onEachTick
                     helper.assertTrue(live.fraction == 1.0 && !live.tired, "CD-STA-05: a new worker reads $live")
                     val view = entity.getExistingDataOrNull(DynamicsAttachments.STAMINA_VIEW)
-                    helper.assertTrue(view == StaminaView(100, WorkerStatus.IDLE), "CD-STA-05: the new worker's view is $view")
+                    helper.assertTrue(
+                        view == StaminaView(100, WorkerStatus.IDLE, IdleReason.NO_TARGET),
+                        "CD-STA-05: the new worker's view is $view",
+                    )
                     live.fraction = START
                     setAt = helper.level.gameTime
                     pasture.releasePokemon(id)

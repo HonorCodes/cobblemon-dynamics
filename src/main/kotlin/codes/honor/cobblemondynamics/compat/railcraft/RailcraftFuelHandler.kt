@@ -51,6 +51,12 @@ object RailcraftFuelHandler : TargetHandler {
         return recipeFits(ctx, module)
     }
 
+    override fun minLevelFor(ctx: WorkContext): Int {
+        val module = furnaceModule(ctx.level.getBlockEntity(ctx.target)) ?: return 1
+        if (!recipeFits(ctx, module)) return 1
+        return RailcraftFuelParams.of(ctx.role.params).blastFurnaceMinLevel
+    }
+
     override fun applyWork(ctx: WorkContext) {
         if (!hasDemand(ctx)) return
         furnaceModule(ctx.level.getBlockEntity(ctx.target))?.let(::fuelFurnace)
