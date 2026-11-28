@@ -62,4 +62,16 @@ class MixinPluginTest {
         assertEquals(reason, MixinPlugin.memberReason(mixin, turnedStatic), "the method turned static")
         assertEquals(reason, MixinPlugin.memberReason(mixin, infuser(null)), "the method went")
     }
+
+    @Test
+    fun `CD-SNT-07 no server-side Cobblemon mixin exists`() {
+        val root = File(System.getProperty("cd.projectDir"))
+        val mixinsJson = com.google.gson.JsonParser.parseString(File(root, "src/main/resources/cobblemon_dynamics.mixins.json").readText())
+            .asJsonObject
+        val serverMixins = mixinsJson.getAsJsonArray("mixins").map { it.asString }
+        assertTrue(serverMixins.none { it.startsWith("cobblemon.") }, "server Cobblemon mixins: $serverMixins")
+        val cobblemonDir = File(root, "src/main/java/codes/honor/cobblemondynamics/mixin/cobblemon")
+        val nonClient = cobblemonDir.walk().filter { it.isFile && "/client/" !in it.invariantSeparatorsPath }.toList()
+        assertEquals(emptyList<File>(), nonClient)
+    }
 }

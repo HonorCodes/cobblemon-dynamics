@@ -3,6 +3,7 @@ package codes.honor.cobblemondynamics.engine
 import codes.honor.cobblemondynamics.Feedback
 import codes.honor.cobblemondynamics.ai.BrainBridge
 import codes.honor.cobblemondynamics.handler.farming.TrampleGuard
+import codes.honor.cobblemondynamics.handler.sentry.SentryWatch
 import codes.honor.cobblemondynamics.handler.tree.LeafSaplings
 import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
 import codes.honor.cobblemondynamics.leash.LeashResets
@@ -49,6 +50,7 @@ object EngineEvents {
             LeafSaplings.reset()
             LeashResets.reset()
             LumberjackHandler.reset()
+            SentryWatch.reset()
         }
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedInEvent> { event ->
             (event.entity as? ServerPlayer)?.let(Feedback::onLogin)

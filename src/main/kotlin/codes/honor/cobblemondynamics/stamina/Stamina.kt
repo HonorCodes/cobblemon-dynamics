@@ -10,8 +10,8 @@ class Stamina(var fraction: Double = 1.0, var tired: Boolean = false) {
     val percent: Double get() = fraction * 100
 
     /** [ticks] of Working (CD-STA-06). At 0%, the Pokémon is Tired (CD-STA-08). */
-    fun work(ticks: Long, level: Int, s: EngineSettings) {
-        fraction -= ticks / StaminaMath.capacityTicks(level, s)
+    fun work(ticks: Long, level: Int, s: EngineSettings, drainFactor: Double = 1.0) {
+        fraction -= ticks * drainFactor / StaminaMath.capacityTicks(level, s)
         if (fraction <= EPSILON) {
             fraction = 0.0
             tired = true

@@ -11,5 +11,10 @@ class FurnaceHandlerTest {
         assertFalse(FurnaceHandler.isTarget(furnace = true, never = true), "a furnace of the never tag matched")
         assertTrue(FurnaceHandler.isTarget(furnace = true, never = false), "a furnace outside the never tag did not match")
         assertFalse(FurnaceHandler.isTarget(furnace = false, never = false), "a block entity that is no furnace matched")
+        assertTrue(
+            FurnaceHandler.isTarget(furnace = false, never = false, campfirePot = true),
+            "a campfire pot outside never did not match",
+        )
+        assertFalse(FurnaceHandler.isTarget(furnace = false, never = true, campfirePot = true), "a campfire pot in never matched")
     }
 }

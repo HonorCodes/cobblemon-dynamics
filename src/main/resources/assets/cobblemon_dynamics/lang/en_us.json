@@ -82,5 +82,6 @@
   "cobblemon_dynamics.experience_collector.stored": "%s / %s XP",
   "cobblemon_dynamics.experience_collector.points": "Stored: %s XP",
   "cobblemon_dynamics.experience_collector.level": "Level %s from level 0",
-  "cobblemon_dynamics.experience_collector.collect": "Collect experience"
+  "cobblemon_dynamics.experience_collector.collect": "Collect experience",
+  "cobblemon_dynamics.role.sentry": "Sentry"
 }

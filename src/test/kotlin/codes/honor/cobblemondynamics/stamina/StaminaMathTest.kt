@@ -179,4 +179,24 @@ class StaminaMathTest {
         st.rest(3_600, 10, RecoveryRule.WORKER, bedTier = 4, cfg)
         assertFalse(st.tired)
     }
+
+    @Test
+    fun `CD-SNT-05 Dark workers drain half stamina at night and full stamina by day`() {
+        near(0.5, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true), 0.0)
+        near(1.0, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = false), 0.0)
+        near(1.0, StaminaMath.nocturnalDrainFactor(hasDarkType = false, isNight = true), 0.0)
+        near(1.0, StaminaMath.nocturnalDrainFactor(hasDarkType = false, isNight = false), 0.0)
+        near(0.425, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true) * 0.85, 1e-12)
+        near(0.25, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true) / 2.0, 1e-12)
+
+        val nightWorker = Stamina()
+        repeat(3_600) { nightWorker.work(1, 1, s, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true)) }
+        near(50.0, nightWorker.percent, 1e-6)
+        assertFalse(nightWorker.tired)
+        repeat(3_599) { nightWorker.work(1, 1, s, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true)) }
+        assertFalse(nightWorker.tired)
+        nightWorker.work(1, 1, s, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true))
+        assertTrue(nightWorker.tired)
+        near(0.0, nightWorker.percent, 0.0)
+    }
 }

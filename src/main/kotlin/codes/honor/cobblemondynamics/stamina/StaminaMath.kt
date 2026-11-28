@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.config.EngineSettings
 /** The Work Stamina model of ADR-0008, in ticks. */
 object StaminaMath {
     const val TICKS_PER_MINUTE = 1_200
+    const val NOCTURNAL_DRAIN_FACTOR = 0.5
 
     private const val HEALER_MAX_LEVEL = 100
 
@@ -28,4 +29,6 @@ object StaminaMath {
 
     /** A bed of tier 1 to 4 divides the recovery time by its configured factor. Off a bed, the factor is 1 (CD-BED-03). */
     fun bedFactor(tier: Int?, s: EngineSettings): Int = if (tier == null) 1 else s.bedFactors[tier - 1]
+
+    fun nocturnalDrainFactor(hasDarkType: Boolean, isNight: Boolean): Double = if (hasDarkType && isNight) NOCTURNAL_DRAIN_FACTOR else 1.0
 }

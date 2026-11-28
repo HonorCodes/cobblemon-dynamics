@@ -22,6 +22,8 @@ import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
+import codes.honor.cobblemondynamics.handler.sentry.SentryHandler
+import codes.honor.cobblemondynamics.handler.sentry.SentryWatch
 import codes.honor.cobblemondynamics.handler.tree.TreeFactsReader
 import codes.honor.cobblemondynamics.heal.AllyView
 import codes.honor.cobblemondynamics.heal.HealTargets
@@ -40,6 +42,7 @@ import codes.honor.cobblemondynamics.role.RoleSelection
 import codes.honor.cobblemondynamics.role.RoleSet
 import codes.honor.cobblemondynamics.stamina.FlushRule
 import codes.honor.cobblemondynamics.stamina.RecoveryRule
+import codes.honor.cobblemondynamics.stamina.StaminaMath
 import codes.honor.cobblemondynamics.stamina.StaminaStore
 import codes.honor.cobblemondynamics.stamina.StaminaView
 import codes.honor.cobblemondynamics.stamina.ViewSync
@@ -339,6 +342,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         slots.clear()
         orders.clear()
         aims.clear()
+        SentryWatch.reset()
     }
 
     private class Tick(val level: ServerLevel, val settings: EngineSettings, val roles: RoleSet) {
@@ -1007,7 +1011,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (ticks > 0) {
             val level = slot.pokemon.level
             if (worker.status == WorkerStatus.WORKING) {
-                worker.stamina.work(ticks, level, t.settings)
+                val drainFactor = StaminaMath.nocturnalDrainFactor(hasDarkType(slot.pokemon), t.level.isNight)
+                worker.stamina.work(ticks, level, t.settings, drainFactor)
             } else {
                 val bedTier = if (worker.status == WorkerStatus.SLEEPING) worker.bed?.tier else null
                 worker.stamina.rest(ticks, level, slot.rule, bedTier, t.settings)
@@ -1374,6 +1379,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * here: a release, a drop, a timeout, a Tired worker and a failed handler. So the handler hears of each end once.
      */
     private fun clear(t: Tick, slot: WorkerSlot) {
+        if (slot.role?.handler === SentryHandler) {
+            val pasture = slot.worker.pasture ?: slot.worker.target?.let { PastureKey(t.dimension, it.asLong()) }
+            if (pasture != null) SentryWatch.unwatch(pasture)
+        }
         unclaim(t, slot, slot.entity)
         slot.worker.target = null
         slot.worker.spot = null
@@ -1422,7 +1431,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             pasture = slot.worker.pasture?.let { BlockPos.of(it.pos) },
             memo = memo,
             spot = slot.worker.spot,
-            spend = { ticks -> slot.worker.stamina.work(ticks.toLong(), slot.pokemon.level, t.settings) },
+            spend = { ticks ->
+                val drainFactor = StaminaMath.nocturnalDrainFactor(hasDarkType(slot.pokemon), t.level.isNight)
+                slot.worker.stamina.work(ticks.toLong(), slot.pokemon.level, t.settings, drainFactor)
+            },
             mayChange = { pos -> mayChange(t, slot, pos) },
             mayBreak = { pos -> mayBreak(t, slot, pos) },
             stalled = { ticks -> stalls[key(target)] = t.now + ticks },
@@ -1681,6 +1693,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         private fun typesOf(pokemon: Pokemon): Set<String> = pokemon.types.mapTo(LinkedHashSet()) { it.showdownId }
 
         private fun hasFairyType(pokemon: Pokemon): Boolean = pokemon.types.any { it == ElementalTypes.FAIRY }
+
+        private fun hasDarkType(pokemon: Pokemon): Boolean = pokemon.types.any { it == ElementalTypes.DARK }
 
         /**
          * On arrival: the spot center, at rest, facing the target. The Brain's work activity holds it from the next tick. A spot where the

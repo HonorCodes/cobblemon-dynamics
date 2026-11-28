@@ -99,7 +99,7 @@ types together.
 | Water | Wheel Driver | Create water wheel, large water wheel, and the Immersive Engineering watermill since 1.2 | Water Gun | Auto | Phase 1 |
 | Water | Pump | Fluid tanks, boilers, basins, cauldrons, and farmland since 1.2 | Water Gun | Leash only | Phase 1 |
 | Electric | Generator | Any block that accepts Forge Energy, AE2 machines included, and Cobblemon's Healing Machine since 1.2 | Thunder Shock | Auto | Phase 1 |
-| Fire | Stoker | Furnace, smoker, blast furnace, and the furnaces of other mods since 1.2 | Ember | Auto | Phase 1 |
+| Fire | Stoker | Furnace, smoker, blast furnace, the furnaces of other mods since 1.2, and Cobblemon's Campfire Pot since 2.0 | Ember | Auto | Phase 1 |
 | Fire | Brew Stoker | Brewing stand (fuel) | Ember | Auto | Phase 1 |
 | Dragon | Superheater | Create Blaze Burner (kindled below level 50, superheated from level 50), and the Liquid Blaze Burner since 1.2 | Dragon Breath | Auto | Phase 1 |
 | Fighting, Normal | Cranker | Create hand crank, and the crank wheels of Create: Connected and the AE2 crank since 1.2 | Pound | Auto | Phase 1 |
@@ -120,10 +120,11 @@ types together.
 | Ghost | Soul Collector | An Experience Collector, which it fills with the XP orbs of the work area | Night Shade | Leash only | 1.2 |
 | Ice | Freezer | Surface water, which it ices over on top within 5 blocks of itself | Ice Beam | Auto, no Quick Work | 1.2 |
 | Fire | Heater | The heat valves of Mekanism, and the heat machines of PneumaticCraft | Ember | Auto on Mekanism, leash only on PneumaticCraft | 1.2 |
+| Dark | Sentry | Its own Work Mode pasture, keeping natural monster spawns out of the work area | Snarl | Auto, no Quick Work, no leash | 2.0 |
 
 A worker of an **Auto** role takes the nearest free target on its own. It also takes a
-Work Leash binding or a Quick Work order, except the Healer and the Freezer. A **Leash
-only** role needs a Work Leash binding. Dark has no role.
+Work Leash binding or a Quick Work order, except the Healer, the Picker, the Freezer and
+the Sentry. A **Leash only** role needs a Work Leash binding.
 
 The [spec sheet](docs/plans/2026-11-09-v1-spec-sheet.md) holds the numbers for each
 role. The [role catalog](docs/roles.md) covers all 18 types, including later ideas.
@@ -144,7 +145,8 @@ worker raises each only up to the machine's own maximum. See
 
 - **Work Stamina.** Work drains a worker's Work Stamina, and rest restores it.
   Higher-level Cobblemon work longer before they get **Tired**. A Tired Cobblemon stops
-  work until it fully recovers.
+  work until it fully recovers. Dark-types drain half as much Work Stamina at night, in
+  any role.
 - **Beds.** A Tired Cobblemon claims the nearest free bed in its work area, walks to it
   and sleeps. Four bed tiers cut the recovery time: the Hay Bed, Wool Bed, Plush Bed
   and Starlit Bed. You craft each tier from the tier below it.

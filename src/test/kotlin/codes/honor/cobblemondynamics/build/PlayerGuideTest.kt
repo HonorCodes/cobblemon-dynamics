@@ -152,6 +152,31 @@ class PlayerGuideTest {
         }
     }
 
+    @Test
+    fun `CD-SNT-01 CD-SNT-05 CD-SNT-06 the guide, the README, the roles page and en_us name the Sentry, Nocturnal and Campfire Pot`() {
+        assertSections(listOf("Sentry"))
+        val sentry = section("Sentry")
+        for (text in listOf("Dark", "Snarl", "natural", "spawners", "Cobblemon", "1 tick")) {
+            assertTrue(text in sentry, "CD-SNT-01: the section Sentry of the guide lacks $text")
+        }
+        assertTrue("Campfire Pot" in section("Stoker"), "CD-SNT-06: the section Stoker of the guide does not name Campfire Pot")
+        val stamina = section("Work Stamina")
+        assertTrue("Dark" in stamina && "half" in stamina, "CD-SNT-05: the section Work Stamina lacks the Dark night rule")
+        val readmeText = File(root, "README.md").readText()
+        assertTrue(!readmeText.contains("Dark has no role"), "README still says Dark has no role")
+        val readme = readmeText.lines()
+        assertTrue(readme.any { it.startsWith("| Dark | Sentry |") }, "README roles table has no Sentry row")
+        val rolesText = File(root, "docs/roles.md").readText()
+        assertTrue(!rolesText.contains("Dark has no role"), "docs/roles.md still says Dark has no role")
+        val roles = rolesText.lines()
+        assertTrue(roles.any { it.startsWith("| Sentry | Dark |") }, "docs/roles.md has no table row of the Sentry")
+        assertTrue(roles.any { it.startsWith("| Dark |") && "Sentry" in it }, "docs/roles.md type index has no Sentry in its Dark row")
+        val lang = JsonParser.parseString(
+            File(root, "src/main/resources/assets/cobblemon_dynamics/lang/en_us.json").readText(),
+        ).asJsonObject
+        assertTrue(lang.get("cobblemon_dynamics.role.sentry")?.asString == "Sentry", "en_us.json lacks cobblemon_dynamics.role.sentry")
+    }
+
     private fun assertSections(names: List<String>) {
         val headings = guide.readLines().mapNotNull { HEADING.matchEntire(it)?.groupValues?.get(1) }
         val missing = names.filterNot { name -> headings.any { it.equals(name, ignoreCase = true) } }
