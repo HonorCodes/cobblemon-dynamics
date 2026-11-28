@@ -38,9 +38,11 @@ reaches the other AE2 blocks through NeoForge's energy and item capabilities and
 
 ## Defaults on a shared server
 
-- **Work Mode is off.** A pasture works only after its owner or an operator turns Work Mode on in the pasture panel. The
-  Cobblemon of a pasture with Work Mode off do no work for this mod, and the pasture keeps its Cobbleworkers and Cobblebase
-  jobs.
+- **Work Mode is off.** A pasture works only after an authorized controller turns Work Mode on in the pasture panel. While
+  unlocked (the default), the placer, operators, teammates in FTB Teams or an Open Parties and Claims party, and players
+  with a Cobblemon tethered in that pasture can control Work Mode and Work Leash bindings; turning on Access Lock limits
+  control to the placer, teammates and operators. The Cobblemon of a pasture with Work Mode off do no work for this mod,
+  and the pasture keeps its Cobbleworkers and Cobblebase jobs.
 - **Quick Work is on.** A player who sends out a party Cobblemon with R while aiming at a machine gives it a work order on
   that machine. The order ends for good when the owner goes more than `quickWork.leashRange` (16 blocks) from the
   machine, or for another reason that [the player guide](player-guide.md#when-quick-work-stops) lists. Before an order
@@ -48,10 +50,12 @@ reaches the other AE2 blocks through NeoForge's energy and item capabilities and
   gets no order.
 - **Quick Work and pastures respect the land claims of FTB Chunks, Open Parties and Claims and MineColonies.** Before a
   Quick Work order starts, the server asks each installed claim mod whether the owner may right-click the machine with an
-  empty hand. It asks again every 20 ticks while the order runs, and it ends the order when the answer becomes no. The
-  workers of a Work Mode pasture ask about the pasture's owner, the player who placed the pasture block, also while that
-  player is offline. Each claim mod's own rules decide, so the members of a claim's team, party or colony can use its
-  machines, and its allies can where its rules allow them. [Claim mods](#claim-mods) gives the details.
+  empty hand. It asks again every 20 ticks while the order runs, and it ends the order when the answer becomes no. Each
+  worker of a Work Mode pasture asks about the deduplicated non-null actors `{placer, pokemonOwner, binder}` by UUID,
+  passing in a claim mod when at least one of those actors passes there, also while offline or in another dimension.
+  Roles that break or replace blocks (the Harvester, the Lumberjack and the Freezer) also ask the break check before
+  claiming. Each claim mod's own rules decide, so the members of a claim's team, party or colony can use its machines,
+  and its allies can where its rules allow them. [Claim mods](#claim-mods) gives the details.
 - **Other claim mods do not see Quick Work or the pastures.** Neither makes a block click. Quick Work traces the player's
   view on the server, and a pasture works its machines directly. A claim mod that only cancels block clicks therefore does
   not stop them. On a server with such a mod, set `quickWork.enabled = false` in the server config, and keep the work
@@ -79,14 +83,19 @@ FTB Chunks copies the steps of its player check. A later FTB Chunks that changes
 an error. Run `runGameTestServerFtbChunks` with a new FTB Chunks before a pack ships it.
 
 **Whose rights decide.** Quick Work asks about the owner of the order, the online player who sent the Cobblemon out. A Work
-Mode pasture asks about its owner, the player who placed the pasture block, by UUID. That player gets the same answer
-online and offline. A pasture with no owner works no block in a land claim.
+Mode pasture asks about each worker's deduplicated non-null actors `{placer, pokemonOwner, binder}`, by UUID: a check
+passes in a claim mod when at least one of those actors passes, online or offline. Shared pasture teammate access reads
+`FTBTeamsAPI` when `ftbteams` is loaded and `OpenPACServerAPI` party membership when `openpartiesandclaims` is loaded,
+each guarded so a failure logs once and denies teammate access without breaking the pasture.
 
-**What the pastures check.** The work engine asks the pasture check of each claim mod at three points:
+**What the pastures check.** The work engine asks the pasture check of each claim mod at these points:
 
-- after each scan pass, for each target that the pass found, before it offers the targets to the workers
+- after each scan pass, for each target and worker actor set, before it offers the targets to the workers (plus the
+  break check before claiming for the Harvester, the Lumberjack and the Freezer)
 - on each poll of the pasture, every 20 ticks, for each claim, bound target and Telekinesis destination of its workers
+  (and the break check before claiming a bound Harvester or Lumberjack target)
 - in the choice of a bed, for each bed of the work area
+- in the tick of each harvest, tree fell or water freeze, for both use and break permissions
 
 A refused target gets no worker, and a worker gets no message for it. A claim on a machine or a bed that the owner may no
 longer use ends within 20 ticks. A Work Leash binding on such a block clears, and the binder gets a chat message with the

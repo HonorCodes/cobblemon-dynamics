@@ -33,6 +33,7 @@ class CompatImportsTest {
         }
         val mod = File(root, "src/main/kotlin/codes/honor/cobblemondynamics/CobblemonDynamics.kt").readText()
         assertTrue("if (ModList.get().isLoaded(\"ftbchunks\")) FtbChunksCompat.register()" in mod)
+        assertTrue("if (ModList.get().isLoaded(\"ftbteams\")) FtbTeamsCompat.register()" in mod)
         assertTrue("if (ModList.get().isLoaded(\"openpartiesandclaims\")) OpacCompat.register()" in mod)
     }
 

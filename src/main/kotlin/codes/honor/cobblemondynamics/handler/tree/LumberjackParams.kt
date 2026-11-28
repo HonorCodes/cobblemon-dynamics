@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.handler.tree
 
+import codes.honor.cobblemondynamics.role.RoleDefinition
 import com.google.gson.JsonObject
 
 /** The Lumberjack's numbers in its role file (CD-LUM-26). */
@@ -18,6 +19,8 @@ data class LumberjackParams(
         private const val BLOCKS_PER_TICK = "blocks_per_tick"
 
         val DEFAULT = LumberjackParams(20, 5, 256, 1_024, 128)
+
+        fun from(role: RoleDefinition): LumberjackParams = of(role.params)
 
         /** The five numbers of the role file, each with its default when the file lacks it or gives another type. */
         fun of(params: JsonObject): LumberjackParams = LumberjackParams(

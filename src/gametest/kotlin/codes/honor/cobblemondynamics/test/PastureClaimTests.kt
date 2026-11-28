@@ -5,20 +5,31 @@ import codes.honor.cobblemondynamics.bed.BedTier
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.handler.farming.CropFactsReader
+import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
+import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
+import codes.honor.cobblemondynamics.role.RoleRegistry
 import codes.honor.cobblemondynamics.stamina.StaminaMath
+import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.AttachedStemBlock
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.entity.ChestBlockEntity
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf
+import net.minecraft.world.level.block.state.properties.Property
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
@@ -336,6 +347,148 @@ class PastureClaimTests {
             val claim = TestKit.claimOf(helper, fire)
             helper.assertFalse(claim?.key == TestKit.keyOf(helper, a), "CD-LND-11: the Charmander claimed furnace A, whose check throws")
             if (helper.tick >= 400) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-07: placer A places a shared Work Mode pasture. Furnace B allows only player B and furnace C allows only stranger C.
+     * B's Charmander works furnace B through its own owner UUID, A's unbound Charmander never claims furnace B, and neither claims C.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800, batch = BATCH)
+    fun cdTeam07SharedPastureChecksPlacerPokemonOwnerAndBinder(helper: GameTestHelper) {
+        val a = TestKit.owner(helper, "placer_a")
+        val b = TestKit.owner(helper, "owner_b")
+        val c = TestKit.owner(helper, "stranger_c")
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), a)
+        TestKit.workMode(pasture, true)
+        val furnaceB = TestKit.furnace(helper, BlockPos(4, 1, 3), ItemStack(Items.RAW_IRON, 64)).blockPos.immutable()
+        val furnaceC = TestKit.furnace(helper, BlockPos(10, 1, 3), ItemStack(Items.RAW_IRON, 64)).blockPos.immutable()
+        TestLandClaims.allowedActors[furnaceB] = setOf(b.uuid)
+        TestLandClaims.allowedActors[furnaceC] = setOf(c.uuid)
+        TestKit.afterTest(helper) {
+            TestLandClaims.allowedActors.remove(furnaceB)
+            TestLandClaims.allowedActors.remove(furnaceC)
+        }
+        val bWorker = TestKit.tether(helper, pasture, b, "charmander level=10")
+        val aWorker = TestKit.tether(helper, pasture, a, "charmander level=10")
+        helper.onEachTick {
+            val aClaim = TestKit.claimOf(helper, aWorker)
+            val bClaim = TestKit.claimOf(helper, bWorker)
+            helper.assertFalse(aClaim?.key == TestKit.keyOf(helper, furnaceB), "CD-TEAM-07: A's unbound worker claimed B's furnace")
+            helper.assertFalse(aClaim?.key == TestKit.keyOf(helper, furnaceC), "CD-TEAM-07: A's worker claimed stranger C's furnace")
+            helper.assertFalse(bClaim?.key == TestKit.keyOf(helper, furnaceC), "CD-TEAM-07: B's worker claimed stranger C's furnace")
+            if (isWorkingAt(helper, bWorker, furnaceB) && helper.tick >= 200) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-08: ripe wheat and a freezable water source allow use and refuse break. Neither the Harvester nor the Freezer claims or
+     * travels to them until break permission is restored, after which both complete their work.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_200, batch = BATCH)
+    fun cdTeam08UnbreakableCropAndWaterAreNotClaimed(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val soilRel = BlockPos(3, 1, 3)
+        val wheatRel = BlockPos(3, 2, 3)
+        helper.setBlock(soilRel, Blocks.FARMLAND)
+        helper.setBlock(wheatRel, Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7))
+        val waterRel = BlockPos(11, 1, 11)
+        helper.setBlock(waterRel.below(), Blocks.STONE)
+        for (side in listOf(waterRel.north(), waterRel.south(), waterRel.east(), waterRel.west())) helper.setBlock(side, Blocks.STONE)
+        helper.setBlock(waterRel, Blocks.WATER)
+        val wheatPos = refuse(helper, helper.absolutePos(wheatRel), TestLandClaims.refusedBreak)
+        val waterPos = refuse(helper, helper.absolutePos(waterRel), TestLandClaims.refusedBreak)
+        val grass = TestKit.tether(helper, scene.pasture, scene.owner, "chikorita level=50")
+        val ice = TestKit.tether(helper, scene.pasture, scene.owner, "snom level=100")
+        var allowed = false
+        helper.onEachTick {
+            if (!allowed) {
+                helper.assertTrue(TestKit.claimOf(helper, grass) == null, "CD-TEAM-08: Harvester claimed unbreakable wheat")
+                helper.assertTrue(TestKit.claimOf(helper, ice) == null, "CD-TEAM-08: Freezer claimed unbreakable water")
+                helper.assertFalse(TestKit.workerOf(helper, grass)?.status == WorkerStatus.TRAVELING, "Harvester traveled to refused wheat")
+                helper.assertFalse(TestKit.workerOf(helper, ice)?.status == WorkerStatus.TRAVELING, "Freezer traveled to refused water")
+                if (helper.tick < 250) return@onEachTick
+                TestLandClaims.refusedBreak.remove(wheatPos)
+                TestLandClaims.refusedBreak.remove(waterPos)
+                TestKit.workerOf(helper, grass)?.skipUntil?.clear()
+                TestKit.workerOf(helper, ice)?.skipUntil?.clear()
+                allowed = true
+                return@onEachTick
+            }
+            val harvested = helper.getBlockState(wheatRel).let { it.`is`(Blocks.WHEAT) && it.getValue(CropBlock.AGE) < 7 }
+            val frozen = helper.getBlockState(waterRel).`is`(Blocks.ICE)
+            if (harvested && frozen) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-08: HarvesterHandler.breakTargets checks the fruit cell of a gourd (allowing a protected stem with an editable pumpkin and
+     * refusing an editable stem with a protected pumpkin) and the upper cell of a two-block crop.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800, batch = BATCH)
+    fun cdTeam08MultiCellGourdAndTwoBlockCropBreakPreflight(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val attached = Blocks.ATTACHED_PUMPKIN_STEM.defaultBlockState().setValue(AttachedStemBlock.FACING, Direction.EAST)
+
+        val stem1Rel = BlockPos(2, 2, 3)
+        val pumpkin1Rel = stem1Rel.east()
+        helper.setBlock(stem1Rel.below(), Blocks.FARMLAND)
+        helper.setBlock(stem1Rel, attached)
+        helper.setBlock(pumpkin1Rel, Blocks.PUMPKIN)
+        refuse(helper, helper.absolutePos(stem1Rel), TestLandClaims.refusedBreak)
+
+        val stem2Rel = BlockPos(10, 2, 3)
+        val pumpkin2Rel = stem2Rel.east()
+        helper.setBlock(stem2Rel.below(), Blocks.FARMLAND)
+        helper.setBlock(stem2Rel, attached)
+        helper.setBlock(pumpkin2Rel, Blocks.PUMPKIN)
+        val pumpkin2Abs = refuse(helper, helper.absolutePos(pumpkin2Rel), TestLandClaims.refusedBreak)
+
+        val grainsLowerRel = BlockPos(7, 2, 11)
+        val grainsUpperRel = grainsLowerRel.above()
+        val grainsBase = CobblemonBlocks.HEARTY_GRAINS.defaultBlockState()
+        val ageProp = CropFactsReader.ageProperty(grainsBase) ?: throw GameTestAssertException("Hearty Grains has no age property")
+
+        @Suppress("UNCHECKED_CAST")
+        val halfProp = grainsBase.properties.first { it.name == "half" } as Property<DoubleBlockHalf>
+        val maxAge = ageProp.possibleValues.max()
+        helper.setBlock(grainsLowerRel.below(), Blocks.DIRT)
+        val flags = Block.UPDATE_CLIENTS or Block.UPDATE_KNOWN_SHAPE
+        helper.level.setBlock(
+            helper.absolutePos(grainsLowerRel),
+            grainsBase.setValue(ageProp, maxAge).setValue(halfProp, DoubleBlockHalf.LOWER),
+            flags,
+        )
+        helper.level.setBlock(
+            helper.absolutePos(grainsUpperRel),
+            grainsBase.setValue(ageProp, maxAge).setValue(halfProp, DoubleBlockHalf.UPPER),
+            flags,
+        )
+        val grainsLowerAbs = helper.absolutePos(grainsLowerRel)
+        val grainsUpperAbs = refuse(helper, helper.absolutePos(grainsUpperRel), TestLandClaims.refusedBreak)
+
+        val harvesterRole = RoleRegistry.current.get(id("harvester"))!!.definition
+        helper.assertTrue(
+            HarvesterHandler.breakTargets(helper.level, helper.absolutePos(stem1Rel), harvesterRole) ==
+                listOf(helper.absolutePos(pumpkin1Rel)),
+            "gourd breakTargets did not return only the fruit cell",
+        )
+        helper.assertTrue(
+            HarvesterHandler.breakTargets(helper.level, grainsLowerAbs, harvesterRole) == listOf(grainsUpperAbs),
+            "upper-half two-block crop breakTargets did not return canonical.above()",
+        )
+
+        val grass = TestKit.tether(helper, scene.pasture, scene.owner, "chikorita level=50")
+        val stem2Key = TestKit.keyOf(helper, helper.absolutePos(stem2Rel), "harvester")
+        val grainsKey = TestKit.keyOf(helper, grainsLowerAbs, "harvester")
+        helper.onEachTick {
+            val claim = TestKit.claimOf(helper, grass)
+            helper.assertFalse(claim?.key == stem2Key, "CD-TEAM-08: Harvester claimed stem with break-protected pumpkin $pumpkin2Abs")
+            helper.assertFalse(claim?.key == grainsKey, "CD-TEAM-08: Harvester claimed two-block crop with break-protected upper half")
+            if (!helper.getBlockState(pumpkin1Rel).`is`(Blocks.PUMPKIN) && helper.tick >= 200) {
+                helper.assertTrue(helper.getBlockState(pumpkin2Rel).`is`(Blocks.PUMPKIN), "protected pumpkin 2 was broken")
+                helper.succeed()
+            }
         }
     }
 

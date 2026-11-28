@@ -4,6 +4,7 @@ import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.id
+import codes.honor.cobblemondynamics.role.RoleDefinition
 import com.cobblemon.mod.common.block.ApricornBlock
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
@@ -36,6 +37,16 @@ object HarvesterHandler : TargetHandler {
 
     /** CD-CRP-10: an auto-assigned worker goes crop to crop. */
     override val releasesWhenDone: Boolean = true
+
+    override val breaksBlocks: Boolean = true
+
+    override fun breakTargets(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): List<BlockPos> {
+        val state = level.getBlockState(canonical)
+        val facts = CropFactsReader.read(level, canonical, state)
+        val kind = CropAdapters.harvestKind(facts)
+        val facing = state.getOptionalValue(AttachedStemBlock.FACING).orElse(null)
+        return HarvestPlans.breakCells(canonical, kind, facts.upperPresent, facing)
+    }
 
     /** CD-HRV-03: an apricorn first, also one that a datapack adds to the tag. Both halves of a crop share its block. */
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean {

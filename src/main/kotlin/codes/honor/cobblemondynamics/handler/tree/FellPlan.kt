@@ -28,6 +28,9 @@ data class FellPlan(
     /** The steps of each tick: at most [blocksPerTick] (CD-LUM-14). */
     fun batches(blocksPerTick: Int): List<List<FellStep>> = steps.chunked(blocksPerTick.coerceAtLeast(1))
 
+    /** Every cell that the fell removes or detaches a hanging entity from (CD-TEAM-08). */
+    fun breakCells(hanging: List<BlockPos> = emptyList()): List<BlockPos> = (steps.map(FellStep::pos) + questions + hanging).distinct()
+
     /** One chunk and one block id, which a claim mod answers alike for each block. */
     private data class Question(val chunkX: Int, val chunkZ: Int, val blockId: ResourceLocation)
 

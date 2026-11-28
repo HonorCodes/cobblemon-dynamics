@@ -33,6 +33,8 @@ class FellClock {
         stalled(REFUSED_WAIT_TICKS)
     }
 
+    val isCountingDown: Boolean get() = dueAt != null
+
     fun isRefused(now: Long): Boolean = now < refusedUntil
 
     companion object {

@@ -128,6 +128,47 @@ object LumberjackHandler : TargetHandler {
     /** CD-ASG-25: the fell and the replant change the base cell. */
     override val growsTrees: Boolean = true
 
+    override val breaksBlocks: Boolean = true
+
+    override fun breakTargets(level: ServerLevel, canonical: BlockPos, role: RoleDefinition): List<BlockPos> {
+        val reader = TreeFactsReader(level)
+        val failed: (Throwable) -> Unit = { e ->
+            warnings.warn("shell:${e.javaClass.name}") { "The Lumberjack plans no fell at $canonical, because a block's check fails: $e" }
+        }
+        return breakTargets(
+            cells = reader::facts,
+            canonical = canonical,
+            role = role,
+            dynamicTrees = dynamicTrees != null,
+            shellOf = { tree ->
+                ShellRule.shell(tree, { pos -> standing(level, pos) }, failed) { pos, gone -> stands(level, tree, gone, pos) }
+            },
+            hangingOf = { tree, shell ->
+                hangingOn(level, tree.cells + shell).map { it.pos to BuiltInRegistries.ENTITY_TYPE.getKey(it.type) }
+            },
+        )
+    }
+
+    internal fun breakTargets(
+        cells: (BlockPos) -> CellFacts,
+        canonical: BlockPos,
+        role: RoleDefinition,
+        dynamicTrees: Boolean = false,
+        shellOf: (Tree) -> Set<BlockPos>? = { emptySet() },
+        hangingOf: (Tree, Set<BlockPos>) -> List<Pair<BlockPos, ResourceLocation>> = { _, _ -> emptyList() },
+    ): List<BlockPos> {
+        val baseFacts = cells(canonical)
+        if (!baseFacts.logTarget) return emptyList()
+        val params = LumberjackParams.from(role)
+        val tree = TreeRules.treeOn(cells, canonical, params.maxLogs, params.maxLeaves, dynamicTrees) ?: return listOf(canonical)
+        if (TreeRules.feller(baseFacts, dynamicTrees) == null) return listOf(canonical)
+        val shell = shellOf(tree) ?: return listOf(canonical)
+        val hanging = hangingOf(tree, shell)
+        return FellPlan.of(tree, shell, hanging) { cells(it).blockId }.breakCells(hanging.map { it.first })
+    }
+
+    internal fun hasActiveRun(memo: ClaimMemo): Boolean = (memo.value as? Memo)?.run != null
+
     /** The claim follows the binding, so a claim on a sapling stays while the worker waits for the tree. */
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = bindingHolds(level, canonical)
 
@@ -153,12 +194,19 @@ object LumberjackHandler : TargetHandler {
         return stillValid(level, canonical)
     }
 
-    /** CD-LUM-10, CD-LUM-13: a tree stands on the base cell, and no claim check refused its fell lately. A started fell completes. */
+    /** CD-LUM-10, CD-LUM-13, CD-TEAM-08: a tree stands on the base cell, and claim use and break checks allow its fell. */
     override fun hasDemand(ctx: WorkContext): Boolean {
         val memo = memoOf(ctx)
         if (memo.run != null) return true
         if (memo.clock.isRefused(ctx.now)) return false
-        return memo.tree(ctx) != null
+        if (memo.tree(ctx) == null) return false
+        if (memo.clock.isCountingDown) return true
+        val planned = fell(ctx.level, ctx.target, LumberjackParams.from(ctx.role))
+        if (planned == null || !FellPlan.allowed(planned.plan, ctx.mayChange, ctx.mayBreak) || !planned.breakCells.all(ctx.mayBreak)) {
+            memo.clock.refuse(ctx.now, ctx.stalled)
+            return false
+        }
+        return true
     }
 
     /** CD-LUM-11: the fell comes T ticks of Working for each log after this start. */
@@ -177,11 +225,11 @@ object LumberjackHandler : TargetHandler {
         }
         if (!memo.clock.isFellTick(ctx.now)) return
         memo.wait.forget()
-        val params = LumberjackParams.of(ctx.role.params)
+        val params = LumberjackParams.from(ctx.role)
         // CD-LUM-12, CD-LUM-13, CD-LUM-29: every question in this tick, before any block changes. A refusal, or a tree that gets no
         // plan, changes nothing and waits.
         val fell = fell(ctx.level, ctx.target, params)
-        if (fell == null || !FellPlan.allowed(fell.plan, ctx.mayChange, ctx.mayBreak)) {
+        if (fell == null || !FellPlan.allowed(fell.plan, ctx.mayChange, ctx.mayBreak) || !fell.breakCells.all(ctx.mayBreak)) {
             memo.clock.refuse(ctx.now, ctx.stalled)
             return
         }
@@ -220,15 +268,13 @@ object LumberjackHandler : TargetHandler {
     /** The fell of the tree on [base], with its shell, or null when no tree within the role's limits stands there. GameTests read it. */
     fun plan(level: ServerLevel, base: BlockPos, params: LumberjackParams): FellPlan? = fell(level, base, params)?.plan
 
-    /** A fell, the item frames and paintings that it takes (CD-LUM-30), and who fells it (CD-LUM-25). */
-    private class Fell(val plan: FellPlan, val hanging: List<HangingEntity>, val feller: Feller)
+    private class Fell(val plan: FellPlan, val breakCells: List<BlockPos>, val hanging: List<HangingEntity>, val feller: Feller)
 
     private fun fell(level: ServerLevel, base: BlockPos, params: LumberjackParams): Fell? {
         val reader = TreeFactsReader(level)
         val hook = dynamicTrees != null
         val tree = TreeRules.treeOn(reader::facts, base, params.maxLogs, params.maxLeaves, hook) ?: return null
         val feller = TreeRules.feller(reader.facts(base), hook) ?: return null
-        // CD-LUM-29: a block of another mod whose check throws plans no fell of this tree, and never turns the role off.
         val failed: (Throwable) -> Unit = { e ->
             warnings.warn("shell:${e.javaClass.name}") { "The Lumberjack plans no fell at $base, because a block's check fails: $e" }
         }
@@ -236,7 +282,9 @@ object LumberjackHandler : TargetHandler {
             ?: return null
         val hanging = hangingOn(level, tree.cells + shell)
         val cells = hanging.map { it.pos to BuiltInRegistries.ENTITY_TYPE.getKey(it.type) }
-        return Fell(FellPlan.of(tree, shell, cells) { reader.facts(it).blockId }, hanging, feller)
+        val fPlan = FellPlan.of(tree, shell, cells) { reader.facts(it).blockId }
+        val breakCells = fPlan.breakCells(hanging.map { it.pos })
+        return Fell(fPlan, breakCells, hanging, feller)
     }
 
     /**
@@ -503,7 +551,7 @@ object LumberjackHandler : TargetHandler {
         fun tree(ctx: WorkContext): Tree? {
             val base = TreeFactsReader.stateOf(ctx.level, ctx.target)
             return wait.tree(ctx.now, baseIsLog = base != null && base.`is`(TreeFactsReader.TARGETS)) {
-                val params = LumberjackParams.of(ctx.role.params)
+                val params = LumberjackParams.from(ctx.role)
                 TreeRules.treeOn(TreeFactsReader(ctx.level)::facts, ctx.target, params.maxLogs, params.maxLeaves, dynamicTrees != null)
             }
         }

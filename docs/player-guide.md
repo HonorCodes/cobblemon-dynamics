@@ -34,10 +34,13 @@ setting when the world saves.
 2. Click the Work Mode button. It sits directly above the **Recall** button.
 
 The button shows the current state: **Work Mode: On** or **Work Mode: Off**. It works only while you stay
-less than 10 blocks from the pasture block. The pasture's owner is the player who placed it. Only the owner
-and operators can click the button. Other players see the button disabled, with the tooltip "Only the
-pasture's owner can change Work Mode". A pasture with no recorded owner, for example one set with
-`/setblock`, accepts changes from operators only. Break it and place it again to become its owner.
+less than 10 blocks from the pasture block. The pasture's owner is the player who placed it. While the pasture
+is unlocked (the default), the owner, operators, teammates in the same FTB Teams team or Open Parties and Claims
+party, and any player who currently has a Cobblemon tethered in that pasture can change Work Mode. On a pasture
+with no recorded owner, for example one set with `/setblock`, operators and players with a Cobblemon tethered in
+that pasture can change Work Mode while it is unlocked. When Access Lock is on, only the owner, teammates and
+operators can change Work Mode (or operators alone when the pasture has no owner). Other players see the button
+disabled.
 
 ### Workers
 
@@ -78,8 +81,13 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
   it for 5 minutes.
 - When two roles fit one target, the role with the higher priority wins. For example, the Brew Stoker wins
   over the Brewer.
-- A Fairy-type never takes a target on its own. With no binding, it is a [healer](#healers). The
-  [Pump](#pump) and the [Muse](#muse) work only through the Work Leash.
+- A pure Fairy-type never takes a target on its own: with no binding, it is a [healer](#healers). An unbound
+  dual-type Fairy Cobblemon (such as Water and Fairy) heals first whenever a pasture ally needs a heal and the
+  Fairy worker has enough Work Stamina for a heal (25% by default, reduced by its trait multipliers); when no
+  ally needs a heal (or the Fairy worker lacks the stamina for a heal and is not Tired), it takes auto-assigned
+  roles of its non-Fairy type, and leaves that auto-assigned target on the next scan as soon as an ally needs
+  healing and it can afford the heal. The [Pump](#pump) and the [Muse](#muse) work only through the
+  Work Leash.
 
 ### Turn Work Mode off
 
@@ -116,15 +124,15 @@ the worker. Work effects play no sound.
 
 ## Work Leash
 
-The Work Leash binds one of your pastured Cobblemon to a target that you choose.
+The Work Leash binds a pastured Cobblemon in a pasture that you may control to a target that you choose.
 
 **Recipe:** shapeless, 1 Lead and 1 Poké Ball.
 
 ### Bind a Cobblemon to a target
 
 1. Hold the Work Leash in your main hand.
-2. Right-click your Cobblemon in a pasture with Work Mode on. The action bar shows "Selected {Cobblemon}", and
-   the leash's tooltip names the Cobblemon.
+2. Right-click a Cobblemon in a pasture with Work Mode on that you may control. The action bar shows
+   "Selected {Cobblemon}", and the leash's tooltip names the Cobblemon.
 3. Right-click the target. The action bar shows "Bound {Cobblemon} to {target}". The target does not open its
    own screen.
 
@@ -167,9 +175,11 @@ When a bind fails, the action bar shows why:
 
 ### Clear a binding
 
-Sneak and right-click your bound Cobblemon with the Work Leash. The action bar shows "Cleared the binding of
-{Cobblemon}". A click with the leash on your own Cobblemon never opens Cobblemon's interaction wheel and never
-mounts the Cobblemon.
+Sneak and right-click a bound Cobblemon with the Work Leash. Any player who may control the pasture can clear
+its workers' bindings, and a Cobblemon's own owner can always sneak and right-click that Cobblemon to clear its
+binding even when the pasture is locked. The action bar shows "Cleared the binding of {Cobblemon}". A click with
+the leash on your own Cobblemon or an active worker never opens Cobblemon's interaction wheel and never mounts
+the Cobblemon.
 
 A binding also clears in the cases below. The player who bound the Cobblemon then gets the chat message
 "{Cobblemon} lost its work binding: {reason}". If that player is offline, the message waits for their next login. The
@@ -196,9 +206,9 @@ come back, ask an operator to run `/cobblemondynamics unbind` on the block.
 ### Flip a water wheel or a hand crank
 
 Hold the Work Leash, then sneak and right-click a water wheel or a hand crank that a worker turns. Its
-direction reverses at once. The player who bound the worker, the owner of the worker's pasture and operators
-can flip it. Each wheel and each crank keeps its own direction, also through restarts and when another
-worker takes over.
+direction reverses at once. Any player who may currently control the worker's pasture (or, for Quick Work,
+the Cobblemon's owner or an operator) can flip it. Each wheel and each crank keeps its own direction, also through
+restarts and when another worker takes over.
 
 The same click switches a fan that a Fan Catalyst works between blasting and smoking (see [Fan Catalyst
 Fire](#fan-catalyst-fire)).
@@ -207,7 +217,8 @@ Fire](#fan-catalyst-fire)).
 
 - A Work Stamina bar and a state icon show over each worker within 16 blocks of you. The client config key
   `hud.headBarRange` changes this distance.
-- The targets of your own bound workers show an outline. The targets of other players' workers show none.
+- The targets of your own bound workers, and the bound targets of shared pastures that you may control, show an
+  outline. Other players' targets show none.
 
 ## Quick Work
 
@@ -271,9 +282,13 @@ Each claim mod decides with its own rules who may use a block. A Cobblemon works
 lets the right player right-click that block with an empty hand:
 
 - **Quick Work** asks about you, the owner of the Cobblemon that you send out.
-- **A Work Mode pasture** asks about the owner of the pasture, the player who placed the pasture block. Its workers work
-  a machine only if the claim lets that player right-click the machine. This holds also while you are offline: your
-  pasture keeps your rights when you log out, and it never gets more rights than you have.
+- **A Work Mode pasture** asks about the owner of the pasture (the player who placed the pasture block), the owner of
+  that worker's Cobblemon, and, for a bound worker, the player who placed the binding. A worker can use a block in a
+  claim when at least one of those players is allowed to right-click that block by every loaded claim mod, and roles
+  that break or replace a block (the Harvester, the Lumberjack and the Freezer) also require that at least one of those
+  players pass every loaded claim mod's block-break check across every broken block before the worker claims the target.
+  This holds also while you are offline or in another dimension: your pasture and your pastured Cobblemon keep your
+  rights when you log out, and never get more rights than those players have.
 
 ### What each claim mod allows
 
@@ -297,16 +312,19 @@ claim of FTB Chunks, but not in a land claim of Open Parties and Claims.
 - **Quick Work.** A refused send-out stays a normal one, and the action bar shows a message such as "You may not use
   Furnace". While the Cobblemon works, Quick Work checks your right again every 20 ticks (1 second), and the work stops
   when the right is gone.
-- **Pastures.** A worker skips a machine that its pasture's owner may not use. Nobody gets a message for that. When the
-  right ends, a worker lets go of the machine or the bed that it holds within 20 ticks. A Tired worker takes no bed that
-  the owner may not use, and rests where it stands if no other bed is free.
-- **Work Leash bindings.** A binding to a block that the pasture's owner may not use ends within 20 ticks, and the binder
+- **Pastures.** A worker skips a target that none of its actors (the pasture's owner, the Cobblemon's owner or its
+  binder) may use, and block-breaking roles (the Harvester, the Lumberjack and the Freezer) also skip any target that
+  none of those actors may break before walking to it. Nobody gets a message for that. When the right ends, a worker
+  lets go of the machine or the bed that it holds within 20 ticks. A Tired worker takes no bed that none of its actors
+  may use, and rests where it stands if no other bed is free.
+- **Work Leash bindings.** A binding to a block that none of those actors may use ends within 20 ticks, and the binder
   gets a chat message such as "Charmander lost its work binding: the owner of its pasture may not use its target". For
   Telekinesis, the destination counts too.
 
 ### Limits
 
-- A pasture with no owner works no block in a land claim.
+- A pasture with no owner still checks each worker's Cobblemon owner and binder; an ownerless worker with no actor works
+  no block in a land claim.
 - If a claim mod fails with an error, for example after an update that changes its code, Quick Work refuses every order,
   and the pastures work no target, also outside land claims. The log holds one warning for each kind of error. Install a
   tested version of the claim mod, or a release of Cobblemon Dynamics that supports the installed one.

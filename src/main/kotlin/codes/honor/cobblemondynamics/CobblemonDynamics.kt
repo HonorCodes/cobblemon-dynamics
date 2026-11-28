@@ -23,6 +23,7 @@ import codes.honor.cobblemondynamics.compat.enchantinginfuser.EnchantingInfuserC
 import codes.honor.cobblemondynamics.compat.experiencelib.ExperienceLibCompat
 import codes.honor.cobblemondynamics.compat.forbidden_arcanus.ForbiddenArcanusCompat
 import codes.honor.cobblemondynamics.compat.ftbchunks.FtbChunksCompat
+import codes.honor.cobblemondynamics.compat.ftbchunks.FtbTeamsCompat
 import codes.honor.cobblemondynamics.compat.immersiveengineering.IeCompat
 import codes.honor.cobblemondynamics.compat.ironfurnaces.IronFurnacesCompat
 import codes.honor.cobblemondynamics.compat.irons_spellbooks.IronsSpellbooksCompat
@@ -136,6 +137,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("create")) CreateCompat.register(modBus)
         // CD-QWK-33: each claim compat class loads only when its mod is present.
         if (ModList.get().isLoaded("ftbchunks")) FtbChunksCompat.register()
+        if (ModList.get().isLoaded("ftbteams")) FtbTeamsCompat.register()
         if (ModList.get().isLoaded("openpartiesandclaims")) OpacCompat.register()
         if (ModList.get().isLoaded("minecolonies")) MineColoniesCompat.register()
         // CD-MUS-07: the Muse's stats hook in Apothic Enchanting must apply before the role files load.

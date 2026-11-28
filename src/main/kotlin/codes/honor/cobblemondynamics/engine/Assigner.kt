@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.engine
 
 import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.role.RoleDefinition
 import codes.honor.cobblemondynamics.role.RoleSelection
 import net.minecraft.world.phys.Vec3
@@ -13,6 +14,11 @@ data class WorkerView(
     val types: Set<String>,
     val hasFairyType: Boolean,
     val tired: Boolean,
+    val staminaFraction: Double = 1.0,
+    val allyNeedsHeal: Boolean = false,
+    val settings: EngineSettings = EngineSettings.DEFAULT,
+    val healMultiplier: Double = 1.0,
+    val isMajestic: Boolean = false,
     val isSkipped: (TargetKey) -> Boolean,
 )
 
@@ -27,6 +33,7 @@ data class CandidateView(
     val roles: List<RoleDefinition>,
     val needsDemand: Boolean = false,
     val demandOf: (RoleDefinition) -> Boolean = { true },
+    val mayClaimRole: (RoleDefinition) -> Boolean = { true },
     val hasDemand: () -> Boolean,
 )
 
@@ -36,13 +43,11 @@ object Assigner {
      * CD-ASG-03: the nearest free target of an auto-assign role the worker can do. A role that releases its claim when done takes only
      * a target with demand, or the worker would claim a fully grown crop again on each scan pass (CD-CRP-10).
      */
-    fun pickForIdle(w: WorkerView, candidates: List<CandidateView>, isFree: (TargetKey) -> Boolean): Pair<CandidateView, RoleDefinition>? =
-        if (!mayAutoAssign(w)) {
-            null
-        } else {
-            // Nearest first, so the demand of a releasing role, such as the Freezer's whole test, runs only until a target has it.
-            options(w, candidates, isFree).firstOrNull { (candidate, _) -> !candidate.needsDemand || candidate.hasDemand() }
-        }
+    fun pickForIdle(w: WorkerView, candidates: List<CandidateView>, isFree: (TargetKey) -> Boolean): Pair<CandidateView, RoleDefinition>? {
+        val autoTypes = autoTypesOf(w)
+        if (autoTypes.isEmpty()) return null
+        return options(w, autoTypes, candidates, isFree).firstOrNull { (candidate, _) -> !candidate.needsDemand || candidate.hasDemand() }
+    }
 
     /** CD-ASG-19: the nearest free target with demand, for an auto worker that waited in Standby long enough. */
     fun pickForStandbyMove(
@@ -50,29 +55,46 @@ object Assigner {
         current: TargetKey,
         candidates: List<CandidateView>,
         isFree: (TargetKey) -> Boolean,
-    ): Pair<CandidateView, RoleDefinition>? = if (!mayAutoAssign(w)) {
-        null
-    } else {
-        options(w, candidates.filter { it.key != current }, isFree).firstOrNull { (candidate, _) -> candidate.hasDemand() }
+    ): Pair<CandidateView, RoleDefinition>? {
+        val autoTypes = autoTypesOf(w)
+        if (autoTypes.isEmpty()) return null
+        return options(
+            w,
+            autoTypes,
+            candidates.filter {
+                it.key != current
+            },
+            isFree,
+        ).firstOrNull { (candidate, _) -> candidate.hasDemand() }
     }
 
-    // CD-ASG-04: a Fairy type heals and never takes a machine through an auto claim. CD-STA-09: a Tired worker takes none.
-    private fun mayAutoAssign(w: WorkerView): Boolean = !w.tired && !w.hasFairyType
+    private fun autoTypesOf(w: WorkerView): Set<String> = DualFairyRule.autoAssignTypes(
+        types = w.types,
+        hasFairyType = w.hasFairyType,
+        leashed = false,
+        tired = w.tired,
+        staminaFraction = w.staminaFraction,
+        allyNeedsHeal = w.allyNeedsHeal,
+        settings = w.settings,
+        healMultiplier = w.healMultiplier,
+        isMajestic = w.isMajestic,
+    )
 
     /** The free targets nearest first, each with its role. The role of a candidate is asked only when the walk reaches it. */
     private fun options(
         w: WorkerView,
+        autoTypes: Set<String>,
         candidates: List<CandidateView>,
         isFree: (TargetKey) -> Boolean,
     ): Sequence<Pair<CandidateView, RoleDefinition>> = candidates.asSequence()
         .filter { isFree(it.key) && !w.isSkipped(it.key) }
         .sortedWith(nearestTo(w))
-        .mapNotNull { candidate -> roleFor(w, candidate)?.let { candidate to it } }
+        .mapNotNull { candidate -> roleFor(autoTypes, candidate)?.let { candidate to it } }
 
     /** CD-ASG-05, CD-ASG-22: a role whose auto-assign flag is false never counts. CD-ASG-16: a role with demand comes first. */
-    private fun roleFor(w: WorkerView, candidate: CandidateView): RoleDefinition? = RoleSelection.withWork(
-        candidate.roles.filter { it.autoAssign && RoleSelection.isEligible(it, w.types) },
-        w.types.toList(),
+    private fun roleFor(autoTypes: Set<String>, candidate: CandidateView): RoleDefinition? = RoleSelection.withWork(
+        candidate.roles.filter { it.autoAssign && RoleSelection.isEligible(it, autoTypes) && candidate.mayClaimRole(it) },
+        autoTypes.toList(),
         hasDemand = candidate.demandOf,
     )
 

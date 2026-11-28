@@ -320,4 +320,27 @@ class BindRulesTest {
         assertEquals(BindRules.OUTSIDE_AREA, outside.messageKey)
         assertEquals(BindRules.NO_ROLE, refusal(input(roles = emptyList(), inside = false)).messageKey)
     }
+
+    @Test
+    fun `CD-TEAM-06 controllers select, bind and clear shared workers, and locked pastures refuse select and bind`() {
+        org.junit.jupiter.api.Assertions.assertTrue(BindRules.maySelect(tetheredToPasture = true, mayControlPasture = true))
+        org.junit.jupiter.api.Assertions.assertFalse(BindRules.maySelect(tetheredToPasture = true, mayControlPasture = false))
+        org.junit.jupiter.api.Assertions.assertFalse(BindRules.maySelect(tetheredToPasture = false, mayControlPasture = true))
+
+        val teammateBind = evaluate(input(owned = false).copy(authorizedOnPasture = true))
+        assertInstanceOf(BindRules.Outcome.Bind::class.java, teammateBind)
+
+        val lockedOwnerBind = refusal(input(owned = true).copy(authorizedOnPasture = false))
+        assertEquals(BindRules.NO_SELECTION, lockedOwnerBind.messageKey)
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+            BindRules.mayClear(tetheredToPasture = true, actorOwnsPokemon = false, mayControlPasture = true),
+        )
+        org.junit.jupiter.api.Assertions.assertTrue(
+            BindRules.mayClear(tetheredToPasture = true, actorOwnsPokemon = true, mayControlPasture = false),
+        )
+        org.junit.jupiter.api.Assertions.assertFalse(
+            BindRules.mayClear(tetheredToPasture = true, actorOwnsPokemon = false, mayControlPasture = false),
+        )
+    }
 }

@@ -104,6 +104,28 @@ class LeashIndexTest {
     }
 
     @Test
+    fun `CD-TEAM-05 Ref_owner stores pcId when bound by a teammate and visibleTo returns own plus authorized pastures`() {
+        val index = LeashIndex()
+        val pcOwner = UUID.randomUUID()
+        val teammate = UUID.randomUUID()
+        val stranger = UUID.randomUUID()
+        val sharedPasture = BlockPos(10, 64, 10)
+        val lockedPasture = BlockPos(30, 64, 30)
+        val teammateBound = LeashIndex.Ref(UUID.randomUUID(), pcOwner, sharedPasture, stoker)
+        val ownLocked = LeashIndex.Ref(UUID.randomUUID(), teammate, lockedPasture, stoker)
+        val strangerLocked = LeashIndex.Ref(UUID.randomUUID(), stranger, lockedPasture, stoker)
+        index.put(chestA, teammateBound)
+        index.put(chestB, ownLocked)
+        index.put(BlockPos(9, 64, 9), strangerLocked)
+
+        assertEquals(pcOwner, index.at(chestA).single().owner)
+        val visibleForTeammate = index.visibleTo(teammate) { it == sharedPasture }.toSet()
+        assertEquals(setOf(chestA to teammateBound, chestB to ownLocked), visibleForTeammate)
+        val visibleForBystander = index.visibleTo(UUID.randomUUID()) { false }
+        assertTrue(visibleForBystander.isEmpty())
+    }
+
+    @Test
     fun `CD-CLM-06 CD-LSH-29 reservations and destinations survive the codec that saves them with the level`() {
         val index = LeashIndex()
         index.put(chestA, ref(magnet))

@@ -40,7 +40,7 @@ data class PanelEntry(val pokemonId: UUID, val percent: Int, val state: WorkerSt
     }
 }
 
-/** Server to client: what one viewer's pasture panel shows. [canToggle] is true for the placer and operators (CD-UI-03). */
+/** Server to client: what one viewer's pasture panel shows. [canToggle] follows PastureAccessPolicy (CD-UI-03, CD-TEAM-01, CD-TEAM-02). */
 data class PasturePanelStatePayload(val workMode: Boolean, val canToggle: Boolean, val entries: List<PanelEntry>) : CustomPacketPayload {
     override fun type(): CustomPacketPayload.Type<PasturePanelStatePayload> = TYPE
 

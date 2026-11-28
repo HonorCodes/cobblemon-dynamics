@@ -337,16 +337,22 @@ class FarmingTests {
         val stem = plant(helper, BlockPos(5, 1, 3), attached)
         val pumpkin = stem.east()
         helper.setBlock(pumpkin, Blocks.PUMPKIN)
-        refuse(helper, pumpkin, TestLandClaims.refused)
         val bulbasaur = TestKit.tether(helper, scene.second, scene.first, "bulbasaur level=50")
         val stemKey = TestKit.keyOf(helper, helper.absolutePos(stem), "harvester")
-        var worked = false
+        var workedAt = -1L
+        var refused = false
         helper.onEachTick {
             val working = TestKit.workerOf(helper, bulbasaur)?.status == WorkerStatus.WORKING
-            if (working && TestKit.claimOf(helper, bulbasaur)?.key == stemKey) worked = true
+            if (workedAt < 0 && working && TestKit.claimOf(helper, bulbasaur)?.key == stemKey) {
+                workedAt = helper.tick
+            }
+            if (workedAt >= 0 && !refused && helper.tick - workedAt >= 18) {
+                refuse(helper, pumpkin, TestLandClaims.refused)
+                refused = true
+            }
         }
         helper.runAfterDelay(400) {
-            helper.assertTrue(worked, "the Bulbasaur never worked the stem, so the harvest tick was never reached")
+            helper.assertTrue(workedAt >= 0, "the Bulbasaur never worked the stem, so the harvest tick was never reached")
             helper.assertTrue(helper.getBlockState(pumpkin).`is`(Blocks.PUMPKIN), "CD-HRV-13: the refused pumpkin was harvested")
             helper.assertTrue(helper.getBlockState(stem).`is`(Blocks.ATTACHED_PUMPKIN_STEM), "the stem lost its pumpkin")
             helper.succeed()

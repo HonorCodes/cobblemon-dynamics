@@ -38,7 +38,7 @@ object DynamicsAttachments {
         REGISTER.register("fan_worker", Supplier { fanWorker() })
 
     private fun workMode(): AttachmentType<WorkModeData> =
-        AttachmentType.builder(Supplier { WorkModeData.OFF }).serialize(WorkModeData.CODEC) { it.enabled }.build()
+        AttachmentType.builder(Supplier { WorkModeData.OFF }).serialize(WorkModeData.CODEC) { it != WorkModeData.OFF }.build()
 
     private fun workPastures(): AttachmentType<WorkPastureIndex> =
         AttachmentType.builder(Supplier { WorkPastureIndex(HashSet()) }).serialize(WorkPastureIndex.CODEC).build()

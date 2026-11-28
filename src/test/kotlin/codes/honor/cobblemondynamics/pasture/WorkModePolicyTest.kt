@@ -1,8 +1,11 @@
 package codes.honor.cobblemondynamics.pasture
 
 import codes.honor.cobblemondynamics.pasture.WorkModePolicy.Decision
+import com.mojang.serialization.JsonOps
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
@@ -48,5 +51,49 @@ class WorkModePolicyTest {
         assertEquals(Decision.Apply, decide(placer, distance = 10.0))
         assertInstanceOf(Decision.Reject::class.java, decide(placer, distance = 10.1))
         assertInstanceOf(Decision.Reject::class.java, decide(placer, same = false))
+    }
+
+    @Test fun `CD-TEAM-01 CD-TEAM-02 teammates and unlocked contributors may toggle, and locked pastures reject non-teammates`() {
+        val mate = UUID.randomUUID()
+        val contributor = UUID.randomUUID()
+        val isMate: (UUID, UUID) -> Boolean = { a, b -> setOf(a, b) == setOf(placer, mate) }
+        assertEquals(
+            Decision.Apply,
+            WorkModePolicy.decide(contributor, false, placer, 3.0, true, 100, null, 10, false, setOf(contributor), isMate),
+        )
+        assertInstanceOf(
+            Decision.Reject::class.java,
+            WorkModePolicy.decide(contributor, false, placer, 3.0, true, 100, null, 10, true, setOf(contributor), isMate),
+        )
+        assertEquals(
+            Decision.Apply,
+            WorkModePolicy.decide(mate, false, placer, 3.0, true, 100, null, 10, true, setOf(contributor), isMate),
+        )
+    }
+
+    @Test fun `CD-TEAM-03 decideLock accepts placer, teammates and operators and rejects non-teammate contributors`() {
+        val mate = UUID.randomUUID()
+        val contributor = UUID.randomUUID()
+        val isMate: (UUID, UUID) -> Boolean = { a, b -> setOf(a, b) == setOf(placer, mate) }
+        assertEquals(Decision.Apply, WorkModePolicy.decideLock(placer, false, placer, 3.0, true, 100, null, 10, isMate))
+        assertEquals(Decision.Apply, WorkModePolicy.decideLock(mate, false, placer, 3.0, true, 100, null, 10, isMate))
+        assertInstanceOf(
+            Decision.Reject::class.java,
+            WorkModePolicy.decideLock(contributor, false, placer, 3.0, true, 100, null, 10, isMate),
+        )
+        assertInstanceOf(Decision.Reject::class.java, WorkModePolicy.decideLock(placer, false, null, 3.0, true, 100, null, 10, isMate))
+        assertEquals(Decision.Apply, WorkModePolicy.decideLock(stranger, true, null, 3.0, true, 100, null, 10, isMate))
+    }
+
+    @Test fun `CD-TEAM-03 CD-WMD-02 WorkModeData codec persists locked and defaults missing locked to false`() {
+        val legacyJson = com.google.gson.JsonParser.parseString("""{"enabled":true}""")
+        val legacy = WorkModeData.CODEC.parse(JsonOps.INSTANCE, legacyJson).getOrThrow()
+        assertTrue(legacy.enabled)
+        assertFalse(legacy.locked)
+
+        val lockedData = WorkModeData(enabled = false, locked = true)
+        val encoded = WorkModeData.CODEC.encodeStart(JsonOps.INSTANCE, lockedData).getOrThrow()
+        val decoded = WorkModeData.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow()
+        assertEquals(lockedData, decoded)
     }
 }

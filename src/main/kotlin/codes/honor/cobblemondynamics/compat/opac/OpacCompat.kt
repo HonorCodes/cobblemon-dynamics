@@ -2,9 +2,12 @@ package codes.honor.cobblemondynamics.compat.opac
 
 import codes.honor.cobblemondynamics.compat.LandClaimCheck
 import codes.honor.cobblemondynamics.compat.LandClaims
+import codes.honor.cobblemondynamics.compat.TeamAllies
+import codes.honor.cobblemondynamics.compat.TeamAllyCheck
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.SectionPos
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
@@ -13,14 +16,25 @@ import xaero.pac.common.server.api.OpenPACServerAPI
 import java.util.UUID
 
 /**
- * The Open Parties and Claims checks of Quick Work (CD-QWK-28) and of pastures (CD-LND-07). Only [register] is called from outside,
- * behind `ModList.isLoaded("openpartiesandclaims")` (CD-QWK-33).
+ * The Open Parties and Claims checks of Quick Work (CD-QWK-28), pastures (CD-LND-07), and shared pasture parties (CD-TEAM-01 to
+ * CD-TEAM-03, CD-TEAM-11). Only [register] is called from outside, behind `ModList.isLoaded("openpartiesandclaims")` (CD-QWK-33).
  */
 object OpacCompat {
-    fun register() = LandClaims.register("openpartiesandclaims", Check)
+    fun register() {
+        LandClaims.register("openpartiesandclaims", Check)
+        TeamAllies.register("openpartiesandclaims", PartyCheck)
+    }
+
+    private object PartyCheck : TeamAllyCheck {
+        override fun areTeammates(server: MinecraftServer, a: UUID, b: UUID): Boolean {
+            val parties = OpenPACServerAPI.get(server).partyManager
+            val partyA = parties.getPartyByMember(a) ?: parties.getPartyByOwner(a) ?: return false
+            val partyB = parties.getPartyByMember(b) ?: parties.getPartyByOwner(b) ?: return false
+            return partyA.id == partyB.id
+        }
+    }
 
     private object Check : LandClaimCheck {
-        // An empty hand with breaking false skips the item checks, and messages false sends nothing (CD-QWK-32).
         override fun mayUse(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean = !OpenPACServerAPI.get(level.server)
             .chunkProtection
             .onBlockInteraction(owner, InteractionHand.MAIN_HAND, ItemStack.EMPTY, level, pos, Direction.UP, false, false)
@@ -31,7 +45,6 @@ object OpacCompat {
             val dimension = level.dimension().location()
             val x = SectionPos.blockToSectionCoord(pos.x)
             val z = SectionPos.blockToSectionCoord(pos.z)
-            // A pasture with no placer gets no block of a claim (CD-LND-05).
             if (ownerId == null) return api.serverClaimsManager.get(dimension, x, z) == null
             return api.chunkProtection.hasChunkAccess(ownerId, dimension, x, z)
         }

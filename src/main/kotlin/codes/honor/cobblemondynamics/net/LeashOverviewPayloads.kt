@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
+import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import io.netty.buffer.ByteBuf
 import net.minecraft.core.BlockPos
@@ -23,8 +24,8 @@ data object LeashOverviewRequestPayload : CustomPacketPayload {
 }
 
 /**
- * Server to client: the player's own bound workers in the player's level, as (entity id, target), so the client outlines only its
- * own targets (CD-UI-09). The entity id is -1 when the worker's entity is not loaded.
+ * Server to client: bound workers in the player's level that the player owns or controls through a shared pasture, as (entity id, target)
+ * (CD-UI-09, CD-TEAM-05). The entity id is -1 when the worker's entity is not loaded.
  */
 data class LeashOverviewPayload(val entries: List<Pair<Int, BlockPos>>) : CustomPacketPayload {
     override fun type(): CustomPacketPayload.Type<LeashOverviewPayload> = TYPE
@@ -45,9 +46,12 @@ data class LeashOverviewPayload(val entries: List<Pair<Int, BlockPos>>) : Custom
         /** The reply to [player]'s request. A worker in a pasture with Work Mode off has no engine slot, so its pasture finds it. */
         fun of(player: ServerPlayer): LeashOverviewPayload {
             val level = player.serverLevel()
-            val owned = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.allOwnedBy(player.uuid).orEmpty()
+            val pcId = Cobblemon.storage.getPC(player).uuid
+            val visible = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)?.visibleTo(player.uuid, pcId) { pasturePos ->
+                PastureAdapter.pastureAt(level, pasturePos)?.let { PastureAdapter.mayControl(player, it) } == true
+            }.orEmpty()
             val engine = WorkEngine.get()
-            val entries = owned.map { (target, ref) ->
+            val entries = visible.map { (target, ref) ->
                 val entity = engine?.entityOf(ref.pokemonId) ?: pasturedEntity(level, ref)
                 (entity?.id ?: -1) to target
             }

@@ -7,6 +7,7 @@ import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
 import codes.honor.cobblemondynamics.handler.tree.LumberjackParams
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
+import codes.honor.cobblemondynamics.role.RoleRegistry
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -166,19 +167,101 @@ class LumberjackTests {
         val (owner, pasture) = scene(helper)
         val oak = oak(helper)
         val refused = plan(helper).questions.first { helper.level.getBlockState(it).block is LeavesBlock }
-        TestLandClaims.refusedBreak += refused
         TestKit.afterTest(helper) { TestLandClaims.refusedBreak -= refused }
         val scyther = TestKit.tether(helper, pasture, owner, "scyther level=100")
         val binding = TestKit.bind(helper, owner, scyther, base)
         helper.assertTrue(binding?.roleId == id("lumberjack"), "the Scyther bound as ${binding?.roleId}")
         var workingAt = -1L
+        var leafRefused = false
         helper.onEachTick {
             if (workingAt < 0 && TestKit.workerOf(helper, scyther)?.status == WorkerStatus.WORKING) workingAt = helper.tick
+            if (workingAt >= 0 && !leafRefused && helper.tick - workingAt >= 28) {
+                TestLandClaims.refusedBreak += refused
+                leafRefused = true
+            }
             for (cell in oak.logs + oak.leaves) {
                 helper.assertTrue(!helper.getBlockState(cell).isAir, "CD-LUM-12: the block at $cell broke, though the claim refuses a leaf")
             }
-            // A level 100 worker fells 6 logs 30 ticks after its work starts.
             if (workingAt >= 0 && helper.tick - workingAt >= 60) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-08: an oak whose base log is editable while an upper trunk log refuses break is never claimed; if upper-trunk break rights
+     * are lost during travel, the next poll releases the claim; once break rights return, the Lumberjack fells and replants the oak.
+     */
+    @GameTest(template = "floor_23x17x23", timeoutTicks = 1_400)
+    fun cdTeam08EditableBaseProtectedUpperTrunkPreflightAndPollRevalidates(helper: GameTestHelper) {
+        val (owner, pasture) = scene(helper)
+        val built = oak(helper)
+        val baseAbs = helper.absolutePos(base)
+        val upperTrunk = helper.absolutePos(base.above(3)).immutable()
+        val role = RoleRegistry.current.get(id("lumberjack"))!!.definition
+        val targets = LumberjackHandler.breakTargets(helper.level, baseAbs, role)
+        val questions = plan(helper).questions.toSet()
+        val secondLeaf = built.leaves.map(helper::absolutePos).first { it !in questions }.immutable()
+        helper.assertTrue(upperTrunk in targets && secondLeaf in targets, "upper trunk or second leaf missing from breakTargets")
+        TestLandClaims.refusedBreak += secondLeaf
+        TestKit.afterTest(helper) {
+            TestLandClaims.refusedBreak -= upperTrunk
+            TestLandClaims.refusedBreak -= secondLeaf
+        }
+
+        val hold = BlockPos(11, 2, 20)
+        val scyther = TestKit.tether(helper, pasture, owner, "scyther level=100")
+        TestKit.moveTo(helper, scyther, hold)
+        val binding = TestKit.bind(helper, owner, scyther, base)
+        helper.assertTrue(binding?.target == baseAbs, "Scyther did not bind to base: $binding")
+
+        var step = "preflight_leaf"
+        var revokedAt = -1L
+        helper.onEachTick {
+            val worker = TestKit.workerOf(helper, scyther)
+            val claim = TestKit.claimOf(helper, scyther)
+            when (step) {
+                "preflight_leaf" -> {
+                    helper.assertTrue(claim == null, "CD-TEAM-08: Scyther claimed oak with protected second leaf: $claim")
+                    helper.assertFalse(worker?.status == WorkerStatus.TRAVELING, "CD-TEAM-08: Scyther traveled with protected second leaf")
+                    if (helper.tick < 50) return@onEachTick
+                    TestLandClaims.refusedBreak -= secondLeaf
+                    TestLandClaims.refusedBreak += upperTrunk
+                    worker?.skipUntil?.clear()
+                    step = "preflight"
+                }
+
+                "preflight" -> {
+                    helper.assertTrue(claim == null, "CD-TEAM-08: Scyther claimed oak with protected upper trunk: $claim")
+                    helper.assertFalse(worker?.status == WorkerStatus.TRAVELING, "CD-TEAM-08: Scyther traveled to protected oak")
+                    if (helper.tick < 100) return@onEachTick
+                    TestLandClaims.refusedBreak -= upperTrunk
+                    worker?.skipUntil?.clear()
+                    step = "await_claim"
+                }
+
+                "await_claim" -> {
+                    TestKit.moveTo(helper, scyther, hold)
+                    if (claim == null) return@onEachTick
+                    TestLandClaims.refusedBreak += upperTrunk
+                    revokedAt = helper.tick
+                    step = "await_revoke"
+                }
+
+                "await_revoke" -> {
+                    TestKit.moveTo(helper, scyther, hold)
+                    if (claim == null) {
+                        TestLandClaims.refusedBreak -= upperTrunk
+                        worker?.skipUntil?.clear()
+                        step = "fell"
+                        return@onEachTick
+                    }
+                    helper.assertTrue(
+                        helper.tick - revokedAt <= 25,
+                        "CD-TEAM-08: active claim $claim survived ${helper.tick - revokedAt} ticks after upper trunk became protected",
+                    )
+                }
+
+                "fell" -> if (helper.getBlockState(base).`is`(Blocks.OAK_SAPLING)) helper.succeed()
+            }
         }
     }
 
