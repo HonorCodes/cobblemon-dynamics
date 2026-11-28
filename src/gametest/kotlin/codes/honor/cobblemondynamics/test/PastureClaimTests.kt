@@ -18,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.entity.ChestBlockEntity
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
@@ -336,6 +337,77 @@ class PastureClaimTests {
             val claim = TestKit.claimOf(helper, fire)
             helper.assertFalse(claim?.key == TestKit.keyOf(helper, a), "CD-LND-11: the Charmander claimed furnace A, whose check throws")
             if (helper.tick >= 400) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-07: placer A places a shared Work Mode pasture. Furnace B allows only player B and furnace C allows only stranger C.
+     * B's Charmander works furnace B through its own owner UUID, A's unbound Charmander never claims furnace B, and neither claims C.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800, batch = BATCH)
+    fun cdTeam07SharedPastureChecksPlacerPokemonOwnerAndBinder(helper: GameTestHelper) {
+        val a = TestKit.owner(helper, "placer_a")
+        val b = TestKit.owner(helper, "owner_b")
+        val c = TestKit.owner(helper, "stranger_c")
+        val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 7), a)
+        TestKit.workMode(pasture, true)
+        val furnaceB = TestKit.furnace(helper, BlockPos(4, 1, 3), ItemStack(Items.RAW_IRON, 64)).blockPos.immutable()
+        val furnaceC = TestKit.furnace(helper, BlockPos(10, 1, 3), ItemStack(Items.RAW_IRON, 64)).blockPos.immutable()
+        TestLandClaims.allowedActors[furnaceB] = setOf(b.uuid)
+        TestLandClaims.allowedActors[furnaceC] = setOf(c.uuid)
+        TestKit.afterTest(helper) {
+            TestLandClaims.allowedActors.remove(furnaceB)
+            TestLandClaims.allowedActors.remove(furnaceC)
+        }
+        val bWorker = TestKit.tether(helper, pasture, b, "charmander level=10")
+        val aWorker = TestKit.tether(helper, pasture, a, "charmander level=10")
+        helper.onEachTick {
+            val aClaim = TestKit.claimOf(helper, aWorker)
+            val bClaim = TestKit.claimOf(helper, bWorker)
+            helper.assertFalse(aClaim?.key == TestKit.keyOf(helper, furnaceB), "CD-TEAM-07: A's unbound worker claimed B's furnace")
+            helper.assertFalse(aClaim?.key == TestKit.keyOf(helper, furnaceC), "CD-TEAM-07: A's worker claimed stranger C's furnace")
+            helper.assertFalse(bClaim?.key == TestKit.keyOf(helper, furnaceC), "CD-TEAM-07: B's worker claimed stranger C's furnace")
+            if (isWorkingAt(helper, bWorker, furnaceB) && helper.tick >= 200) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-08: ripe wheat and a freezable water source allow use and refuse break. Neither the Harvester nor the Freezer claims or
+     * travels to them until break permission is restored, after which both complete their work.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 1_200, batch = BATCH)
+    fun cdTeam08UnbreakableCropAndWaterAreNotClaimed(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val soilRel = BlockPos(3, 1, 3)
+        val wheatRel = BlockPos(3, 2, 3)
+        helper.setBlock(soilRel, Blocks.FARMLAND)
+        helper.setBlock(wheatRel, Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7))
+        val waterRel = BlockPos(11, 1, 11)
+        helper.setBlock(waterRel.below(), Blocks.STONE)
+        for (side in listOf(waterRel.north(), waterRel.south(), waterRel.east(), waterRel.west())) helper.setBlock(side, Blocks.STONE)
+        helper.setBlock(waterRel, Blocks.WATER)
+        val wheatPos = refuse(helper, helper.absolutePos(wheatRel), TestLandClaims.refusedBreak)
+        val waterPos = refuse(helper, helper.absolutePos(waterRel), TestLandClaims.refusedBreak)
+        val grass = TestKit.tether(helper, scene.pasture, scene.owner, "chikorita level=50")
+        val ice = TestKit.tether(helper, scene.pasture, scene.owner, "snom level=100")
+        var allowed = false
+        helper.onEachTick {
+            if (!allowed) {
+                helper.assertTrue(TestKit.claimOf(helper, grass) == null, "CD-TEAM-08: Harvester claimed unbreakable wheat")
+                helper.assertTrue(TestKit.claimOf(helper, ice) == null, "CD-TEAM-08: Freezer claimed unbreakable water")
+                helper.assertFalse(TestKit.workerOf(helper, grass)?.status == WorkerStatus.TRAVELING, "Harvester traveled to refused wheat")
+                helper.assertFalse(TestKit.workerOf(helper, ice)?.status == WorkerStatus.TRAVELING, "Freezer traveled to refused water")
+                if (helper.tick < 250) return@onEachTick
+                TestLandClaims.refusedBreak.remove(wheatPos)
+                TestLandClaims.refusedBreak.remove(waterPos)
+                TestKit.workerOf(helper, grass)?.skipUntil?.clear()
+                TestKit.workerOf(helper, ice)?.skipUntil?.clear()
+                allowed = true
+                return@onEachTick
+            }
+            val harvested = helper.getBlockState(wheatRel).let { it.`is`(Blocks.WHEAT) && it.getValue(CropBlock.AGE) < 7 }
+            val frozen = helper.getBlockState(waterRel).`is`(Blocks.ICE)
+            if (harvested && frozen) helper.succeed()
         }
     }
 

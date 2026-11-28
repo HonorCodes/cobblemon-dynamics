@@ -33,6 +33,7 @@ import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.leash.LeashResets
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.PastureKey
+import codes.honor.cobblemondynamics.pasture.PastureOwnerRules
 import codes.honor.cobblemondynamics.pasture.TetheredPokemon
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.role.ActiveRole
@@ -388,18 +389,20 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val entity = tethered.entity ?: continue
             if (!canWork(t.level, tethered, pokemon, entity)) continue
             present += tethered.pokemonId
+            val resolvedOwner = PastureOwnerRules.ownerId(tethered.ownerId, tethered.pcId, pokemon.getOwnerUUID())
             val slot = runtime.slots[tethered.pokemonId]
             if (slot != null) {
                 val old = slot.entity
                 slot.entity = entity
                 slot.pokemon = pokemon
+                slot.ownerId = resolvedOwner
                 if (old !== entity) moveClaim(t, slot, old)
             } else if (tethered.pokemonId !in slots) {
                 val worker = Worker(tethered.pokemonId, runtime.key)
-                // CD-STA-05, CD-STA-11: a new worker starts at 100%, and a known one recovers for its time away.
                 worker.stamina = StaminaStore.load(pokemon, t.now, t.settings)
                 worker.staminaUntil = t.now
                 val joined = WorkerSlot(worker, entity, pokemon)
+                joined.ownerId = resolvedOwner
                 runtime.slots[tethered.pokemonId] = joined
                 slots[tethered.pokemonId] = joined
             }
@@ -413,31 +416,24 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val taken = takenSpots(t)
         for (slot in runtime.slots.values.toList()) {
             slot.hasMate = slot.worker.pokemonId in mated
-            // A binding counts only for the pasture that it names. LeashResets clears one that names another.
             slot.binding = BindingStore.read(slot.pokemon)?.takeIf { it.dimension == t.dimension && it.pasture == runtime.pos }
-            // CD-LND-03: a binding whose target or destination the placer may not use clears, and the binder learns why.
             slot.binding?.let { binding ->
-                landRefusal(t, runtime, binding)?.let { reason ->
+                landRefusal(t, runtime, slot, binding)?.let { reason ->
                     LeashResets.clear(server, slot.pokemon, reason)
                     slot.binding = null
                 }
             }
-            // CD-LND-02: a work claim or a bed claim on a block that the placer may no longer use ends in this poll.
             claims.claimOf(slot.worker.pokemonId)?.let { claim ->
-                if (!placerMayUse(t, runtime, claim.key)) {
+                if (!placerMayUse(t, runtime, slot, claim.key)) {
                     when (claim.kind) {
                         ClaimKind.WORK -> release(t, slot)
-
-                        // tickRest then finds no bed claim and moves the sleeper to RestingInPlace (CD-BED-11).
                         ClaimKind.BED -> claims.release(slot.worker.pokemonId)
-
                         ClaimKind.HEAL -> {}
                     }
                 }
             }
             slot.worker.leashed = slot.binding != null
             slot.rule = RecoveryRule.of(hasFairyType(slot.pokemon), slot.binding != null)
-            // CD-LSH-34: the memos of the switch roles last while the binding names one target and role, or the auto claim one target.
             slot.probes.follow(slot.binding?.let { it.target to it.roleId } ?: slot.worker.target)
             claimBound(t, runtime, slot, taken)
             switchInStandby(t, runtime, slot, taken)
@@ -446,17 +442,23 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** CD-LND-03: the reason that clears [binding], or null while the placer may use its target and its destination. */
-    private fun landRefusal(t: Tick, runtime: PastureRuntime, binding: Binding): String? = when {
-        !LandClaims.ownerMayUse(runtime.placer, t.level, binding.target) -> LeashResets.LAND_CLAIM
-        binding.destination?.let { !LandClaims.ownerMayUse(runtime.placer, t.level, it) } == true -> LeashResets.LAND_CLAIM_DESTINATION
-        else -> null
+    private fun actorsOf(runtime: PastureRuntime, slot: WorkerSlot, binding: Binding? = slot.binding): List<UUID?> =
+        listOf(runtime.placer, slot.ownerId, binding?.binder)
+
+    /** CD-LND-03, CD-TEAM-07: the reason that clears [binding], or null while an actor of the worker may use its target and destination. */
+    private fun landRefusal(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, binding: Binding): String? {
+        val actors = actorsOf(runtime, slot, binding)
+        return when {
+            !LandClaims.actorsMayUse(actors, t.level, binding.target) -> LeashResets.LAND_CLAIM
+            binding.destination?.let { !LandClaims.actorsMayUse(actors, t.level, it) } == true -> LeashResets.LAND_CLAIM_DESTINATION
+            else -> null
+        }
     }
 
-    /** A heal claim names an entity of the same pasture, so only a claim on a block asks the pasture check (CD-LND-02). */
-    private fun placerMayUse(t: Tick, runtime: PastureRuntime, key: TargetKey): Boolean {
+    /** A heal claim names an entity of the same pasture, so only a claim on a block asks the pasture check (CD-LND-02, CD-TEAM-07). */
+    private fun placerMayUse(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, key: TargetKey): Boolean {
         val block = key as? TargetKey.Block ?: return true
-        return block.dimension != t.dimension || LandClaims.ownerMayUse(runtime.placer, t.level, BlockPos.of(block.pos))
+        return block.dimension != t.dimension || LandClaims.actorsMayUse(actorsOf(runtime, slot), t.level, BlockPos.of(block.pos))
     }
 
     /**
@@ -601,21 +603,24 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun takenSpots(t: Tick): MutableSet<Long> =
         slots.values.filter { dimensionOf(it) == t.dimension }.mapNotNullTo(HashSet()) { it.worker.spot?.asLong() }
 
-    /** CD-LSH-21: the owner of a leashed worker learns why its machine waits. */
+    /** CD-LSH-21: the binder or owner of a leashed worker learns why its machine waits. */
     private fun cannotReach(t: Tick, slot: WorkerSlot, target: BlockPos) {
-        val owner = slot.pokemon.getOwnerUUID() ?: return
+        val owner = slot.binding?.binder ?: slot.ownerId ?: slot.pokemon.getOwnerUUID() ?: return
         val name = t.level.getBlockState(target).block.name
         Feedback.actionBar(owner, server, Component.translatable(CANNOT_REACH, slot.pokemon.getDisplayName(), name))
     }
 
-    /** Owned, not fainted, no battle clone, in this level, and tethered by its owner. */
+    /** Owned, not fainted, no battle clone, in this level, and tethered by its owner (CD-TEAM-04). */
     private fun canWork(level: ServerLevel, tethered: TetheredPokemon, pokemon: Pokemon, entity: PokemonEntity): Boolean =
-        pokemon.isPlayerOwned() &&
-            !pokemon.isFainted() &&
-            !pokemon.isBattleClone() &&
-            !entity.isRemoved &&
-            entity.level() === level &&
-            tethered.ownerId == pokemon.getOwnerUUID()
+        PastureOwnerRules.canWork(
+            tetheredOwnerId = tethered.ownerId,
+            tetheredPcId = tethered.pcId,
+            liveOwnerId = pokemon.getOwnerUUID(),
+            fainted = pokemon.isFainted(),
+            battleClone = pokemon.isBattleClone(),
+            removed = entity.isRemoved,
+            sameLevel = entity.level() === level,
+        )
 
     /**
      * Step 2: a claim of any kind ends when no worker holds it. A work claim also ends when its target is gone or invalid
@@ -646,8 +651,15 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * After a reload, a worker keeps a claim only while its role still takes it: through its binding, an auto claim, or the Quick Work
      * order of a role that opts in (CD-QWK-36). A Quick Worker has no pasture.
      */
-    private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean = RoleSelection.isEligible(role, typesOf(slot.pokemon)) &&
-        (slot.worker.leashed || role.autoAssign || (slot.worker.pasture == null && role.quickWork == true))
+    private fun mayKeep(slot: WorkerSlot, role: RoleDefinition): Boolean {
+        val allowedTypes = if (!slot.worker.leashed && slot.worker.pasture != null && hasFairyType(slot.pokemon)) {
+            typesOf(slot.pokemon).filterTo(LinkedHashSet()) { it != DualFairyRule.FAIRY_TYPE }
+        } else {
+            typesOf(slot.pokemon)
+        }
+        return RoleSelection.isEligible(role, allowedTypes) &&
+            (slot.worker.leashed || role.autoAssign || (slot.worker.pasture == null && role.quickWork == true))
+    }
 
     /** Steps 3 and 4: the pasture's scan pass, and the assignment when the pass completes. */
     private fun scan(t: Tick, runtime: PastureRuntime) {
@@ -665,20 +677,24 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (!pass.stepBlocks(t.world)) return
         runtime.scheduler.complete(t.now)
         runtime.scan = null
-        assign(t, runtime, pass.found)
         assignHeals(t, runtime)
+        assign(t, runtime, pass.found)
     }
 
     /**
-     * After each scan pass, every free healer of the pasture picks an ally of the same pasture and takes a heal claim on it
-     * (CD-HEAL-01). A healer is a Fairy-type with no machine binding, so it follows the healer rule (CD-HEAL-14).
+     * After each scan pass, every eligible healer of the pasture picks an ally of the same pasture and takes a heal claim on it
+     * (CD-HEAL-01, CD-TEAM-10). An unbound dual-type Fairy worker holding an auto work claim releases it first when an ally qualifies.
      */
     private fun assignHeals(t: Tick, runtime: PastureRuntime) {
         val allies = runtime.slots.values.filterNot { it.entity.isRemoved }.map(::allyView)
         for (slot in runtime.slots.values) {
             val worker = slot.worker
-            if (slot.rule != RecoveryRule.HEALER || worker.status != WorkerStatus.IDLE || claims.claimOf(worker.pokemonId) != null) continue
-            val traits = refreshTraits(t, slot)
+            if (slot.rule != RecoveryRule.HEALER) continue
+            val current = claims.claimOf(worker.pokemonId)
+            val idle = worker.status == WorkerStatus.IDLE && current == null
+            val preemptable = !worker.leashed && current?.kind == ClaimKind.WORK
+            if (!idle && !preemptable) continue
+            val traits = if (idle) refreshTraits(t, slot) else healerTraits(t, slot)
             if (!HealTargets.canStart(worker.stamina.fraction, worker.tired, t.settings, traits.combinedMultiplier, traits.isMajestic) ||
                 !BrainBridge.canHoldOrder(slot.entity)
             ) {
@@ -689,6 +705,19 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 claims.isFree(key, worker.pokemonId) && !worker.isSkipped(key, t.now)
             }
             val ally = HealTargets.pick(worker.pokemonId, slot.entity.position(), allies, isFree, t.settings) ?: continue
+            if (preemptable) {
+                val shouldPreempt = DualFairyRule.shouldPreemptForHeal(
+                    hasFairyType = hasFairyType(slot.pokemon),
+                    leashed = worker.leashed,
+                    holdsWorkClaim = true,
+                    tired = worker.tired,
+                    staminaFraction = worker.stamina.fraction,
+                    allyNeedsHeal = true,
+                    settings = t.settings,
+                )
+                if (!shouldPreempt) continue
+                release(t, slot)
+            }
             val granted = claims.tryClaim(worker.pokemonId, TargetKey.Entity(ally.id), ClaimKind.HEAL, runtime.key, t.now)
             if (granted is ClaimResult.Granted) t.machine.onHeal(worker, t.now)
         }
@@ -704,7 +733,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /** The auto-assign roles that a worker of the pasture can do. Leash-only roles need no scan. */
     private fun scanRoles(t: Tick, runtime: PastureRuntime): List<ActiveRole> {
-        val types = runtime.slots.values.filter(::mayAutoAssign).map { typesOf(it.pokemon) }
+        val types = runtime.slots.values.mapNotNull { slot -> scanTypesOf(t, slot).takeIf { it.isNotEmpty() } }
         if (types.isEmpty()) return emptyList()
         return t.roles.active.filter { role ->
             role.definition.autoAssign &&
@@ -713,34 +742,95 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    private fun mayAutoAssign(slot: WorkerSlot): Boolean =
-        !slot.worker.leashed && !slot.worker.tired && !hasFairyType(slot.pokemon) && BrainBridge.canHoldOrder(slot.entity)
+    private fun scanTypesOf(t: Tick, slot: WorkerSlot): Set<String> {
+        if (slot.worker.leashed || slot.worker.tired || !BrainBridge.canHoldOrder(slot.entity)) return emptySet()
+        return DualFairyRule.autoAssignTypes(
+            types = typesOf(slot.pokemon),
+            hasFairyType = hasFairyType(slot.pokemon),
+            leashed = false,
+            tired = false,
+            staminaFraction = 0.0,
+            allyNeedsHeal = false,
+            settings = t.settings,
+        )
+    }
 
     private fun assign(t: Tick, runtime: PastureRuntime, found: List<FoundTarget>) {
         if (found.isEmpty()) return
-        // CD-LND-01, CD-LND-12: one pasture check for each target of the pass, before the pass offers its targets to the workers.
-        val allowed = found.filter { LandClaims.ownerMayUse(runtime.placer, t.level, it.pos) }
-        if (allowed.isEmpty()) return
-        // CD-CRP-06: a target whose roles claim in two lanes, such as a crop of both farming roles, is one candidate per lane.
-        val byKey: Map<TargetKey, FoundTarget> = allowed.flatMap { target ->
-            target.roles.groupBy { it.handler.claimLane }.map { (lane, roles) ->
-                TargetKey.block(t.dimension, target.pos, lane) to FoundTarget(target.pos, roles)
-            }
-        }.toMap()
+        val allies by lazy { runtime.slots.values.filterNot { it.entity.isRemoved }.map(::allyView) }
+        val allowedByActors = HashMap<List<UUID>, List<FoundTarget>>()
+        val byKeyByActors = HashMap<List<UUID>, Map<TargetKey, FoundTarget>>()
+        val breakByActors = HashMap<Pair<List<UUID>, BlockPos>, Boolean>()
         val taken = takenSpots(t)
         for (slot in runtime.slots.values) {
             val worker = slot.worker
-            // CD-ASG-20: the poll gives a leashed worker its bound target, and a scan never gives it another.
             if (worker.leashed) continue
             val current = claims.claimOf(worker.pokemonId)
             val idle = current == null && worker.status == WorkerStatus.IDLE
             val moving = current?.kind == ClaimKind.WORK && t.machine.canMoveFromStandby(worker, t.now)
             if ((!idle && !moving) || !BrainBridge.canHoldOrder(slot.entity)) continue
+            val fairy = hasFairyType(slot.pokemon)
+            val allyNeedsHeal = fairy && HealTargets.pick(
+                worker.pokemonId,
+                slot.entity.position(),
+                allies,
+                { id ->
+                    val key = TargetKey.Entity(id)
+                    claims.isFree(key, worker.pokemonId) && !worker.isSkipped(key, t.now)
+                },
+                t.settings,
+            ) != null
             val types = typesOf(slot.pokemon)
-            val view = WorkerView(worker.pokemonId, slot.entity.position(), types, hasFairyType(slot.pokemon), worker.tired) {
-                worker.isSkipped(it, t.now)
+            val autoTypes = DualFairyRule.autoAssignTypes(
+                types = types,
+                hasFairyType = fairy,
+                leashed = false,
+                tired = worker.tired,
+                staminaFraction = worker.stamina.fraction,
+                allyNeedsHeal = allyNeedsHeal,
+                settings = t.settings,
+            )
+            if (autoTypes.isEmpty()) continue
+            val actors = actorsOf(runtime, slot)
+            val actorKey = actors.filterNotNull().distinct()
+            val byKey = byKeyByActors.getOrPut(actorKey) {
+                val allowed = allowedByActors.getOrPut(actorKey) {
+                    found.filter { LandClaims.actorsMayUse(actors, t.level, it.pos) }
+                }
+                allowed.flatMap { target ->
+                    target.roles.groupBy { it.handler.claimLane }.map { (lane, roles) ->
+                        TargetKey.block(t.dimension, target.pos, lane) to FoundTarget(target.pos, roles)
+                    }
+                }.toMap()
             }
-            val candidates = byKey.map { (key, target) -> candidate(t, slot, types, key, target) }
+            if (byKey.isEmpty()) continue
+            val view = WorkerView(
+                id = worker.pokemonId,
+                pos = slot.entity.position(),
+                types = types,
+                hasFairyType = fairy,
+                tired = worker.tired,
+                staminaFraction = worker.stamina.fraction,
+                allyNeedsHeal = allyNeedsHeal,
+                settings = t.settings,
+            ) { worker.isSkipped(it, t.now) }
+            val candidates = byKey.map { (key, target) ->
+                val mayClaimRole = { def: RoleDefinition ->
+                    val active = target.roles.first { it.definition.id == def.id }
+                    val breakPos = if (active.handler.breaksBlocks) {
+                        guarded(active.handler, target.pos) { active.handler.breakTarget(t.level, target.pos) }
+                    } else {
+                        null
+                    }
+                    val ok = BreakingClaimGate.mayClaim(breakPos != null, mayUse = true) {
+                        val pos = breakPos ?: target.pos
+                        breakByActors.getOrPut(actorKey to pos) { LandClaims.actorsMayBreak(actors, t.level, pos) }
+                    }
+                    if (!ok) worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
+                    ok
+                }
+                candidate(t, slot, autoTypes, key, target, mayClaimRole)
+            }
             val isFree: (TargetKey) -> Boolean = { claims.isFree(it, worker.pokemonId) }
             val pick = if (current == null) {
                 Assigner.pickForIdle(view, candidates, isFree)
@@ -753,18 +843,26 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     /** Each role's demand is asked at most once for the candidate, with a fresh memo, because a scan candidate is no binding. */
-    private fun candidate(t: Tick, slot: WorkerSlot, types: Set<String>, key: TargetKey, target: FoundTarget): CandidateView {
+    private fun candidate(
+        t: Tick,
+        slot: WorkerSlot,
+        types: Set<String>,
+        key: TargetKey,
+        target: FoundTarget,
+        mayClaimRole: (RoleDefinition) -> Boolean,
+    ): CandidateView {
         val center = target.roles.first().handler.targetCenter(target.pos)
         val needsDemand = target.roles.all { it.handler.releasesWhenDone }
         val ask = { def: RoleDefinition ->
             val role = target.roles.first { it.definition.id == def.id }
             guarded(role.handler, false) { role.handler.hasDemand(context(t, slot, target.pos, role)) }
         }
-        // A target of one role asks its demand once anyway, so only a target of two roles or more keeps the answers.
         val asked = if (target.roles.size > 1) HashMap<ResourceLocation, Boolean>(target.roles.size) else null
         val demandOf = { def: RoleDefinition -> asked?.getOrPut(def.id) { ask(def) } ?: ask(def) }
-        return CandidateView(key, center, target.roles.map { it.definition }, needsDemand, demandOf) {
-            target.roles.any { role -> RoleSelection.isEligible(role.definition, types) && demandOf(role.definition) }
+        return CandidateView(key, center, target.roles.map { it.definition }, needsDemand, demandOf, mayClaimRole) {
+            target.roles.any { role ->
+                RoleSelection.isEligible(role.definition, types) && mayClaimRole(role.definition) && demandOf(role.definition)
+            }
         }
     }
 
@@ -787,8 +885,21 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val worker = slot.worker
         val key = TargetKey.block(t.dimension, target, role.handler.claimLane)
         val shared = role.handler.sharesTargets
-        // CD-CLM-10: a container whose places are all taken refuses before the spot search and its path checks.
         if (shared && !claims.hasPlace(key)) return Attempt.REFUSED
+        if (site is PastureRuntime) {
+            val breakPos = if (role.handler.breaksBlocks) {
+                guarded(role.handler, target) { role.handler.breakTarget(t.level, target) }
+            } else {
+                null
+            }
+            if (!BreakingClaimGate.mayClaim(breakPos != null, mayUse = true) {
+                    LandClaims.actorsMayBreak(actorsOf(site, slot), t.level, breakPos ?: target)
+                }
+            ) {
+                worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
+                return Attempt.REFUSED
+            }
+        }
         val own = worker.spot?.asLong()
         val entity = slot.entity
         val others = if (own == null) taken else taken - own
@@ -991,9 +1102,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * rest order puts it back into the tree and no other block takes its bed. A throw from another mod's block skips this worker only.
      */
     private fun freeSlot(t: Tick, site: WorkSite, slot: WorkerSlot, tree: BlockPos) {
-        val owner = when (site) {
-            is PastureRuntime -> site.placer
-            is QuickRuntime -> site.owner
+        val actors = when (site) {
+            is PastureRuntime -> actorsOf(site, slot)
+            is QuickRuntime -> listOf(site.owner)
         }
         val entity = slot.entity
         val worker = slot.worker
@@ -1009,7 +1120,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 bedLost = inChangedTree || worker.bed?.let { sleepsInTree(entity, it.center) } == true
                 if (!bedLost) return@safely
             }
-            free(entity, worker.spot, site.area(t.settings), trunk) { LandClaims.ownerMayUse(owner, level, it) }
+            free(entity, worker.spot, site.area(t.settings), trunk) { LandClaims.actorsMayUse(actors, level, it) }
         }
         when (worker.status) {
             WorkerStatus.RESTING_IN_PLACE -> if (entity.position() != before) worker.restSpot = entity.position()
@@ -1096,13 +1207,21 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         syncView(slot)
     }
 
+    private fun healerTraits(t: Tick, slot: WorkerSlot): EvaluatedTraits = WorkTraits.ofPokemon(
+        pokemon = slot.pokemon,
+        role = null,
+        hasMate = slot.hasMate,
+        fallbackTypes = typesOf(slot.pokemon),
+        settings = t.settings,
+    )
+
     private fun refreshTraits(t: Tick, slot: WorkerSlot): EvaluatedTraits {
-        val fallbackTypes = if (slot.role == null) typesOf(slot.pokemon) else emptySet()
+        if (slot.role == null) return healerTraits(t, slot).also { slot.traits = it }
         return WorkTraits.ofPokemon(
             pokemon = slot.pokemon,
             role = slot.role?.definition,
             hasMate = slot.hasMate,
-            fallbackTypes = fallbackTypes,
+            fallbackTypes = emptySet(),
             settings = t.settings,
         ).also { slot.traits = it }
     }
@@ -1186,11 +1305,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     /** Beds have block entities, so the chunks' block entity maps hold every bed of the work area. Any size of Pokémon fits (CD-BED-09). */
     private fun nearestFreeBed(t: Tick, runtime: PastureRuntime, slot: WorkerSlot): BedCandidate? {
+        val actors = actorsOf(runtime, slot)
         val beds = t.world.blockEntitiesIn(runtime.area(t.settings)).mapNotNull { (pos, blockEntity) ->
             val bed = blockEntity as? BedBlockEntity ?: return@mapNotNull null
-            // CD-LND-04: a bed that the placer may not use is no candidate.
-            if (!LandClaims.ownerMayUse(runtime.placer, t.level, pos)) return@mapNotNull null
-            // CD-ASG-28: a bed whose sleep point lies in a tree is no candidate.
+            if (!LandClaims.actorsMayUse(actors, t.level, pos)) return@mapNotNull null
             if (sleepsInTree(slot.entity, BedCandidate.sleepPoint(pos))) return@mapNotNull null
             BedCandidate(TargetKey.block(t.dimension, pos), BedCandidate.sleepPoint(pos), bed.tier.tier)
         }.toList()
@@ -1641,14 +1759,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
      * the last poll read for a pasture worker, and the owner's checks for a Quick Worker, whose owner is online in the order's level.
      */
     private fun mayChange(t: Tick, slot: WorkerSlot, pos: BlockPos): Boolean {
-        slot.worker.pasture?.let { key -> return pastures[key]?.let { LandClaims.ownerMayUse(it.placer, t.level, pos) } == true }
+        slot.worker.pasture?.let { key -> return pastures[key]?.let { LandClaims.actorsMayUse(actorsOf(it, slot), t.level, pos) } == true }
         val owner = orders[slot.worker.pokemonId]?.owner?.let(server.playerList::getPlayer) ?: return false
         return owner.level() === t.level && mayUse(owner, t.level, pos)
     }
 
-    /** CD-HRV-16: the break question of each claim mod about [pos], by the placer's UUID or for the online owner of a Quick Worker. */
+    /** CD-HRV-16, CD-TEAM-07: the break question of each claim mod about [pos], across the worker's actors or for the online Quick Worker owner. */
     private fun mayBreak(t: Tick, slot: WorkerSlot, pos: BlockPos): Boolean {
-        slot.worker.pasture?.let { key -> return pastures[key]?.let { LandClaims.ownerMayBreak(it.placer, t.level, pos) } == true }
+        slot.worker.pasture?.let { key ->
+            return pastures[key]?.let { LandClaims.actorsMayBreak(actorsOf(it, slot), t.level, pos) } == true
+        }
         val owner = orders[slot.worker.pokemonId]?.owner?.let(server.playerList::getPlayer) ?: return false
         return owner.level() === t.level && LandClaims.mayBreak(owner, t.level, pos)
     }

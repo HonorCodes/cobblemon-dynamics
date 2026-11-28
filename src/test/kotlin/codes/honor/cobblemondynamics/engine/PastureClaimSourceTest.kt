@@ -27,23 +27,22 @@ class PastureClaimSourceTest {
 
     @Test
     fun `CD-LND-12 the engine asks the pasture check only in the poll, the assignment after a scan, a bed, a harvest and the tree net`() {
-        // CD-ASG-25: the net that moves a worker out of a grown tree asks through freeSlot, at most MAX_CLAIM_ASKS times for each worker.
         val askers = setOf("assign", "freeSlot", "landRefusal", "mayChange", "nearestFreeBed", "placerMayUse")
         assertEquals(askers, callers(PASTURE_CHECK), "who asks $PASTURE_CHECK")
-        // CD-HRV-13: the harvest asks through its context, once for each block that it changes.
+        assertEquals(emptySet<String>(), callers("LandClaims.ownerMayUse("), "pasture checks must use actorsMayUse")
+        assertEquals(setOf("assign", "claim", "mayBreak"), callers("LandClaims.actorsMayBreak("), "who asks actorsMayBreak")
         assertEquals(setOf("context"), callers("mayChange("), "who calls mayChange")
-        // The two helpers of the poll: the binding's target and destination (CD-LND-03), and each claim (CD-LND-02).
         for (helper in listOf("landRefusal(", "placerMayUse(")) assertEquals(setOf("poll"), callers(helper), "who calls $helper")
         for (name in listOf("tickWorker", "tickLevel")) {
             val text = functions.filter { it.first == name }.joinToString("") { it.second }
             assertTrue(text.isNotEmpty(), "$ENGINE has no function $name")
-            val asks = listOf(PASTURE_CHECK, "landRefusal(", "placerMayUse(").filter { it in text }
+            val asks = listOf(PASTURE_CHECK, "LandClaims.actorsMayBreak(", "landRefusal(", "placerMayUse(").filter { it in text }
             assertTrue(asks.isEmpty(), "$name asks the pasture check through $asks")
         }
     }
 
     private companion object {
         const val ENGINE = "src/main/kotlin/codes/honor/cobblemondynamics/engine/WorkEngine.kt"
-        const val PASTURE_CHECK = "LandClaims.ownerMayUse("
+        const val PASTURE_CHECK = "LandClaims.actorsMayUse("
     }
 }

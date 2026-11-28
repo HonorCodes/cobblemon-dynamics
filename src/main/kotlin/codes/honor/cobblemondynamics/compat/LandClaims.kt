@@ -39,6 +39,18 @@ enum class ClaimAsker(val refusal: String) {
 }
 
 /**
+ * Deduplicates stakeholder UUIDs for cooperative pasture land-claim queries, falling back to a single `null` entry when all stakeholders
+ * are absent so CD-LND-05's ownerless-pasture rule runs (CD-TEAM-07).
+ */
+object LandClaimActors {
+    fun candidates(actors: Collection<UUID?>): List<UUID?> {
+        val distinct = LinkedHashSet<UUID>(actors.size)
+        for (actor in actors) if (actor != null) distinct += actor
+        return if (distinct.isEmpty()) listOf(null) else distinct.toList()
+    }
+}
+
+/**
  * Every check must allow, in order, and the first refusal ends the questions. A check that throws refuses, with one warning for each
  * asker, claim mod and class of error (CD-QWK-30, CD-LND-11).
  */
@@ -53,6 +65,18 @@ class LandClaimGate(private val warnings: OnceLogger) {
         }
     }
 
+    fun <C> anyActorAllows(
+        asker: ClaimAsker,
+        actors: Collection<UUID?>,
+        checks: List<Pair<String, C>>,
+        ask: (C, UUID?) -> Boolean,
+    ): Boolean {
+        if (checks.isEmpty()) return true
+        return LandClaimActors.candidates(actors).any { actor ->
+            allows(asker, checks) { check -> ask(check, actor) }
+        }
+    }
+
     private fun refuse(asker: ClaimAsker, id: String, e: Throwable): Boolean {
         warnings.warn("$asker:$id:${e.javaClass.name}") { "${asker.refusal} while the claim check of $id fails: $e" }
         return false
@@ -60,8 +84,8 @@ class LandClaimGate(private val warnings: OnceLogger) {
 }
 
 /**
- * The claim mods that Quick Work and the pastures ask (CD-QWK-26, CD-QWK-29, CD-LND-01 to CD-LND-04). Mod construction fills the
- * list, as it fills HandlerRegistry, and nothing changes it later, so it holds no state of a world. This file names no class of a
+ * The claim mods that Quick Work and the pastures ask (CD-QWK-26, CD-QWK-29, CD-LND-01 to CD-LND-04, CD-TEAM-07). Mod construction fills
+ * the list, as it fills HandlerRegistry, and nothing changes it later, so it holds no state of a world. This file names no class of a
  * claim mod.
  */
 object LandClaims {
@@ -75,15 +99,23 @@ object LandClaims {
     fun mayUse(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean =
         gate.allows(ClaimAsker.QUICK_WORK, checks) { it.mayUse(owner, level, pos) }
 
-    /** CD-LND-05: by the UUID of the pasture's placer, never a player, so an offline placer gets the answer of an online one. */
+    /** CD-LND-05: by the UUID of one owner, never a player, so an offline owner gets the answer of an online one. */
     fun ownerMayUse(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean =
         gate.allows(ClaimAsker.PASTURE, checks) { it.ownerMayUse(ownerId, level, pos) }
+
+    /** CD-TEAM-07: allows when at least one non-null stakeholder in [actors] passes every loaded claim mod. */
+    fun actorsMayUse(actors: Collection<UUID?>, level: ServerLevel, pos: BlockPos): Boolean =
+        gate.anyActorAllows(ClaimAsker.PASTURE, actors, checks) { check, actor -> check.ownerMayUse(actor, level, pos) }
 
     /** CD-HRV-16, CD-HRV-20: the break question of a Quick Worker's harvest, for its online owner. A check that throws refuses. */
     fun mayBreak(owner: ServerPlayer, level: ServerLevel, pos: BlockPos): Boolean =
         gate.allows(ClaimAsker.HARVEST, checks) { it.mayBreak(owner, level, pos) }
 
-    /** CD-HRV-16, CD-HRV-21: the break question of a pasture worker's harvest, by the UUID of the pasture's placer, silent. */
+    /** CD-HRV-16, CD-HRV-21: the break question of a pasture worker's harvest, by one owner UUID, silent. */
     fun ownerMayBreak(ownerId: UUID?, level: ServerLevel, pos: BlockPos): Boolean =
         gate.allows(ClaimAsker.HARVEST, checks) { it.ownerMayBreak(ownerId, level, pos) }
+
+    /** CD-TEAM-07, CD-TEAM-08: allows breaking when at least one non-null stakeholder in [actors] passes every loaded claim mod. */
+    fun actorsMayBreak(actors: Collection<UUID?>, level: ServerLevel, pos: BlockPos): Boolean =
+        gate.anyActorAllows(ClaimAsker.HARVEST, actors, checks) { check, actor -> check.ownerMayBreak(actor, level, pos) }
 }

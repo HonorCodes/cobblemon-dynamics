@@ -26,4 +26,16 @@ class FlipRulesTest {
         assertFalse(FlipRules.mayFlip(stranger, false, null, null))
         assertTrue(FlipRules.mayFlip(stranger, true, null, null))
     }
+
+    @Test
+    fun `CD-TEAM-01 CD-TEAM-02 teammates and unlocked contributors may flip, while locked pastures refuse non-teammate contributors`() {
+        val mate = UUID.randomUUID()
+        val contributor = UUID.randomUUID()
+        val isMate: (UUID, UUID) -> Boolean = { a, b -> setOf(a, b) == setOf(placer, mate) }
+        assertTrue(FlipRules.mayFlip(contributor, false, binder, placer, locked = false, setOf(contributor), isMate))
+        assertTrue(FlipRules.mayFlip(contributor, false, null, null, locked = false, setOf(contributor), isMate))
+        assertFalse(FlipRules.mayFlip(contributor, false, contributor, placer, locked = true, setOf(contributor), isMate))
+        assertTrue(FlipRules.mayFlip(mate, false, binder, placer, locked = true, setOf(contributor), isMate))
+        assertTrue(FlipRules.mayFlip(placer, false, contributor, placer, locked = true, setOf(contributor), isMate))
+    }
 }

@@ -82,6 +82,22 @@ class LeashIndex {
     fun allOwnedBy(owner: UUID): List<Pair<BlockPos, Ref>> =
         byTarget.flatMap { (target, refs) -> refs.filter { it.owner == owner }.map { BlockPos.of(target) to it } }
 
+    /**
+     * Bindings visible to [requester] in the leash overview: the requester's own Cobblemon plus any pasture on which [mayControlPasture]
+     * grants control (CD-TEAM-05, CD-UI-09).
+     */
+    fun visibleTo(requester: UUID, pcId: UUID = requester, mayControlPasture: (BlockPos) -> Boolean): List<Pair<BlockPos, Ref>> {
+        val allowedByPasture = HashMap<Long, Boolean>()
+        return byTarget.flatMap { (target, refs) ->
+            val pos = BlockPos.of(target)
+            refs.filter { ref ->
+                ref.owner == requester ||
+                    ref.owner == pcId ||
+                    allowedByPasture.getOrPut(ref.pasture.asLong()) { mayControlPasture(ref.pasture) }
+            }.map { pos to it }
+        }
+    }
+
     private fun add(target: Long, ref: Ref) {
         byTarget.getOrPut(target) { ArrayList() }.add(ref)
     }

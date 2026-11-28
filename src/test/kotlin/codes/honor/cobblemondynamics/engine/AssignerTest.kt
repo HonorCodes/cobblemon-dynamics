@@ -55,8 +55,83 @@ class AssignerTest {
     }
 
     @Test
-    fun `CD-ASG-04 a Fairy type never takes a machine through an auto claim`() {
-        assertNull(Assigner.pickForIdle(fire(fairy = true, types = setOf("fire", "fairy")), listOf(candidate(3))) { true })
+    fun `CD-ASG-04 CD-TEAM-09 pure Fairy never auto-assigns while dual-type Fairy takes non-Fairy work when no ally needs healing`() {
+        val fairyRole = role("fairy_helper", setOf("fairy"))
+        val wheelDriver = role("wheel_driver", setOf("water"))
+        val pureFairy = WorkerView(UUID.randomUUID(), Vec3.ZERO, setOf("fairy"), true, false) { false }
+        assertNull(Assigner.pickForIdle(pureFairy, listOf(candidate(3, listOf(fairyRole)))) { true })
+
+        val azumarillIdle = WorkerView(
+            UUID.randomUUID(),
+            Vec3.ZERO,
+            linkedSetOf("water", "fairy"),
+            hasFairyType = true,
+            tired = false,
+            staminaFraction = 1.0,
+            allyNeedsHeal = false,
+        ) { false }
+        assertEquals(
+            wheelDriver,
+            Assigner.pickForIdle(azumarillIdle, listOf(candidate(3, listOf(wheelDriver, fairyRole)))) {
+                true
+            }?.second,
+        )
+        assertNull(Assigner.pickForIdle(azumarillIdle, listOf(candidate(3, listOf(fairyRole)))) { true })
+
+        val azumarillHealer = WorkerView(
+            UUID.randomUUID(),
+            Vec3.ZERO,
+            linkedSetOf("water", "fairy"),
+            hasFairyType = true,
+            tired = false,
+            staminaFraction = 0.80,
+            allyNeedsHeal = true,
+        ) { false }
+        assertNull(Assigner.pickForIdle(azumarillHealer, listOf(candidate(3, listOf(wheelDriver)))) { true })
+
+        val azumarillLow = WorkerView(
+            UUID.randomUUID(),
+            Vec3.ZERO,
+            linkedSetOf("water", "fairy"),
+            hasFairyType = true,
+            tired = false,
+            staminaFraction = 0.20,
+            allyNeedsHeal = true,
+        ) { false }
+        assertEquals(wheelDriver, Assigner.pickForIdle(azumarillLow, listOf(candidate(3, listOf(wheelDriver)))) { true }?.second)
+    }
+
+    @Test
+    fun `CD-TEAM-08 mayClaimRole filters out Harvester, Lumberjack and Freezer candidates when ownerMayBreak is false`() {
+        val cultivator = role("cultivator", setOf("ground"), handler = "cobblemon_dynamics:cultivator")
+        val harvester = role("harvester", setOf("grass"), handler = "cobblemon_dynamics:harvester")
+        val freezer = role("freezer", setOf("ice"), handler = "cobblemon_dynamics:freezer")
+        val torterra = WorkerView(UUID.randomUUID(), Vec3.ZERO, linkedSetOf("grass", "ground"), false, false) { false }
+        val ice = WorkerView(UUID.randomUUID(), Vec3.ZERO, setOf("ice"), false, false) { false }
+        val refusedHarvest = CandidateView(
+            TargetKey.block(dim, BlockPos(2, 64, 0), "harvester"),
+            Vec3(2.5, 64.5, 0.5),
+            listOf(harvester),
+            needsDemand = true,
+            mayClaimRole = { false },
+        ) { true }
+        val allowedCultivate = CandidateView(
+            TargetKey.block(dim, BlockPos(2, 64, 0), "cultivator"),
+            Vec3(2.5, 64.5, 0.5),
+            listOf(cultivator),
+            needsDemand = true,
+            mayClaimRole = { true },
+        ) { true }
+        val refusedFreeze = CandidateView(
+            TargetKey.block(dim, BlockPos(3, 64, 0)),
+            Vec3(3.5, 64.5, 0.5),
+            listOf(freezer),
+            needsDemand = true,
+            mayClaimRole = { false },
+        ) { true }
+        assertEquals(cultivator, Assigner.pickForIdle(torterra, listOf(refusedHarvest, allowedCultivate)) { true }?.second)
+        assertNull(Assigner.pickForIdle(torterra, listOf(refusedHarvest)) { true })
+        assertNull(Assigner.pickForIdle(ice, listOf(refusedFreeze)) { true })
     }
 
     @Test

@@ -142,10 +142,17 @@ object LeashResets {
         return keys
     }
 
-    /** CD-LSH-26: binding data never travels to a new owner. */
+    /** CD-LSH-26, CD-TEAM-05: binding data never travels to a new owner. */
     fun onGained(server: MinecraftServer, playerId: UUID, pokemon: Pokemon) {
         val binding = BindingStore.read(pokemon) ?: return
-        if (binding.binder != playerId) clear(server, pokemon, TRADED)
+        val indexedOwner = levelOf(server, binding.dimension)
+            ?.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)
+            ?.at(binding.target)
+            ?.firstOrNull { it.pokemonId == pokemon.uuid }
+            ?.owner
+        val expectedOwner = indexedOwner ?: binding.binder
+        val playerPcId = Cobblemon.storage.getPC(playerId, server.registryAccess()).uuid
+        if (playerId != expectedOwner && playerPcId != expectedOwner) clear(server, pokemon, TRADED)
     }
 
     /**

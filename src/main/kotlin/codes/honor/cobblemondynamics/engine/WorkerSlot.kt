@@ -8,6 +8,7 @@ import codes.honor.cobblemondynamics.stamina.EvaluatedTraits
 import codes.honor.cobblemondynamics.stamina.RecoveryRule
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
+import java.util.UUID
 
 /**
  * One worker with the live objects that its tick needs. [role] and [memo] belong to the worker's current work claim, and [focus] is
@@ -19,6 +20,7 @@ class WorkerSlot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pok
     var memo: ClaimMemo = ClaimMemo()
     var focus: WorkFocusEntity? = null
     var binding: Binding? = null
+    var ownerId: UUID? = null
 
     /** CD-LSH-34: the handler memos of the switch roles' demand checks, which the poll keeps for the life of the binding. */
     val probes: SwitchProbes = SwitchProbes()

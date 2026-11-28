@@ -3,6 +3,9 @@ package codes.honor.cobblemondynamics.ftbtest
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.compat.LandClaims
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.pasture.PastureAdapter
+import codes.honor.cobblemondynamics.pasture.WorkModePolicy.Decision
+import codes.honor.cobblemondynamics.pasture.WorkModeService
 import codes.honor.cobblemondynamics.test.TestKit
 import codes.honor.cobblemondynamics.test.claims.ClaimScenes
 import codes.honor.cobblemondynamics.test.claims.PastureOracle
@@ -270,5 +273,39 @@ class FtbChunksClaimTests {
     fun cdQwk29ClaimOfARunningOrderStopsIt(helper: GameTestHelper) {
         val scene = scene(helper, claim = false)
         losesTheOrder(helper, scene.d.player) { FtbChunksFixture.claim(scene.a.player, helper.level, scene.furnace) }
+    }
+
+    /**
+     * CD-TEAM-01, CD-TEAM-02, CD-TEAM-07: FTB Teams member B controls A's locked pasture while stranger D is rejected, and A's
+     * Charmander tethered in stranger D's pasture works furnace A inside A's claimed chunk.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 600, batch = "ftb_team01_07")
+    fun cdTeam01Team07FtbTeammateControlsLockedPastureAndSharedWorkerUsesClaim(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val lockedPasture = TestKit.placePasture(helper, BlockPos(16, 1, 11), scene.a.player)
+        WorkModeService.applyLock(helper.level, lockedPasture.blockPos, true)
+        TestKit.standBeside(scene.b.player, lockedPasture)
+        TestKit.standBeside(scene.d.player, lockedPasture)
+        helper.assertTrue(
+            WorkModeService.request(scene.d.player, lockedPasture.blockPos, true) is Decision.Reject,
+            "stranger D toggled A's locked pasture",
+        )
+        helper.assertTrue(
+            WorkModeService.request(scene.b.player, lockedPasture.blockPos, true) == Decision.Apply,
+            "FTB party member B could not toggle A's locked pasture",
+        )
+        helper.assertTrue(PastureAdapter.isWorkMode(lockedPasture), "A's locked pasture stayed off")
+
+        val sharedPasture = TestKit.placePasture(helper, BlockPos(8, 1, 11), scene.d.player)
+        TestKit.workMode(sharedPasture, true)
+        val aCharmander = TestKit.tether(helper, sharedPasture, scene.a.player, "charmander level=10")
+        helper.onEachTick {
+            val claim = TestKit.claimOf(helper, aCharmander)
+            if (claim?.key == TestKit.keyOf(helper, scene.furnace) &&
+                TestKit.workerOf(helper, aCharmander)?.status == WorkerStatus.WORKING
+            ) {
+                helper.succeed()
+            }
+        }
     }
 }

@@ -128,6 +128,8 @@ object LumberjackHandler : TargetHandler {
     /** CD-ASG-25: the fell and the replant change the base cell. */
     override val growsTrees: Boolean = true
 
+    override val breaksBlocks: Boolean = true
+
     /** The claim follows the binding, so a claim on a sapling stays while the worker waits for the tree. */
     override fun stillValid(level: ServerLevel, canonical: BlockPos): Boolean = bindingHolds(level, canonical)
 

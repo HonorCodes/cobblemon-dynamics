@@ -41,6 +41,8 @@ object FreezerHandler : TargetHandler {
     /** CD-FRZ-12: an auto-assigned worker goes cell to cell. */
     override val releasesWhenDone: Boolean = true
 
+    override val breaksBlocks: Boolean = true
+
     /** CD-FRZ-03: the cell and the cell above it. */
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         FreezeRules.matches(kindOf(state), kindOf(level.getBlockState(pos.above())))

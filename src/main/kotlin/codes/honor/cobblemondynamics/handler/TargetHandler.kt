@@ -47,6 +47,12 @@ interface TargetHandler {
      */
     val releasesWhenDone: Boolean get() = false
 
+    /** True for a handler whose primary action breaks or replaces the claimed target cell (CD-TEAM-08). */
+    val breaksBlocks: Boolean get() = false
+
+    /** The cell whose break permission must pass before claiming [canonical], or null when this target breaks no block (CD-TEAM-08). */
+    fun breakTarget(level: ServerLevel, canonical: BlockPos): BlockPos? = canonical.takeIf { breaksBlocks }
+
     fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean
 
     /** The one position that keys the claim of a multi-block target (CD-CLM-04). */

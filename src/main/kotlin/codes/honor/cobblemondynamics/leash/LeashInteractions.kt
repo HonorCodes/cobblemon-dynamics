@@ -5,6 +5,7 @@ import codes.honor.cobblemondynamics.claim.Claim
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.LeashIndex
 import codes.honor.cobblemondynamics.claim.TargetKey
+import codes.honor.cobblemondynamics.compat.TeamAllies
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkArea
 import codes.honor.cobblemondynamics.engine.WorkEngine
@@ -60,33 +61,51 @@ object LeashInteractions {
         if (event.hand != InteractionHand.MAIN_HAND || !stack.`is`(DynamicsItems.WORK_LEASH.get())) return
         val target = event.target as? PokemonEntity ?: return
         if (player is ServerPlayer) {
-            // The store, not the entity, says who owns the Pokémon. The entity copies its owner only on its next tick.
-            if (target.pokemon.getOwnerUUID() != player.uuid) return
-            if (player.isShiftKeyDown) clearOwn(player, target.pokemon) else select(player, stack, target)
-        } else if (target.ownerUUID != player.uuid) {
+            if (!handleServerEntityClick(player, stack, target)) return
+        } else if (target.ownerUUID != player.uuid && !target.hasData(DynamicsAttachments.STAMINA_VIEW)) {
             return
         }
         event.setCanceled(true)
         event.cancellationResult = InteractionResult.SUCCESS
     }
 
-    /** CD-LSH-01: only a Pokémon tethered to a pasture in Work Mode can be selected. */
-    private fun select(player: ServerPlayer, stack: ItemStack, entity: PokemonEntity) {
-        val pokemon = entity.pokemon
-        if (PastureAdapter.workModePastureOf(entity) == null) {
-            Feedback.actionBar(player, Component.translatable(BindRules.NOT_WORK_MODE))
-            return
+    private fun handleServerEntityClick(player: ServerPlayer, stack: ItemStack, target: PokemonEntity): Boolean {
+        val tetheredCtx = PastureAdapter.tetheredContextOf(target)
+        if (tetheredCtx != null) {
+            val be = tetheredCtx.pasture
+            val tethered = tetheredCtx.tethered
+            val pokemon = tethered.pokemon ?: target.pokemon
+            val actorOwns = tethered.ownerId == player.uuid || pokemon.getOwnerUUID() == player.uuid
+            val mayControl = PastureAdapter.mayControl(player, be)
+            if (player.isShiftKeyDown) {
+                if (!BindRules.mayClear(tetheredToPasture = true, actorOwnsPokemon = actorOwns, mayControlPasture = mayControl)) {
+                    return actorOwns
+                }
+                clearPokemon(player, pokemon)
+                return true
+            }
+            if (!BindRules.maySelect(tetheredToPasture = true, mayControlPasture = mayControl)) return actorOwns
+            if (!PastureAdapter.isWorkMode(be)) {
+                Feedback.actionBar(player, Component.translatable(BindRules.NOT_WORK_MODE))
+                return true
+            }
+            stack.set(LeashComponents.SELECTION.get(), LeashSelection(pokemon.uuid, pokemon.getDisplayName().string))
+            stack.remove(LeashComponents.PENDING_SOURCE.get())
+            Feedback.actionBar(player, Component.translatable(SELECTED, pokemon.getDisplayName()))
+            return true
         }
-        stack.set(LeashComponents.SELECTION.get(), LeashSelection(pokemon.uuid, pokemon.getDisplayName().string))
-        stack.remove(LeashComponents.PENDING_SOURCE.get())
-        Feedback.actionBar(player, Component.translatable(SELECTED, pokemon.getDisplayName()))
+        if (target.pokemon.getOwnerUUID() != player.uuid) return false
+        if (player.isShiftKeyDown) {
+            clearPokemon(player, ownedPokemon(player, target.pokemon.uuid) ?: target.pokemon)
+        } else {
+            Feedback.actionBar(player, Component.translatable(BindRules.NOT_WORK_MODE))
+        }
+        return true
     }
 
-    /** CD-LSH-10: the owner's own sneak-click clears the binding, with no chat message. */
-    private fun clearOwn(player: ServerPlayer, pokemon: Pokemon) {
-        val stored = ownedPokemon(player, pokemon.uuid) ?: pokemon
-        if (LeashResets.clear(player.server, stored, reason = null) != null) {
-            Feedback.actionBar(player, Component.translatable(CLEARED, stored.getDisplayName()))
+    private fun clearPokemon(player: ServerPlayer, pokemon: Pokemon) {
+        if (LeashResets.clear(player.server, pokemon, reason = null) != null) {
+            Feedback.actionBar(player, Component.translatable(CLEARED, pokemon.getDisplayName()))
         }
     }
 
@@ -99,11 +118,11 @@ object LeashInteractions {
         val now = level.gameTime
         val dimension = level.dimension().location()
         val selection = stack.get(LeashComponents.SELECTION.get())
-        val pokemon = selection?.let { ownedPokemon(player, it.pokemonId) }
-        val pasture = pokemon?.let { PastureAdapter.workModePastureOf(level, it) }
+        val resolved = selection?.let { resolveSelected(player, level, it.pokemonId) }
+        val pokemon = resolved?.pokemon
+        val pasture = resolved?.pasture
         val area = pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
         val live = livePending(stack, dimension, now)
-        // CD-SEC-08: the stack's pending source is checked before any read of its block, so a written one never loads a chunk.
         val check = live?.let { BindRules.checkPending(it.pos, area) { pos -> level.isLoaded(pos) } }
         if (check == BindRules.PendingCheck.OUTSIDE_AREA || check == BindRules.PendingCheck.ABSENT) {
             stack.remove(LeashComponents.PENDING_SOURCE.get())
@@ -115,18 +134,13 @@ object LeashInteractions {
         val pending = live.takeUnless { check == BindRules.PendingCheck.ABSENT }
         val roles = if (check == BindRules.PendingCheck.NO_AREA) emptyList() else fittingRoles(level, pokemon, clicked, pending)
         val types = pokemon?.types?.map { it.showdownId }.orEmpty()
-        // CD-PCK-04: a role that no leash binds, such as the Picker at an apricorn, gets a refusal that names the worker.
         val worksAlone = roles.isEmpty() && pending == null && pokemon != null && check != BindRules.PendingCheck.NO_AREA &&
             RoleRegistry.current.forTypes(types).any { !it.definition.leash && it.definition.autoAssign && matches(level, it, clicked) }
-        // CD-CRP-22: a Cobblemon that fits both farming roles binds the role of its primary type.
         val best = RoleSelection.best(roles.map { it.definition }, types, RoleRegistry::sameGroup)
             ?.let { def -> roles.first { it.definition == def } }
         val canonical = best?.let { role -> guarded(role.handler, clicked) { role.handler.canonical(level, clicked) } } ?: clicked
-        // The checks of a source-and-destination binding are the source's, and the destination is the clicked block.
         val source = pending?.pos ?: canonical
         val index = level.getExistingDataOrNull(DynamicsAttachments.LEASH_INDEX)
-        // CD-LSH-28: a bind of an exclusive role meets only the bindings of exclusive roles, and of its own lane (CD-CRP-07). A logistics
-        // bind counts places (CD-LSH-29).
         val otherOf = { role: RoleDefinition ->
             index?.exclusiveAt(source, RoleRegistry.laneOf(role.id), RoleRegistry::sharesTargets, RoleRegistry::laneOf)
                 ?.let { otherBound(level, it, selection?.pokemonId) }
@@ -140,12 +154,12 @@ object LeashInteractions {
         }
         val input = BindRules.Input(
             selection = selection,
-            pokemonOwnedByPlayer = pokemon != null,
+            pokemonOwnedByPlayer = resolved?.ownedByPlayer == true,
             pastureInWorkMode = pasture != null,
             fittingRoles = roles.map { it.definition },
             canonical = canonical,
             insideWorkArea = area?.contains(source) == true,
-            boundToOtherOf = { role -> (if (role == best?.definition) other else otherOf(role))?.seenBy(player.uuid) },
+            boundToOtherOf = { role -> (if (role == best?.definition) other else otherOf(role))?.seenBy(player) },
             pending = pending,
             sameAsPending = pending?.pos == canonical,
             destinationInReach = pending == null ||
@@ -155,6 +169,7 @@ object LeashInteractions {
             noSpotRefusal = best?.handler?.noSpotRefusal?.takeIf {
                 pending == null &&
                     pasture != null &&
+                    pokemon != null &&
                     WorkEngine.get()?.hasSpot(level, pasture, pokemon.uuid, best, canonical) == false
             },
             types = types,
@@ -164,6 +179,7 @@ object LeashInteractions {
                 guarded<String?>(role.handler, null) { role.handler.bindRefusal(level, canonical, role.definition) }
             },
             worksAlone = worksAlone,
+            authorizedOnPasture = resolved?.authorizedOnPasture == true,
         )
         val outcome = BindRules.evaluate(
             input,
@@ -181,17 +197,50 @@ object LeashInteractions {
             }
 
             is BindRules.Outcome.Bind -> {
-                if (pokemon == null || pasture == null) return
+                if (pokemon == null || pasture == null || resolved == null) return
                 val binding = if (pending == null) {
                     Binding(outcome.role.id, dimension, pasture, canonical, face, player.uuid)
                 } else {
                     Binding(outcome.role.id, dimension, pasture, pending.pos, pending.face, player.uuid, canonical, face)
                 }
-                bind(player, level, pokemon, binding)
+                bind(player, level, pokemon, binding, resolved.refOwner)
                 stack.remove(LeashComponents.SELECTION.get())
                 stack.remove(LeashComponents.PENDING_SOURCE.get())
             }
         }
+    }
+
+    private class SelectedTarget(
+        val pokemon: Pokemon?,
+        val pasture: BlockPos?,
+        val refOwner: UUID,
+        val ownedByPlayer: Boolean,
+        val authorizedOnPasture: Boolean,
+    )
+
+    private fun resolveSelected(player: ServerPlayer, level: ServerLevel, pokemonId: UUID): SelectedTarget {
+        val tetheredCtx = PastureAdapter.workModeTethered(level, pokemonId)
+        if (tetheredCtx != null) {
+            val mayControl = PastureAdapter.mayControl(player, tetheredCtx.pasture)
+            val pokemon = tetheredCtx.tethered.pokemon?.takeIf { mayControl }
+            val pasture = tetheredCtx.pasture.blockPos.takeIf { pokemon != null }
+            val owned = tetheredCtx.tethered.ownerId == player.uuid || pokemon?.getOwnerUUID() == player.uuid
+            return SelectedTarget(
+                pokemon = pokemon,
+                pasture = pasture,
+                refOwner = tetheredCtx.tethered.pcId,
+                ownedByPlayer = owned,
+                authorizedOnPasture = pokemon != null,
+            )
+        }
+        val own = ownedPokemon(player, pokemonId)
+        return SelectedTarget(
+            pokemon = own,
+            pasture = null,
+            refOwner = Cobblemon.storage.getPC(player).uuid,
+            ownedByPlayer = own != null,
+            authorizedOnPasture = own != null,
+        )
     }
 
     /**
@@ -227,9 +276,12 @@ object LeashInteractions {
     private fun matches(level: ServerLevel, role: ActiveRole, pos: BlockPos): Boolean =
         guarded(role.handler, false) { role.handler.matches(level, pos, level.getBlockState(pos), level.getBlockEntity(pos)) }
 
-    /** A Pokémon bound to a target, and the player whose PC or party holds it. */
+    /** A Pokémon bound to a target, and the store id that holds it. */
     private class OtherBound(val pokemon: Pokemon, val owner: UUID) {
-        fun seenBy(player: UUID) = BindRules.Bound(pokemon.getDisplayName().string, pokemon.species.name, ownedByPlayer = owner == player)
+        fun seenBy(player: ServerPlayer): BindRules.Bound {
+            val owned = owner == player.uuid || pokemon.getOwnerUUID() == player.uuid || Cobblemon.storage.getPC(player).uuid == owner
+            return BindRules.Bound(pokemon.getDisplayName().string, pokemon.species.name, ownedByPlayer = owned)
+        }
     }
 
     /** The Pokémon of the index entry [ref], when it is not [selected]. An entry whose Pokémon is gone is LeashResets' to clear. */
@@ -270,13 +322,13 @@ object LeashInteractions {
     private fun containerName(player: ServerPlayer, pos: BlockPos?): Any =
         pos?.let { player.serverLevel().getBlockState(it).block.name } ?: ""
 
-    /** CD-LSH-11: the new binding replaces the old one, and the old target is no longer reserved. */
-    private fun bind(player: ServerPlayer, level: ServerLevel, pokemon: Pokemon, binding: Binding) {
+    /** CD-LSH-11, CD-TEAM-05: the new binding replaces the old one, and [refOwner] stores the Pokémon's PC store id. */
+    private fun bind(player: ServerPlayer, level: ServerLevel, pokemon: Pokemon, binding: Binding, refOwner: UUID) {
         val old = BindingStore.read(pokemon)
         if (old != null) LeashResets.levelOf(player.server, old.dimension)?.let { LeashResets.unindex(it, old.target, pokemon.uuid) }
         BindingStore.write(pokemon, binding)
         val index = level.getData(DynamicsAttachments.LEASH_INDEX)
-        index.put(binding.target, LeashIndex.Ref(pokemon.uuid, player.uuid, binding.pasture, binding.roleId, binding.destination))
+        index.put(binding.target, LeashIndex.Ref(pokemon.uuid, refOwner, binding.pasture, binding.roleId, binding.destination))
         level.setData(DynamicsAttachments.LEASH_INDEX, index)
         WorkEngine.get()?.onBound(level, pokemon.uuid, binding)
         val target = level.getBlockState(binding.target).block.name
@@ -308,10 +360,18 @@ object LeashInteractions {
 
     /** A Quick Work claim names no pasture, so no binder and no placer stand behind it, and only an operator flips (CD-SEC-10). */
     private fun mayFlip(player: ServerPlayer, level: ServerLevel, engine: WorkEngine, claim: Claim): Boolean {
-        val pasture = claim.pasture
-        val binder = pasture?.let { engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder }
-        val placer = pasture?.let { PastureAdapter.pastureAt(level, BlockPos.of(it.pos)) }?.let(PastureAdapter::placer)
-        return FlipRules.mayFlip(player.uuid, player.hasPermissions(PERMISSION_OPERATOR), binder, placer)
+        val isOperator = player.hasPermissions(PERMISSION_OPERATOR)
+        val pasture = claim.pasture ?: return isOperator
+        val binder = engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder
+        val be = PastureAdapter.pastureAt(level, BlockPos.of(pasture.pos)) ?: return isOperator
+        return FlipRules.mayFlip(
+            actor = player.uuid,
+            isOperator = isOperator,
+            binder = binder,
+            placer = PastureAdapter.placer(be),
+            locked = PastureAdapter.isLocked(be),
+            tetheredOwners = PastureAdapter.contributorIds(be),
+        ) { a, b -> TeamAllies.areTeammates(player.server, a, b) }
     }
 
     /** The player's own Pokémon [pokemonId], from the PC, where pastured Pokémon live, or the party. */

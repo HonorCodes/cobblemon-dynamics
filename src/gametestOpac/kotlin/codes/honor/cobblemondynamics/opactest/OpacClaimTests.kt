@@ -3,6 +3,9 @@ package codes.honor.cobblemondynamics.opactest
 import codes.honor.cobblemondynamics.MOD_ID
 import codes.honor.cobblemondynamics.compat.LandClaims
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.pasture.PastureAdapter
+import codes.honor.cobblemondynamics.pasture.WorkModePolicy.Decision
+import codes.honor.cobblemondynamics.pasture.WorkModeService
 import codes.honor.cobblemondynamics.test.TestKit
 import codes.honor.cobblemondynamics.test.claims.ClaimScenes
 import codes.honor.cobblemondynamics.test.claims.PastureOracle
@@ -234,6 +237,43 @@ class OpacClaimTests {
             helper.assertFalse(ClaimScenes.hasOrder(helper, charmander), "CD-QWK-29: the order outlived the removal by $age ticks")
             helper.assertTrue(TestKit.lastMessage(b) == ClaimScenes.REFUSAL, "CD-QWK-29: B got ${TestKit.messages(b)}")
             helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-01, CD-TEAM-02, CD-TEAM-07: OPAC party member B controls A's locked pasture while allied-party C and stranger D are
+     * rejected, and A's Charmander tethered in stranger D's pasture works furnace A inside A's claimed chunk.
+     */
+    @GameTest(template = "floor_23x10x23", timeoutTicks = 600, batch = "opac_team01_07")
+    fun cdTeam01Team07OpacPartyMemberControlsLockedPastureAndSharedWorkerUsesClaim(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val lockedPasture = TestKit.placePasture(helper, BlockPos(16, 1, 11), scene.a.player)
+        WorkModeService.applyLock(helper.level, lockedPasture.blockPos, true)
+        for (p in listOf(scene.b.player, scene.c.player, scene.d.player)) TestKit.standBeside(p, lockedPasture)
+        helper.assertTrue(
+            WorkModeService.request(scene.c.player, lockedPasture.blockPos, true) is Decision.Reject,
+            "allied-party C toggled A's locked pasture",
+        )
+        helper.assertTrue(
+            WorkModeService.request(scene.d.player, lockedPasture.blockPos, true) is Decision.Reject,
+            "stranger D toggled A's locked pasture",
+        )
+        helper.assertTrue(
+            WorkModeService.request(scene.b.player, lockedPasture.blockPos, true) == Decision.Apply,
+            "OPAC party member B could not toggle A's locked pasture",
+        )
+        helper.assertTrue(PastureAdapter.isWorkMode(lockedPasture), "A's locked pasture stayed off")
+
+        val sharedPasture = TestKit.placePasture(helper, BlockPos(8, 1, 11), scene.d.player)
+        TestKit.workMode(sharedPasture, true)
+        val aCharmander = TestKit.tether(helper, sharedPasture, scene.a.player, "charmander level=10")
+        helper.onEachTick {
+            val claim = TestKit.claimOf(helper, aCharmander)
+            if (claim?.key == TestKit.keyOf(helper, scene.furnace) &&
+                TestKit.workerOf(helper, aCharmander)?.status == WorkerStatus.WORKING
+            ) {
+                helper.succeed()
+            }
         }
     }
 }

@@ -37,6 +37,16 @@ object HarvesterHandler : TargetHandler {
     /** CD-CRP-10: an auto-assigned worker goes crop to crop. */
     override val releasesWhenDone: Boolean = true
 
+    override val breaksBlocks: Boolean = true
+
+    override fun breakTarget(level: ServerLevel, canonical: BlockPos): BlockPos? {
+        val state = level.getBlockState(canonical)
+        return when (kindOf(level, canonical, state)) {
+            HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT, HarvestKind.UPPER_HALF, HarvestKind.GOURD -> canonical
+            else -> null
+        }
+    }
+
     /** CD-HRV-03: an apricorn first, also one that a datapack adds to the tag. Both halves of a crop share its block. */
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean {
         if (state.block is ApricornBlock || state.`is`(FarmingTags.APRICORNS) || !state.`is`(FarmingTags.HARVESTER_TARGETS)) return false

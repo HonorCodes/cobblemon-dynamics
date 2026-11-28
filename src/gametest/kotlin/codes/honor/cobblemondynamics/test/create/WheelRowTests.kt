@@ -6,6 +6,8 @@ import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.handler.create.RealFlowAccess
 import codes.honor.cobblemondynamics.id
 import codes.honor.cobblemondynamics.leash.BindingStore
+import codes.honor.cobblemondynamics.stamina.Stamina
+import codes.honor.cobblemondynamics.stamina.StaminaStore
 import codes.honor.cobblemondynamics.test.TestKit
 import com.cobblemon.mod.common.Cobblemon
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
@@ -80,20 +82,33 @@ class WheelRowTests {
     }
 
     /**
-     * An unleashed Azumarill (Water and Fairy) stands 3 blocks from a dry water wheel for 400 ticks and never claims it (CD-ASG-04).
-     * Then a Squirtle joins the pasture and claims the wheel, which shows that the wheel was free to take.
+     * An unleashed Azumarill (Water and Fairy) whose pasture has a Tired Machop ally stands beside a dry water wheel for 400 ticks and
+     * prioritizes healing over claiming the wheel (CD-ASG-04, CD-TEAM-09). Then a Squirtle joins the pasture and claims the wheel.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 700)
     fun cdAsg04AzumarillLeavesTheDryWheelAlone(helper: GameTestHelper) {
-        val scene = scene(helper)
+        val scene = scene(helper, on = false)
         val wheel = CreateKit.smallWheel(helper, wheelRel)
+        val machopAt = BlockPos(2, 2, 12)
+        for (x in 0..5) {
+            for (z in 9..14) {
+                for (y in 2..5) {
+                    if (x == machopAt.x && z == machopAt.z && y <= 3) continue
+                    helper.setBlock(BlockPos(x, y, z), Blocks.STONE)
+                }
+            }
+        }
+        val machop = TestKit.tether(helper, scene.pasture, scene.owner, "machop level=50")
+        TestKit.moveTo(helper, machop, machopAt)
+        StaminaStore.save(machop.pokemon, Stamina(0.0, tired = true), helper.level.gameTime + 10)
         val azumarill = TestKit.tether(helper, scene.pasture, scene.owner, "azumarill level=20")
         TestKit.moveTo(helper, azumarill, BlockPos(7, 2, 8))
+        TestKit.workMode(scene.pasture, true)
         var squirtle: PokemonEntity? = null
         helper.onEachTick {
             helper.assertTrue(
-                TestKit.claimOf(helper, azumarill) == null,
-                "CD-ASG-04: the Azumarill claimed ${TestKit.claimOf(helper, azumarill)}",
+                TestKit.claimOf(helper, azumarill)?.kind != ClaimKind.WORK,
+                "CD-ASG-04: the Azumarill claimed work ${TestKit.claimOf(helper, azumarill)} while an ally needed healing",
             )
             if (helper.tick < 400) return@onEachTick
             val control = squirtle ?: TestKit.tether(helper, scene.pasture, scene.owner, "squirtle level=10").also { squirtle = it }

@@ -4,7 +4,6 @@ import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkEngine
 import codes.honor.cobblemondynamics.engine.WorkerStatus
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
-import codes.honor.cobblemondynamics.pasture.WorkModePolicy
 import codes.honor.cobblemondynamics.stamina.PanelCadence
 import codes.honor.cobblemondynamics.stamina.Stamina
 import codes.honor.cobblemondynamics.stamina.StaminaStore
@@ -18,8 +17,6 @@ import java.util.UUID
 
 /** The players who have a pasture's panel open, and the last state that each was sent. Server thread only. */
 object PanelViewers {
-    private const val PERMISSION_OPERATOR = 2
-
     private class View(val player: ServerPlayer, val level: ServerLevel, val pos: BlockPos, val openedAt: Long)
 
     /** By player, in the order the panels opened. */
@@ -84,7 +81,7 @@ object PanelViewers {
 
     private fun stateFor(player: ServerPlayer, be: PokemonPastureBlockEntity): PasturePanelStatePayload {
         val engine = WorkEngine.get()
-        val canToggle = WorkModePolicy.mayToggle(player.uuid, player.hasPermissions(PERMISSION_OPERATOR), PastureAdapter.placer(be))
+        val canToggle = PastureAdapter.mayControl(player, be)
         val entries = PastureAdapter.tetheredIds(be).map { id ->
             val worker = engine?.worker(id)
             val stamina = worker?.stamina ?: savedStamina(player.serverLevel(), be, id)

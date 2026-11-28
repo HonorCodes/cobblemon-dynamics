@@ -78,7 +78,13 @@ object BindRules {
          * apricorn (CD-PCK-04). Its refusal names the worker inside the work area only.
          */
         val worksAlone: Boolean = false,
+        val authorizedOnPasture: Boolean = pokemonOwnedByPlayer,
     )
+
+    fun maySelect(tetheredToPasture: Boolean, mayControlPasture: Boolean): Boolean = tetheredToPasture && mayControlPasture
+
+    fun mayClear(tetheredToPasture: Boolean, actorOwnsPokemon: Boolean, mayControlPasture: Boolean): Boolean =
+        if (tetheredToPasture) actorOwnsPokemon || mayControlPasture else actorOwnsPokemon
 
     /** What a block click does with the leash's pending source before it reads any block of it (CD-SEC-08). */
     enum class PendingCheck {
@@ -116,7 +122,7 @@ object BindRules {
         sharesOf: (RoleDefinition) -> Boolean = { false },
         sameGroup: (RoleDefinition, RoleDefinition) -> Boolean = RoleSelection.SAME_HANDLER,
     ): Outcome {
-        if (input.selection == null || !input.pokemonOwnedByPlayer) return Outcome.Refuse(NO_SELECTION)
+        if (input.selection == null || !input.authorizedOnPasture) return Outcome.Refuse(NO_SELECTION)
         if (!input.pastureInWorkMode) return Outcome.Refuse(NOT_WORK_MODE)
         // CD-LSH-16: one click gives one predictable role.
         val role = RoleSelection.best(input.fittingRoles, input.types, sameGroup)
