@@ -121,7 +121,7 @@ object LeashInteractions {
         val resolved = selection?.let { resolveSelected(player, level, it.pokemonId) }
         val pokemon = resolved?.pokemon
         val pasture = resolved?.pasture
-        val area = pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
+        val area = pasture?.let { PastureAdapter.workArea(level, it, WorkEngineSettings.current) }
         val live = livePending(stack, dimension, now)
         val check = live?.let { BindRules.checkPending(it.pos, area) { pos -> level.isLoaded(pos) } }
         if (check == BindRules.PendingCheck.OUTSIDE_AREA || check == BindRules.PendingCheck.ABSENT) {

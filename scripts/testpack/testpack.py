@@ -61,7 +61,7 @@ DATA_PACK_FORMAT = 48  # Minecraft 1.21.1
 # CD-CFG-01: the server config file and the keys of the CD-CFG-01 test in ConfigTest, which checks that both lists match.
 SERVER_CONFIG = pathlib.Path("config", f"{MOD_ID}-server.toml")
 SERVER_CONFIG_KEYS = (
-    "workArea.horizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
+    "workArea.horizontalRadius", "workArea.maxHorizontalRadius", "workArea.verticalRadius", "engine.scanIntervalTicks",
     "engine.maxBlockChecksPerTick", "engine.travelTimeoutTicks", "engine.retryWaitTicks",
     "engine.standbyMoveTicks", "engine.effectBroadcastRadius", "workMode.toggleCooldownTicks",
     "leash.pendingSelectionTicks", "logistics.maxWorkersPerContainer", "quickWork.enabled", "quickWork.targetRange",
@@ -598,10 +598,12 @@ LOAD_LINES = (
                 "compat.mekanismgenerators.WindGeneratorMixin (mekanismgenerators absent), "
                 "compat.pneumaticcraft.AirCompressorMixin (pneumaticcraft absent)")
     + re.escape("], 0 applied with no injection [], 0 not applied yet []"),
-    # CD-CMP-09: the payload version and the six payloads by direction.
-    re.escape("Payloads, version 3: 2 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview], "
-              "4 to the server [cobblemon_dynamics:work_mode_toggle, cobblemon_dynamics:pasture_panel_open, "
-              "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request]"),
+    # CD-CMP-09: the payload version and the nine payloads by direction.
+    re.escape("Payloads, version 4: 3 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview, "
+              "cobblemon_dynamics:area_bounds], 6 to the server [cobblemon_dynamics:work_mode_toggle, "
+              "cobblemon_dynamics:pasture_settings, cobblemon_dynamics:pasture_panel_open, "
+              "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request, "
+              "cobblemon_dynamics:area_watch]"),
     # CD-CMP-10: every role file loads and is active: the 24 with no condition and the AE2 Crank's, beside AE2.
     re.escape("Roles: 25 loaded, 25 active, 0 disabled []"),
 )
@@ -913,6 +915,7 @@ COMPAT_ADAPTERS = {
     "dynamictrees": ("lumberjack_fell",),
     "apothic_enchanting": ("muse_quanta",),
     "ae2": ("ae2_crank",),
+    "jade": ("jade_plugin",),
 }
 COMPAT_LINE = r"Compat: (\S+) (\S+) \[([^\]]*)\]"
 ROLES_LINE = r"Roles: \d+ loaded, \d+ active, \d+ disabled \["

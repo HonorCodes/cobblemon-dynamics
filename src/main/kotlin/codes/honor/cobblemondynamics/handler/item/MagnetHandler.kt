@@ -75,7 +75,7 @@ object MagnetHandler : TargetHandler {
 
     /** CD-MAG-04: the work area of the worker's own pasture. */
     private fun area(ctx: WorkContext): WorkArea? =
-        ctx.pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
+        ctx.area ?: ctx.pasture?.let { PastureAdapter.workArea(ctx.level, it, WorkEngineSettings.current) }
 
     /** CD-MAG-08: one query of the work area, at most once every 20 ticks. */
     private fun drops(ctx: WorkContext, area: WorkArea): List<ItemEntity> {

@@ -47,6 +47,7 @@ object OptionalMods {
         OptionalMod("apothic_enchanting", listOf("dev/shadowsoffire/"), listOf("muse_quanta"), compat = "apothic"),
         // CD-CRY-05: only compat/ae2/ may name AE2, for the AE2 Crank's ICrankable API (R83).
         OptionalMod("ae2", listOf("appeng/"), listOf("ae2_crank")),
+        OptionalMod("jade", listOf("snownee/jade/"), listOf("jade_plugin")),
         OptionalMod("farmersdelight", listOf("vectorwing/"), compat = null),
         OptionalMod("aether", listOf("com/aetherteam/"), compat = null),
         OptionalMod("deep_aether", listOf("io/github/razordevs/"), compat = null),

@@ -47,8 +47,8 @@ object PanelBars {
         graphics.disableScissor()
         graphics.pose().popPose()
         val entry = hovered ?: return
-        val lines = StaminaBar.tooltip(entry.percent, entry.state).map {
-            Component.translatable(it.key, *it.args.toTypedArray()).visualOrderText
+        val lines = WorkerTooltipLines.panelTooltip(entry.percent, entry.state, entry.idleReason, entry.traitFlags).map {
+            it.toComponent().visualOrderText
         }
         Minecraft.getInstance().screen?.setTooltipForNextRenderPass(lines)
     }

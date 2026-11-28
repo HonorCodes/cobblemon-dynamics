@@ -234,3 +234,10 @@ type="optional"
 versionRange="*"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="jade"
+type="optional"
+versionRange="*"
+ordering="NONE"
+side="BOTH"

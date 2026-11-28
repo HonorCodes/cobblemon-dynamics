@@ -87,6 +87,8 @@ interface TargetHandler {
 
     fun hasDemand(ctx: WorkContext): Boolean
 
+    fun minLevelFor(ctx: WorkContext): Int = 1
+
     fun onStart(ctx: WorkContext) {}
 
     fun applyWork(ctx: WorkContext)

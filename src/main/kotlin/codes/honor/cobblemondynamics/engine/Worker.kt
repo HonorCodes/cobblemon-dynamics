@@ -14,6 +14,7 @@ import java.util.UUID
  */
 class Worker(val pokemonId: UUID, var pasture: PastureKey?) {
     var status: WorkerStatus = WorkerStatus.IDLE
+    var idleReason: IdleReason = IdleReason.NONE
     var leashed: Boolean = false
 
     var stamina: Stamina = Stamina()
@@ -43,10 +44,18 @@ class Worker(val pokemonId: UUID, var pasture: PastureKey?) {
     var missedArrival: Boolean = false
 
     val skipUntil: MutableMap<TargetKey, Long> = HashMap()
+    val skipReasons: MutableMap<TargetKey, IdleReason> = HashMap()
 
     val stalledUntil: MutableMap<TargetKey, Long> = HashMap()
 
     val retryMisses: MutableMap<TargetKey, Int> = HashMap()
+
+    fun skip(key: TargetKey, until: Long, reason: IdleReason? = null) {
+        skipUntil[key] = until
+        if (reason != null) skipReasons[key] = reason
+    }
+
+    fun skipReason(key: TargetKey, now: Long): IdleReason? = if (now < (skipUntil[key] ?: Long.MIN_VALUE)) skipReasons[key] else null
 
     fun isSkipped(key: TargetKey, now: Long): Boolean = now < (skipUntil[key] ?: Long.MIN_VALUE) || isStalled(key, now)
 
@@ -63,7 +72,14 @@ class Worker(val pokemonId: UUID, var pasture: PastureKey?) {
     }
 
     fun dropExpired(now: Long) {
-        skipUntil.values.removeIf { it <= now }
+        val iter = skipUntil.entries.iterator()
+        while (iter.hasNext()) {
+            val entry = iter.next()
+            if (entry.value <= now) {
+                skipReasons.remove(entry.key)
+                iter.remove()
+            }
+        }
         stalledUntil.values.removeIf { it <= now }
     }
 }

@@ -33,6 +33,7 @@ import codes.honor.cobblemondynamics.heal.HealTransaction
 import codes.honor.cobblemondynamics.leash.Binding
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.leash.LeashResets
+import codes.honor.cobblemondynamics.pasture.AreaWatchers
 import codes.honor.cobblemondynamics.pasture.PastureAdapter
 import codes.honor.cobblemondynamics.pasture.PastureKey
 import codes.honor.cobblemondynamics.pasture.PastureOwnerRules
@@ -134,6 +135,48 @@ class WorkEngine private constructor(val server: MinecraftServer) {
 
     fun multiplierOf(pokemonId: UUID): Double = slots[pokemonId]?.traits?.combinedMultiplier ?: 1.0
 
+    fun idleReasonOf(pokemonId: UUID): IdleReason = slots[pokemonId]?.worker?.idleReason ?: IdleReason.NONE
+
+    fun workedAt(level: ServerLevel, pos: BlockPos): List<WorkedTargetView> {
+        val dimension = level.dimension().location()
+        val results = ArrayList<WorkedTargetView>()
+        for (claim in claims.all()) {
+            if (claim.kind != ClaimKind.WORK) continue
+            val block = claim.key as? TargetKey.Block ?: continue
+            if (block.dimension != dimension) continue
+            val slot = slots[claim.worker] ?: continue
+            val role = slot.role ?: continue
+            val canonical = BlockPos.of(block.pos)
+            val hits = canonical == pos ||
+                (pos.distManhattan(canonical) <= 8 && guarded(role.handler, false) { role.handler.isPartOfTarget(level, canonical, pos) })
+            if (hits) {
+                results += WorkedTargetView(
+                    pokemonId = slot.worker.pokemonId,
+                    workerName = slot.pokemon.getDisplayName(),
+                    roleId = role.definition.id,
+                    status = slot.worker.status,
+                )
+            }
+        }
+        return results
+    }
+
+    fun sleeperAt(level: ServerLevel, pos: BlockPos): Component? {
+        val dimension = level.dimension().location()
+        val packed = pos.asLong()
+        for (claim in claims.all()) {
+            if (claim.kind != ClaimKind.BED) continue
+            val block = claim.key as? TargetKey.Block ?: continue
+            if (block.dimension == dimension && block.pos == packed) {
+                val slot = slots[claim.worker] ?: continue
+                if (slot.worker.status == WorkerStatus.SLEEPING) {
+                    return slot.pokemon.getDisplayName()
+                }
+            }
+        }
+        return null
+    }
+
     /**
      * True while [entity] is the entity of a worker that the engine directs: any state but Idle, in which the worker walks to or holds
      * a place that the engine gave it. Two such workers do not push each other (`WorkerPush`).
@@ -219,6 +262,36 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         pastures[key]?.let { removePasture(tick(level), it, fromIndex = false) }
         // CD-WMD-05: bed and heal claims too, also those of workers that the engine no longer ticks.
         claims.releaseAll { it.pasture == key }
+    }
+
+    fun onPastureRadiusChanged(level: ServerLevel, pasture: BlockPos) {
+        val key = PastureKey(level.dimension().location(), pasture.asLong())
+        val runtime = pastures[key] ?: return
+        val t = tick(level)
+        val area = runtime.area(t.settings)
+        for (slot in runtime.slots.values.toList()) {
+            val worker = slot.worker
+            val claim = claims.claimOf(worker.pokemonId) ?: continue
+            when (claim.kind) {
+                ClaimKind.WORK -> {
+                    val target = worker.target
+                    val spot = worker.spot
+                    if ((target != null && !area.contains(target)) || (spot != null && !area.contains(spot))) {
+                        release(t, slot)
+                    }
+                }
+
+                ClaimKind.BED -> {
+                    val bedPos = (claim.key as? TargetKey.Block)?.let { BlockPos.of(it.pos) }
+                    if (bedPos != null && !area.contains(bedPos)) {
+                        restInPlace(t, slot)
+                    }
+                }
+
+                ClaimKind.HEAL -> {}
+            }
+        }
+        runtime.restartScan(t.settings.scanIntervalTicks, t.now)
     }
 
     /** CD-CLM-08: every claim whose target sits in [chunk]. */
@@ -315,7 +388,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val entity = entityOf(pokemonId) ?: PastureAdapter.tetheredEntity(level, pasture, pokemonId) ?: return true
         val t = tick(level)
         val others = takenSpots(t).also { taken -> slots[pokemonId]?.worker?.spot?.let { taken.remove(it.asLong()) } }
-        val area = WorkArea.of(pasture, t.settings, PastureAdapter.maxWanderDistance())
+        val area = PastureAdapter.workArea(level, pasture, t.settings)
         // At bind time only room counts: a missing path shows later as the "cannot reach" message (CD-LSH-21).
         return guarded(role.handler, true) { spotFor(level, area, entity, role, canonical, others) { true }.spot != null }
     }
@@ -423,13 +496,16 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             },
         )
         val taken = takenSpots(t)
+        val area = runtime.area(t.settings)
         for (slot in runtime.slots.values.toList()) {
+            var pollClaimDenied = false
             slot.hasMate = slot.worker.pokemonId in mated
             slot.binding = BindingStore.read(slot.pokemon)?.takeIf { it.dimension == t.dimension && it.pasture == runtime.pos }
             slot.binding?.let { binding ->
                 landRefusal(t, runtime, slot, binding)?.let { reason ->
                     LeashResets.clear(server, slot.pokemon, reason)
                     slot.binding = null
+                    pollClaimDenied = true
                 }
             }
             claims.claimOf(slot.worker.pokemonId)?.let { claim ->
@@ -438,8 +514,9 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 if (!mayUseClaim || !mayBreakClaim) {
                     when (claim.kind) {
                         ClaimKind.WORK -> {
+                            pollClaimDenied = true
                             if (!mayBreakClaim && mayUseClaim) {
-                                slot.worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
+                                slot.worker.skip(claim.key, t.now + t.settings.retryWaitTicks, IdleReason.CLAIM_DENIED)
                             }
                             release(t, slot)
                         }
@@ -456,6 +533,20 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             claimBound(t, runtime, slot, taken)
             switchInStandby(t, runtime, slot, taken)
             refreshTraits(t, slot)
+            if (slot.worker.status == WorkerStatus.IDLE && claims.claimOf(slot.worker.pokemonId) == null && slot.binding == null) {
+                slot.worker.idleReason = when {
+                    slot.worker.tired -> IdleReason.RESTING
+
+                    pollClaimDenied -> IdleReason.CLAIM_DENIED
+
+                    hasOnlyLeashRoles(t, slot) -> IdleReason.NEEDS_LEASH
+
+                    slot.worker.idleReason == IdleReason.NONE || slot.worker.idleReason == IdleReason.RESTING ->
+                        if (hasLeashTargetInArea(t, area, slot)) IdleReason.NEEDS_LEASH else IdleReason.NO_TARGET
+
+                    else -> slot.worker.idleReason
+                }
+            }
             WorkerEvents.polled(slot.pokemon)
         }
     }
@@ -516,9 +607,20 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val key = TargetKey.block(t.dimension, binding.target, RoleRegistry.laneOf(binding.roleId))
         val current = claims.claimOf(worker.pokemonId)
         if (current?.kind == ClaimKind.WORK && current.key != key && !isSwitchedClaim(t, slot, binding)) release(t, slot)
-        if (claims.claimOf(worker.pokemonId) != null || worker.tired || worker.isSkipped(key, t.now)) return
+        if (claims.claimOf(worker.pokemonId) != null) return
+        if (worker.tired) {
+            worker.idleReason = IdleReason.RESTING
+            return
+        }
+        if (!runtime.area(t.settings).contains(binding.target)) {
+            worker.idleReason = IdleReason.CANNOT_REACH
+            return
+        }
+        if (worker.isSkipped(key, t.now)) {
+            worker.idleReason = worker.skipReason(key, t.now) ?: IdleReason.CANNOT_REACH
+            return
+        }
         if (!BrainBridge.canHoldOrder(slot.entity)) return
-        // CD-PCK-04: a role that no longer fits, or that a data pack set to leash false, waits for LeashResets to clear the binding.
         val role = t.roles.get(binding.roleId)?.takeIf { RoleSelection.bindingFits(it.definition, typesOf(slot.pokemon)) } ?: return
         if (!t.level.isLoaded(binding.target)) return
         val switched = switchFor(t, slot, binding.target, role) {
@@ -528,10 +630,27 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
         if (switched != null && claimSwitch(t, runtime, slot, binding.target, switched, taken, moving = false)) return
         if (guarded(role.handler, false) { role.handler.stillValid(t.level, binding.target) }) {
-            val attempt = claim(t, runtime, slot, binding.target, role, taken, moving = false)
-            if (attempt == Attempt.NO_SPOT) cannotReach(t, slot, binding.target)
+            when (claim(t, runtime, slot, binding.target, role, taken, moving = false)) {
+                Attempt.GRANTED -> worker.idleReason = IdleReason.NONE
+
+                Attempt.NO_SPOT -> {
+                    worker.idleReason = IdleReason.CANNOT_REACH
+                    cannotReach(t, slot, binding.target)
+                }
+
+                Attempt.REFUSED -> {
+                    worker.idleReason = if (worker.skipReason(key, t.now) == IdleReason.CLAIM_DENIED) {
+                        IdleReason.CLAIM_DENIED
+                    } else {
+                        IdleReason.TARGET_TAKEN
+                    }
+                }
+
+                Attempt.NOT_NOW -> {}
+            }
         } else if (guarded(role.handler, false) { role.handler.bindingHolds(t.level, binding.target) }) {
             slot.chainingUntil = t.now + WAIT_PAUSE_TICKS
+            worker.idleReason = IdleReason.NO_TARGET
             BrainBridge.pauseWander(slot.entity, WAIT_PAUSE_TICKS)
         }
     }
@@ -795,7 +914,23 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     private fun assign(t: Tick, runtime: PastureRuntime, found: List<FoundTarget>) {
-        if (found.isEmpty()) return
+        val area = runtime.area(t.settings)
+        if (found.isEmpty()) {
+            for (slot in runtime.slots.values) {
+                if (slot.entity.isRemoved || slot.entity.isBattling) continue
+                val worker = slot.worker
+                if (!worker.leashed && claims.claimOf(worker.pokemonId) == null && worker.status == WorkerStatus.IDLE) {
+                    worker.idleReason = IdleReasonRules.resolve(
+                        status = worker.status,
+                        tired = worker.tired,
+                        leashed = false,
+                        hasOnlyLeashRoles = hasOnlyLeashRoles(t, slot),
+                        hasLeashTargetInArea = hasLeashTargetInArea(t, area, slot),
+                    )
+                }
+            }
+            return
+        }
         val allies by lazy { runtime.slots.values.filterNot { it.entity.isRemoved || it.entity.isBattling }.map(::allyView) }
         val allowedByActors = HashMap<List<UUID>, List<FoundTarget>>()
         val byKeyByActors = HashMap<List<UUID>, Map<TargetKey, FoundTarget>>()
@@ -832,20 +967,48 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 healMultiplier = healTraits.combinedMultiplier,
                 isMajestic = healTraits.isMajestic,
             )
-            if (autoTypes.isEmpty()) continue
+            if (autoTypes.isEmpty()) {
+                if (idle) {
+                    worker.idleReason = IdleReasonRules.resolve(
+                        status = worker.status,
+                        tired = worker.tired,
+                        leashed = false,
+                        hasOnlyLeashRoles = hasOnlyLeashRoles(t, slot),
+                        hasLeashTargetInArea = hasLeashTargetInArea(t, area, slot),
+                    )
+                }
+                continue
+            }
             val actors = actorsOf(runtime, slot)
             val actorKey = actors.filterNotNull().distinct()
+            val allowed = allowedByActors.getOrPut(actorKey) {
+                found.filter { LandClaims.actorsMayUse(actors, t.level, it.pos) }
+            }
             val byKey = byKeyByActors.getOrPut(actorKey) {
-                val allowed = allowedByActors.getOrPut(actorKey) {
-                    found.filter { LandClaims.actorsMayUse(actors, t.level, it.pos) }
-                }
                 allowed.flatMap { target ->
                     target.roles.groupBy { it.handler.claimLane }.map { (lane, roles) ->
                         TargetKey.block(t.dimension, target.pos, lane) to FoundTarget(target.pos, roles)
                     }
                 }.toMap()
             }
-            if (byKey.isEmpty()) continue
+            val allowedPositions = allowed.mapTo(HashSet()) { it.pos }
+            val deniedUse = found.any { target ->
+                target.pos !in allowedPositions && target.roles.any { RoleSelection.isEligible(it.definition, autoTypes) }
+            }
+            if (byKey.isEmpty()) {
+                if (idle) {
+                    val facts = if (deniedUse) listOf(IdleCandidateFacts(claimDenied = true)) else emptyList()
+                    worker.idleReason = IdleReasonRules.resolve(
+                        status = worker.status,
+                        tired = worker.tired,
+                        leashed = false,
+                        hasOnlyLeashRoles = hasOnlyLeashRoles(t, slot),
+                        hasLeashTargetInArea = hasLeashTargetInArea(t, area, slot),
+                        candidates = facts,
+                    )
+                }
+                continue
+            }
             val view = WorkerView(
                 id = worker.pokemonId,
                 pos = slot.entity.position(),
@@ -871,7 +1034,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                     val ok = BreakingClaimGate.mayClaimCells(mayUse = true, cells) { cell ->
                         breakByActors.getOrPut(actorKey to cell) { LandClaims.actorsMayBreak(actors, t.level, cell) }
                     }
-                    if (!ok) worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
+                    if (!ok) worker.skip(key, t.now + t.settings.retryWaitTicks, IdleReason.CLAIM_DENIED)
                     ok
                 }
                 candidate(t, slot, autoTypes, key, target, mayClaimRole)
@@ -881,10 +1044,108 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 Assigner.pickForIdle(view, candidates, isFree)
             } else {
                 Assigner.pickForStandbyMove(view, current.key, candidates, isFree)
-            } ?: continue
+            }
+            if (pick == null) {
+                if (idle) {
+                    worker.idleReason = resolveUnassignedIdleReason(t, area, slot, autoTypes, deniedUse, byKey, candidates, isFree)
+                }
+                continue
+            }
             val target = byKey.getValue(pick.first.key)
-            claim(t, runtime, slot, target.pos, target.roles.first { it.definition.id == pick.second.id }, taken, moving = current != null)
+            val attempt = claim(
+                t,
+                runtime,
+                slot,
+                target.pos,
+                target.roles.first { it.definition.id == pick.second.id },
+                taken,
+                moving = current != null,
+            )
+            if (idle) {
+                worker.idleReason = when (attempt) {
+                    Attempt.GRANTED -> IdleReason.NONE
+
+                    Attempt.NO_SPOT -> IdleReason.CANNOT_REACH
+
+                    Attempt.REFUSED -> if (worker.skipReason(pick.first.key, t.now) == IdleReason.CLAIM_DENIED) {
+                        IdleReason.CLAIM_DENIED
+                    } else {
+                        IdleReason.TARGET_TAKEN
+                    }
+
+                    Attempt.NOT_NOW -> worker.idleReason
+                }
+            }
         }
+    }
+
+    private fun resolveUnassignedIdleReason(
+        t: Tick,
+        area: WorkArea,
+        slot: WorkerSlot,
+        autoTypes: Set<String>,
+        deniedUse: Boolean,
+        byKey: Map<TargetKey, FoundTarget>,
+        candidates: List<CandidateView>,
+        isFree: (TargetKey) -> Boolean,
+    ): IdleReason {
+        val worker = slot.worker
+        val facts = ArrayList<IdleCandidateFacts>()
+        if (deniedUse) facts += IdleCandidateFacts(claimDenied = true)
+        for ((candView, entry) in candidates.zip(byKey.entries)) {
+            val (key, laneTarget) = entry
+            val eligible = laneTarget.roles.filter { RoleSelection.isEligible(it.definition, autoTypes) }
+            if (eligible.isEmpty()) continue
+            val skipReason = worker.skipReason(key, t.now)
+            val allowedRoles = eligible.filter { candView.mayClaimRole(it.definition) }
+            if (allowedRoles.isEmpty() || skipReason == IdleReason.CLAIM_DENIED) {
+                facts += IdleCandidateFacts(claimDenied = true)
+                continue
+            }
+            val hasDemand = allowedRoles.any { candView.demandOf(it.definition) }
+            if (!hasDemand) {
+                val levelBlocked = allowedRoles.any { r ->
+                    guarded(r.handler, 1) { r.handler.minLevelFor(context(t, slot, laneTarget.pos, r)) } > slot.pokemon.level
+                }
+                if (levelBlocked) {
+                    facts += IdleCandidateFacts(levelTooLow = true)
+                } else if (!candView.needsDemand && !isFree(key)) {
+                    facts += IdleCandidateFacts(targetTaken = true)
+                }
+                continue
+            }
+            if (!isFree(key)) {
+                facts += IdleCandidateFacts(targetTaken = true)
+            } else if (worker.isSkipped(key, t.now)) {
+                facts += IdleCandidateFacts(cannotReach = true)
+            }
+        }
+        return IdleReasonRules.resolve(
+            status = worker.status,
+            tired = worker.tired,
+            leashed = false,
+            hasOnlyLeashRoles = hasOnlyLeashRoles(t, slot),
+            hasLeashTargetInArea = hasLeashTargetInArea(t, area, slot),
+            candidates = facts,
+        )
+    }
+
+    private fun hasOnlyLeashRoles(t: Tick, slot: WorkerSlot): Boolean {
+        if (hasFairyType(slot.pokemon)) return false
+        val eligible = t.roles.forTypes(typesOf(slot.pokemon))
+        return eligible.isNotEmpty() && eligible.all { !it.definition.autoAssign && it.definition.leash }
+    }
+
+    private fun hasLeashTargetInArea(t: Tick, area: WorkArea, slot: WorkerSlot): Boolean {
+        val leashRoles = t.roles.forTypes(typesOf(slot.pokemon)).filter { !it.definition.autoAssign && it.definition.leash }
+        if (leashRoles.isEmpty()) return false
+        for ((pos, blockEntity) in t.world.blockEntitiesIn(area)) {
+            val state = t.level.getBlockState(pos)
+            if (leashRoles.any { role -> guarded(role.handler, false) { role.handler.matches(t.level, pos, state, blockEntity) } }) {
+                return true
+            }
+        }
+        return false
     }
 
     /** Each role's demand is asked at most once for the candidate, with a fresh memo, because a scan candidate is no binding. */
@@ -935,7 +1196,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val cells = guarded(role.handler, listOf(target)) { role.handler.breakTargets(t.level, target, role.definition) }
             val actors = actorsOf(site, slot)
             if (!BreakingClaimGate.mayClaimCells(mayUse = true, cells) { cell -> LandClaims.actorsMayBreak(actors, t.level, cell) }) {
-                worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
+                worker.skip(key, t.now + t.settings.retryWaitTicks, IdleReason.CLAIM_DENIED)
                 return Attempt.REFUSED
             }
         }
@@ -950,7 +1211,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val spot = search.spot
         if (spot == null) {
             if (reach.cannotPlan || search.contended) return Attempt.NOT_NOW
-            worker.skipUntil[key] = t.now + worker.recordMiss(key, t.settings.retryWaitTicks)
+            worker.skip(key, t.now + worker.recordMiss(key, t.settings.retryWaitTicks), IdleReason.CANNOT_REACH)
             return Attempt.NO_SPOT
         }
         if (moving) {
@@ -1068,7 +1329,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                     val chaining = e.skip == null && site is PastureRuntime && !worker.leashed && !worker.tired
                     claims.release(worker.pokemonId)
                     if (slot.binding == null) slot.probes.clear()
-                    e.skip?.let { worker.skipUntil[it] = e.until }
+                    e.skip?.let {
+                        worker.skip(it, e.until, IdleReason.CANNOT_REACH)
+                        worker.idleReason = IdleReason.CANNOT_REACH
+                    }
                     clear(t, slot)
                     if (chaining) {
                         val runtime = site as PastureRuntime
@@ -1280,7 +1544,40 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             tickSlack(t, site, slot, ticks.coerceAtLeast(1L))
         }
         if (FlushRule.isDue(slot.flushedStatus, worker.status, slot.flushedAt, t.now, t.settings)) flush(slot, t.now)
+        refreshIdleReason(t, slot)
         syncView(slot)
+    }
+
+    private fun refreshIdleReason(t: Tick, slot: WorkerSlot) {
+        val worker = slot.worker
+        when {
+            worker.status == WorkerStatus.WORKING ||
+                worker.status == WorkerStatus.HEALING ||
+                worker.status == WorkerStatus.SLACKING ||
+                worker.status == WorkerStatus.TRAVELING -> {
+                worker.idleReason = IdleReason.NONE
+            }
+
+            worker.tired || worker.status.isResting -> {
+                worker.idleReason = IdleReason.RESTING
+            }
+
+            worker.status == WorkerStatus.STANDBY -> {
+                val role = slot.role
+                val target = worker.target
+                val levelBlocked = role != null && target != null && t.level.isLoaded(target) &&
+                    guarded(role.handler, 1) { role.handler.minLevelFor(context(t, slot, target, role, slot.memo)) } > slot.pokemon.level
+                worker.idleReason = IdleReasonRules.resolve(
+                    status = worker.status,
+                    missedArrival = worker.missedArrival,
+                    standbyLevelTooLow = levelBlocked,
+                )
+            }
+
+            worker.idleReason == IdleReason.RESTING -> {
+                worker.idleReason = if (!worker.leashed && hasOnlyLeashRoles(t, slot)) IdleReason.NEEDS_LEASH else IdleReason.NO_TARGET
+            }
+        }
     }
 
     private fun healerTraits(t: Tick, slot: WorkerSlot): EvaluatedTraits = WorkTraits.ofPokemon(
@@ -1483,11 +1780,27 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         if (entity.isRemoved) return
         val stamina = slot.worker.stamina
         val status = slot.worker.status
-        if (slot.viewEntity === entity && !ViewSync.shouldSync(slot.viewPercent, stamina.percent, slot.viewStatus, status)) return
-        entity.setData(DynamicsAttachments.STAMINA_VIEW, StaminaView.of(stamina, status))
+        val idleReason = slot.worker.idleReason
+        val traitFlags = slot.traits.flags
+        if (slot.viewEntity === entity && !ViewSync.shouldSync(
+                slot.viewPercent,
+                stamina.percent,
+                slot.viewStatus,
+                status,
+                slot.viewIdleReason,
+                idleReason,
+                slot.viewTraitFlags,
+                traitFlags,
+            )
+        ) {
+            return
+        }
+        entity.setData(DynamicsAttachments.STAMINA_VIEW, StaminaView.of(stamina, status, idleReason, traitFlags))
         slot.viewEntity = entity
         slot.viewPercent = stamina.percent
         slot.viewStatus = status
+        slot.viewIdleReason = idleReason
+        slot.viewTraitFlags = traitFlags
     }
 
     /**
@@ -1676,6 +1989,7 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             index.remove(runtime.pos)
             t.level.setData(DynamicsAttachments.WORK_PASTURES, index)
         }
+        AreaWatchers.deactivate(t.level, runtime.pos)
     }
 
     /** CD-QWK-06 to CD-QWK-11: the refusals, then a normal work claim through the engine's own spot search and path check. */
@@ -2328,3 +2642,5 @@ private class LevelScanWorld(private val level: ServerLevel) : ScanWorld {
     override fun match(handler: TargetHandler, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): BlockPos? =
         guarded(handler, null) { if (handler.matches(level, pos, state, blockEntity)) handler.canonical(level, pos) else null }
 }
+
+data class WorkedTargetView(val pokemonId: UUID, val workerName: Component, val roleId: ResourceLocation, val status: WorkerStatus)

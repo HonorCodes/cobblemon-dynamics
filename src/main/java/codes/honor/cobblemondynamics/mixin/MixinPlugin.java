@@ -35,7 +35,7 @@ public final class MixinPlugin implements IMixinConfigPlugin {
             "immersiveengineering", "mekanism", "mekanismgenerators", "railcraft", "pneumaticcraft", "botanypots", "ironfurnaces",
             "cookingforblockheads", "forbidden_arcanus", "cobblemon_incubator", "ars_nouveau", "createaddition",
             "create_enchantment_industry", "irons_spellbooks", "easymagic", "enchantinginfuser", "experiencelib", "dynamictrees", "ae2",
-            "create_connected");
+            "create_connected", "jade");
 
     /** Each mixin package of an optional mod, with the mod id that it needs. */
     public static final Map<String, String> REQUIRED_MOD_BY_PACKAGE = packageMap();

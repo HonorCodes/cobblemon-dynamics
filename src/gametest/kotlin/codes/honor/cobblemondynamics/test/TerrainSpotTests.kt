@@ -550,7 +550,7 @@ class TerrainSpotTests {
     fun configureWaypointBatch(@Suppress("UNUSED_PARAMETER") level: ServerLevel) {
         val current = WorkEngineSettings.current
         savedWaypointSettings = current
-        WorkEngineSettings.current = current.copy(horizontalRadius = 20)
+        WorkEngineSettings.current = current.copy(horizontalRadius = 20, maxHorizontalRadius = 20)
     }
 
     @AfterBatch(batch = WAYPOINT_BATCH)

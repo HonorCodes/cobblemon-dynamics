@@ -55,8 +55,29 @@ its target with the [Work Leash](#work-leash).
 ### Work area
 
 Each pasture has a work area: a box around the pasture block. By default, it reaches 8 blocks out on the x
-and z axes, and 6 blocks up and down. Workers look for targets and beds only inside it. The server config
-can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
+and z axes, and 6 blocks up and down. Workers look for targets and beds only inside it. You can step each
+pasture's horizontal radius through `4`, `8`, `12` and `16` blocks in the **Pasture Shelf** beside the pasture
+panel, up to `workArea.maxHorizontalRadius` and never beyond Cobblemon's `pastureMaxWanderDistance`.
+
+### Pasture Shelf
+
+Beside Cobblemon's pasture panel sits a fold-out **Pasture Shelf** with four controls:
+
+- **Work Mode** turns Work Mode on or off, matching the button above **Recall**.
+- **Work Radius** steps that pasture's horizontal radius through `4`, `8`, `12` and `16` blocks (capped at
+  `workArea.maxHorizontalRadius` and Cobblemon's `pastureMaxWanderDistance`).
+- **Work Area** toggles a persistent 3D wireframe box around the pasture's active work area. The wireframe
+  stays visible after you close the pasture screen, updates live when the radius changes, and clears when you
+  toggle it off, turn Work Mode off, break the pasture, change dimensions or disconnect. Any viewer can toggle
+  the wireframe while Work Mode is on.
+- **Access Lock** switches between **Shared** (contributors with a tethered Cobblemon may control Work Mode,
+  Work Radius and Work Leash bindings) and **Locked** (only the owner, teammates and operators may control
+  them).
+
+Disabled controls show a tooltip explaining why they cannot be changed. Hovering a worker's row in the pasture
+list, holding the Work Leash near a worker, or looking at a worker with Jade also shows why an idle worker is
+waiting (no matching target, needs Work Leash, target already claimed, cannot reach target, blocked by land
+claim, level too low, or recovering Work Stamina) and its active trait badges.
 
 ### How a worker finds its target
 
@@ -1405,7 +1426,8 @@ in the `serverconfig/` folder of a world overrides it for that world.
 
 | Key | Default | Range | What it does |
 | --- | --- | --- | --- |
-| `workArea.horizontalRadius` | 8 | 2 to 32 | Blocks that the work area reaches from the pasture block on the x and z axes. Never more than Cobblemon's `pastureMaxWanderDistance`. |
+| `workArea.horizontalRadius` | 8 | 2 to 32 | Blocks that the work area reaches from the pasture block on the x and z axes by default. Never more than `workArea.maxHorizontalRadius` or Cobblemon's `pastureMaxWanderDistance`. |
+| `workArea.maxHorizontalRadius` | 16 | 4 to 32 | Highest horizontal radius that a pasture's Work Radius shelf control or default can use. Never more than Cobblemon's `pastureMaxWanderDistance`. |
 | `workArea.verticalRadius` | 6 | 2 to 32 | Blocks that the work area reaches up and down from the pasture block. Never more than Cobblemon's `pastureMaxWanderDistance`. |
 | `engine.scanIntervalTicks` | 40 | 20 to 1,200 | Ticks between the starts of two scans of one pasture. |
 | `engine.maxBlockChecksPerTick` | 512 | 64 to 4,096 | Most block positions that the scan of one pasture checks in one tick. |
@@ -1560,6 +1582,7 @@ NeoForge's capabilities.
 | Sophisticated Core | [Experience Collector](#experience-collector): its XP fluid on the outputs, while Create: Enchantment Industry is absent. |
 | Better Archeology | [Lumberjack](#lumberjack): never a tree that holds its rotten log. |
 | Just Dire Things | [Experience Collector](#experience-collector): its XP machines take the XP fluid of the outputs. |
+| Jade | Shows worker role, state, Work Stamina, idle reason, traits and output multiplier on workers, active workers on worked machines and pastures, and Work Stamina recovery factor and occupant on beds. |
 
 ### Known limits
 

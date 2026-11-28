@@ -15,12 +15,18 @@ class PastureRuntime(override val level: ServerLevel, val key: PastureKey, now: 
 
     override val slots = LinkedHashMap<UUID, WorkerSlot>()
 
-    /** Centered on the pasture block and clamped to Cobblemon's `pastureMaxWanderDistance` (CD-CFG-14). */
-    override fun area(settings: EngineSettings): WorkArea = WorkArea.of(pos, settings, PastureAdapter.maxWanderDistance())
+    var radius: Int? = PastureAdapter.pastureAt(level, pos)?.let(PastureAdapter::radius)
+
+    /** Centered on the pasture block and clamped to `maxHorizontalRadius` and Cobblemon's `pastureMaxWanderDistance` (CD-CFG-14, CD-SHF-02). */
+    override fun area(settings: EngineSettings): WorkArea {
+        PastureAdapter.pastureAt(level, pos)?.let { radius = PastureAdapter.radius(it) }
+        return WorkArea.of(pos, settings, PastureAdapter.maxWanderDistance(), radius)
+    }
 
     var scan: TargetScan? = null
     var scheduler: ScanScheduler = scheduler(scanIntervalTicks, now)
         private set
+    var hasLeashTargetInArea: Boolean = false
 
     /**
      * The UUID of the pasture's placer, as the last poll read it, or null for a pasture with no placer. Every pasture check of the
@@ -52,6 +58,12 @@ class PastureRuntime(override val level: ServerLevel, val key: PastureKey, now: 
     /** A changed scan interval takes effect at the first boundary of the new interval after the running pass. */
     fun syncScanInterval(intervalTicks: Int, now: Long) {
         if (scan == null && scheduler.intervalTicks != intervalTicks) scheduler = scheduler(intervalTicks, now)
+    }
+
+    fun restartScan(intervalTicks: Int, now: Long) {
+        scan = null
+        scheduler = ScanScheduler(intervalTicks, firstStart = now)
+        polled = false
     }
 
     private fun scheduler(intervalTicks: Int, now: Long): ScanScheduler {

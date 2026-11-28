@@ -123,7 +123,7 @@ object SoulCollectorHandler : TargetHandler {
 
     /** CD-SOU-04: the work area of the worker's own pasture, as for the Magnet (CD-MAG-04). */
     private fun area(ctx: WorkContext): WorkArea? =
-        ctx.pasture?.let { WorkArea.of(it, WorkEngineSettings.current, PastureAdapter.maxWanderDistance()) }
+        ctx.area ?: ctx.pasture?.let { PastureAdapter.workArea(ctx.level, it, WorkEngineSettings.current) }
 
     /**
      * CD-SOU-09: one query of the work area, at most once every 20 ticks. The query sorts its orbs nearest first, once, and keeps whether

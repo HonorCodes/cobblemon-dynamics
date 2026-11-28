@@ -51,13 +51,22 @@ class LoadLinesTest {
 
     @Test
     fun `CD-CMP-09 the payload line gives the version and each payload by direction`() {
-        val toClient = listOf(id("pasture_panel_state"), id("leash_overview"))
-        val toServer = listOf(id("work_mode_toggle"), id("pasture_panel_open"), id("pasture_panel_close"), id("leash_overview_request"))
+        val toClient = listOf(id("pasture_panel_state"), id("leash_overview"), id("area_bounds"))
+        val toServer = listOf(
+            id("work_mode_toggle"),
+            id("pasture_settings"),
+            id("pasture_panel_open"),
+            id("pasture_panel_close"),
+            id("leash_overview_request"),
+            id("area_watch"),
+        )
         val expected =
-            "Payloads, version 3: 2 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview], " +
-                "4 to the server [cobblemon_dynamics:work_mode_toggle, cobblemon_dynamics:pasture_panel_open, " +
-                "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request]"
-        assertEquals(expected, LoadLines.payloads("3", toClient, toServer))
+            "Payloads, version 4: 3 to the client [cobblemon_dynamics:pasture_panel_state, cobblemon_dynamics:leash_overview, " +
+                "cobblemon_dynamics:area_bounds], 6 to the server [cobblemon_dynamics:work_mode_toggle, " +
+                "cobblemon_dynamics:pasture_settings, cobblemon_dynamics:pasture_panel_open, " +
+                "cobblemon_dynamics:pasture_panel_close, cobblemon_dynamics:leash_overview_request, " +
+                "cobblemon_dynamics:area_watch]"
+        assertEquals(expected, LoadLines.payloads("4", toClient, toServer))
     }
 
     @Test

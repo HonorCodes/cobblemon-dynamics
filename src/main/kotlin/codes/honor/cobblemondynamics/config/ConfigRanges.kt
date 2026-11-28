@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.config
 
 object ConfigRanges {
     val WORK_RADIUS = 2..32
+    val MAX_HORIZONTAL_RADIUS = 4..32
     val SCAN_INTERVAL = 20..1_200
     val BLOCK_CHECKS = 64..4_096
     val TRAVEL_TIMEOUT = 100..6_000

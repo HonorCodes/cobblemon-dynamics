@@ -306,6 +306,7 @@ dependencies {
     compileOnly("maven.modrinth:enchanting-infuser:${enchantinginfuser_version}") { transitive = false }
     compileOnly("maven.modrinth:experiencelib:${experiencelib_version}") { transitive = false }
     compileOnly("maven.modrinth:dynamictrees:${dynamictrees_version}") { transitive = false }
+    compileOnly("maven.modrinth:jade:${jade_version}") { transitive = false }
 
     localRuntime("com.simibubi.create:create-1.21.1:${create_version}:slim") { transitive = false }
     localRuntime "net.createmod.ponder:ponder-neoforge:${ponder_version}"
@@ -412,7 +413,7 @@ def optionalModPackages = [
         'com/dtteam/dynamictrees/', 'dev/shadowsoffire/', 'appeng/', 'vectorwing/', 'com/aetherteam/', 'io/github/razordevs/',
         'net/potionstudios/', 'quek/undergarden/', 'twilightforest/', 'com/blakebr0/mysticalagriculture/',
         'com/jesz/createdieselgenerators/', 'org/antarcticgardens/cna/', 'com/hlysine/create_connected/',
-        'org/violetmoon/quark/', 'net/sweety/unusualend/'
+        'org/violetmoon/quark/', 'net/sweety/unusualend/', 'snownee/jade/'
 ]
 
 // CD-PLAT-04, CD-REL-07: every class is Java 21 bytecode, no Cobblemon asset ships, no test class ships.

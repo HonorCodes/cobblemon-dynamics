@@ -27,6 +27,7 @@ import codes.honor.cobblemondynamics.compat.ftbchunks.FtbTeamsCompat
 import codes.honor.cobblemondynamics.compat.immersiveengineering.IeCompat
 import codes.honor.cobblemondynamics.compat.ironfurnaces.IronFurnacesCompat
 import codes.honor.cobblemondynamics.compat.irons_spellbooks.IronsSpellbooksCompat
+import codes.honor.cobblemondynamics.compat.jade.JadeCompat
 import codes.honor.cobblemondynamics.compat.mekanism.MekanismCompat
 import codes.honor.cobblemondynamics.compat.mekanismgenerators.MekanismGeneratorsCompat
 import codes.honor.cobblemondynamics.compat.minecolonies.MineColoniesCompat
@@ -66,6 +67,7 @@ import codes.honor.cobblemondynamics.leash.LeashComponents
 import codes.honor.cobblemondynamics.leash.LeashInteractions
 import codes.honor.cobblemondynamics.leash.LeashResets
 import codes.honor.cobblemondynamics.net.DynamicsPayloads
+import codes.honor.cobblemondynamics.pasture.AreaWatchers
 import codes.honor.cobblemondynamics.registry.DynamicsAttachments
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
 import codes.honor.cobblemondynamics.registry.DynamicsEntities
@@ -169,6 +171,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (ModList.get().isLoaded("create_connected")) CreateConnectedCompat.register()
         if (ModList.get().isLoaded("ae2")) Ae2Compat.register()
         if (ModList.get().isLoaded("createaddition")) CreateAdditionCompat.register(modBus)
+        if (ModList.get().isLoaded("jade")) JadeCompat.register()
         // CD-FRM-03: the loot data map of the farming roles.
         HarvestLootMap.register(modBus)
         // CD-CMP-08: by now the Create integration, the Cobblebase hooks and the Apothic Enchanting compat have loaded their mixin targets.
@@ -209,6 +212,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         if (config.spec !== ServerConfig.SPEC) return
         WorkEngineSettings.reload()
         RoleRegistry.rebuild()
+        AreaWatchers.refreshAll()
     }
 
     companion object {
