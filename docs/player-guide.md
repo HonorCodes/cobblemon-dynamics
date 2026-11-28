@@ -222,7 +222,7 @@ action bar tells you when the work starts, and when and why it stops.
 Quick Work uses the roles that a pasture gives out on its own: the Stoker, Wheel Driver, Cranker, Superheater,
 Generator, Crystal Tender, Brew Stoker, Brewer, Cultivator and Harvester, and the Heater on Mekanism, also on the
 machines of other mods. It also uses the Muse, whose role file opts in to Quick Work.
-A pasture gives out the Freezer on its own too, but its role file opts out, so no Ice-type does Quick Work as a Freezer. When only a
+A pasture gives out the Freezer and the Sentry on its own too, but their role files opt out, so no Ice-type does Quick Work as a Freezer and no Dark-type does Quick Work as a Sentry. When only a
 Work Leash role of the Cobblemon fits the block, for example Telekinesis for a Psychic-type at a chest, the action bar shows
 "Chest needs the Work Leash". A Cobblemon with a Fairy type does Quick Work only as a Muse, because it is otherwise a healer.
 
@@ -323,6 +323,9 @@ Work Stamina measures how long a worker can keep working. It goes from 0% to 100
 - A worker loses Work Stamina only while it is Working. In every other state, it recovers.
 - A full drain takes 3 minutes of Working per level. A level 10 worker works for 30 minutes, and a level 100
   worker works for 5 hours. Legendary and mythical Cobblemon get no extra time.
+- At night, a Cobblemon with the Dark type, as its first or its second type, loses half as much Work Stamina
+  while it is Working, in any role. A level 10 Dark-type works for 60 minutes through the night, and a level 100
+  Dark-type for 10 hours.
 - A worker recovers as fast as it drains: from 0% to 100% in 3 minutes per level. A [bed](#beds) makes the
   recovery faster.
 - Healers recover by their own rule (see [Healer recovery](#healer-recovery)).
@@ -537,7 +540,7 @@ built-in role files. A server can change them with a data pack (see [Role files]
 
 | Role | Role id | Types | Target | Assignment | Needs |
 | --- | --- | --- | --- | --- | --- |
-| [Stoker](#stoker) | `cobblemon_dynamics:stoker` | Fire | Furnace, smoker, blast furnace | Auto | |
+| [Stoker](#stoker) | `cobblemon_dynamics:stoker` | Fire | Furnace, smoker, blast furnace, Cobblemon's Campfire Pot | Auto | |
 | [Wheel Driver](#wheel-driver) | `cobblemon_dynamics:wheel_driver` | Water | Water wheel, large water wheel | Auto | Create |
 | [Cranker](#cranker) | `cobblemon_dynamics:cranker` | Fighting, Normal | Hand crank | Auto | Create |
 | [Superheater](#superheater) | `cobblemon_dynamics:superheater` | Dragon | Blaze Burner with a blaze | Auto | Create |
@@ -549,6 +552,7 @@ built-in role files. A server can change them with a data pack (see [Role files]
 | [Harvester](#harvester) | `cobblemon_dynamics:harvester` | Grass | A fully grown crop | Auto | |
 | [Picker](#picker) | `cobblemon_dynamics:picker` | Bug and Flying, both | A ripe apricorn | Auto, never the Work Leash | |
 | [Freezer](#freezer) | `cobblemon_dynamics:freezer` | Ice | A water source under air | Auto, no Quick Work | |
+| [Sentry](#sentry) | `cobblemon_dynamics:sentry` | Dark | Its own pasture's work area | Auto, no Quick Work, never the Work Leash | |
 | [Pump](#pump) | `cobblemon_dynamics:pump` | Water | A block that accepts water, cauldron, farmland | Work Leash | |
 | [Muse](#muse) | `cobblemon_dynamics:muse` | Fairy | Enchanting table | Work Leash | |
 | [Telekinesis](#telekinesis) | `cobblemon_dynamics:telekinesis` | Psychic | Two containers: a source and a destination | Work Leash | |
@@ -573,11 +577,16 @@ level 50. Every other role works the same at every level.
 
 **Types:** Fire. **Level:** any. **Move:** Ember.
 
-**Target:** a furnace, a smoker, a blast furnace, or a modded furnace that extends the vanilla furnace.
+**Target:** a furnace, a smoker, a blast furnace, a modded furnace that extends the vanilla furnace, or
+Cobblemon's Campfire Pot.
 
 The Stoker keeps its furnace lit, as if it burned coal, while the furnace has an item to smelt and room for
 the result. It lights an unlit furnace. It never takes fuel from the fuel slot, and the flame gauge stays
 full while the furnace cooks. When the Stoker stops, the furnace goes back to its own fuel within 2 ticks.
+
+On Cobblemon's Campfire Pot, the Stoker works while a recipe cooks with the lid closed. Each tick of Working adds
+one more cooking step, so the pot finishes each dish in about half the time. An empty pot and a pot with an open
+lid need no work.
 
 The Stoker never works a block of the tag `#cobblemon_dynamics:stoker/never`. By default it holds the Freezer of
 the Aether, which extends the vanilla furnace but burns Icestone to make ice.
@@ -987,6 +996,24 @@ it where the light is bright enough. To get the water back, break the ice or lig
 **Role file parameters:** `cells_per_minute_at_level_100` (60) and `reach` (5.0). A pace of 0 or less turns the Freezer
 off, and a fraction counts as a whole cell.
 
+### Sentry
+
+**Types:** Dark. **Level:** any. **Move:** Snarl. **Assignment:** Auto, no Quick Work, never the Work Leash.
+
+**Target:** its own Work Mode pasture.
+
+A Dark-type stands watch by its pasture and keeps natural hostile monsters from spawning inside the pasture's work
+area. One Sentry works a pasture at a time, so a second Dark-type in the same pasture stays rested until the first
+stops. Spawners, trial spawners, village raids, structure spawns, passive and ambient mobs, and all Cobblemon still
+spawn as usual. When the Sentry stops Working, for example when Work Mode turns off, when you recall it or when it
+gets Tired, natural spawns start again within 1 tick.
+
+Like every Dark-type worker, a Sentry loses half as much Work Stamina at night (see
+[Work Stamina](#drain-and-recovery)).
+
+The role file sets `"quick_work": false` and `"leash": false`, so the Sentry takes neither Quick Work orders nor
+Work Leash bindings.
+
 ### Pump
 
 **Types:** Water. **Level:** the rate grows with level. **Move:** Water Gun. **Assignment:** Work Leash only.
@@ -1353,9 +1380,10 @@ sections above name each parameter. The optional key `quick_work` changes which 
 With `true`, a role whose `auto_assign` is false takes them, if the role has one target. Such an order starts
 while the target needs no work, and its Cobblemon waits there with no time limit. With `false`, a role whose
 `auto_assign` is true takes none. A file without the key follows its `auto_assign` flag. The Muse's file sets
-`true`, and the Freezer's file sets `false`. Two more optional keys came with 1.2.1. With `"type_match": "all"`, a
+`true`, and the Freezer's and the Sentry's files set `false`. Two more optional keys came with 1.2.1. With `"type_match": "all"`, a
 Cobblemon needs every type of the file's `types`, and with `"any"`, the default, one of them is enough. With
-`"leash": false`, no Work Leash binds the role. The default is `true`. The [Picker](#picker)'s file sets both.
+`"leash": false`, no Work Leash binds the role. The default is `true`. The [Picker](#picker)'s file sets both, and
+the [Sentry](#sentry)'s file sets `"leash": false`.
 
 The `effect` object holds these keys:
 

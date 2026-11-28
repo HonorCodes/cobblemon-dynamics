@@ -55,6 +55,7 @@ class BuiltInRoleFilesTest {
         "freezer" to Row("cobblemon_dynamics:freezer", setOf("ice"), true, 0, "icebeam"),
         "soul_collector" to Row("cobblemon_dynamics:soul_collector", setOf("ghost"), false, 0, "nightshade"),
         "picker" to Row("cobblemon_dynamics:picker", setOf("bug", "flying"), true, 0, "bugbite"),
+        "sentry" to Row("cobblemon_dynamics:sentry", setOf("dark"), true, 0, "snarl"),
         "stoker_immersiveengineering" to Row("cobblemon_dynamics:ie_furnace", setOf("fire"), true, 0, "ember"),
         "wheel_driver_immersiveengineering" to Row("cobblemon_dynamics:ie_watermill", setOf("water"), true, 0, "watergun"),
         "tailwind_immersiveengineering" to Row("cobblemon_dynamics:ie_windmill", setOf("flying"), false, 0, "gust"),
@@ -829,5 +830,42 @@ class BuiltInRoleFilesTest {
         assertEquals(listOf("bugbite", "physical"), effect.animations)
         assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
         assertEquals(listOf("cobblemon:impact_bug"), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-SNT-01 the Sentry file names its handler, the Dark type, auto_assign true, quick_work false, leash false and priority 0`() {
+        val json = JsonParser.parseString(File(BuiltInRoles.dir, "sentry.json").readText()).asJsonObject
+        val quickWork = json.get("quick_work")
+        assertTrue(quickWork != null && quickWork.isJsonPrimitive && quickWork.asJsonPrimitive.isBoolean && !quickWork.asBoolean)
+        val leash = json.get("leash")
+        assertTrue(leash != null && leash.isJsonPrimitive && leash.asJsonPrimitive.isBoolean && !leash.asBoolean)
+        val role = BuiltInRoles.parse("sentry")
+        assertEquals("cobblemon_dynamics:sentry", role.handler.toString())
+        assertEquals(setOf("dark"), role.types)
+        assertFalse(role.allTypes)
+        assertTrue(role.autoAssign)
+        assertEquals(false, role.quickWork)
+        assertFalse(role.leash)
+        assertEquals(0, role.priority)
+        assertEquals(6.0, role.range)
+        assertTrue(RoleSelection.isEligible(role, listOf("dark")), "Umbreon")
+        assertTrue(RoleSelection.isEligible(role, listOf("fire", "dark")), "Houndoom")
+        assertFalse(RoleSelection.isEligible(role, listOf("fire")), "Charmander")
+    }
+
+    @Test
+    fun `CD-SNT-01 the Sentry plays Snarl with the dark impact at the pasture`() {
+        val effect = BuiltInRoles.parse("sentry").effect
+        assertEquals(listOf("snarl", "special"), effect.animations)
+        assertEquals(emptyList<String>(), effect.actorParticles.map { it.toString() })
+        assertEquals(listOf("cobblemon:impact_dark"), effect.targetParticles.map { it.toString() })
+    }
+
+    @Test
+    fun `CD-SNT-06 the Campfire Pot uses stoker with no separate campfire role file`() {
+        val files = BuiltInRoles.dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
+        assertTrue(files.none { "campfire" in it.name })
+        val furnaceRoles = files.filter { BuiltInRoles.parse(it).handler.toString() == "cobblemon_dynamics:furnace" }
+        assertEquals(listOf("stoker.json"), furnaceRoles.map { it.name })
     }
 }

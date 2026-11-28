@@ -1,7 +1,7 @@
 # Role catalog
 
 A role is a job that a Cobblemon of a given type does on a specific block. This page lists the roles for all 18 types: the
-15 roles of version 1.0, the 2 roles of 1.1, the 4 roles of 1.2, and the later ideas.
+15 roles of version 1.0, the 2 roles of 1.1, the 4 roles of 1.2, the Picker of 1.2.1, the Sentry of 2.0, and the later ideas.
 
 Version 1.0 ships in phases ([ADR 0011](adr/0011-v2-roles-in-first-release.md)).
 Phase 1 builds the 11 v1 roles and ends with a private test. Phase 2 builds the 4 v2
@@ -58,29 +58,29 @@ the Wheel Driver, and does not repeat its numbers.
 
 ## Type index
 
-Thirteen types have roles in version 1.0, fifteen in version 1.1, and seventeen in version 1.2. Version 1.2.1 adds the
-Picker, the first role that needs two types: Bug and Flying, both.
+Thirteen types have roles in version 1.0, fifteen in version 1.1, seventeen in version 1.2, and all eighteen in version
+2.0. Version 1.2.1 adds the Picker, the first role that needs two types: Bug and Flying, both.
 
-| Type | Phase 1 | Phase 2 | 1.1 | 1.2 | Later idea |
-| --- | --- | --- | --- | --- | --- |
-| Normal | Cranker | | | | |
-| Fire | Stoker, Brew Stoker | Fan Catalyst (blasting or smoking) | | Heater | |
-| Water | Wheel Driver, Pump | Fan Catalyst (washing) | | | |
-| Grass | | | Harvester | | |
-| Electric | Generator | | | | |
-| Ice | | | | Freezer | |
-| Fighting | Cranker | | | | |
-| Poison | Brewer | | | | |
-| Ground | | | Cultivator | | |
-| Flying | | Tailwind | | Picker (1.2.1, with Bug) | |
-| Psychic | | Telekinesis | | | |
-| Bug | | | | Lumberjack, Picker (1.2.1, with Flying) | Pollinator |
-| Rock | Crystal Tender | | | | |
-| Ghost | | Fan Catalyst (haunting) | | Soul Collector | |
-| Dragon | Superheater | | | | |
-| Dark | | | | | |
-| Steel | | Magnet | | | |
-| Fairy | Healer, Muse | | | | |
+| Type | Phase 1 | Phase 2 | 1.1 | 1.2 | 2.0 | Later idea |
+| --- | --- | --- | --- | --- | --- | --- |
+| Normal | Cranker | | | | | |
+| Fire | Stoker, Brew Stoker | Fan Catalyst (blasting or smoking) | | Heater | | |
+| Water | Wheel Driver, Pump | Fan Catalyst (washing) | | | | |
+| Grass | | | Harvester | | | |
+| Electric | Generator | | | | | |
+| Ice | | | | Freezer | | |
+| Fighting | Cranker | | | | | |
+| Poison | Brewer | | | | | |
+| Ground | | | Cultivator | | | |
+| Flying | | Tailwind | | Picker (1.2.1, with Bug) | | |
+| Psychic | | Telekinesis | | | | |
+| Bug | | | | Lumberjack, Picker (1.2.1, with Flying) | | Pollinator |
+| Rock | Crystal Tender | | | | | |
+| Ghost | | Fan Catalyst (haunting) | | Soul Collector | | |
+| Dragon | Superheater | | | | | |
+| Dark | | | | | Sentry | |
+| Steel | | Magnet | | | | |
+| Fairy | Healer, Muse | | | | | |
 
 ## Phase 1 roles
 
@@ -89,7 +89,7 @@ Picker, the first role that needs two types: Bug and Flying, both.
 | Wheel Driver | Water | Create water wheel, large water wheel | Turns the wheel as if water flowed through it. Each wheel stores its own direction. | Water Gun | Auto | WHL |
 | Pump | Water | Fluid tanks, boilers, basins and cauldrons, and any block that accepts water through NeoForge's fluid capability | Fills the target with water. The rate scales with level. | Water Gun | Leash only | PMP |
 | Generator | Electric | Any block that accepts Forge Energy, including AE2 energy acceptors, chargers and inscribers | Pushes Forge Energy into the target. The output scales with level. Legendary and mythical Cobblemon produce more. | Thunder Shock | Auto | GEN |
-| Stoker | Fire | Furnace, smoker, blast furnace, and modded furnaces that extend the vanilla furnace | Keeps the furnace lit as if it burned coal, while a recipe can run. The fuel slot stays untouched. | Ember | Auto | STK |
+| Stoker | Fire | Furnace, smoker, blast furnace, modded furnaces that extend the vanilla furnace, and Cobblemon's Campfire Pot since 2.0 | Keeps the furnace lit as if it burned coal, while a recipe can run. The fuel slot stays untouched. Since 2.0, also stokes Cobblemon's Campfire Pot while a recipe cooks with the lid closed, finishing each dish in about half the time. | Ember | Auto | STK, SNT |
 | Superheater | Dragon | A Create Blaze Burner that holds a blaze | From level 50, keeps the burner superheated, as a Blaze Cake does, while a basin or fluid tank sits on top. Below level 50, it keeps the burner kindled, as coal does. | Dragon Breath | Auto | SUP, BRN |
 | Cranker | Fighting, Normal | Create hand crank | Turns the crank without a stop. Each crank stores its own direction. | Pound | Auto | CRK |
 | Crystal Tender | Rock | Blocks in `#c:budding_blocks`: budding amethyst and AE2 budding certus quartz | Gives extra growth ticks, as one AE2 Growth Accelerator does, while a face of the block can still grow. | Rock Throw | Auto | CRY |
@@ -195,6 +195,17 @@ spec sheet holds the approver's request.
 | --- | --- | --- | --- | --- | --- | --- |
 | Picker | Bug and Flying, both | A ripe apricorn on its tree, and a ripe block of `#cobblemon_dynamics:picker_targets` | Picks the fruit 20 ticks after its work starts, as a player's right click does: the fruit drops and falls to the ground, and the apricorn grows again on its leaves. Each pick also takes one more ripe fruit nearby for each 10 levels, up to 10. It is the only role that takes an apricorn. | Bug Bite | Auto, never the Work Leash | PCK |
 
+## 2.0 roles
+
+Version 2.0 adds the Dark-type Sentry, completing roles for all 18 Pokémon types, plus Nocturnal stamina efficiency for
+Dark-types and Stoker support for Cobblemon's Campfire Pot ([ADR-0024](adr/0024-dark-sentry-pasture-shelf-and-jade.md)).
+
+| Role | Type | Targets | What it does | Move effect | Assignment | Spec area |
+| --- | --- | --- | --- | --- | --- | --- |
+| Sentry | Dark | Its own Work Mode pasture | Cancels natural hostile monster spawns inside the pasture's work area while Working, leaving spawners, trial spawners, raids, structure spawns, passive mobs and Cobblemon untouched. Stops within 1 tick when Working ends. | Snarl | Auto, no Quick Work, never the Work Leash | SNT |
+
+Dark-type workers in any role (primary or secondary type) also drain half as much Work Stamina while Working at night.
+
 ## Machines and crops of other mods (1.2)
 
 The existing roles also work the machines and crops of the supported mods, each through its own role file or tag, with no
@@ -231,10 +242,3 @@ later idea with a new ruling.
   for Ice, the XP Tome, a bottle mode or the tanks of other mods for the Soul Collector, and free fuel for the solid-fuel FE
   generators of other mods, such as the Powah Furnator, because the Generator already prices FE by level.
 - **No 1.21.1 build:** Thermal Expansion, Thermal Dynamics, Tinkers' Construct and Botania.
-
-## Types with no role
-
-Dark has no role and no planned role. This unplanned idea is on record:
-
-- **Dark.** A "night shift" modifier: Dark-types drain Work Stamina more slowly at
-  night. This idea is a Work Stamina modifier, not a role.

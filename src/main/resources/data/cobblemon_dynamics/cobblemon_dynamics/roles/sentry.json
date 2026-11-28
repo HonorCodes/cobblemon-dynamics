@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "handler": "cobblemon_dynamics:sentry",
+  "types": ["dark"],
+  "auto_assign": true,
+  "quick_work": false,
+  "leash": false,
+  "priority": 0,
+  "range": 6.0,
+  "params": {},
+  "effect": {
+    "loop_ticks": 40,
+    "idle_ticks": 40,
+    "animations": ["snarl", "special"],
+    "target_particles": ["cobblemon:impact_dark"]
+  }
+}

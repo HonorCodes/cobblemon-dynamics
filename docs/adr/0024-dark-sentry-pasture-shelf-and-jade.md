@@ -42,12 +42,16 @@ badges, and optional **Jade** (`15.10.6`) tooltips.
    or any other role) multiplies its Work Stamina drain by `0.5` (`50%` less drain) while `level.isNight` is `true`.
 3. **Campfire Pot Stoker.** `FurnaceHandler` (`cobblemon_dynamics:furnace`, used by the existing `stoker.json` with no new
    role file) matches Cobblemon's `com.cobblemon.mod.common.block.campfirepot.CampfireBlock` (`CampfireBlockEntity`),
-   excluding `#cobblemon_dynamics:stoker/never`. It reports demand only while a recipe is actively cooking with the pot
-   lid closed (`cookingTotalTime > 0 && cookingProgress < cookingTotalTime` and `IS_LID_OPEN_INDEX == 0` on
-   `dataAccess`). On each Working tick it keeps `LIT = true` on the campfire/pot state and advances `cookingProgress` by
-   `+1` extra tick (clamped to `cookingTotalTime - 1`) through the pot's public `ContainerData` (`getDataAccess()`,
-   indices `COOKING_PROGRESS_INDEX`, `COOKING_PROGRESS_TOTAL_TIME_INDEX`, and `IS_LID_OPEN_INDEX`), using zero
-   server-side Cobblemon mixins.
+   excluding `#cobblemon_dynamics:stoker/never`. It reports demand only while a recipe can cook or is actively cooking
+   with the pot lid closed (`IS_LID_OPEN_INDEX == 0` and `cookingTotalTime > 0` on `dataAccess`, with either
+   `CampfireBlock.COOKING == true && 0 < cookingProgress < cookingTotalTime` or `cookingProgress == 0` with a valid pot
+   recipe whose output fits in `RESULT_SLOT`, preventing a 20-tick `Standby` drop between consecutive dishes). On each
+   Working tick it keeps `LIT = true` where that property is present and advances `cookingProgress`
+   by `+CampfireBlockEntity.COOKING_PROGRESS_PER_TICK` (`+2`, aligned to multiples of `2` and clamped to
+   `cookingTotalTime - COOKING_PROGRESS_PER_TICK` = `198` so `CampfireBlockEntity.serverTick`'s exact-equality check
+   `cookingProgress == cookingTotalTime` finishes the craft in half the ticks) through the pot's public `ContainerData`
+   (`getDataAccess()`, indices `COOKING_PROGRESS_INDEX`, `COOKING_PROGRESS_TOTAL_TIME_INDEX`, and `IS_LID_OPEN_INDEX`),
+   using zero server-side Cobblemon mixins.
 4. **Pasture Shelf UI and per-pasture radius.**
    - Opening Cobblemon's `PCGUI` with `PasturePCGUIConfiguration` attaches a fold-out `PastureShelf` widget immediately
      to the right of the pasture panel (keeping `WorkModeButton` or folding it cleanly into the shelf without overlapping

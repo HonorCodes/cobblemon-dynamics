@@ -49,6 +49,8 @@ import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
 import codes.honor.cobblemondynamics.handler.farming.PickerHandler
 import codes.honor.cobblemondynamics.handler.item.MagnetHandler
 import codes.honor.cobblemondynamics.handler.item.TelekinesisHandler
+import codes.honor.cobblemondynamics.handler.sentry.SentryHandler
+import codes.honor.cobblemondynamics.handler.sentry.SentryWatch
 import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BrewingFuelHandler
 import codes.honor.cobblemondynamics.handler.vanilla.BrewingSpeedHandler
@@ -129,6 +131,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         HandlerRegistry.register(LumberjackHandler)
         // CD-MCH-08: Cobblemon is required, so the Healing Machine's handler registers on every server.
         HandlerRegistry.register(HealingChargeHandler)
+        HandlerRegistry.register(SentryHandler)
         // CD-PLAT-05: no Create class loads without Create, so Create's roles find no handler and switch off (CD-CFG-10).
         if (ModList.get().isLoaded("create")) CreateCompat.register(modBus)
         // CD-QWK-33: each claim compat class loads only when its mod is present.
@@ -185,6 +188,7 @@ class CobblemonDynamics(modBus: IEventBus, container: ModContainer) {
         EnchantingMenus.register()
         // CD-SOU-12: the spots where players died, whose orbs the Soul Collector leaves for 6,000 ticks.
         PlayerDeaths.register()
+        SentryWatch.register()
         DynamicsCommands.register()
     }
 
