@@ -36,14 +36,21 @@ class PastureClaimSourceTest {
             "who asks actorsMayBreak",
         )
         assertEquals(setOf("context"), callers("mayChange("), "who calls mayChange")
+        assertEquals(setOf("claimBound", "switchInStandby"), callers("claimSwitch("), "who calls claimSwitch")
         for (helper in listOf("landRefusal(", "placerMayUse(", "claimMayBreak(")) {
             assertEquals(setOf("poll"), callers(helper), "who calls $helper")
         }
         for (name in listOf("tickWorker", "tickLevel")) {
             val text = functions.filter { it.first == name }.joinToString("") { it.second }
             assertTrue(text.isNotEmpty(), "$ENGINE has no function $name")
-            val asks = listOf(PASTURE_CHECK, "LandClaims.actorsMayBreak(", "landRefusal(", "placerMayUse(", "claimMayBreak(")
-                .filter { it in text }
+            val asks = listOf(
+                PASTURE_CHECK,
+                "LandClaims.actorsMayBreak(",
+                "landRefusal(",
+                "placerMayUse(",
+                "claimMayBreak(",
+                "claimSwitch(",
+            ).filter { it in text }
             assertTrue(asks.isEmpty(), "$name asks the pasture check through $asks")
         }
     }

@@ -1,16 +1,24 @@
 package codes.honor.cobblemondynamics.engine
 
-/** When one pasture's scan passes start. Passes never overlap, and each starts on an interval boundary. */
+/** When one pasture's scan passes start. Passes never overlap, and each starts on an interval boundary unless requested at once. */
 class ScanScheduler(val intervalTicks: Int, firstStart: Long) {
     private var nextStart = firstStart
     private var currentStart = -1L
+    private var immediate = false
 
     val running: Boolean get() = currentStart >= 0
 
-    fun shouldStart(now: Long): Boolean = !running && now >= nextStart
+    fun holdsChainingPause(awaitingScan: Boolean, now: Long, chainingUntil: Long): Boolean = awaitingScan || now < chainingUntil
+
+    fun shouldStart(now: Long): Boolean = !running && (immediate || now >= nextStart)
+
+    fun requestImmediate() {
+        immediate = true
+    }
 
     fun start(now: Long) {
         currentStart = now
+        immediate = false
     }
 
     /**

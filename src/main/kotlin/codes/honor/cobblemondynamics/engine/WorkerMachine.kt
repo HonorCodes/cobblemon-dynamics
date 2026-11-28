@@ -49,18 +49,14 @@ class WorkerMachine(private val settings: EngineSettings) {
         if (w.status == WorkerStatus.WORKING) set(w, WorkerStatus.SLACKING, now)
     }
 
-    fun onClaim(w: Worker, now: Long) {
+    fun onClaim(w: Worker, now: Long, timeoutTicks: Int = settings.travelTimeoutTicks) {
         set(w, WorkerStatus.TRAVELING, now)
         w.claimTick = now
+        w.travelTimeoutTicks = timeoutTicks
         w.retryAt = -1
         w.missedArrival = false
     }
 
-    /**
-     * Applies the first rule that matches the worker's status and returns at most one event. With [releasesWhenDone], an auto-assigned
-     * pasture worker with no demand releases its claim instead of a Standby, on arrival, while Working, or at a demand check of a
-     * Standby (CD-CRP-10). A leashed worker waits in Standby (CD-CRP-11), and so does a Quick Worker, whose order then ends (CD-CRP-12).
-     */
     fun onTick(
         w: Worker,
         now: Long,
@@ -70,23 +66,46 @@ class WorkerMachine(private val settings: EngineSettings) {
         releasesWhenDone: Boolean = false,
     ): MachineEvent? {
         val release = releasesWhenDone && !w.leashed && w.pasture != null
+        val timeout = if (w.travelTimeoutTicks > 0) w.travelTimeoutTicks else settings.travelTimeoutTicks
         return when (w.status) {
             WorkerStatus.TRAVELING -> when {
-                arrived -> when {
-                    demand() -> startWorking(w, now)
-                    release -> done(w, now)
-                    else -> enterStandby(w, now)
+                arrived -> {
+                    w.recordArrival(key)
+                    when {
+                        demand() -> startWorking(w, now)
+                        release -> done(w, now)
+                        else -> enterStandby(w, now)
+                    }
                 }
 
-                now - w.claimTick >= settings.travelTimeoutTicks -> timeOut(w, now, key)
+                now - w.claimTick >= timeout -> timeOut(w, now, key)
 
                 else -> null
             }
 
             WorkerStatus.STANDBY -> when {
-                w.missedArrival -> if (now >= w.retryAt) retry(w, now) else null
+                w.missedArrival -> when {
+                    arrived -> {
+                        w.missedArrival = false
+                        w.retryAt = -1
+                        w.recordArrival(key)
+                        when {
+                            demand() -> startWorking(w, now)
 
-                // CD-ASG-12: a waiting worker checks for new demand every 20 ticks of Standby.
+                            release -> done(w, now)
+
+                            else -> {
+                                w.statusSince = now
+                                null
+                            }
+                        }
+                    }
+
+                    now >= w.retryAt -> retry(w, now)
+
+                    else -> null
+                }
+
                 (now - w.statusSince) % DEMAND_CHECK_TICKS == 0L -> when {
                     demand() -> startWorking(w, now)
                     release -> done(w, now)
@@ -103,7 +122,7 @@ class WorkerMachine(private val settings: EngineSettings) {
             }
 
             WorkerStatus.SLACKING -> if (now - w.statusSince >= settings.slackDurationTicks) {
-                onClaim(w, now)
+                onClaim(w, now, if (w.travelTimeoutTicks > 0) w.travelTimeoutTicks else settings.travelTimeoutTicks)
                 MachineEvent.SlackEnded
             } else {
                 null
@@ -116,6 +135,7 @@ class WorkerMachine(private val settings: EngineSettings) {
     fun onRelease(w: Worker, now: Long) {
         set(w, WorkerStatus.IDLE, now)
         w.claimTick = -1
+        w.travelTimeoutTicks = 0
         w.retryAt = -1
         w.missedArrival = false
         w.bed = null
@@ -124,12 +144,9 @@ class WorkerMachine(private val settings: EngineSettings) {
     fun canMoveFromStandby(w: Worker, now: Long): Boolean =
         !w.leashed && w.status == WorkerStatus.STANDBY && !w.missedArrival && now - w.statusSince >= settings.standbyMoveTicks
 
-    /**
-     * A Tired worker, after the engine released its work claim (CD-STA-13), walks to [bed], on which the engine took a bed claim
-     * (CD-BED-05), or rests where it stands when no bed is free (CD-BED-08).
-     */
-    fun onTired(w: Worker, now: Long, bed: BedCandidate?): MachineEvent {
+    fun onTired(w: Worker, now: Long, bed: BedCandidate?, timeoutTicks: Int = settings.travelTimeoutTicks): MachineEvent {
         w.claimTick = if (bed == null) -1 else now
+        w.travelTimeoutTicks = if (bed == null) 0 else timeoutTicks
         w.retryAt = -1
         w.missedArrival = false
         w.bed = bed
@@ -141,49 +158,41 @@ class WorkerMachine(private val settings: EngineSettings) {
         return MachineEvent.ToBed(bed)
     }
 
-    /**
-     * One tick of a Tired worker. [atBed] is true when it has reached its bed's sleep point, and [bedPresent] while the bed stands and
-     * the worker still holds its claim on it. A bed that is not reached `travelTimeoutTicks` after the claim, or that breaks, leaves
-     * the worker resting in place (CD-BED-11).
-     */
-    fun onRestTick(w: Worker, now: Long, atBed: Boolean, bedPresent: Boolean): MachineEvent? = when (w.status) {
-        WorkerStatus.TO_BED -> when {
-            !bedPresent -> loseBed(w, now)
+    fun onRestTick(w: Worker, now: Long, atBed: Boolean, bedPresent: Boolean): MachineEvent? {
+        val timeout = if (w.travelTimeoutTicks > 0) w.travelTimeoutTicks else settings.travelTimeoutTicks
+        return when (w.status) {
+            WorkerStatus.TO_BED -> when {
+                !bedPresent -> loseBed(w, now)
 
-            atBed -> {
-                set(w, WorkerStatus.SLEEPING, now)
-                MachineEvent.FellAsleep
+                atBed -> {
+                    set(w, WorkerStatus.SLEEPING, now)
+                    MachineEvent.FellAsleep
+                }
+
+                now - w.claimTick >= timeout -> loseBed(w, now)
+
+                else -> null
             }
 
-            now - w.claimTick >= settings.travelTimeoutTicks -> loseBed(w, now)
+            WorkerStatus.SLEEPING -> if (bedPresent) null else loseBed(w, now)
 
             else -> null
         }
-
-        WorkerStatus.SLEEPING -> if (bedPresent) null else loseBed(w, now)
-
-        else -> null
     }
 
-    /** At 100%, Tired clears: the worker leaves its bed and is Idle (CD-BED-12), and a leashed one returns to its binding (CD-STA-14). */
     fun onRested(w: Worker, now: Long): MachineEvent {
         onRelease(w, now)
         return MachineEvent.Rested(toBinding = w.leashed)
     }
 
-    /** A healer took a heal claim on an ally and walks to it (CD-HEAL-01). */
     fun onHeal(w: Worker, now: Long) {
         set(w, WorkerStatus.HEALING, now)
         w.claimTick = now
+        w.travelTimeoutTicks = settings.travelTimeoutTicks
         w.retryAt = -1
         w.missedArrival = false
     }
 
-    /**
-     * One tick of a healer. [qualifies] is false once the ally stops needing the heal, or the healer stops being one, which cancels
-     * the heal at no cost (CD-HEAL-11). [inRange] completes it (CD-HEAL-10). An ally not reached `travelTimeoutTicks` after the claim
-     * cancels it too. Each end leaves the healer Idle.
-     */
     fun onHealTick(w: Worker, now: Long, qualifies: Boolean, inRange: Boolean): MachineEvent? {
         if (w.status != WorkerStatus.HEALING) return null
         val event = when {
@@ -199,6 +208,7 @@ class WorkerMachine(private val settings: EngineSettings) {
     private fun loseBed(w: Worker, now: Long): MachineEvent {
         w.bed = null
         w.claimTick = -1
+        w.travelTimeoutTicks = 0
         set(w, WorkerStatus.RESTING_IN_PLACE, now)
         return MachineEvent.LostBed
     }
@@ -208,7 +218,6 @@ class WorkerMachine(private val settings: EngineSettings) {
         return MachineEvent.StartedWorking
     }
 
-    /** CD-CRP-10: the target has no demand, so the worker lets it go and skips nothing. */
     private fun done(w: Worker, now: Long): MachineEvent {
         onRelease(w, now)
         return MachineEvent.ReleaseClaim(null, now)
@@ -220,20 +229,23 @@ class WorkerMachine(private val settings: EngineSettings) {
     }
 
     private fun timeOut(w: Worker, now: Long, key: TargetKey?): MachineEvent {
+        val wait = if (key != null) {
+            w.recordMiss(key, settings.retryWaitTicks).toLong()
+        } else {
+            TravelTiming.retryTicks(1, settings.retryWaitTicks).toLong()
+        }
         if (!w.leashed) {
             onRelease(w, now)
-            return MachineEvent.ReleaseClaim(key, now + settings.retryWaitTicks)
+            return MachineEvent.ReleaseClaim(key, now + wait)
         }
-        // CD-ASG-17: a leashed worker keeps its binding and claim, and waits in Standby before it travels again.
         set(w, WorkerStatus.STANDBY, now)
         w.missedArrival = true
-        w.retryAt = w.claimTick + settings.travelTimeoutTicks + settings.retryWaitTicks
+        w.retryAt = now + wait
         return MachineEvent.MissedArrival
     }
 
-    // A retry is a fresh claim: it clears missedArrival, or a worker that then arrives to no demand would retry every tick.
     private fun retry(w: Worker, now: Long): MachineEvent {
-        onClaim(w, now)
+        onClaim(w, now, if (w.travelTimeoutTicks > 0) w.travelTimeoutTicks else settings.travelTimeoutTicks)
         return MachineEvent.Retry
     }
 

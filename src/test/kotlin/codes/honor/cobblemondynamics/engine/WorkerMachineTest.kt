@@ -56,13 +56,25 @@ class WorkerMachineTest {
     }
 
     @Test
-    fun `CD-ASG-14 the timed-out target is refused for 6,000 ticks`() {
+    fun `CD-ASG-14 CD-NAV-09 the timed-out target backs off progressively at 200, 600 and 2,400 ticks`() {
         val w = worker()
         machine.onClaim(w, 0)
-        val e = machine.onTick(w, 600, false, { true }, key) as MachineEvent.ReleaseClaim
-        w.skipUntil[key] = e.until
-        assertTrue(w.isSkipped(key, 600 + 5_999))
-        assertFalse(w.isSkipped(key, 600 + 6_000))
+        val e1 = machine.onTick(w, 600, false, { true }, key) as MachineEvent.ReleaseClaim
+        w.skipUntil[key] = e1.until
+        assertTrue(w.isSkipped(key, 600 + 199))
+        assertFalse(w.isSkipped(key, 600 + 200))
+
+        machine.onClaim(w, 1_000)
+        val e2 = machine.onTick(w, 1_600, false, { true }, key) as MachineEvent.ReleaseClaim
+        w.skipUntil[key] = e2.until
+        assertTrue(w.isSkipped(key, 1_600 + 599))
+        assertFalse(w.isSkipped(key, 1_600 + 600))
+
+        machine.onClaim(w, 2_500)
+        val e3 = machine.onTick(w, 3_100, false, { true }, key) as MachineEvent.ReleaseClaim
+        w.skipUntil[key] = e3.until
+        assertTrue(w.isSkipped(key, 3_100 + 2_399))
+        assertFalse(w.isSkipped(key, 3_100 + 2_400))
     }
 
     /** R84: the engine drops a worker's expired skips and stalls when a claim ends, so neither map grows for the worker's whole life. */
@@ -81,15 +93,15 @@ class WorkerMachineTest {
     }
 
     @Test
-    fun `CD-ASG-17 a leashed worker waits in Standby from 600 to 6,599 and travels at 6,600`() {
+    fun `CD-ASG-17 CD-NAV-09 a leashed worker waits in Standby from 600 to 799 on first miss and travels at 800`() {
         val w = worker(leashed = true)
         machine.onClaim(w, 0)
         assertEquals(MachineEvent.MissedArrival, machine.onTick(w, 600, false, { true }, key))
-        for (t in 601L..6_599L) {
+        for (t in 601L..799L) {
             machine.onTick(w, t, false, { true }, key)
             assertEquals(WorkerStatus.STANDBY, w.status, "tick $t")
         }
-        assertEquals(MachineEvent.Retry, machine.onTick(w, 6_600, false, { true }, key))
+        assertEquals(MachineEvent.Retry, machine.onTick(w, 800, false, { true }, key))
         assertEquals(WorkerStatus.TRAVELING, w.status)
     }
 
@@ -97,10 +109,10 @@ class WorkerMachineTest {
     fun `CD-ASG-12 a leashed worker that arrives after its retry stays in Standby`() {
         val w = worker(leashed = true)
         machine.onClaim(w, 0)
-        machine.onTick(w, 600, false, { true }, key) // missed arrival
-        machine.onTick(w, 6_600, false, { true }, key) // retry
-        machine.onTick(w, 6_700, true, { false }, key) // arrives, and the target has no demand
-        assertEquals(null, machine.onTick(w, 6_701, true, { false }, key))
+        machine.onTick(w, 600, false, { true }, key)
+        machine.onTick(w, 800, false, { true }, key)
+        machine.onTick(w, 900, true, { false }, key)
+        assertEquals(null, machine.onTick(w, 901, true, { false }, key))
         assertEquals(WorkerStatus.STANDBY, w.status)
     }
 

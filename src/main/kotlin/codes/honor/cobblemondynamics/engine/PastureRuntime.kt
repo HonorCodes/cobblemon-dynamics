@@ -45,6 +45,10 @@ class PastureRuntime(override val level: ServerLevel, val key: PastureKey, now: 
         polled = false
     }
 
+    fun requestScan() {
+        scheduler.requestImmediate()
+    }
+
     /** A changed scan interval takes effect at the first boundary of the new interval after the running pass. */
     fun syncScanInterval(intervalTicks: Int, now: Long) {
         if (scan == null && scheduler.intervalTicks != intervalTicks) scheduler = scheduler(intervalTicks, now)

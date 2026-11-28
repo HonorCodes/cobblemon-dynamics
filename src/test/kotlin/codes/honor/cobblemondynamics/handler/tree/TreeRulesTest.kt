@@ -284,4 +284,17 @@ class TreeRulesTest {
         assertFalse(TreeRules.inSquareOf(corner, corner.east(2)))
         assertFalse(TreeRules.inSquareOf(corner, corner.above()))
     }
+
+    @Test
+    fun `allowsSpotBelow accepts placed leaves and stone while rejecting logs and natural leaves`() {
+        val grid = TreeGrid()
+        val stone = grid.block(base, "minecraft:stone")
+        val placedLeaf = grid.leaf(base.east(), persistent = true)
+        val naturalLeaf = grid.leaf(base.west(), persistent = false)
+        val log = grid.log(base.north())
+        assertTrue(TreeRules.allowsSpotBelow(grid.read(stone)))
+        assertTrue(TreeRules.allowsSpotBelow(grid.read(placedLeaf)))
+        assertFalse(TreeRules.allowsSpotBelow(grid.read(naturalLeaf)))
+        assertFalse(TreeRules.allowsSpotBelow(grid.read(log)))
+    }
 }

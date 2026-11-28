@@ -55,4 +55,7 @@ class WorkerSlot(val worker: Worker, var entity: PokemonEntity, var pokemon: Pok
     var friendshipTicks: Long = 0
     var slackTicks: Long = 0
     var lastBedTier: Int = 0
+    var returningToZone: Boolean = false
+    var chainingUntil: Long = 0
+    var awaitingChainedScan: Boolean = false
 }

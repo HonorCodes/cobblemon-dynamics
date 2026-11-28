@@ -82,4 +82,7 @@ object TreeWay {
 
     /** A cell that the fill passes: one with no collision, a natural leaf, or a cell of the changed tree's trunk, asked last. */
     fun passes(empty: Boolean, naturalLeaf: Boolean, inTrunk: () -> Boolean): Boolean = empty || naturalLeaf || inTrunk()
+
+    fun canLandAbove(below: CellFacts, inChangedTrunk: Boolean): Boolean =
+        !inChangedTrunk && !below.anyLog && !below.logTarget && !isRoot(below) && !(below.leaves && !below.persistent)
 }

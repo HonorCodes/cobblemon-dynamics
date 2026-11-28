@@ -18,6 +18,10 @@ interface SpotGrid {
     /** The caller excludes the target's own blocks. */
     fun blocksSight(x: Int, y: Int, z: Int): Boolean
 
+    fun supportTopY(x: Int, y: Int, z: Int): Double? = if (canStand(x, y, z)) y.toDouble() else null
+
+    fun clipSight(x: Int, y: Int, z: Int, from: Vec3, to: Vec3): Boolean = blocksSight(x, y, z)
+
     /** Room for the worker's whole body at the spot ([WorkerBody]). A body within the spot's two cells needs only [isStandable]. */
     fun fitsBody(x: Int, y: Int, z: Int): Boolean = true
 }
@@ -35,9 +39,10 @@ object WorkerBody {
     fun fitsInCell(width: Double, height: Double): Boolean = width <= 1.0 && height <= 2.0
 
     /** The body on the spot's center, then, when it differs, the body where navigation stops it. */
-    fun boxes(spot: BlockPos, width: Double, height: Double): List<AABB> {
+    fun boxes(spot: BlockPos, width: Double, height: Double, supportTopY: Double = spot.y.toDouble()): List<AABB> {
         val half = width / 2.0
-        fun at(x: Double, z: Double) = AABB(x - half, spot.y.toDouble(), z - half, x + half, spot.y + height, z + half).deflate(TOUCH)
+        val baseY = Arrival.snapY(supportTopY)
+        fun at(x: Double, z: Double) = AABB(x - half, baseY, z - half, x + half, baseY + height, z + half).deflate(TOUCH)
         val center = at(spot.x + 0.5, spot.z + 0.5)
         val stop = Arrival.stopOffset(width)
         return if (stop == 0.5) listOf(center) else listOf(center, at(spot.x + stop, spot.z + stop))
@@ -55,8 +60,8 @@ class GrowthColumns(cells: Collection<BlockPos>) {
      * Whether the body of a worker [width] wide and [height] high stays out of every column, both on [spot]'s center and, for a body 1
      * block wide or wider, where navigation stops it ([WorkerBody.boxes]).
      */
-    fun allows(spot: BlockPos, width: Double, height: Double): Boolean =
-        columns.isEmpty() || WorkerBody.boxes(spot, width, height).none { body -> columns.any { it.intersects(body) } }
+    fun allows(spot: BlockPos, width: Double, height: Double, supportTopY: Double = spot.y.toDouble()): Boolean =
+        columns.isEmpty() || WorkerBody.boxes(spot, width, height, supportTopY).none { body -> columns.any { it.intersects(body) } }
 
     companion object {
         /** Higher than any tree and any work range. */
@@ -67,8 +72,14 @@ class GrowthColumns(cells: Collection<BlockPos>) {
          * columns under its boxes, from one below the spot's floor height to the top of the body, holds a sapling ([isSapling]). A
          * tree does not grow through a solid floor, so a sapling lower down cannot reach the body.
          */
-        fun clearOfSaplings(spot: BlockPos, width: Double, height: Double, isSapling: (Int, Int, Int) -> Boolean): Boolean {
-            for (box in WorkerBody.boxes(spot, width, height)) {
+        fun clearOfSaplings(
+            spot: BlockPos,
+            width: Double,
+            height: Double,
+            isSapling: (Int, Int, Int) -> Boolean,
+            supportTopY: Double = spot.y.toDouble(),
+        ): Boolean {
+            for (box in WorkerBody.boxes(spot, width, height, supportTopY)) {
                 for (x in floor(box.minX).toInt()..floor(box.maxX).toInt()) {
                     for (z in floor(box.minZ).toInt()..floor(box.maxZ).toInt()) {
                         for (y in spot.y - 1..floor(box.maxY).toInt()) if (isSapling(x, y, z)) return false
@@ -114,7 +125,9 @@ class TargetShape(blocks: Collection<BlockPos>) {
 
 object WorkSpots {
     /** At most this many spots get a path check in one claim, best first. Each check is one run of the worker's pathfinder. */
-    const val MAX_PATH_CHECKS = 3
+    const val MAX_PATH_CHECKS = 8
+
+    data class SpotSearch(val spot: BlockPos?, val contended: Boolean = false)
 
     private const val EPSILON = 1e-9
 
@@ -166,7 +179,7 @@ object WorkSpots {
                 tMaxZ += tDeltaZ
             }
             if (x == endX && y == endY && z == endZ) break
-            if (grid.blocksSight(x, y, z)) return false
+            if (grid.clipSight(x, y, z, from, to)) return false
             if (minOf(tMaxX, tMaxY, tMaxZ) > 1.0 + EPSILON) break
         }
         return true
@@ -240,14 +253,41 @@ object WorkSpots {
         reachable: (BlockPos) -> Boolean,
         maxChecks: Int = MAX_PATH_CHECKS,
         allowed: (BlockPos) -> Boolean = { true },
-    ): BlockPos? {
+    ): BlockPos? = searchReachable(grid, area, target, targetCenter, range, from, emptySet(), reachable, maxChecks, allowed).spot
+
+    fun searchReachable(
+        grid: SpotGrid,
+        area: WorkArea,
+        target: TargetShape,
+        targetCenter: Vec3,
+        range: Double,
+        from: Vec3,
+        others: Set<Long>,
+        reachable: (BlockPos) -> Boolean,
+        maxChecks: Int = MAX_PATH_CHECKS,
+        allowed: (BlockPos) -> Boolean = { true },
+    ): SpotSearch {
         val excluded = HashSet<Long>()
-        repeat(maxChecks) {
-            val spot = find(grid, area, target, targetCenter, range, from, excluded, allowed) ?: return null
-            if (reachable(spot)) return spot
+        val occupied = ArrayList<BlockPos>()
+        var checks = 0
+        while (checks < maxChecks) {
+            val spot = find(grid, area, target, targetCenter, range, from, excluded, allowed) ?: break
             excluded += spot.asLong()
+            if (spot.asLong() in others) {
+                occupied += spot
+                continue
+            }
+            checks++
+            if (reachable(spot)) return SpotSearch(spot, contended = false)
         }
-        return null
+        if (occupied.isEmpty()) return SpotSearch(null, contended = false)
+        if (checks >= maxChecks) return SpotSearch(null, contended = true)
+        for (spot in occupied) {
+            if (checks >= maxChecks) return SpotSearch(null, contended = true)
+            checks++
+            if (reachable(spot)) return SpotSearch(null, contended = true)
+        }
+        return SpotSearch(null, contended = false)
     }
 
     /** The work spot at a target of one block, the cell of [targetCenter]. */
