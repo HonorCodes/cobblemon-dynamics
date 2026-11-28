@@ -4,21 +4,25 @@
 Phase 1 (the default): every row outside the TLK, MAG, FAN, TLW, QWK and ART areas and outside PHASE_2_ROWS, cited anywhere in a
 Phase 1 milestone file. PHASE_2_ROWS holds the Quick Work keys of the server config, the INFO lines at load and the shared
 containers of the logistics roles.
-Phase 2: every row of those six areas and of PHASE_2_ROWS, except the later rows of PHASE_3_ROWS and V12_ROWS, and each Phase 1
-row with a Phase 2 part (the split-row table of the Phase 2 plan index), cited inside a task section of a Phase 2 milestone file
-or of the Phase 2 plan index. A task section runs from a "### Task" heading to the next heading of level 1 to 3.
+Phase 2: every row of those six areas and of PHASE_2_ROWS, except the later rows of PHASE_3_ROWS, V12_ROWS, V121_ROWS, V122_ROWS
+and V20_ROWS, and each Phase 1 row with a Phase 2 part (the split-row table of the Phase 2 plan index), cited inside a task
+section of a Phase 2 milestone file or of the Phase 2 plan index. A task section runs from a "### Task" heading to the next
+heading of level 1 to 3.
 Phase 3: every row of the LND area, which Phase 1 leaves out, the rows of PHASE_3_ROWS, which Phases 1 and 2 leave out, and
 each earlier row with a Phase 3 part (the split-row table of the Phase 3 plan), cited inside a task section of the Phase 3 plan.
 1.1: every row of the CUL, HRV and CRP areas, which Phase 1 leaves out, the rows of V11_ROWS, which Phase 1 leaves out too, and
 each earlier row with a 1.1 part (the split-row table of the 1.1 plan), cited inside a task section of the 1.1 plan.
 1.2: every row of the OPT, FIX, LUM, XPC, SOU, FRZ, HTR, FUEL, AIR, KIN, FRM and MCH areas, which Phase 1 leaves out, the rows
 of V12_ROWS, which Phase 1 leaves out too, and each earlier row with a 1.2 part (the split-row table of the 1.2 plan), cited
-inside a task section of the 1.2 plan. Every other mode leaves out the rows of V121_ROWS, V121_AREAS and V122_ROWS.
+inside a task section of the 1.2 plan. Every other mode leaves out the rows of V121_ROWS, V121_AREAS, V122_ROWS, V20_AREAS and
+V20_ROWS.
 1.2.1: the rows of V121_ROWS, new rows in earlier areas, the rows of the PCK area (V121_AREAS), and each earlier row with a
 1.2.1 part (the split-row table of the 1.2.1 plan), cited inside a task section of the 1.2.1 plan.
 1.2.2: the new rows of the 1.2.2 plans, which every other mode leaves out, and each earlier row that they amend or that has a
 1.2.2 part (CD-REL-04 and CD-REL-05), cited inside a task section of a 1.2.2 plan.
-Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2,1.2.1,1.2.2}]
+2.0: every row of the TEAM, NAV, PRG, SNT and SHF areas (V20_AREAS), the rows of V20_ROWS (CD-REL-20), and each earlier row with
+a 2.0 part (V20_PARTS, the split-row table of the 2.0 plan), cited inside a task section of the 2.0 plan.
+Usage: py scripts/check_plan_coverage.py [--phase {1,2,3,1.1,1.2,1.2.1,1.2.2,2.0}]
 Exit code 0 when every row is cited, 1 otherwise.
 """
 import argparse
@@ -42,7 +46,7 @@ PHASE_2_AREAS = {"TLK", "MAG", "FAN", "TLW", "QWK", "ART"}
 # Rows outside the Phase 2 areas that are Phase 2 work as a whole: the Quick Work keys of the server config (R63), the INFO
 # lines at load (R65), and the shared containers of the logistics roles (R66).
 PHASE_2_ROWS = (
-    "CD-CFG-16", "CD-CFG-17", "CD-CFG-18", "CD-CMP-08", "CD-CMP-09", "CD-CMP-10",
+    "CD-CFG-16", "CD-CFG-17", "CD-CFG-18", "CD-CMP-08", "CD-CMP-10", "CD-CMP-09",
     "CD-CLM-10", "CD-CLM-11", "CD-LSH-28", "CD-LSH-29", "CD-CFG-19",
 )
 # Phase 1 rows whose last part is Phase 2 work: the split-row table of docs/plans/2026-11-10-phase-2-plan.md.
@@ -120,6 +124,26 @@ V122_AUDIT_PARTS = ("CD-LSH-31", "CD-LSH-30", "CD-CUL-13", "CD-CRP-24", "CD-ASG-
 # The lists of 1.2.2, from both plans.
 V122_ROWS = V122_HARDENING_ROWS + V122_AUDIT_ROWS
 V122_PARTS = V122_HARDENING_PARTS + V122_AUDIT_PARTS
+# 2.0 (R97): shared pastures and Access Lock, terrain spots and zone tether, variant/mastery/mate progression and XP/Friendship,
+# Dark Sentry and Campfire Pot, Pasture Shelf and Jade, and the 2.0.0 gate.
+PLANS["2.0"] = ("2026-11-28-v2.0-plan.md",)
+V20_AREAS = {"TEAM", "NAV", "PRG", "SNT", "SHF"}
+V20_ROWS = ("CD-REL-20",)
+V20_PARTS = (
+    "CD-WMD-02", "CD-WMD-03", "CD-UI-03", "CD-UI-09", "CD-SEC-01", "CD-SEC-07", "CD-SEC-10",
+    "CD-LSH-01", "CD-LSH-05", "CD-LSH-10",
+    "CD-LND-01", "CD-LND-02", "CD-LND-03", "CD-LND-04", "CD-LND-05", "CD-LND-12", "CD-LND-16",
+    "CD-ASG-01", "CD-ASG-04", "CD-HEAL-01", "CD-HEAL-13",
+    "CD-ASG-08", "CD-ASG-09", "CD-ASG-10", "CD-ASG-11", "CD-ASG-13", "CD-ASG-14", "CD-ASG-17", "CD-ASG-18",
+    "CD-AI-02", "CD-AI-03", "CD-AI-04", "CD-CRP-10", "CD-CFG-12",
+    "CD-STA-01", "CD-STA-06", "CD-FX-01", "CD-FX-02", "CD-FX-09",
+    "CD-GEN-02", "CD-STK-02", "CD-CUL-11", "CD-HRV-24", "CD-PCK-08", "CD-FRZ-04", "CD-LUM-11",
+    "CD-SOU-06", "CD-TLK-03", "CD-MAG-03", "CD-CRY-02", "CD-HTR-04", "CD-MUS-03", "CD-MUS-07", "CD-CFG-01",
+    "CD-STK-01", "CD-STK-05", "CD-CMP-10", "CD-REL-08",
+    "CD-UI-01", "CD-UI-02", "CD-UI-06", "CD-UI-07", "CD-UI-10", "CD-UI-12", "CD-CFG-02", "CD-CFG-14", "CD-CMP-09",
+    "CD-OPT-05", "CD-OPT-07", "CD-OPT-11", "CD-OPT-13", "CD-OPT-14", "CD-OPT-16", "CD-OPT-17",
+    "CD-REL-04", "CD-REL-05",
+)
 ROW = re.compile(r"^\| (CD-([A-Z]+)-\d{2}) \|", re.MULTILINE)
 CITE = re.compile(r"CD-[A-Z]+-\d{2}")
 HEADING = re.compile(r"^#{1,3} ", re.MULTILINE)
@@ -130,10 +154,11 @@ def is_phase_2(row: str, area: str) -> bool:
 
 
 def is_later(row: str, area: str) -> bool:
-    """Work that Phase 1 leaves out: Phase 3 work and the work of 1.1, 1.2, 1.2.1 and 1.2.2."""
+    """Work that Phase 1 leaves out: Phase 3 work and the work of 1.1, 1.2, 1.2.1, 1.2.2 and 2.0."""
     return (
         area in PHASE_3_AREAS or row in PHASE_3_ROWS or area in V11_AREAS or row in V11_ROWS
         or area in V12_AREAS or row in V12_ROWS or row in V121_ROWS or area in V121_AREAS or row in V122_ROWS
+        or area in V20_AREAS or row in V20_ROWS
     )
 
 
@@ -162,8 +187,11 @@ def spec_rows(phase: str) -> list[str]:
     if phase == "1.2.2":
         require_rows(V122_PARTS + V122_ROWS, rows, "V122_PARTS or V122_ROWS")
         return list(V122_ROWS) + list(V122_PARTS)
+    if phase == "2.0":
+        require_rows(V20_PARTS + V20_ROWS, rows, "V20_PARTS or V20_ROWS")
+        return [row for row, area in rows if area in V20_AREAS] + list(V20_ROWS) + list(V20_PARTS)
     require_rows(PHASE_2_PARTS + PHASE_2_ROWS, rows, "PHASE_2_PARTS or PHASE_2_ROWS")
-    later = PHASE_3_ROWS + V12_ROWS + V121_ROWS + V122_ROWS
+    later = PHASE_3_ROWS + V12_ROWS + V121_ROWS + V122_ROWS + V20_ROWS
     return [row for row, area in rows if is_phase_2(row, area) and row not in later] + list(PHASE_2_PARTS)
 
 
