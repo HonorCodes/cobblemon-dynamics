@@ -83,9 +83,10 @@ can change the size, but never beyond Cobblemon's `pastureMaxWanderDistance`.
   over the Brewer.
 - A pure Fairy-type never takes a target on its own: with no binding, it is a [healer](#healers). An unbound
   dual-type Fairy Cobblemon (such as Water and Fairy) heals first whenever a pasture ally needs a heal and the
-  Fairy worker has at least 25% Work Stamina; when no ally needs a heal (or the Fairy worker is below 25% and
-  not Tired), it takes auto-assigned roles of its non-Fairy type, and leaves that auto-assigned target on the
-  next scan as soon as an ally needs healing. The [Pump](#pump) and the [Muse](#muse) work only through the
+  Fairy worker has enough Work Stamina for a heal (25% by default, reduced by its trait multipliers); when no
+  ally needs a heal (or the Fairy worker lacks the stamina for a heal and is not Tired), it takes auto-assigned
+  roles of its non-Fairy type, and leaves that auto-assigned target on the next scan as soon as an ally needs
+  healing and it can afford the heal. The [Pump](#pump) and the [Muse](#muse) work only through the
   Work Leash.
 
 ### Turn Work Mode off
@@ -283,10 +284,11 @@ lets the right player right-click that block with an empty hand:
 - **Quick Work** asks about you, the owner of the Cobblemon that you send out.
 - **A Work Mode pasture** asks about the owner of the pasture (the player who placed the pasture block), the owner of
   that worker's Cobblemon, and, for a bound worker, the player who placed the binding. A worker can use a block in a
-  claim when every loaded claim mod lets at least one of those players right-click that block, and roles that break or
-  replace a block (the Harvester, the Lumberjack and the Freezer) also require block-break permission before the worker
-  claims the target. This holds also while you are offline or in another dimension: your pasture and your pastured
-  Cobblemon keep your rights when you log out, and never get more rights than those players have.
+  claim when at least one of those players is allowed to right-click that block by every loaded claim mod, and roles
+  that break or replace a block (the Harvester, the Lumberjack and the Freezer) also require that at least one of those
+  players pass every loaded claim mod's block-break check across every broken block before the worker claims the target.
+  This holds also while you are offline or in another dimension: your pasture and your pastured Cobblemon keep your
+  rights when you log out, and never get more rights than those players have.
 
 ### What each claim mod allows
 
