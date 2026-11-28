@@ -44,4 +44,34 @@ class WorkProgressionMathTest {
             ),
         )
     }
+
+    @Test
+    fun `CD-PRG-11 CD-PRG-13 disabled or level-capped progression never banks ticks and 1200th tick awards XP`() {
+        val enabled = EngineSettings.DEFAULT.copy(workXpEnabled = true, friendshipEnabled = true)
+        val disabled = EngineSettings.DEFAULT.copy(workXpEnabled = false, friendshipEnabled = false)
+
+        val partialXp = WorkProgression.advanceXpTicks(0L, 1_199L, level = 5, maxPokemonLevel = 100, s = enabled)
+        assertEquals(1_199L, partialXp.nextTicks)
+        assertEquals(0, partialXp.xpAwarded)
+
+        val resetDisabledXp = WorkProgression.advanceXpTicks(partialXp.nextTicks, 1L, level = 5, maxPokemonLevel = 100, s = disabled)
+        assertEquals(0L, resetDisabledXp.nextTicks)
+        assertEquals(0, resetDisabledXp.xpAwarded)
+
+        val resetCappedXp = WorkProgression.advanceXpTicks(1_199L, 1L, level = 100, maxPokemonLevel = 100, s = enabled)
+        assertEquals(0L, resetCappedXp.nextTicks)
+        assertEquals(0, resetCappedXp.xpAwarded)
+
+        val finalTickXp = WorkProgression.advanceXpTicks(1_199L, 1L, level = 5, maxPokemonLevel = 100, s = enabled)
+        assertEquals(0L, finalTickXp.nextTicks)
+        assertEquals(4, finalTickXp.xpAwarded)
+
+        val partialFriend = WorkProgression.advanceFriendshipTicks(0L, 11_999L, false, false, Double.MAX_VALUE, enabled)
+        assertEquals(11_999L, partialFriend.nextTicks)
+        assertEquals(0, partialFriend.friendshipAwarded)
+
+        val resetDisabledFriend = WorkProgression.advanceFriendshipTicks(partialFriend.nextTicks, 1L, true, true, 0.0, disabled)
+        assertEquals(0L, resetDisabledFriend.nextTicks)
+        assertEquals(0, resetDisabledFriend.friendshipAwarded)
+    }
 }

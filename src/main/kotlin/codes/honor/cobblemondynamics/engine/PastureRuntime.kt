@@ -31,6 +31,8 @@ class PastureRuntime(override val level: ServerLevel, val key: PastureKey, now: 
     private val pollPhase = ScanScheduler.phaseFor(key.pos, POLL_TICKS)
     private var polled = false
 
+    val isPolled: Boolean get() = polled
+
     /** The first tick of a new runtime polls at once. After that, polls are staggered by the pasture's position. */
     fun isPollDue(now: Long): Boolean = !polled || Math.floorMod(now - pollPhase, POLL_TICKS.toLong()) == 0L
 

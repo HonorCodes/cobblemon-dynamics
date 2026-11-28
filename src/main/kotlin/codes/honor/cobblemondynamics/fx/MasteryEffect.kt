@@ -216,15 +216,17 @@ object MasteryEffect {
             val target = timeline.targetParticles.filter(silentParticles::contains)
             val animation = animations.first(species, aspects, timeline.animations)
             if (animation == null && actor.isEmpty() && target.isEmpty()) continue
+            val chosenAnimation = animation ?: animations.first(species, aspects, fallback.animations)
             val chosenEffect = EffectDefinition(
                 loopTicks = fallback.loopTicks,
                 idleTicks = fallback.idleTicks,
-                animations = timeline.animations,
+                animations = listOfNotNull(chosenAnimation?.name),
                 actorParticles = actor,
                 targetParticles = target,
             )
-            return ResolvedWorkEffect(chosenEffect, animation ?: animations.first(species, aspects, fallback.animations))
+            return ResolvedWorkEffect(chosenEffect, chosenAnimation)
         }
-        return ResolvedWorkEffect(fallback, animations.first(species, aspects, fallback.animations))
+        val fallbackAnimation = animations.first(species, aspects, fallback.animations)
+        return ResolvedWorkEffect(fallback, fallbackAnimation)
     }
 }

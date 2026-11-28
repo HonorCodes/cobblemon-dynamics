@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.stamina
 
+import codes.honor.cobblemondynamics.engine.WorkArea
+import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 
 /** Pure Slacking probability rules across Natures, Dynamics bed tiers, and Friendship (CD-PRG-14, CD-PRG-15). */
@@ -55,4 +57,14 @@ object SlackMath {
     }
 
     fun shouldSlack(probability: Double, roll: Double): Boolean = probability > 0.0 && roll < probability
+
+    fun clampWanderTarget(target: BlockPos, area: WorkArea): BlockPos {
+        val x = clampAxis(target.x, area.minX, area.maxX)
+        val y = target.y.coerceIn(area.minY, area.maxY)
+        val z = clampAxis(target.z, area.minZ, area.maxZ)
+        return BlockPos(x, y, z)
+    }
+
+    private fun clampAxis(value: Int, min: Int, max: Int): Int =
+        if (max - min >= 2) value.coerceIn(min + 1, max - 1) else value.coerceIn(min, max)
 }

@@ -65,7 +65,6 @@ class SentrySlackingTests {
         var workingMeasuredTicks = 0
         var verifiedScaledDrain = false
         var slacked = false
-        var watchLiftedDuringSlack = false
         var slackStartStamina = -1.0
 
         helper.onEachTick {
@@ -93,6 +92,10 @@ class SentrySlackingTests {
                 if (!slacked) {
                     slacked = true
                     slackStartStamina = worker.stamina.fraction
+                    helper.assertFalse(
+                        isNaturalZombieCancelled(helper, inside),
+                        "CD-SNT-04: SentryWatch remained active on the first SLACKING tick",
+                    )
                 }
                 helper.assertTrue(
                     TestKit.claimOf(helper, umbreon)?.kind == ClaimKind.WORK,
@@ -102,10 +105,12 @@ class SentrySlackingTests {
                     abs(worker.stamina.fraction - slackStartStamina) < 1e-12,
                     "CD-PRG-16: Sentry stamina changed during SLACKING: ${worker.stamina.fraction} vs $slackStartStamina",
                 )
-                if (!isNaturalZombieCancelled(helper, inside)) watchLiftedDuringSlack = true
+                helper.assertFalse(
+                    isNaturalZombieCancelled(helper, inside),
+                    "CD-SNT-04: SentryWatch cancelled spawn during SLACKING",
+                )
             } else if (slacked && worker.status == WorkerStatus.WORKING && roleId == id("sentry")) {
                 helper.assertTrue(verifiedScaledDrain, "Sentry slacked before 20-tick drain check")
-                helper.assertTrue(watchLiftedDuringSlack, "CD-SNT-04: SentryWatch never lifted during SLACKING")
                 helper.assertTrue(
                     isNaturalZombieCancelled(helper, inside),
                     "CD-PRG-16: SentryWatch did not resume after SLACKING ended",

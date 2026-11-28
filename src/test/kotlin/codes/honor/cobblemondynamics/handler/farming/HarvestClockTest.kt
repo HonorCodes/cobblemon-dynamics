@@ -29,4 +29,26 @@ class HarvestClockTest {
         // A file with 0 or less still harvests once, one tick after the start.
         assertEquals(listOf(1L), (0L..300L).filter { HarvestClock.isHarvestTick(0, it, 0) })
     }
+
+    @Test
+    fun `CD-PRG-09 shouldHarvest fires once at tick 20 unchanged and once at tick 18 when multiplier increases mid-cycle`() {
+        val params = BuiltInRoles.parse("harvester").params
+        var harvestedControl = false
+        val controlHits = (100L..200L).filter { now ->
+            val fire = HarvestClock.shouldHarvest(100L, now, HarvestClock.ticksOf(params, 1.0), harvestedControl)
+            if (fire) harvestedControl = true
+            fire
+        }
+        assertEquals(listOf(120L), controlHits)
+
+        var harvestedBoosted = false
+        val boostedHits = (100L..200L).filter { now ->
+            val liveMultiplier = if (now < 118L) 1.0 else 1.20
+            val delay = HarvestClock.ticksOf(params, liveMultiplier)
+            val fire = HarvestClock.shouldHarvest(100L, now, delay, harvestedBoosted)
+            if (fire) harvestedBoosted = true
+            fire
+        }
+        assertEquals(listOf(118L), boostedHits)
+    }
 }

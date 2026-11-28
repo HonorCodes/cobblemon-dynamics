@@ -13,11 +13,40 @@ object WorkProgression {
 
     val EXPERIENCE_SOURCE = SidemodExperienceSource(MOD_ID)
 
+    data class XpTickResult(val nextTicks: Long, val xpAwarded: Int)
+
+    data class FriendshipTickResult(val nextTicks: Long, val friendshipAwarded: Int)
+
     fun xpGrant(level: Int, maxPokemonLevel: Int, s: EngineSettings): Int =
         if (!s.workXpEnabled || level >= maxPokemonLevel) 0 else 4 + level.coerceAtLeast(0) / 15
 
     fun friendshipGain(hasMate: Boolean, ownerSameLevel: Boolean, ownerDistanceSqr: Double, s: EngineSettings): Int {
         if (!s.friendshipEnabled) return 0
         return if (hasMate || (ownerSameLevel && ownerDistanceSqr <= OWNER_RANGE_SQR)) 2 else 1
+    }
+
+    fun advanceXpTicks(currentTicks: Long, workingTicks: Long, level: Int, maxPokemonLevel: Int, s: EngineSettings): XpTickResult {
+        val perInterval = xpGrant(level, maxPokemonLevel, s)
+        if (perInterval <= 0) return XpTickResult(0L, 0)
+        if (workingTicks <= 0L) return XpTickResult(currentTicks, 0)
+        val total = currentTicks + workingTicks
+        val intervals = (total / XP_INTERVAL_TICKS).toInt()
+        return XpTickResult(total % XP_INTERVAL_TICKS, intervals * perInterval)
+    }
+
+    fun advanceFriendshipTicks(
+        currentTicks: Long,
+        workingTicks: Long,
+        hasMate: Boolean,
+        ownerSameLevel: Boolean,
+        ownerDistanceSqr: Double,
+        s: EngineSettings,
+    ): FriendshipTickResult {
+        if (!s.friendshipEnabled) return FriendshipTickResult(0L, 0)
+        if (workingTicks <= 0L) return FriendshipTickResult(currentTicks, 0)
+        val total = currentTicks + workingTicks
+        val intervals = (total / FRIENDSHIP_INTERVAL_TICKS).toInt()
+        val gain = if (intervals > 0) intervals * friendshipGain(hasMate, ownerSameLevel, ownerDistanceSqr, s) else 0
+        return FriendshipTickResult(total % FRIENDSHIP_INTERVAL_TICKS, gain)
     }
 }

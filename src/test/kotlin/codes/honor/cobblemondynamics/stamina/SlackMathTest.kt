@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.stamina
 
+import codes.honor.cobblemondynamics.engine.WorkArea
+import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -50,5 +52,16 @@ class SlackMathTest {
         val clamped = SlackMath.probability(1.0, nat("relaxed"), nat("relaxed"), 0, 0, 0)
         assertEquals(1.0, clamped, 1e-9)
         assertTrue(SlackMath.shouldSlack(clamped, 0.999999))
+    }
+
+    @Test
+    fun `CD-PRG-16 clampWanderTarget keeps slacking wander destinations inside workArea`() {
+        val area = WorkArea(BlockPos(10, 2, 10), horizontal = 3, vertical = 2)
+        val clamped = SlackMath.clampWanderTarget(BlockPos(25, 9, -4), area)
+        assertTrue(area.contains(clamped))
+        assertEquals(BlockPos(12, 4, 8), clamped)
+
+        val tiny = WorkArea(BlockPos(5, 1, 5), horizontal = 0, vertical = 1)
+        assertEquals(BlockPos(5, 2, 5), SlackMath.clampWanderTarget(BlockPos(12, 8, 12), tiny))
     }
 }
