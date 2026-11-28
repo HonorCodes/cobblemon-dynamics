@@ -39,12 +39,12 @@ object HarvesterHandler : TargetHandler {
 
     override val breaksBlocks: Boolean = true
 
-    override fun breakTarget(level: ServerLevel, canonical: BlockPos): BlockPos? {
+    override fun breakTargets(level: ServerLevel, canonical: BlockPos): List<BlockPos> {
         val state = level.getBlockState(canonical)
-        return when (kindOf(level, canonical, state)) {
-            HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT, HarvestKind.UPPER_HALF, HarvestKind.GOURD -> canonical
-            else -> null
-        }
+        val facts = CropFactsReader.read(level, canonical, state)
+        val kind = CropAdapters.harvestKind(facts)
+        val facing = state.getOptionalValue(AttachedStemBlock.FACING).orElse(null)
+        return HarvestPlans.breakCells(canonical, kind, facts.upperPresent, facing)
     }
 
     /** CD-HRV-03: an apricorn first, also one that a datapack adds to the tag. Both halves of a crop share its block. */

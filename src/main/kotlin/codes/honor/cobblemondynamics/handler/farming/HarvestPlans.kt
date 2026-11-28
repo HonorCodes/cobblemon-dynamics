@@ -1,5 +1,7 @@
 package codes.honor.cobblemondynamics.handler.farming
 
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.level.storage.loot.LootTable
@@ -129,6 +131,14 @@ object HarvestPlans {
      */
     fun replantable(crop: Boolean, hasAge: Boolean, sapling: Boolean, rootySoil: Boolean): Boolean =
         (crop || hasAge) && !sapling && !rootySoil
+
+    /** CD-HRV-16, CD-TEAM-08: the world cells that a harvest of [kind] at [canonical] breaks, matching [HarvestPlan.broken]. */
+    fun breakCells(canonical: BlockPos, kind: HarvestKind?, upperPresent: Boolean, facing: Direction?): List<BlockPos> = when (kind) {
+        HarvestKind.GOURD -> listOfNotNull(facing?.let(canonical::relative))
+        HarvestKind.UPPER_HALF -> listOf(canonical.above())
+        HarvestKind.CROP, HarvestKind.BREAK_AND_REPLANT -> if (upperPresent) listOf(canonical, canonical.above()) else listOf(canonical)
+        else -> emptyList()
+    }
 
     /** CD-HRV-08: a harvest that breaks its crop, knows no seed item of it and so leaves the cell empty, which the handler logs. */
     fun noSeedItem(kind: HarvestKind, seedBlock: SeedBlock?, plan: HarvestPlan): Boolean =

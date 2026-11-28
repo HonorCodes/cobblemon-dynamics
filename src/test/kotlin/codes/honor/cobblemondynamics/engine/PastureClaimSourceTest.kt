@@ -30,13 +30,20 @@ class PastureClaimSourceTest {
         val askers = setOf("assign", "freeSlot", "landRefusal", "mayChange", "nearestFreeBed", "placerMayUse")
         assertEquals(askers, callers(PASTURE_CHECK), "who asks $PASTURE_CHECK")
         assertEquals(emptySet<String>(), callers("LandClaims.ownerMayUse("), "pasture checks must use actorsMayUse")
-        assertEquals(setOf("assign", "claim", "mayBreak"), callers("LandClaims.actorsMayBreak("), "who asks actorsMayBreak")
+        assertEquals(
+            setOf("assign", "claim", "claimMayBreak", "mayBreak"),
+            callers("LandClaims.actorsMayBreak("),
+            "who asks actorsMayBreak",
+        )
         assertEquals(setOf("context"), callers("mayChange("), "who calls mayChange")
-        for (helper in listOf("landRefusal(", "placerMayUse(")) assertEquals(setOf("poll"), callers(helper), "who calls $helper")
+        for (helper in listOf("landRefusal(", "placerMayUse(", "claimMayBreak(")) {
+            assertEquals(setOf("poll"), callers(helper), "who calls $helper")
+        }
         for (name in listOf("tickWorker", "tickLevel")) {
             val text = functions.filter { it.first == name }.joinToString("") { it.second }
             assertTrue(text.isNotEmpty(), "$ENGINE has no function $name")
-            val asks = listOf(PASTURE_CHECK, "LandClaims.actorsMayBreak(", "landRefusal(", "placerMayUse(").filter { it in text }
+            val asks = listOf(PASTURE_CHECK, "LandClaims.actorsMayBreak(", "landRefusal(", "placerMayUse(", "claimMayBreak(")
+                .filter { it in text }
             assertTrue(asks.isEmpty(), "$name asks the pasture check through $asks")
         }
     }

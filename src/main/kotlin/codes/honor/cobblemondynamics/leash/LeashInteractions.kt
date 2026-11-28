@@ -199,9 +199,9 @@ object LeashInteractions {
             is BindRules.Outcome.Bind -> {
                 if (pokemon == null || pasture == null || resolved == null) return
                 val binding = if (pending == null) {
-                    Binding(outcome.role.id, dimension, pasture, canonical, face, player.uuid)
+                    Binding(outcome.role.id, dimension, pasture, canonical, face, player.uuid, owner = resolved.refOwner)
                 } else {
-                    Binding(outcome.role.id, dimension, pasture, pending.pos, pending.face, player.uuid, canonical, face)
+                    Binding(outcome.role.id, dimension, pasture, pending.pos, pending.face, player.uuid, canonical, face, resolved.refOwner)
                 }
                 bind(player, level, pokemon, binding, resolved.refOwner)
                 stack.remove(LeashComponents.SELECTION.get())
@@ -358,19 +358,26 @@ object LeashInteractions {
         return false
     }
 
-    /** A Quick Work claim names no pasture, so no binder and no placer stand behind it, and only an operator flips (CD-SEC-10). */
     private fun mayFlip(player: ServerPlayer, level: ServerLevel, engine: WorkEngine, claim: Claim): Boolean {
         val isOperator = player.hasPermissions(PERMISSION_OPERATOR)
-        val pasture = claim.pasture ?: return isOperator
-        val binder = engine.pokemonOf(claim.worker)?.let(BindingStore::read)?.binder
+        val pasture = claim.pasture
+        if (pasture == null) {
+            return FlipRules.mayFlip(
+                actor = player.uuid,
+                isOperator = isOperator,
+                placer = null,
+                hasPasture = false,
+                quickWorkOwner = engine.quickWorkOwnerOf(claim.worker),
+            )
+        }
         val be = PastureAdapter.pastureAt(level, BlockPos.of(pasture.pos)) ?: return isOperator
         return FlipRules.mayFlip(
             actor = player.uuid,
             isOperator = isOperator,
-            binder = binder,
             placer = PastureAdapter.placer(be),
             locked = PastureAdapter.isLocked(be),
             tetheredOwners = PastureAdapter.contributorIds(be),
+            hasPasture = true,
         ) { a, b -> TeamAllies.areTeammates(player.server, a, b) }
     }
 

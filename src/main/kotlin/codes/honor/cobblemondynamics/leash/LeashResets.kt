@@ -150,7 +150,7 @@ object LeashResets {
             ?.at(binding.target)
             ?.firstOrNull { it.pokemonId == pokemon.uuid }
             ?.owner
-        val expectedOwner = indexedOwner ?: binding.binder
+        val expectedOwner = binding.owner ?: indexedOwner ?: binding.binder
         val playerPcId = Cobblemon.storage.getPC(playerId, server.registryAccess()).uuid
         if (playerId != expectedOwner && playerPcId != expectedOwner) clear(server, pokemon, TRADED)
     }

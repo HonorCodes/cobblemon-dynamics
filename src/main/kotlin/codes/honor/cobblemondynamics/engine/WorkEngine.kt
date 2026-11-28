@@ -8,6 +8,7 @@ import codes.honor.cobblemondynamics.bed.BedBlock
 import codes.honor.cobblemondynamics.bed.BedBlockEntity
 import codes.honor.cobblemondynamics.bed.BedCandidate
 import codes.honor.cobblemondynamics.bed.BedSelector
+import codes.honor.cobblemondynamics.claim.Claim
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.claim.ClaimRegistry
 import codes.honor.cobblemondynamics.claim.ClaimResult
@@ -24,6 +25,7 @@ import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.handler.sentry.SentryHandler
 import codes.honor.cobblemondynamics.handler.sentry.SentryWatch
+import codes.honor.cobblemondynamics.handler.tree.LumberjackHandler
 import codes.honor.cobblemondynamics.handler.tree.TreeFactsReader
 import codes.honor.cobblemondynamics.heal.AllyView
 import codes.honor.cobblemondynamics.heal.HealTargets
@@ -137,6 +139,8 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     }
 
     fun isQuickWorker(pokemonId: UUID): Boolean = pokemonId in orders
+
+    fun quickWorkOwnerOf(pokemonId: UUID): UUID? = orders[pokemonId]?.owner
 
     fun aimOf(pokemonId: UUID): QuickAim? = aims[pokemonId]
 
@@ -424,10 +428,19 @@ class WorkEngine private constructor(val server: MinecraftServer) {
                 }
             }
             claims.claimOf(slot.worker.pokemonId)?.let { claim ->
-                if (!placerMayUse(t, runtime, slot, claim.key)) {
+                val mayUseClaim = placerMayUse(t, runtime, slot, claim.key)
+                val mayBreakClaim = mayUseClaim && claimMayBreak(t, runtime, slot, claim)
+                if (!mayUseClaim || !mayBreakClaim) {
                     when (claim.kind) {
-                        ClaimKind.WORK -> release(t, slot)
+                        ClaimKind.WORK -> {
+                            if (!mayBreakClaim && mayUseClaim) {
+                                slot.worker.skipUntil[claim.key] = t.now + t.settings.retryWaitTicks
+                            }
+                            release(t, slot)
+                        }
+
                         ClaimKind.BED -> claims.release(slot.worker.pokemonId)
+
                         ClaimKind.HEAL -> {}
                     }
                 }
@@ -445,7 +458,6 @@ class WorkEngine private constructor(val server: MinecraftServer) {
     private fun actorsOf(runtime: PastureRuntime, slot: WorkerSlot, binding: Binding? = slot.binding): List<UUID?> =
         listOf(runtime.placer, slot.ownerId, binding?.binder)
 
-    /** CD-LND-03, CD-TEAM-07: the reason that clears [binding], or null while an actor of the worker may use its target and destination. */
     private fun landRefusal(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, binding: Binding): String? {
         val actors = actorsOf(runtime, slot, binding)
         return when {
@@ -455,10 +467,24 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         }
     }
 
-    /** A heal claim names an entity of the same pasture, so only a claim on a block asks the pasture check (CD-LND-02, CD-TEAM-07). */
     private fun placerMayUse(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, key: TargetKey): Boolean {
         val block = key as? TargetKey.Block ?: return true
         return block.dimension != t.dimension || LandClaims.actorsMayUse(actorsOf(runtime, slot), t.level, BlockPos.of(block.pos))
+    }
+
+    private fun claimMayBreak(t: Tick, runtime: PastureRuntime, slot: WorkerSlot, claim: Claim): Boolean {
+        if (claim.kind != ClaimKind.WORK) return true
+        val block = claim.key as? TargetKey.Block ?: return true
+        if (block.dimension != t.dimension) return true
+        val role = slot.role ?: return true
+        if (!role.handler.breaksBlocks) return true
+        if (role.handler === LumberjackHandler && LumberjackHandler.hasActiveRun(slot.memo)) return true
+        val pos = BlockPos.of(block.pos)
+        if (!t.level.isLoaded(pos)) return true
+        val cells = guarded(role.handler, emptyList()) { role.handler.breakTargets(t.level, pos) }
+        if (cells.isEmpty()) return true
+        val actors = actorsOf(runtime, slot)
+        return BreakingClaimGate.mayClaimCells(mayUse = true, cells) { cell -> LandClaims.actorsMayBreak(actors, t.level, cell) }
     }
 
     /**
@@ -817,14 +843,13 @@ class WorkEngine private constructor(val server: MinecraftServer) {
             val candidates = byKey.map { (key, target) ->
                 val mayClaimRole = { def: RoleDefinition ->
                     val active = target.roles.first { it.definition.id == def.id }
-                    val breakPos = if (active.handler.breaksBlocks) {
-                        guarded(active.handler, target.pos) { active.handler.breakTarget(t.level, target.pos) }
+                    val cells = if (active.handler.breaksBlocks) {
+                        guarded(active.handler, listOf(target.pos)) { active.handler.breakTargets(t.level, target.pos) }
                     } else {
-                        null
+                        emptyList()
                     }
-                    val ok = BreakingClaimGate.mayClaim(breakPos != null, mayUse = true) {
-                        val pos = breakPos ?: target.pos
-                        breakByActors.getOrPut(actorKey to pos) { LandClaims.actorsMayBreak(actors, t.level, pos) }
+                    val ok = BreakingClaimGate.mayClaimCells(mayUse = true, cells) { cell ->
+                        breakByActors.getOrPut(actorKey to cell) { LandClaims.actorsMayBreak(actors, t.level, cell) }
                     }
                     if (!ok) worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
                     ok
@@ -886,16 +911,10 @@ class WorkEngine private constructor(val server: MinecraftServer) {
         val key = TargetKey.block(t.dimension, target, role.handler.claimLane)
         val shared = role.handler.sharesTargets
         if (shared && !claims.hasPlace(key)) return Attempt.REFUSED
-        if (site is PastureRuntime) {
-            val breakPos = if (role.handler.breaksBlocks) {
-                guarded(role.handler, target) { role.handler.breakTarget(t.level, target) }
-            } else {
-                null
-            }
-            if (!BreakingClaimGate.mayClaim(breakPos != null, mayUse = true) {
-                    LandClaims.actorsMayBreak(actorsOf(site, slot), t.level, breakPos ?: target)
-                }
-            ) {
+        if (site is PastureRuntime && role.handler.breaksBlocks) {
+            val cells = guarded(role.handler, listOf(target)) { role.handler.breakTargets(t.level, target) }
+            val actors = actorsOf(site, slot)
+            if (!BreakingClaimGate.mayClaimCells(mayUse = true, cells) { cell -> LandClaims.actorsMayBreak(actors, t.level, cell) }) {
                 worker.skipUntil[key] = t.now + t.settings.retryWaitTicks
                 return Attempt.REFUSED
             }

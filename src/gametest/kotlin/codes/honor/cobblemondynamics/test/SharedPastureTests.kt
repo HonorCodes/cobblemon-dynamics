@@ -13,9 +13,12 @@ import codes.honor.cobblemondynamics.pasture.WorkModePolicy.Decision
 import codes.honor.cobblemondynamics.pasture.WorkModeService
 import codes.honor.cobblemondynamics.test.create.CreateKit
 import com.cobblemon.mod.common.Cobblemon
+import com.cobblemon.mod.common.api.storage.BottomlessStore
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
+import com.cobblemon.mod.common.pokemon.Pokemon
 import net.minecraft.core.BlockPos
+import net.minecraft.core.RegistryAccess
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.world.item.ItemStack
@@ -24,6 +27,7 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
+import java.util.UUID
 
 /** Shared pasture access, offline pastured ownership, controller bindings, and dual-type Fairy auto work (CD-TEAM-01 to CD-TEAM-10). */
 @GameTestHolder(MOD_ID)
@@ -47,10 +51,11 @@ class SharedPastureTests {
         val c = TestKit.owner(helper, "stranger_c")
         val d = TestKit.owner(helper, "contrib_d")
         val pasture = TestKit.placePasture(helper, BlockPos(7, 1, 9), a)
+        TestKit.standBeside(a, pasture)
         TestKit.standBeside(b, pasture)
         TestKit.standBeside(c, pasture)
         val charmander = TestKit.tether(helper, pasture, b, "charmander level=10")
-        val squirtle = TestKit.tether(helper, pasture, b, "squirtle level=10")
+        val squirtle = TestKit.tether(helper, pasture, a, "squirtle level=10")
 
         helper.assertTrue(WorkModeService.request(c, pasture.blockPos, true) is Decision.Reject, "stranger C toggled Work Mode")
         helper.assertTrue(WorkModeService.request(b, pasture.blockPos, true) == Decision.Apply, "contributor B could not toggle Work Mode")
@@ -77,6 +82,12 @@ class SharedPastureTests {
         helper.onEachTick {
             if (!isWorkingAt(helper, squirtle, wheel.blockPos)) return@onEachTick
             helper.assertTrue(LeashInteractions.onSneakBlockClick(b, wheel.blockPos), "CD-TEAM-01: contributor B could not flip wheel")
+            pasture.releasePokemon(charmander.pokemon.uuid)
+            helper.assertFalse(
+                LeashInteractions.onSneakBlockClick(b, wheel.blockPos),
+                "revoked former binder B flipped wheel after untethering all Cobblemon",
+            )
+            helper.assertTrue(LeashInteractions.onSneakBlockClick(a, wheel.blockPos), "placer A could not flip wheel")
             helper.succeed()
         }
     }
@@ -128,7 +139,8 @@ class SharedPastureTests {
     }
 
     /**
-     * CD-TEAM-04: a pastured worker whose owner is offline enters Working, survives an engine restart, and keeps its binding across ticks.
+     * CD-TEAM-04: a pastured worker whose owner is offline and whose entity holds a deserialized unlinked Pokemon copy
+     * (`entity.pokemon.getOwnerUUID() == null`) still binds, enters Working, survives a restart, and keeps its binding across ticks.
      */
     @GameTest(template = "floor_15x6x15", timeoutTicks = 1_000, batch = "restart_team04")
     fun cdTeam04OfflineOwnerWorkerKeepsBindingAndWorks(helper: GameTestHelper) {
@@ -140,14 +152,31 @@ class SharedPastureTests {
         val furnaceRel = BlockPos(7, 1, 3)
         val furnace = TestKit.furnace(helper, furnaceRel, ItemStack(Items.RAW_IRON, 64)).blockPos
         val charmander = TestKit.tether(helper, pasture, offlineOwner, "charmander level=10")
-        val bound = TestKit.bind(helper, offlineOwner, charmander, furnaceRel)
-        helper.assertTrue(bound?.target == furnace, "offline owner Charmander did not bind")
+        val pcStore = Cobblemon.storage.getPC(offlineOwner)
+        val pcPokemon = pcStore[charmander.pokemon.uuid] ?: error("missing Charmander in PC")
+
+        val access = helper.level.registryAccess()
+        charmander.setPersistenceRequired()
+        charmander.pokemon = unlinkedCopy(helper, access, pcPokemon)
+
+        TestKit.leash(offlineOwner)
+        TestKit.clickEntity(offlineOwner, charmander)
+        TestKit.clickBlock(helper, offlineOwner, furnaceRel)
+        val bound = BindingStore.read(pcPokemon)
+        helper.assertTrue(bound?.target == furnace && bound.owner == pcStore.uuid, "offline owner unlinked Charmander bind gave $bound")
+
         var restarted = false
         var workingSince = -1L
         helper.onEachTick {
-            helper.assertTrue(BindingStore.read(charmander.pokemon) == bound, "CD-TEAM-04: binding lost at tick ${helper.tick}")
+            helper.assertFalse(charmander.isRemoved, "CD-TEAM-04: Charmander removed at tick ${helper.tick}")
+            helper.assertTrue(BindingStore.read(pcPokemon) == bound, "CD-TEAM-04: binding lost at tick ${helper.tick}")
+            helper.assertTrue(
+                charmander.pokemon.getOwnerUUID() == null,
+                "CD-TEAM-04: entity.pokemon gained an owner at tick ${helper.tick}",
+            )
             if (!restarted) {
                 if (!isWorkingAt(helper, charmander, furnace)) return@onEachTick
+                charmander.pokemon = unlinkedCopy(helper, access, pcPokemon)
                 TestKit.simulateRestart(helper)
                 restarted = true
                 return@onEachTick
@@ -157,6 +186,18 @@ class SharedPastureTests {
                 if (helper.tick - workingSince >= 100) helper.succeed()
             }
         }
+    }
+
+    private fun unlinkedCopy(helper: GameTestHelper, access: RegistryAccess, pcPokemon: Pokemon): Pokemon {
+        val copy = Pokemon.loadFromNBT(access, pcPokemon.saveToNBT(access))
+        copy.tetheringId = null
+        BottomlessStore(UUID.randomUUID()).add(copy)
+        copy.tetheringId = pcPokemon.tetheringId
+        helper.assertTrue(
+            copy.getOwnerUUID() == null && !copy.isPlayerOwned() && copy.tetheringId == pcPokemon.tetheringId,
+            "unlinked copy state invalid",
+        )
+        return copy
     }
 
     /**
@@ -183,23 +224,34 @@ class SharedPastureTests {
         helper.assertTrue(cStack.get(LeashComponents.SELECTION.get()) == null, "CD-SEC-07: stranger C selected A's Charmander")
 
         val binding = TestKit.bind(helper, b, charmander, furnaceRel)
-        helper.assertTrue(binding?.target == furnace && binding.binder == b.uuid, "CD-TEAM-06: B's bind produced $binding")
-        val ref = TestKit.reservationAt(helper, furnace)
         val aPcId = Cobblemon.storage.getPC(a).uuid
+        helper.assertTrue(
+            binding?.target == furnace && binding.binder == b.uuid && binding.owner == aPcId,
+            "CD-TEAM-06: B's bind produced $binding",
+        )
+        val ref = TestKit.reservationAt(helper, furnace)
         helper.assertTrue(ref?.owner == aPcId && ref.owner != b.uuid, "CD-TEAM-05: Ref.owner is ${ref?.owner}, expected A's pcId $aPcId")
 
+        LeashResets.unindex(helper.level, furnace, charmander.pokemon.uuid)
         LeashResets.onGained(helper.level.server, a.uuid, charmander.pokemon)
         helper.assertTrue(
             BindingStore.read(charmander.pokemon) == binding,
-            "CD-TEAM-05: onGained wiped teammate-placed binding for owner A",
+            "CD-TEAM-05: onGained wiped teammate-placed binding for owner A without LEASH_INDEX",
         )
+        LeashResets.onGained(helper.level.server, b.uuid, charmander.pokemon)
+        helper.assertTrue(
+            BindingStore.read(charmander.pokemon) == null,
+            "CD-TEAM-05: onGained failed to clear binding when Charmander was traded to binder B without LEASH_INDEX",
+        )
+        val rebound = TestKit.bind(helper, b, charmander, furnaceRel)
+        helper.assertTrue(rebound != null, "CD-TEAM-06: B could not rebind Charmander")
 
         helper.assertTrue(furnace in LeashOverviewPayload.of(a).entries.map { it.second }, "owner A missing furnace in overview")
         helper.assertTrue(furnace in LeashOverviewPayload.of(b).entries.map { it.second }, "controller B missing furnace in overview")
         helper.assertTrue(LeashOverviewPayload.of(c).entries.isEmpty(), "stranger C received shared pasture overview")
 
         TestKit.clickEntity(c, charmander, sneak = true)
-        helper.assertTrue(BindingStore.read(charmander.pokemon) == binding, "stranger C cleared A's Charmander binding")
+        helper.assertTrue(BindingStore.read(charmander.pokemon) == rebound, "stranger C cleared A's Charmander binding")
 
         TestKit.leash(b)
         TestKit.clickEntity(b, charmander, sneak = true)

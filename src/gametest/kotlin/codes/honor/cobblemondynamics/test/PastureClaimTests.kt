@@ -5,21 +5,29 @@ import codes.honor.cobblemondynamics.bed.BedTier
 import codes.honor.cobblemondynamics.claim.ClaimKind
 import codes.honor.cobblemondynamics.config.WorkEngineSettings
 import codes.honor.cobblemondynamics.engine.WorkerStatus
+import codes.honor.cobblemondynamics.handler.farming.CropFactsReader
+import codes.honor.cobblemondynamics.handler.farming.HarvesterHandler
 import codes.honor.cobblemondynamics.leash.BindingStore
 import codes.honor.cobblemondynamics.registry.DynamicsBlocks
 import codes.honor.cobblemondynamics.stamina.StaminaMath
+import com.cobblemon.mod.common.CobblemonBlocks
 import com.cobblemon.mod.common.block.entity.PokemonPastureBlockEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.AttachedStemBlock
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.entity.ChestBlockEntity
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf
+import net.minecraft.world.level.block.state.properties.Property
 import net.neoforged.neoforge.gametest.GameTestHolder
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate
 
@@ -408,6 +416,75 @@ class PastureClaimTests {
             val harvested = helper.getBlockState(wheatRel).let { it.`is`(Blocks.WHEAT) && it.getValue(CropBlock.AGE) < 7 }
             val frozen = helper.getBlockState(waterRel).`is`(Blocks.ICE)
             if (harvested && frozen) helper.succeed()
+        }
+    }
+
+    /**
+     * CD-TEAM-08: HarvesterHandler.breakTargets checks the fruit cell of a gourd (allowing a protected stem with an editable pumpkin and
+     * refusing an editable stem with a protected pumpkin) and the upper cell of a two-block crop.
+     */
+    @GameTest(template = "floor_15x6x15", timeoutTicks = 800, batch = BATCH)
+    fun cdTeam08MultiCellGourdAndTwoBlockCropBreakPreflight(helper: GameTestHelper) {
+        val scene = scene(helper)
+        val attached = Blocks.ATTACHED_PUMPKIN_STEM.defaultBlockState().setValue(AttachedStemBlock.FACING, Direction.EAST)
+
+        val stem1Rel = BlockPos(2, 2, 3)
+        val pumpkin1Rel = stem1Rel.east()
+        helper.setBlock(stem1Rel.below(), Blocks.FARMLAND)
+        helper.setBlock(stem1Rel, attached)
+        helper.setBlock(pumpkin1Rel, Blocks.PUMPKIN)
+        refuse(helper, helper.absolutePos(stem1Rel), TestLandClaims.refusedBreak)
+
+        val stem2Rel = BlockPos(10, 2, 3)
+        val pumpkin2Rel = stem2Rel.east()
+        helper.setBlock(stem2Rel.below(), Blocks.FARMLAND)
+        helper.setBlock(stem2Rel, attached)
+        helper.setBlock(pumpkin2Rel, Blocks.PUMPKIN)
+        val pumpkin2Abs = refuse(helper, helper.absolutePos(pumpkin2Rel), TestLandClaims.refusedBreak)
+
+        val grainsLowerRel = BlockPos(7, 2, 11)
+        val grainsUpperRel = grainsLowerRel.above()
+        val grainsBase = CobblemonBlocks.HEARTY_GRAINS.defaultBlockState()
+        val ageProp = CropFactsReader.ageProperty(grainsBase) ?: throw GameTestAssertException("Hearty Grains has no age property")
+
+        @Suppress("UNCHECKED_CAST")
+        val halfProp = grainsBase.properties.first { it.name == "half" } as Property<DoubleBlockHalf>
+        val maxAge = ageProp.possibleValues.max()
+        helper.setBlock(grainsLowerRel.below(), Blocks.DIRT)
+        val flags = Block.UPDATE_CLIENTS or Block.UPDATE_KNOWN_SHAPE
+        helper.level.setBlock(
+            helper.absolutePos(grainsLowerRel),
+            grainsBase.setValue(ageProp, maxAge).setValue(halfProp, DoubleBlockHalf.LOWER),
+            flags,
+        )
+        helper.level.setBlock(
+            helper.absolutePos(grainsUpperRel),
+            grainsBase.setValue(ageProp, maxAge).setValue(halfProp, DoubleBlockHalf.UPPER),
+            flags,
+        )
+        val grainsLowerAbs = helper.absolutePos(grainsLowerRel)
+        val grainsUpperAbs = refuse(helper, helper.absolutePos(grainsUpperRel), TestLandClaims.refusedBreak)
+
+        helper.assertTrue(
+            HarvesterHandler.breakTargets(helper.level, helper.absolutePos(stem1Rel)) == listOf(helper.absolutePos(pumpkin1Rel)),
+            "gourd breakTargets did not return only the fruit cell",
+        )
+        helper.assertTrue(
+            HarvesterHandler.breakTargets(helper.level, grainsLowerAbs) == listOf(grainsUpperAbs),
+            "upper-half two-block crop breakTargets did not return canonical.above()",
+        )
+
+        val grass = TestKit.tether(helper, scene.pasture, scene.owner, "chikorita level=50")
+        val stem2Key = TestKit.keyOf(helper, helper.absolutePos(stem2Rel), "harvester")
+        val grainsKey = TestKit.keyOf(helper, grainsLowerAbs, "harvester")
+        helper.onEachTick {
+            val claim = TestKit.claimOf(helper, grass)
+            helper.assertFalse(claim?.key == stem2Key, "CD-TEAM-08: Harvester claimed stem with break-protected pumpkin $pumpkin2Abs")
+            helper.assertFalse(claim?.key == grainsKey, "CD-TEAM-08: Harvester claimed two-block crop with break-protected upper half")
+            if (!helper.getBlockState(pumpkin1Rel).`is`(Blocks.PUMPKIN) && helper.tick >= 200) {
+                helper.assertTrue(helper.getBlockState(pumpkin2Rel).`is`(Blocks.PUMPKIN), "protected pumpkin 2 was broken")
+                helper.succeed()
+            }
         }
     }
 

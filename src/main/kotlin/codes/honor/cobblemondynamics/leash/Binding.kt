@@ -22,6 +22,7 @@ data class Binding(
     val binder: UUID,
     val destination: BlockPos? = null,
     val destinationFace: Direction? = null,
+    val owner: UUID? = null,
 ) {
     companion object {
         val CODEC: Codec<Binding> = RecordCodecBuilder.create { i ->
@@ -34,8 +35,19 @@ data class Binding(
                 UUIDUtil.CODEC.fieldOf("binder").forGetter(Binding::binder),
                 BlockPos.CODEC.optionalFieldOf("destination").forGetter { Optional.ofNullable(it.destination) },
                 Direction.CODEC.optionalFieldOf("destination_face").forGetter { Optional.ofNullable(it.destinationFace) },
-            ).apply(i) { role, dimension, pasture, target, face, binder, destination, destinationFace ->
-                Binding(role, dimension, pasture, target, face, binder, destination.orElse(null), destinationFace.orElse(null))
+                UUIDUtil.CODEC.optionalFieldOf("owner").forGetter { Optional.ofNullable(it.owner) },
+            ).apply(i) { role, dimension, pasture, target, face, binder, destination, destinationFace, owner ->
+                Binding(
+                    role,
+                    dimension,
+                    pasture,
+                    target,
+                    face,
+                    binder,
+                    destination.orElse(null),
+                    destinationFace.orElse(null),
+                    owner.orElse(null),
+                )
             }
         }
     }

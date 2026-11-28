@@ -43,6 +43,8 @@ object FreezerHandler : TargetHandler {
 
     override val breaksBlocks: Boolean = true
 
+    override fun breakTargets(level: ServerLevel, canonical: BlockPos): List<BlockPos> = listOf(canonical)
+
     /** CD-FRZ-03: the cell and the cell above it. */
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         FreezeRules.matches(kindOf(state), kindOf(level.getBlockState(pos.above())))

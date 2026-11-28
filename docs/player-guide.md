@@ -205,8 +205,8 @@ come back, ask an operator to run `/cobblemondynamics unbind` on the block.
 ### Flip a water wheel or a hand crank
 
 Hold the Work Leash, then sneak and right-click a water wheel or a hand crank that a worker turns. Its
-direction reverses at once. Any player who may control the worker's pasture (and, while the pasture is unlocked,
-the player who bound the worker) can flip it. Each wheel and each crank keeps its own direction, also through
+direction reverses at once. Any player who may currently control the worker's pasture (or, for Quick Work,
+the Cobblemon's owner or an operator) can flip it. Each wheel and each crank keeps its own direction, also through
 restarts and when another worker takes over.
 
 The same click switches a fan that a Fan Catalyst works between blasting and smoking (see [Fan Catalyst
