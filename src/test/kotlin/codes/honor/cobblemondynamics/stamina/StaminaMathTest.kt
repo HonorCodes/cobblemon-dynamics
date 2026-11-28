@@ -80,7 +80,7 @@ class StaminaMathTest {
     }
 
     @Test
-    fun `CD-STA-10 a Tired worker at 100% is no longer Tired`() {
+    fun `CD-STA-10 a Tired worker at 100 percent is no longer Tired`() {
         val st = Stamina(0.0, tired = true)
         st.rest(3_600, 1, RecoveryRule.WORKER, null, s)
         assertFalse(st.tired)
@@ -186,8 +186,16 @@ class StaminaMathTest {
         near(1.0, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = false), 0.0)
         near(1.0, StaminaMath.nocturnalDrainFactor(hasDarkType = false, isNight = true), 0.0)
         near(1.0, StaminaMath.nocturnalDrainFactor(hasDarkType = false, isNight = false), 0.0)
-        near(0.425, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true) * 0.85, 1e-12)
-        near(0.25, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true) / 2.0, 1e-12)
+        near(
+            0.425,
+            StaminaMath.drainScale(isMajestic = true, hasDarkType = true, isNight = true),
+            1e-12,
+        )
+        near(
+            0.25,
+            StaminaMath.drainScale(roleMultiplier = 2.0, machineCapped = true, hasDarkType = true, isNight = true),
+            1e-12,
+        )
 
         val nightWorker = Stamina()
         repeat(3_600) { nightWorker.work(1, 1, s, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true)) }
@@ -198,5 +206,56 @@ class StaminaMathTest {
         nightWorker.work(1, 1, s, StaminaMath.nocturnalDrainFactor(hasDarkType = true, isNight = true))
         assertTrue(nightWorker.tired)
         near(0.0, nightWorker.percent, 0.0)
+    }
+
+    @Test
+    fun `CD-PRG-03 an Alpha worker has 1_25x capacity, 4,500 ticks per level at default 3,600`() {
+        near(4_500.0, StaminaMath.capacityTicks(1, s, isAlpha = true), 1e-9)
+        near(225_000.0, StaminaMath.capacityTicks(50, s, isAlpha = true), 1e-9)
+        near(450_000.0, StaminaMath.capacityTicks(100, s, isAlpha = true), 1e-9)
+        val st = Stamina()
+        repeat(4_499) { st.work(1, 1, s, isAlpha = true) }
+        assertFalse(st.tired)
+        st.work(1, 1, s, isAlpha = true)
+        assertTrue(st.tired)
+    }
+
+    @Test
+    fun `CD-PRG-04 a Majestic worker drains at 0_85x per Working tick`() {
+        val scale = StaminaMath.drainScale(isMajestic = true, roleMultiplier = 1.35, machineCapped = false)
+        near(0.85, scale, 1e-9)
+        val st = Stamina()
+        st.work(1_000, 1, s, drainFactor = scale, isAlpha = false)
+        near(1.0 - 850.0 / 3_600.0, st.fraction, 1e-9)
+    }
+
+    @Test
+    fun `CD-PRG-10 machine-capped roles and Healer divide stamina drain and heal cost by M`() {
+        val machineRoles = listOf(
+            "cobblemon_dynamics:furnace",
+            "cobblemon_dynamics:brewing_fuel",
+            "cobblemon_dynamics:brewing_speed",
+            "cobblemon_dynamics:water_wheel",
+            "cobblemon_dynamics:hand_crank",
+            "cobblemon_dynamics:tailwind",
+            "cobblemon_dynamics:fan_catalyst",
+            "cobblemon_dynamics:sentry",
+        )
+        for (handler in machineRoles) {
+            val id = net.minecraft.resources.ResourceLocation.parse(handler)
+            assertFalse(WorkTraits.isOutputOrPace(id), "$handler must be machine-capped/fixed")
+            val scale = StaminaMath.drainScale(isMajestic = false, roleMultiplier = 1.5, machineCapped = !WorkTraits.isOutputOrPace(id))
+            near(1.0 / 1.5, scale, 1e-9)
+        }
+        val st = Stamina()
+        val scale = StaminaMath.drainScale(isMajestic = false, roleMultiplier = 1.5, machineCapped = true)
+        st.work(1_500, 1, s, drainFactor = scale, isAlpha = false)
+        near(1.0 - 1_000.0 / 3_600.0, st.fraction, 1e-9)
+
+        val majMachine = StaminaMath.drainScale(isMajestic = true, roleMultiplier = 1.35, machineCapped = true)
+        near(0.85 / 1.35, majMachine, 1e-9)
+
+        near(0.25 / 1.5, StaminaMath.healCost(s, multiplier = 1.5, isMajestic = false), 1e-9)
+        near(0.25 * 0.85 / 1.35, StaminaMath.healCost(s, multiplier = 1.35, isMajestic = true), 1e-9)
     }
 }

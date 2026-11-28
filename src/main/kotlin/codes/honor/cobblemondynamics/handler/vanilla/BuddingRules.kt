@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.vanilla
 
 import com.google.gson.JsonObject
+import kotlin.math.roundToInt
 
 /** What the Crystal Tender reads of the block on one face of its target. [BuddingHandler] fills it from a level. */
 data class BudFacts(
@@ -37,9 +38,19 @@ object BuddingRules {
     /** CD-MCH-03, R88: a claim reads the 27 blocks around a tumblestone for a heat source at most once in this many ticks. */
     const val HEAT_CHECK_TICKS = 20
 
+    /** The default Crystal Tender extra-tick interval (CD-CRY-02). */
+    const val DEFAULT_INTERVAL_TICKS = 10
+    private const val INTERVAL_TICKS = "interval_ticks"
+
     /** The budding amethyst's chance: its random tick grows a face on 1 roll in 5. */
     const val DEFAULT_SCHEDULED_TICK_ONE_IN = 5
     private const val SCHEDULED_TICK_ONE_IN = "scheduled_tick_one_in"
+
+    fun intervalOf(params: JsonObject, multiplier: Double = 1.0): Int {
+        val base = params.get(INTERVAL_TICKS)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt
+            ?: DEFAULT_INTERVAL_TICKS
+        return if (multiplier <= 0.0 || multiplier == 1.0) base else maxOf(1, (base.coerceAtLeast(1) / multiplier).roundToInt())
+    }
 
     /**
      * CD-CRY-03, CD-FIX-02: the face can still grow while it is open or holds a bud that the target grew. Cobblemon puts every stage

@@ -48,7 +48,7 @@ object PotHarvesterHandler : TargetHandler {
     /** CD-FRM-05: one harvest, `harvest_ticks` after the work started, with the use question in the tick of the harvest. */
     override fun applyWork(ctx: WorkContext) {
         val memo = ctx.memo.value as? Memo ?: Memo(ctx.now).also { ctx.memo.value = it }
-        if (!HarvestClock.isHarvestTick(memo.since, ctx.now, HarvestClock.ticksOf(ctx.role.params))) return
+        if (!HarvestClock.isHarvestTick(memo.since, ctx.now, HarvestClock.ticksOf(ctx.role.params, ctx.multiplier))) return
         val pot = ctx.level.getBlockEntity(ctx.target) ?: return
         val facts = PotAdapter.facts(pot) ?: return
         if (!PotRules.harvesterDemand(facts)) return

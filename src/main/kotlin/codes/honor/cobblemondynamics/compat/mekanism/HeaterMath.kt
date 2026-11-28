@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.compat.mekanism
 
 import com.google.gson.JsonObject
 import kotlin.math.ceil
+import kotlin.math.roundToLong
 
 /** The Heater's numbers on Mekanism heat. No Mekanism class, so unit tests load them. */
 object HeaterMath {
@@ -15,7 +16,13 @@ object HeaterMath {
     const val FULL_PLANT_HEAT = 1_870.0
 
     /** CD-HTR-04: ceil(H × L ÷ 100) J per tick, with L clamped to 1..100, so level 100 gives H (CD-BAL-13). */
-    fun heatPerTick(heatAt100: Double, level: Int): Int = ceil(heatAt100 * level.coerceIn(1, 100) / 100.0).toInt()
+    fun heatPerTick(heatAt100: Double, level: Int, multiplier: Double = 1.0): Int {
+        val base = ceil(heatAt100 * level.coerceIn(1, 100) / 100.0)
+        if (multiplier == 1.0) return base.toInt()
+        val scaled = base * multiplier
+        if (scaled.isNaN() || scaled <= 0.0) return 0
+        return scaled.roundToLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
 
     /** CD-HTR-05: a capacitor of the target is below 3,000 K. An unformed plant has none. */
     fun hasDemand(temperatures: List<Double>): Boolean = temperatures.any { it < MAX_TEMPERATURE }

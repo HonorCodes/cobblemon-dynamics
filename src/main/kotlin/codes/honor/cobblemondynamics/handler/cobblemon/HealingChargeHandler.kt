@@ -39,7 +39,12 @@ object HealingChargeHandler : TargetHandler {
     private fun added(ctx: WorkContext, machine: HealingMachineBlockEntity): Float {
         val config = Cobblemon.config
         val own = HealingCharge.ownPerTick(machine.maxCharge, config.secondsToChargeHealingMachine)
-        val perTick = HealingCharge.workerPerTick(HealingParams.of(ctx.role.params).multiplierAt100, ctx.pokemon.level, own)
+        val perTick = HealingCharge.workerPerTick(
+            HealingParams.of(ctx.role.params).multiplierAt100,
+            ctx.pokemon.level,
+            own,
+            ctx.multiplier,
+        )
         val recharges = !config.infiniteHealerCharge && !machine.infinite && !machine.isInUse
         return HealingCharge.added(machine.healingCharge, machine.maxCharge, own, perTick, recharges)
     }

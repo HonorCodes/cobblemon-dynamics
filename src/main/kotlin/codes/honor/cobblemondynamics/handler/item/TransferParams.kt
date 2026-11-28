@@ -3,13 +3,20 @@ package codes.honor.cobblemondynamics.handler.item
 import com.google.gson.JsonObject
 import net.minecraft.core.BlockPos
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
 /** The numbers of Telekinesis and the Magnet, from a role file's `params` (ARCHITECTURE section 9). */
 data class TransferParams(val itemsPerSecondAtLevel100: Int, val destinationRange: Int) {
     /** ceil(rate × L ÷ 100) items per 20-tick batch, with L clamped to 1..100 (CD-TLK-03, CD-MAG-03, CD-BAL-05). */
-    fun itemsPerBatch(level: Int): Int {
+    fun itemsPerBatch(level: Int): Int = itemsPerBatch(level, 1.0)
+
+    fun itemsPerBatch(level: Int, multiplier: Double): Int {
         val rate = itemsPerSecondAtLevel100.coerceAtLeast(0).toLong()
-        return ((rate * level.coerceIn(1, 100) + 99) / 100).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val base = (rate * level.coerceIn(1, 100) + 99) / 100
+        if (multiplier == 1.0) return base.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val scaled = base * multiplier
+        if (scaled.isNaN() || scaled <= 0.0) return 0
+        return scaled.roundToLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
     /** CD-TLK-12: [destination] lies at most [destinationRange] blocks from [pasture] on each axis. */

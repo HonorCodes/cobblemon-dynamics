@@ -29,6 +29,16 @@ data class EngineSettings(
     val quickWorkLeashRange: Int = 16,
     val maxWorkersPerContainer: Int = 5,
     val experienceCollectorCapacity: Int = 100_000,
+    val shinyMultiplier: Double = 1.15,
+    val alphaMultiplier: Double = 1.25,
+    val majesticMultiplier: Double = 1.35,
+    val moveMasteryMultiplier: Double = 1.20,
+    val mateMultiplier: Double = 1.15,
+    val workXpEnabled: Boolean = true,
+    val friendshipEnabled: Boolean = true,
+    val baseSlackChance: Double = 0.12,
+    val slackCheckTicks: Int = 1_200,
+    val slackDurationTicks: Int = 300,
 ) {
     companion object {
         val DEFAULT = EngineSettings()

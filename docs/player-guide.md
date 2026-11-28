@@ -97,13 +97,14 @@ Each worker is in one of these states:
 | Traveling | The worker walks to its target. |
 | Working | The worker is at its work spot, and the target needs work. Only this state uses Work Stamina. |
 | Standby | The worker waits at its target, which needs no work now. A bound worker also waits in Standby after it fails to reach its target. |
+| Slacking Off... | The worker takes a short break inside its pasture's work area while keeping its target. It neither drains nor recovers Work Stamina. |
 | To Bed | The worker is Tired and walks to a bed. |
 | Sleeping | The worker sleeps on a bed. |
 | Resting in Place | The worker is Tired and sleeps where it stands, because no bed is free. |
 | Healing | A healer walks to an ally, or heals it. |
 
-The pasture panel and the head bars show an icon for each state. To Bed and Resting in Place share the
-Tired icon, so seven icons cover the eight states.
+The pasture panel and the head bars show an icon for each state. Slacking Off... shares the Standby icon, and
+To Bed and Resting in Place share the Tired icon, so seven icons cover the nine states.
 
 ### Work effects
 
@@ -1323,6 +1324,57 @@ nearest to it. A machine at 1,300 K or hotter gets no heat, and the Heater waits
 
 **Role file parameters:** `source_temperature` (1,300) and `thermal_resistance` (100).
 
+## Progression
+
+Workers grow stronger as they work, and their variants, moves and pasture mates multiply their work.
+
+### Multipliers and traits
+
+Five traits multiply together on a worker:
+
+- **Shiny** (`progression.shinyMultiplier`, 1.15 by default).
+- **Alpha** (`progression.alphaMultiplier`, 1.25 by default). An Alpha worker also has 25% more Work Stamina
+  capacity, and its Cultivator, Harvester, Picker and Freezer roles handle one extra crop, fruit or water cell
+  in each work cycle.
+- **Majestic** (`progression.majesticMultiplier`, 1.35 by default), for a Cobblemon with the `majestic` aspect
+  or feature of Cobblemon Majesty. A Majestic worker also drains 15% less Work Stamina while Working.
+- **Move Mastery** (`progression.moveMasteryMultiplier`, 1.20 by default), when the worker knows a damaging move
+  of base power 60 or more whose type fits the active role, or a move listed in the role file's optional
+  `mastery_moves`. A worker with Move Mastery plays that move's silent Cobblemon animation and particles while
+  Working, or falls back to the role's effect when the move has none.
+- **Mate** (`progression.mateMultiplier`, 1.15 by default), when at least one male and one female of the same
+  species (or canon gendered counterparts: the Nidoran family, Volbeat and Illumise, or Tauros and Miltank) are
+  tethered in the same Work Mode pasture. Quick Work orders never receive the Mate bonus.
+
+On the output and pace roles (Generator, Pump, Telekinesis, Magnet, Cultivator, Harvester, Picker, Lumberjack,
+Soul Collector, Freezer, Crystal Tender, Heater and Muse), legendary and mythical Cobblemon also apply the role's
+`rare_multiplier` (2.0 by default) once alongside the trait product. On fixed-output roles (Stoker, Brew Stoker,
+Brewer, Wheel Driver, Cranker, Tailwind, Fan Catalyst, Superheater, Sentry and healers), the combined trait multiplier
+divides Work Stamina drain instead, and a vanilla furnace Stoker with a multiplier of at least 1.5 adds extra
+cooking progress each tick (`floor((M - 1.0) × 2.0)`).
+
+### Work experience and Friendship
+
+- Every minute (1,200 ticks) of Working grants `4 + floor(level / 15)` Cobblemon experience while
+  `progression.workXpEnabled` is `true` and the worker is below Cobblemon's maximum level. Work experience never
+  grants EVs.
+- Every 10 minutes (12,000 ticks) of Working grants `+1` Friendship while `progression.friendshipEnabled` is
+  `true`, or `+2` when the worker has an active Mate bonus or its owner is within 16 blocks in the same
+  dimension.
+
+### Slacking Off
+
+Every `progression.slackCheckTicks` (1,200 ticks by default) of Working, a pasture worker rolls to take a short
+break (`progression.baseSlackChance`, 0.12 by default), scaled by its effective Nature (0.35 for Driven Natures,
+0.75 for Steady, 1.15 for Distracted and 1.60 for Lazy), the highest Dynamics bed tier in the work area or that
+the worker last slept on (from 1.00 with no bed down to 0.35 with a Starlit Bed), and its Friendship (from 1.00
+at 0 down to 0.25 at 255).
+
+A worker that enters **Slacking Off...** stops its machine at once, keeps its claim and binding, neither drains
+nor recovers Work Stamina, and wanders inside its work area for `progression.slackDurationTicks` (300 ticks by
+default) before walking back to its target. Quick Work orders never slack off, and a Lumberjack finishes felling
+its current tree before taking a break.
+
 ## Configuration
 
 A key such as `workArea.horizontalRadius` is the key `horizontalRadius` in the section `[workArea]` of the
@@ -1360,6 +1412,16 @@ in the `serverconfig/` folder of a world overrides it for that world.
 | `compat.cobbleworkers` | `true` | `true`, `false` | With Cobbleworkers installed, mark the workers of Work Mode pastures as resting for Cobbleworkers. |
 | `compat.cobblebase` | `true` | `true`, `false` | With Cobblebase installed, stop its pasture behavior in Work Mode pastures. |
 | `experienceCollector.capacity` | 100,000 | 1,000 to 1,000,000 | Most XP that one [Experience Collector](#experience-collector) holds. A collector that holds more after you lower the value keeps its XP, and takes no more until it holds less. |
+| `progression.shinyMultiplier` | 1.15 | 1.0 to 5.0 | Multiplier for a Shiny worker. |
+| `progression.alphaMultiplier` | 1.25 | 1.0 to 5.0 | Multiplier for an Alpha worker. |
+| `progression.majesticMultiplier` | 1.35 | 1.0 to 5.0 | Multiplier for a Majestic worker of Cobblemon Majesty. |
+| `progression.moveMasteryMultiplier` | 1.20 | 1.0 to 5.0 | Multiplier for a worker with Move Mastery in its active role. |
+| `progression.mateMultiplier` | 1.15 | 1.0 to 5.0 | Multiplier for a worker with a male and female pair of its species in the same Work Mode pasture. |
+| `progression.workXpEnabled` | `true` | `true`, `false` | Grant Cobblemon experience with zero EVs for every minute of Working. |
+| `progression.friendshipEnabled` | `true` | `true`, `false` | Grant passive Friendship for every 10 minutes of Working. |
+| `progression.baseSlackChance` | 0.12 | 0.0 to 1.0 | Base chance for a pasture worker to enter Slacking Off... at each check before Nature, bed tier and Friendship factors. Set `0.0` to turn slacking off. |
+| `progression.slackCheckTicks` | 1,200 | 100 to 72,000 | Ticks of Working between two Slacking Off... checks for a pasture worker. |
+| `progression.slackDurationTicks` | 300 | 20 to 6,000 | Ticks that a Slacking Off... break lasts before the worker returns to its target. |
 
 ### Client config
 

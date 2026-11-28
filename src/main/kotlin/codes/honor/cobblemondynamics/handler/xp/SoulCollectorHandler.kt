@@ -52,7 +52,7 @@ object SoulCollectorHandler : TargetHandler {
         val collector = collector(ctx.level, ctx.target) ?: return false
         val room = collector.store.room
         val params = SoulCollectorParams.of(ctx.role.params)
-        if (room <= 0 || params.unitsPerBatch(ctx.pokemon.level) <= 0) return false
+        if (room <= 0 || params.unitsPerBatch(ctx.pokemon.level, ctx.multiplier) <= 0) return false
         val area = area(ctx) ?: return false
         val found = found(ctx, area, room, params.playerDistance, null)
         return found.orbs.indices.any { found.takeable[it] && inArea(found.orbs[it], area) }
@@ -86,7 +86,8 @@ object SoulCollectorHandler : TargetHandler {
             facts += found.facts[i].copy(value = orb.value, count = orb.count, playerWithinSqr = playerWithin(orb, near))
         }
         val index = facts.indices.associateBy { facts[it].id }
-        for (planned in OrbRules.takes(facts, params.unitsPerBatch(ctx.pokemon.level), room, params.playerDistance)) {
+        val units = params.unitsPerBatch(ctx.pokemon.level, ctx.multiplier)
+        for (planned in OrbRules.takes(facts, units, room, params.playerDistance)) {
             val i = index[planned.id] ?: continue
             val added = collector.insert(planned.xp, capacity)
             val take = OrbRules.take(facts[i], planned.units, added)

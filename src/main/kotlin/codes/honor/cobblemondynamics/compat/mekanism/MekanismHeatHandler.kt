@@ -40,7 +40,7 @@ object MekanismHeatHandler : TargetHandler {
     override fun applyWork(ctx: WorkContext) {
         val handler = handler(ctx) ?: return
         if (!HeaterMath.hasDemand(temperatures(handler))) return
-        val heat = HeaterMath.heatPerTick(HeaterParams.of(ctx.role.params).heatPerTickAt100, ctx.pokemon.level)
+        val heat = HeaterMath.heatPerTick(HeaterParams.of(ctx.role.params).heatPerTickAt100, ctx.pokemon.level, ctx.multiplier)
         handler.handleHeat(heat.toDouble())
     }
 

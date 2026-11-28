@@ -9,8 +9,8 @@ import kotlin.math.roundToLong
  */
 data class PumpParams(val mbPerLevel: Double) {
     /** CD-PMP-03: `mb_per_level` × L mB of water per tick, rounded, inside an int because `IFluidHandler` takes one. */
-    fun mbPerTick(level: Int): Int {
-        val raw = mbPerLevel * level.coerceAtLeast(0)
+    fun mbPerTick(level: Int, multiplier: Double = 1.0): Int {
+        val raw = mbPerLevel * level.coerceAtLeast(0) * multiplier
         if (raw.isNaN() || raw <= 0.0) return 0
         return raw.roundToLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }

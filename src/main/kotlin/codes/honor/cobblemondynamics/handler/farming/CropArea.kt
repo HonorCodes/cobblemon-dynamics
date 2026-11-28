@@ -52,10 +52,14 @@ object CropArea {
         }
     }.sortedWith(compareBy({ it.x * it.x + it.y * it.y + it.z * it.z }, { abs(it.y) }, { it.y }, { it.x }, { it.z }))
 
-    /** CD-CRP-25: N = min(floor(min(L, 100) / P), M), and 0 when P is 0 or less. */
-    fun count(level: Int, params: AreaParams): Int {
-        if (params.levelsPerExtraCrop <= 0) return 0
-        return minOf(level.coerceIn(0, MAX_LEVEL) / params.levelsPerExtraCrop, params.maxExtraCrops).coerceAtLeast(0)
+    /** CD-CRP-25, CD-PRG-03: N = min(floor(min(L, 100) / P), M), plus 1 for an Alpha worker, and 0 base when P is 0 or less. */
+    fun count(level: Int, params: AreaParams, isAlpha: Boolean = false): Int {
+        val base = if (params.levelsPerExtraCrop <= 0) {
+            0
+        } else {
+            minOf(level.coerceIn(0, MAX_LEVEL) / params.levelsPerExtraCrop, params.maxExtraCrops).coerceAtLeast(0)
+        }
+        return base + if (isAlpha) 1 else 0
     }
 
     /**

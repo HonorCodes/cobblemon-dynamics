@@ -28,7 +28,8 @@ object HealingCharge {
     }
 
     /** CD-MCH-08, CD-BAL-16: G × L ÷ 100 times the machine's own rate, with L clamped to 1..100, so level 100 gives G times. */
-    fun workerPerTick(multiplierAt100: Double, level: Int, own: Double): Double = multiplierAt100 * level.coerceIn(1, 100) / 100.0 * own
+    fun workerPerTick(multiplierAt100: Double, level: Int, own: Double, multiplier: Double = 1.0): Double =
+        multiplierAt100 * level.coerceIn(1, 100) / 100.0 * own * multiplier
 
     /**
      * CD-MCH-08: the charge that a worker adds in one tick to a machine at [charge]. Nothing while the machine does not recharge itself,

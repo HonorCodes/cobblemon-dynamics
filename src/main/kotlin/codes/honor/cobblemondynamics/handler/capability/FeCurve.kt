@@ -15,14 +15,17 @@ object FeCurve {
      * `max` stays the most that a worker gives under a raised level cap (CD-BAL-01). `IEnergyStorage` takes an int, which bounds the
      * result.
      */
-    fun fePerTick(level: Int, rare: Boolean, base: Int, max: Int, rareMultiplier: Double): Int {
+    fun fePerTick(level: Int, rare: Boolean, base: Int, max: Int, rareMultiplier: Double, traitMultiplier: Double = 1.0): Int {
         if (base <= 0 || max <= 0) return 0
         val l = level.coerceIn(MIN_LEVEL, MAX_LEVEL)
-        val m = if (rare) rareMultiplier else 1.0
+        val m = (if (rare) rareMultiplier else 1.0) * traitMultiplier
         val raw = m * base * (max.toDouble() / base).pow((l - MIN_LEVEL).toDouble() / (MAX_LEVEL - MIN_LEVEL))
         if (raw.isNaN() || raw <= 0.0) return 0
         return raw.roundToLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
+
+    fun fePerTick(level: Int, base: Int, max: Int, multiplier: Double = 1.0): Int =
+        fePerTick(level, rare = false, base, max, 1.0, multiplier)
 
     /** CD-GEN-03: only the listed labels count, without case, as Cobblemon's `Pokemon.hasLabels` compares them. */
     fun isRare(labels: Set<String>, rareLabels: Set<String>): Boolean =
@@ -35,8 +38,10 @@ object FeCurve {
  */
 data class GeneratorParams(val base: Int, val max: Int, val rareMultiplier: Double, val rareLabels: Set<String>) {
     /** The FE that a worker of [level] with [labels], its form's labels, offers per tick. */
-    fun fePerTick(level: Int, labels: Set<String>): Int =
-        FeCurve.fePerTick(level, FeCurve.isRare(labels, rareLabels), base, max, rareMultiplier)
+    fun fePerTick(level: Int, labels: Set<String>, traitMultiplier: Double = 1.0): Int =
+        FeCurve.fePerTick(level, FeCurve.isRare(labels, rareLabels), base, max, rareMultiplier, traitMultiplier)
+
+    fun fePerTick(level: Int, multiplier: Double): Int = FeCurve.fePerTick(level, base, max, multiplier)
 
     companion object {
         private const val BASE = "base_fe_per_tick"

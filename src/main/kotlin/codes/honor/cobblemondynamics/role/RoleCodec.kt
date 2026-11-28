@@ -1,5 +1,6 @@
 package codes.honor.cobblemondynamics.role
 
+import codes.honor.cobblemondynamics.stamina.WorkTraits
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.mojang.serialization.Codec
@@ -13,12 +14,13 @@ import java.util.Optional
 /** Parses the body of one role file, `data/{namespace}/cobblemon_dynamics/roles/{role}.json`. */
 object RoleCodec {
     private const val SCHEMA = 1
-
-    /** The default of `loop_ticks` and of `idle_ticks`: 2 seconds. */
     private const val DEFAULT_TICKS = 40
-
-    /** A model's cry animation plays the Pokémon's cry, and work is silent (CD-FX-09). */
     private const val CRY = "cry"
+    private const val ANY = "any"
+    private const val ALL = "all"
+    private const val RARE_MULTIPLIER = "rare_multiplier"
+    private const val RARE_LABELS = "rare_labels"
+    private const val DEFAULT_RARE_MULTIPLIER = 2.0
 
     private val EFFECT: Codec<EffectDefinition> = RecordCodecBuilder.create { i ->
         i.group(
@@ -29,10 +31,6 @@ object RoleCodec {
             ResourceLocation.CODEC.listOf().optionalFieldOf("target_particles", emptyList()).forGetter { it.targetParticles },
         ).apply(i, ::EffectDefinition)
     }
-
-    /** CD-PCK-02: the values of `type_match`. */
-    private const val ANY = "any"
-    private const val ALL = "all"
 
     private data class Body(
         val schema: Int,
@@ -46,9 +44,11 @@ object RoleCodec {
         val quickWork: Optional<Boolean>,
         val typeMatch: String,
         val leash: Boolean,
+        val masteryMoves: List<String>,
+        val rareMultiplier: Optional<Double>,
+        val rareLabels: Optional<List<String>>,
     )
 
-    // auto_assign has no default, so a leash-only role file that leaves it out fails to parse (CD-PMP-02, CD-MUS-02).
     private val BODY: Codec<Body> = RecordCodecBuilder.create { i ->
         i.group(
             Codec.INT.fieldOf("schema").forGetter { it.schema },
@@ -59,11 +59,12 @@ object RoleCodec {
             Codec.DOUBLE.optionalFieldOf("range", 6.0).forGetter { it.range },
             ExtraCodecs.JSON.optionalFieldOf("params", JsonObject()).forGetter { it.params },
             EFFECT.fieldOf("effect").forGetter { it.effect },
-            // Absent, true or false: see RoleDefinition.quickWork (CD-QWK-36, CD-FRZ-02).
             Codec.BOOL.optionalFieldOf("quick_work").forGetter { it.quickWork },
-            // CD-PCK-02, CD-PCK-04: an older file has neither key, so its types stay "any of" and the leash binds it.
             Codec.STRING.optionalFieldOf("type_match", ANY).forGetter { it.typeMatch },
             Codec.BOOL.optionalFieldOf("leash", true).forGetter { it.leash },
+            Codec.STRING.listOf().optionalFieldOf("mastery_moves", emptyList()).forGetter { it.masteryMoves },
+            Codec.DOUBLE.optionalFieldOf(RARE_MULTIPLIER).forGetter { it.rareMultiplier },
+            Codec.STRING.listOf().optionalFieldOf(RARE_LABELS).forGetter { it.rareLabels },
         ).apply(i, ::Body)
     }
 
@@ -88,22 +89,40 @@ object RoleCodec {
             !b.autoAssign && !b.leash && !b.quickWork.orElse(false) ->
                 DataResult.error { "a role with auto_assign false and leash false never works" }
 
-            else -> DataResult.success(
-                RoleDefinition(
-                    id = id,
-                    handler = b.handler,
-                    types = b.types.map { it.lowercase() }.toSet(),
-                    autoAssign = b.autoAssign,
-                    priority = b.priority,
-                    range = b.range,
-                    params = b.params.asJsonObject,
-                    effect = b.effect,
-                    quickWork = b.quickWork.orElse(null),
-                    allTypes = b.typeMatch.lowercase() == ALL,
-                    leash = b.leash,
-                ),
-            )
+            b.rareMultiplier.isPresent && (b.rareMultiplier.get().isNaN() || b.rareMultiplier.get() < 0.0) ->
+                DataResult.error { "rare_multiplier must be 0 or more" }
+
+            else -> {
+                val params = b.params.asJsonObject
+                DataResult.success(
+                    RoleDefinition(
+                        id = id,
+                        handler = b.handler,
+                        types = b.types.map { it.lowercase() }.toSet(),
+                        autoAssign = b.autoAssign,
+                        priority = b.priority,
+                        range = b.range,
+                        params = params,
+                        effect = b.effect,
+                        quickWork = b.quickWork.orElse(null),
+                        allTypes = b.typeMatch.lowercase() == ALL,
+                        leash = b.leash,
+                        masteryMoves = b.masteryMoves.map(WorkTraits::normalizeMoveName).filter { it.isNotEmpty() }.toSet(),
+                        rareMultiplier = b.rareMultiplier.orElseGet { rareMultiplierFrom(params) },
+                        rareLabels = b.rareLabels.map { list -> list.map { it.lowercase() }.toSet() }
+                            .orElseGet { rareLabelsFrom(params) },
+                    ),
+                )
+            }
         }
+    }
+
+    private fun rareMultiplierFrom(params: JsonObject): Double =
+        params.get(RARE_MULTIPLIER)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asDouble ?: DEFAULT_RARE_MULTIPLIER
+
+    private fun rareLabelsFrom(params: JsonObject): Set<String> {
+        val array = params.get(RARE_LABELS)?.takeIf { it.isJsonArray }?.asJsonArray ?: return RoleDefinition.DEFAULT_RARE_LABELS
+        return array.filter { it.isJsonPrimitive && it.asJsonPrimitive.isString }.mapTo(LinkedHashSet()) { it.asString.lowercase() }
     }
 
     fun describeError(id: ResourceLocation, result: DataResult<*>): String =

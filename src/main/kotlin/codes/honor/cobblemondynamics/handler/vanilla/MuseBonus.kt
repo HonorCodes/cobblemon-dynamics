@@ -15,6 +15,7 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
 import net.neoforged.fml.ModList
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * What a Muse adds to its enchanting table, which a mixin reads: bookshelves for the vanilla menu, or Quanta for the stats of Apothic
@@ -44,28 +45,33 @@ object MuseBonus {
     private val NONE = Bonus(0, 0f)
 
     /** CD-MUS-03: ceil(`bookshelves_at_level_100` × L ÷ 100), so ceil(15 × L ÷ 100) with the default role file. */
-    fun forLevel(level: Int, atLevel100: Double): Int {
-        val raw = ceil(atLevel100 * level.coerceAtLeast(0) / 100.0)
-        if (raw.isNaN() || raw <= 0.0) return 0
-        return minOf(raw, MAX_BOOKSHELVES.toDouble()).toInt()
+    fun forLevel(level: Int, atLevel100: Double, multiplier: Double = 1.0): Int {
+        val base = ceil(atLevel100 * level.coerceAtLeast(0) / 100.0)
+        if (base.isNaN() || base <= 0.0) return 0
+        val scaled = if (multiplier == 1.0) base.toInt() else (base * multiplier).roundToInt()
+        return scaled.coerceIn(0, MAX_BOOKSHELVES)
     }
 
     /** The formula's number from the Muse's role file. A file that leaves it out, or gives the wrong type, takes 15. */
     fun atLevel100(params: JsonObject): Double = number(params, AT_LEVEL_100) ?: DEFAULT_AT_LEVEL_100
 
     /** CD-MUS-07: ceil(`quanta_at_level_100` × L ÷ 100), at most 100, so ceil(45 × L ÷ 100) with the default role file. */
-    fun quantaForLevel(level: Int, atLevel100: Double): Float {
-        val raw = ceil(atLevel100 * level.coerceAtLeast(0) / 100.0)
-        if (raw.isNaN() || raw <= 0.0) return 0f
-        return minOf(raw, MAX_QUANTA.toDouble()).toFloat()
+    fun quantaForLevel(level: Int, atLevel100: Double, multiplier: Double = 1.0): Float {
+        val base = ceil(atLevel100 * level.coerceAtLeast(0) / 100.0)
+        if (base.isNaN() || base <= 0.0) return 0f
+        val scaled = if (multiplier == 1.0) base.toInt() else (base * multiplier).roundToInt()
+        return scaled.coerceIn(0, MAX_QUANTA).toFloat()
     }
 
     /** The Quanta formula's number from the Muse's role file. A file that leaves it out, or gives the wrong type, takes 45. */
     fun quantaAtLevel100(params: JsonObject): Double = number(params, QUANTA_AT_LEVEL_100) ?: DEFAULT_QUANTA_AT_LEVEL_100
 
     /** CD-MUS-07: Quanta and no bookshelves with Apothic Enchanting, and bookshelves and no Quanta without it. */
-    fun bonus(level: Int, params: JsonObject, apothicEnchanting: Boolean): Bonus =
-        if (apothicEnchanting) Bonus(0, quantaForLevel(level, quantaAtLevel100(params))) else Bonus(forLevel(level, atLevel100(params)), 0f)
+    fun bonus(level: Int, params: JsonObject, apothicEnchanting: Boolean, multiplier: Double = 1.0): Bonus = if (apothicEnchanting) {
+        Bonus(0, quantaForLevel(level, quantaAtLevel100(params), multiplier))
+    } else {
+        Bonus(forLevel(level, atLevel100(params), multiplier), 0f)
+    }
 
     /**
      * CD-MUS-04: the real count plus the Muse's, at most 15. With no Muse, the count stays exactly as vanilla passes it, and a count
@@ -138,7 +144,7 @@ object MuseBonus {
         if (claim?.kind != ClaimKind.WORK || engine.worker(claim.worker)?.status != WorkerStatus.WORKING) return null
         val role = engine.roleOf(claim.worker)?.takeIf { it.handler === EnchantingHandler } ?: return null
         val pokemon = engine.pokemonOf(claim.worker) ?: return null
-        return bonus(pokemon.level, role.definition.params, withApothicEnchanting)
+        return bonus(pokemon.level, role.definition.params, withApothicEnchanting, engine.multiplierOf(claim.worker))
     }
 
     private fun number(params: JsonObject, key: String): Double? =

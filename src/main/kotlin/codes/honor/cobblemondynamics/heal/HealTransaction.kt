@@ -2,6 +2,7 @@ package codes.honor.cobblemondynamics.heal
 
 import codes.honor.cobblemondynamics.config.EngineSettings
 import codes.honor.cobblemondynamics.stamina.Stamina
+import codes.honor.cobblemondynamics.stamina.StaminaMath
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 
@@ -24,9 +25,9 @@ object HealTransaction {
         from.z.coerceIn(allyBox.minZ, allyBox.maxZ),
     )
 
-    /** The healer loses `healCost`, 25 points, and is Tired at 0% (CD-HEAL-04). The ally is full, whatever the levels (CD-HEAL-05). */
-    fun complete(healer: Stamina, ally: Stamina, s: EngineSettings) {
-        healer.spend(s.healCost)
+    /** The healer loses its scaled `healCost` and is Tired at 0% (CD-HEAL-04, CD-PRG-10). The ally is full, whatever the levels (CD-HEAL-05). */
+    fun complete(healer: Stamina, ally: Stamina, s: EngineSettings, multiplier: Double = 1.0, isMajestic: Boolean = false) {
+        healer.spend(StaminaMath.healCost(s, multiplier, isMajestic))
         ally.fill()
     }
 }

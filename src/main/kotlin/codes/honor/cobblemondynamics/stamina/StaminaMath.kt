@@ -9,8 +9,30 @@ object StaminaMath {
 
     private const val HEALER_MAX_LEVEL = 100
 
-    /** Ticks of Working from 100% to 0%. The level alone sets it, so rarity never does (CD-STA-01, CD-STA-02). */
-    fun capacityTicks(level: Int, s: EngineSettings): Double = s.ticksPerLevel.toDouble() * level.coerceAtLeast(1)
+    const val ALPHA_CAPACITY_MULTIPLIER = 1.25
+    const val MAJESTIC_DRAIN_MULTIPLIER = 0.85
+
+    /** Ticks of Working from 100% to 0%. Level sets the base, Alpha adds 25%, and rarity never changes it (CD-STA-01, CD-STA-02, CD-PRG-03). */
+    fun capacityTicks(level: Int, s: EngineSettings, isAlpha: Boolean = false): Double =
+        s.ticksPerLevel.toDouble() * level.coerceAtLeast(1) * if (isAlpha) ALPHA_CAPACITY_MULTIPLIER else 1.0
+
+    /** Drain multiplier per Working tick (CD-PRG-04, CD-PRG-10, CD-SNT-05). */
+    fun drainScale(
+        isMajestic: Boolean = false,
+        roleMultiplier: Double = 1.0,
+        machineCapped: Boolean = false,
+        hasDarkType: Boolean = false,
+        isNight: Boolean = false,
+    ): Double {
+        val majestic = if (isMajestic) MAJESTIC_DRAIN_MULTIPLIER else 1.0
+        val nocturnal = nocturnalDrainFactor(hasDarkType, isNight)
+        val divisor = if (machineCapped && roleMultiplier > 0.0) roleMultiplier else 1.0
+        return majestic * nocturnal / divisor
+    }
+
+    /** Stamina fraction spent per completed heal (CD-HEAL-04, CD-PRG-10). */
+    fun healCost(s: EngineSettings, multiplier: Double = 1.0, isMajestic: Boolean = false): Double =
+        s.healCost * drainScale(isMajestic = isMajestic, roleMultiplier = multiplier, machineCapped = true)
 
     /** Ticks from 0% to 100% outside Working, at the base rate. A worker recovers as fast as it drains (CD-STA-07). */
     fun fullRecoveryTicks(level: Int, rule: RecoveryRule, s: EngineSettings): Double = when (rule) {

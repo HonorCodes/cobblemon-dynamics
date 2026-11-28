@@ -40,7 +40,7 @@ object FePushHandler : TargetHandler {
         FeTick.work(port, fePerTick(ctx))
     }
 
-    private fun fePerTick(ctx: WorkContext): Int = GeneratorParams.of(ctx.role.params).fePerTick(ctx.pokemon.level, ctx.pokemon.form.labels)
+    private fun fePerTick(ctx: WorkContext): Int = GeneratorParams.of(ctx.role.params).fePerTick(ctx.pokemon.level, ctx.multiplier)
 
     /** The face that a claim pushes through, in a cache that NeoForge clears when the block or its capabilities change (R41). */
     private class Face(val cache: BlockCapabilityCache<IEnergyStorage, Direction?>)

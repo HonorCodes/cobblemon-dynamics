@@ -6,7 +6,6 @@ import codes.honor.cobblemondynamics.handler.WorkContext
 import codes.honor.cobblemondynamics.handler.farming.GrowthStall
 import codes.honor.cobblemondynamics.id
 import com.cobblemon.mod.common.block.GrowableStoneBlock
-import com.google.gson.JsonObject
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.Registries
@@ -28,9 +27,6 @@ import net.neoforged.neoforge.common.Tags
  * vanilla calls alone, so no AE2 class is named (CD-CRY-05).
  */
 object BuddingHandler : TargetHandler {
-    private const val INTERVAL_TICKS = "interval_ticks"
-    private const val DEFAULT_INTERVAL_TICKS = 10
-
     /** The integer properties that count a bud's growth, such as the `stage` of Cobblemon's type gem clusters. */
     private val GROWTH = setOf("stage", "age")
 
@@ -83,7 +79,8 @@ object BuddingHandler : TargetHandler {
      */
     override fun applyWork(ctx: WorkContext) {
         val memo = memoOf(ctx)
-        if (!TickClock.every(intervalOf(ctx.role.params), memo.since, ctx.now) || !ctx.level.shouldTickBlocksAt(ctx.target)) return
+        val interval = BuddingRules.intervalOf(ctx.role.params, ctx.multiplier)
+        if (!TickClock.every(interval, memo.since, ctx.now) || !ctx.level.shouldTickBlocksAt(ctx.target)) return
         val state = ctx.level.getBlockState(ctx.target)
         if (!state.`is`(TARGETS)) return
         val scheduled = state.`is`(SCHEDULED_TICK)
@@ -156,9 +153,6 @@ object BuddingHandler : TargetHandler {
     /** The target and the blocks on its six faces, which an extra tick that grows something changes. */
     private fun states(level: ServerLevel, pos: BlockPos): List<BlockState> =
         listOf(level.getBlockState(pos)) + Direction.entries.map { level.getBlockState(pos.relative(it)) }
-
-    private fun intervalOf(params: JsonObject): Int =
-        params.get(INTERVAL_TICKS)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt ?: DEFAULT_INTERVAL_TICKS
 
     private fun blockTag(id: ResourceLocation): TagKey<Block> = TagKey.create(Registries.BLOCK, id)
 }

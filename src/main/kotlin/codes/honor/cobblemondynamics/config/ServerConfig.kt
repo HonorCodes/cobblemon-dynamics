@@ -32,6 +32,16 @@ object ServerConfig {
     private val quickWorkLeashRange: ModConfigSpec.IntValue
     private val maxWorkersPerContainer: ModConfigSpec.IntValue
     private val experienceCollectorCapacity: ModConfigSpec.IntValue
+    private val shinyMultiplier: ModConfigSpec.DoubleValue
+    private val alphaMultiplier: ModConfigSpec.DoubleValue
+    private val majesticMultiplier: ModConfigSpec.DoubleValue
+    private val moveMasteryMultiplier: ModConfigSpec.DoubleValue
+    private val mateMultiplier: ModConfigSpec.DoubleValue
+    private val workXpEnabled: ModConfigSpec.BooleanValue
+    private val friendshipEnabled: ModConfigSpec.BooleanValue
+    private val baseSlackChance: ModConfigSpec.DoubleValue
+    private val slackCheckTicks: ModConfigSpec.IntValue
+    private val slackDurationTicks: ModConfigSpec.IntValue
 
     val SPEC: ModConfigSpec
 
@@ -214,6 +224,61 @@ object ServerConfig {
         )
         b.pop()
 
+        b.comment("Variant, Move Mastery, Mate, Work XP, Friendship and Slacking progression.").push("progression")
+        shinyMultiplier = b.double(
+            "shinyMultiplier",
+            d.shinyMultiplier,
+            ConfigRanges.PROGRESSION_MULTIPLIER,
+            "Work multiplier of a shiny worker.",
+        )
+        alphaMultiplier = b.double(
+            "alphaMultiplier",
+            d.alphaMultiplier,
+            ConfigRanges.PROGRESSION_MULTIPLIER,
+            "Work multiplier of an Alpha worker.",
+        )
+        majesticMultiplier = b.double(
+            "majesticMultiplier",
+            d.majesticMultiplier,
+            ConfigRanges.PROGRESSION_MULTIPLIER,
+            "Work multiplier of a Majestic worker.",
+        )
+        moveMasteryMultiplier = b.double(
+            "moveMasteryMultiplier",
+            d.moveMasteryMultiplier,
+            ConfigRanges.PROGRESSION_MULTIPLIER,
+            "Work multiplier of a worker that knows a qualifying mastery move for its role.",
+        )
+        mateMultiplier = b.double(
+            "mateMultiplier",
+            d.mateMultiplier,
+            ConfigRanges.PROGRESSION_MULTIPLIER,
+            "Work multiplier of a pastured worker whose pasture holds a male and female pair of its species or counterpart.",
+        )
+        workXpEnabled = b.comment("Grant EV-free Cobblemon XP for sustained Working time.")
+            .define("workXpEnabled", d.workXpEnabled)
+        friendshipEnabled = b.comment("Grant Cobblemon Friendship for sustained Working time.")
+            .define("friendshipEnabled", d.friendshipEnabled)
+        baseSlackChance = b.double(
+            "baseSlackChance",
+            d.baseSlackChance,
+            ConfigRanges.SLACK_CHANCE,
+            "Base probability per slack check of a pasture worker taking a Slacking break. 0.0 disables slacking.",
+        )
+        slackCheckTicks = b.int(
+            "slackCheckTicks",
+            d.slackCheckTicks,
+            ConfigRanges.SLACK_CHECK_TICKS,
+            "Working ticks between two slack checks of one pasture worker.",
+        )
+        slackDurationTicks = b.int(
+            "slackDurationTicks",
+            d.slackDurationTicks,
+            ConfigRanges.SLACK_DURATION_TICKS,
+            "Ticks that a Slacking break lasts before the worker walks back to its target.",
+        )
+        b.pop()
+
         SPEC = b.build()
     }
 
@@ -244,6 +309,16 @@ object ServerConfig {
         quickWorkLeashRange = quickWorkLeashRange.get(),
         maxWorkersPerContainer = maxWorkersPerContainer.get(),
         experienceCollectorCapacity = experienceCollectorCapacity.get(),
+        shinyMultiplier = shinyMultiplier.get(),
+        alphaMultiplier = alphaMultiplier.get(),
+        majesticMultiplier = majesticMultiplier.get(),
+        moveMasteryMultiplier = moveMasteryMultiplier.get(),
+        mateMultiplier = mateMultiplier.get(),
+        workXpEnabled = workXpEnabled.get(),
+        friendshipEnabled = friendshipEnabled.get(),
+        baseSlackChance = baseSlackChance.get(),
+        slackCheckTicks = slackCheckTicks.get(),
+        slackDurationTicks = slackDurationTicks.get(),
     )
 
     fun hasKey(path: String): Boolean = SPEC.spec.contains(path)
@@ -258,4 +333,11 @@ object ServerConfig {
 
     private fun ModConfigSpec.Builder.int(name: String, default: Int, range: IntRange, comment: String): ModConfigSpec.IntValue =
         comment(comment).defineInRange(name, default, range.first, range.last)
+
+    private fun ModConfigSpec.Builder.double(
+        name: String,
+        default: Double,
+        range: ClosedFloatingPointRange<Double>,
+        comment: String,
+    ): ModConfigSpec.DoubleValue = comment(comment).defineInRange(name, default, range.start, range.endInclusive)
 }

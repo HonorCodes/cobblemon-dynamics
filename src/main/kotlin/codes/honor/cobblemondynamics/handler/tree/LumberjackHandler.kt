@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.handler.tree
 
 import codes.honor.cobblemondynamics.OnceLogger
+import codes.honor.cobblemondynamics.handler.ClaimMemo
 import codes.honor.cobblemondynamics.handler.ScanKind
 import codes.honor.cobblemondynamics.handler.TargetHandler
 import codes.honor.cobblemondynamics.handler.WorkContext
@@ -164,7 +165,8 @@ object LumberjackHandler : TargetHandler {
     override fun onStart(ctx: WorkContext) {
         val memo = memoOf(ctx)
         val tree = memo.tree(ctx) ?: return
-        memo.clock.start(ctx.now, FellClock.ticksPerLog(ctx.pokemon.level, LumberjackParams.of(ctx.role.params)), tree.logs.size)
+        val ticksPerLog = FellClock.ticksPerLog(ctx.pokemon.level, LumberjackParams.of(ctx.role.params), ctx.multiplier)
+        memo.clock.start(ctx.now, ticksPerLog, tree.logs.size)
     }
 
     override fun applyWork(ctx: WorkContext) {
@@ -205,6 +207,15 @@ object LumberjackHandler : TargetHandler {
     override fun onStop(ctx: WorkContext) = complete(ctx)
 
     override fun onUnclaim(ctx: WorkContext) = complete(ctx)
+
+    override fun canSlack(ctx: WorkContext): Boolean = canSlack(ctx.memo)
+
+    fun canSlack(memo: ClaimMemo): Boolean = (memo.value as? Memo)?.run == null
+
+    internal fun attachRunForTest(memo: ClaimMemo, run: FellRun?) {
+        val m = memo.value as? Memo ?: Memo().also { memo.value = it }
+        m.run = run
+    }
 
     /** The fell of the tree on [base], with its shell, or null when no tree within the role's limits stands there. GameTests read it. */
     fun plan(level: ServerLevel, base: BlockPos, params: LumberjackParams): FellPlan? = fell(level, base, params)?.plan

@@ -16,12 +16,12 @@ object StateIcons {
 
     val ALL: List<ResourceLocation> = listOf(IDLE, TRAVELING, WORKING, STANDBY, TIRED, SLEEPING, HEALING)
 
-    /** CD-UI-07: seven icons for the eight states, because ToBed and RestingInPlace both show Tired. */
+    /** CD-UI-07, CD-PRG-16: seven icons for the nine states, because Slacking shares Standby and ToBed and RestingInPlace share Tired. */
     fun iconFor(status: WorkerStatus): ResourceLocation = when (status) {
         WorkerStatus.IDLE -> IDLE
         WorkerStatus.TRAVELING -> TRAVELING
         WorkerStatus.WORKING -> WORKING
-        WorkerStatus.STANDBY -> STANDBY
+        WorkerStatus.STANDBY, WorkerStatus.SLACKING -> STANDBY
         WorkerStatus.TO_BED, WorkerStatus.RESTING_IN_PLACE -> TIRED
         WorkerStatus.SLEEPING -> SLEEPING
         WorkerStatus.HEALING -> HEALING

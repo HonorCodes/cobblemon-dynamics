@@ -79,7 +79,7 @@ object FluidFillHandler : TargetHandler {
         FluidTick.work(port, rate)
     }
 
-    private fun mbPerTick(ctx: WorkContext): Int = PumpParams.of(ctx.role.params).mbPerTick(ctx.pokemon.level)
+    private fun mbPerTick(ctx: WorkContext): Int = PumpParams.of(ctx.role.params).mbPerTick(ctx.pokemon.level, ctx.multiplier)
 
     private class Cauldron(val contents: CauldronFill.Contents, val level: Int)
 

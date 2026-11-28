@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import kotlin.math.floor
 
 object FurnaceHandler : TargetHandler {
     private const val SLOT_INPUT = 0
@@ -29,6 +30,7 @@ object FurnaceHandler : TargetHandler {
     private const val HEAT_TICKS = 2
     private const val POT_GRID_START = 1
     private const val POT_GRID_END_EXCLUSIVE = 10
+    private const val COOK_BOOST_MIN_MULTIPLIER = 1.5
 
     override val id: ResourceLocation = id("furnace")
     override val scanKind: ScanKind = ScanKind.BLOCK_ENTITY
@@ -36,6 +38,17 @@ object FurnaceHandler : TargetHandler {
     private val NEVER: TagKey<Block> = TagKey.create(Registries.BLOCK, id("stoker/never"))
 
     fun isTarget(furnace: Boolean, never: Boolean, campfirePot: Boolean = false): Boolean = (furnace || campfirePot) && !never
+
+    fun bonusCookTicks(multiplier: Double): Int =
+        if (multiplier >= COOK_BOOST_MIN_MULTIPLIER) floor((multiplier - 1.0) * 2.0).toInt() else 0
+
+    fun boostedProgress(cookingProgress: Int, cookingTotalTime: Int, multiplier: Double): Int {
+        val bonus = bonusCookTicks(multiplier)
+        if (bonus <= 0 || cookingTotalTime <= 1 || cookingProgress < 0 || cookingProgress >= cookingTotalTime - 1) {
+            return cookingProgress
+        }
+        return minOf(cookingProgress + bonus, cookingTotalTime - 1)
+    }
 
     override fun matches(level: ServerLevel, pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Boolean =
         isTarget(blockEntity is AbstractFurnaceBlockEntity, state.`is`(NEVER), isCampfirePot(state, blockEntity))
@@ -74,6 +87,7 @@ object FurnaceHandler : TargetHandler {
             furnace.litTime = HEAT_TICKS
             furnace.litDuration = HEAT_TICKS
         }
+        furnace.cookingProgress = boostedProgress(furnace.cookingProgress, furnace.cookingTotalTime, ctx.multiplier)
         if (state.hasProperty(AbstractFurnaceBlock.LIT) && !state.getValue(AbstractFurnaceBlock.LIT)) {
             ctx.level.setBlock(ctx.target, state.setValue(AbstractFurnaceBlock.LIT, true), Block.UPDATE_ALL)
         }

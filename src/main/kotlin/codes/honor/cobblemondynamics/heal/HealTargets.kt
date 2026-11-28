@@ -1,6 +1,7 @@
 package codes.honor.cobblemondynamics.heal
 
 import codes.honor.cobblemondynamics.config.EngineSettings
+import codes.honor.cobblemondynamics.stamina.StaminaMath
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
@@ -11,9 +12,14 @@ data class AllyView(val id: UUID, val pos: Vec3, val hasFairyType: Boolean, val 
 object HealTargets {
     private const val EPSILON = 1e-9
 
-    /** A heal costs `healCost`, so a healer starts one only with that much Work Stamina (CD-HEAL-02), and never while Tired (CD-HEAL-03). */
-    fun canStart(healerFraction: Double, healerTired: Boolean, s: EngineSettings): Boolean =
-        !healerTired && healerFraction >= s.healCost - EPSILON
+    /** A heal costs scaled `healCost`, so a healer starts one only with that much Work Stamina (CD-HEAL-02, CD-PRG-10), and never while Tired (CD-HEAL-03). */
+    fun canStart(
+        healerFraction: Double,
+        healerTired: Boolean,
+        s: EngineSettings,
+        multiplier: Double = 1.0,
+        isMajestic: Boolean = false,
+    ): Boolean = !healerTired && healerFraction >= StaminaMath.healCost(s, multiplier, isMajestic) - EPSILON
 
     /**
      * An ally needs a heal while it is in the healer's pasture, has no Fairy type, and is Tired or under `lowStaminaThreshold`. A null

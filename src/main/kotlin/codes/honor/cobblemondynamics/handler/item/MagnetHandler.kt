@@ -62,7 +62,7 @@ object MagnetHandler : TargetHandler {
         ItemBatch.move(DroppedItems(drops(ctx, area), area), sink, itemsPerBatch(ctx)) { lot -> spill(ctx, lot) }
     }
 
-    private fun itemsPerBatch(ctx: WorkContext): Int = TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level)
+    private fun itemsPerBatch(ctx: WorkContext): Int = TransferParams.of(ctx.role.params).itemsPerBatch(ctx.pokemon.level, ctx.multiplier)
 
     /** The claim's batch start, its query clock with what the last query found, and the face of its container. */
     private class Memo(var startedAt: Long) {
